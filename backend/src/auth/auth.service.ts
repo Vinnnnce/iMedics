@@ -5,13 +5,15 @@ import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import Redis from 'ioredis';
 
-export type Role = 'PATIENT' | 'DOCTOR' | 'LAB_SCIENTIST' | 'ADMIN';
+export const ROLES = ['PATIENT', 'DOCTOR', 'LAB_SCIENTIST', 'ADMIN'] as const;
+export type Role = typeof ROLES[number];
 
 export interface JwtPayload {
   sub: string;
   email: string;
   role: Role;
   tokenId?: string;
+  exp?: number;
 }
 
 @Injectable()

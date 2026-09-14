@@ -19,6 +19,10 @@ import LabResultsListScreen from '../screens/patient/LabResultsListScreen';
 import LabResultDetailScreen from '../screens/patient/LabResultDetailScreen';
 import LabUploadScreen from '../screens/patient/LabUploadScreen';
 import AIAssistantScreen from '../screens/patient/AIAssistantScreen';
+import AppointmentsScreen from '../screens/patient/AppointmentsScreen';
+import DoctorsRatingScreen from '../screens/patient/DoctorsRatingScreen';
+import ProfileSettingsScreen from '../screens/patient/ProfileSettingsScreen';
+import LegalPagesScreen from '../screens/legal/LegalPagesScreen';
 
 // Doctor screens
 import DoctorHomeScreen from '../screens/doctor/DoctorHomeScreen';
@@ -50,6 +54,10 @@ const PatientStack = () => (
     <Stack.Screen name="LabResultDetail" component={LabResultDetailScreen} />
     <Stack.Screen name="LabUpload" component={LabUploadScreen} />
     <Stack.Screen name="AIAssistant" component={AIAssistantScreen} />
+    <Stack.Screen name="Appointments" component={AppointmentsScreen} />
+    <Stack.Screen name="DoctorsRating" component={DoctorsRatingScreen} />
+    <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} />
+    <Stack.Screen name="LegalPages" component={LegalPagesScreen} />
   </Stack.Navigator>
 );
 
@@ -62,6 +70,7 @@ const DoctorStack = () => (
   >
     <Stack.Screen name="DoctorHome" component={DoctorHomeScreen} />
     <Stack.Screen name="ConsultRoom" component={ConsultRoomScreen} />
+    <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} />
   </Stack.Navigator>
 );
 
@@ -73,6 +82,7 @@ const LabStack = () => (
     }}
   >
     <Stack.Screen name="LabHome" component={LabHomeScreen} />
+    <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} />
   </Stack.Navigator>
 );
 

@@ -10,11 +10,11 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
-    # LLM
-    llm_provider: str = "openai"  # openai, azure, self_hosted
-    llm_model: str = "gpt-4-turbo"
+    # LLM — Kimi K3 (Moonshot AI)
+    llm_provider: str = "kimi"  # kimi, openai, azure, self_hosted
+    llm_model: str = "kimi-k3"
     llm_api_key: str = ""
-    llm_base_url: Optional[str] = None  # For self-hosted (vLLM)
+    llm_base_url: Optional[str] = "https://api.moonshot.cn/v1"
 
     # Embeddings
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"

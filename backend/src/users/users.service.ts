@@ -14,7 +14,7 @@ export class UsersService {
   }
 
   async create(data: { email: string; password: string; role: string; name: string }) {
-    return this.prisma.user.create({ data });
+    return this.prisma.user.create({ data: { ...data, role: data.role as any } });
   }
 
   async update(id: string, data: Partial<{ name: string; phone: string; dateOfBirth: Date; sex: string; language: string; conditions: any; medications: any; insuranceInfo: any }>) {
