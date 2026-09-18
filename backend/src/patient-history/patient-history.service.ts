@@ -117,9 +117,9 @@ export class PatientHistoryService {
     const where = search
       ? {
           OR: [
-            { firstName: { contains: search, mode: 'insensitive' } },
-            { lastName: { contains: search, mode: 'insensitive' } },
-            { caseNumber: { contains: search, mode: 'insensitive' } },
+            { firstName: { contains: search, mode: 'insensitive' as const } },
+            { lastName: { contains: search, mode: 'insensitive' as const } },
+            { caseNumber: { contains: search, mode: 'insensitive' as const } },
           ],
         }
       : {};
@@ -276,7 +276,10 @@ export class PatientHistoryService {
             })) }
           : undefined,
         extensibleFields: extensibleFields?.length
-          ? { create: extensibleFields }
+          ? { create: extensibleFields.map(f => ({
+              ...f,
+              fieldValue: f.fieldValue ?? {},
+            })) }
           : undefined,
       },
       include: {

@@ -47,11 +47,11 @@ export default function NewPatientPage() {
     ReturnType<typeof calculateBMI> | null
   >(null);
 
-  // Auto-generate case number
-  const generatedCaseNumber = `MC-${Date.now().toString(36).toUpperCase()}-${Math.random()
-    .toString(36)
-    .slice(2, 6)
-    .toUpperCase()}`;
+  // Auto-generate case number: MED-YYYY-NNNNNN
+  const now = new Date();
+  const year = now.getFullYear();
+  const randomNum = String(Math.floor(Math.random() * 1000000)).padStart(6, "0");
+  const generatedCaseNumber = `MED-${year}-${randomNum}`;
 
   const form = useForm<PatientFormData>({
     resolver: zodResolver(patientSchema),

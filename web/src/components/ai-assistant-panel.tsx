@@ -22,13 +22,15 @@ import {
 import { apiClient } from "@/lib/api-client";
 
 interface AIAnalysis {
-  type: string;
+  type?: string;
   suggestedQuestions?: string[];
   riskFactors?: string[];
   symptomClusters?: Record<string, string[]>;
   summary?: string;
   hpi?: string;
   recap?: string;
+  analysis?: AIAnalysis;
+  [key: string]: unknown;
 }
 
 interface AIAssistantPanelProps {
@@ -61,7 +63,7 @@ export function AIAssistantPanel({
         `/patients/${patientId}/history/${historyId}/ai`,
         { action }
       );
-      setAnalysis(result);
+      setAnalysis(result.analysis || result);
     } catch (err: any) {
       setError(err.message || "Failed to generate AI analysis");
     } finally {
