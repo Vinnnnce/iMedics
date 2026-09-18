@@ -246,6 +246,99 @@ model ChatMessage {
   @@map("chat_messages")
 }
 
+// ── Patients (Clinical Records) ───────────────────────
+model Patient {
+  id            String   @id @default(uuid()) @db.Uuid
+  caseNumber    String   @unique @map("case_number")
+  firstName     String   @map("first_name")
+  lastName      String   @map("last_name")
+  middleName    String?  @map("middle_name")
+  gender        String
+  dateOfBirth   DateTime @map("date_of_birth") @db.Date
+  height        Float?   // cm
+  weight        Float?   // kg
+  bmi           Float?   // auto-calculated
+  occupation    String?
+  addressLine1  String?  @map("address_line1")
+  addressLine2  String?  @map("address_line2")
+  city          String?
+  state         String?
+  postalCode    String?  @map("postal_code")
+  country       String?  @default("RU")
+  // Emergency contact
+  ecName        String?  @map("ec_name")
+  ecRelationship String? @map("ec_relationship")
+  ecPhone       String?  @map("ec_phone")
+  ecAddress     String?  @map("ec_address")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  medicalHistories MedicalHistory[]
+
+  @@index([lastName])
+  @@index([caseNumber])
+  @@map("patients")
+}
+
+// ── Medical History ───────────────────────────────────
+model MedicalHistory {
+  id            String   @id @default(uuid()) @db.Uuid
+  patientId     String   @map("patient_id") @db.Uuid
+  status        String   @default("draft") // "draft" | "complete"
+  // A. Chief Complaint
+  chiefComplaint String? @map("chief_complaint")
+  // B. Symptoms (JSON array)
+  symptoms      Json     @default("[]")
+  // C. Medications (JSON array)
+  medications   Json     @default("[]")
+  // D. Wound/Injury
+  hasWound      Boolean  @default(false) @map("has_wound")
+  woundLocation String?  @map("wound_location")
+  woundType     String?  @map("wound_type")
+  woundTimeSinceInjury String? @map("wound_time_since_injury")
+  woundCause    String?  @map("wound_cause")
+  // E. Chronic Conditions
+  hasDiabetes   Boolean  @default(false) @map("has_diabetes")
+  diabetesDuration String? @map("diabetes_duration")
+  diabetesType  String?  @map("diabetes_type")
+  diabetesControl String? @map("diabetes_control")
+  hasStroke     Boolean  @default(false) @map("has_stroke")
+  strokeDate    String?  @map("stroke_date")
+  strokeResidual String? @map("stroke_residual")
+  hasHeartAttack Boolean  @default(false) @map("has_heart_attack")
+  heartAttackDate String? @map("heart_attack_date")
+  heartAttackInterventions String? @map("heart_attack_interventions")
+  // F. Family History (JSON array)
+  familyHistory Json     @default("[]") @map("family_history")
+  // G. Past History (JSON array)
+  pastHistory   Json     @default("[]") @map("past_history")
+  // H. Allergies (JSON array)
+  allergies    Json     @default("[]")
+  // I. Lifestyle
+  smokingStatus String?  @map("smoking_status")
+  smokingQuantity String? @map("smoking_quantity")
+  alcoholUse   String?  @map("alcohol_use")
+  physicalActivity String? @map("physical_activity")
+  sleepPattern String?  @map("sleep_pattern")
+  // J. Reproductive History
+  pregnancies  Int?
+  deliveries   Int?
+  reproductiveComplications String? @map("reproductive_complications")
+  // K. Mental Health (JSON array)
+  mentalHealth  Json     @default("[]") @map("mental_health")
+  // L. Immunizations (JSON array)
+  immunizations Json     @default("[]")
+  // AI Analysis results
+  aiAnalysis    Json?    @map("ai_analysis")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
+  @@map("medical_histories")
+}
+
 // ── Medical Knowledge (for RAG) ────────────────────────
 model MedicalKnowledge {
   id        String   @id @default(uuid()) @db.Uuid

@@ -1,6 +1,7 @@
 """
 Safety Filter — Pre and post LLM safety filters for medical content.
 Prevents diagnosis, treatment, and emergency advice in AI output.
+Extended for medical history analysis content.
 """
 
 import re
@@ -15,6 +16,9 @@ DIAGNOSIS_PATTERNS = [
     re.compile(r"\bdiagnosis\s*(?:is|:)\s+([a-z\s]+)", re.IGNORECASE),
     re.compile(r"\bthis\s+(?:indicates|confirms|means you have)\s+([a-z\s]+)", re.IGNORECASE),
     re.compile(r"\bconfirmed\s+(?:diagnosis of\s+)?([a-z\s]+)", re.IGNORECASE),
+    re.compile(r"\b(?:the patient|this patient)\s+(?:has|is suffering from)\s+([a-z\s]+)", re.IGNORECASE),
+    re.compile(r"\bdiagnostic impression\s*:?\s*([a-z\s]+)", re.IGNORECASE),
+    re.compile(r"\bdifferential\s*(?:diagnosis|:)\s*([a-z\s]+)", re.IGNORECASE),
 ]
 
 TREATMENT_PATTERNS = [
@@ -24,6 +28,8 @@ TREATMENT_PATTERNS = [
     re.compile(r"\bdosage\s*(?:is|:)\s+(\d+\s*mg)", re.IGNORECASE),
     re.compile(r"\brecommend(?:ed)?\s+(?:dose|dosage)[:\s]+(\d+)", re.IGNORECASE),
     re.compile(r"\bshould take\s+([a-z\s]+\d+\s*mg)", re.IGNORECASE),
+    re.compile(r"\bstart(?:ed)?\s+(?:on\s+)?([a-z\s]+)\s+\d+\s*mg", re.IGNORECASE),
+    re.compile(r"\btreatment\s*(?:plan|recommendation)[:\s]+([a-z\s]+)", re.IGNORECASE),
 ]
 
 EMERGENCY_PATTERNS = [
@@ -31,6 +37,8 @@ EMERGENCY_PATTERNS = [
     re.compile(r"\bno need to\s+(?:go to|visit)\s+(?:the\s+)?(?:hospital|ER|emergency)", re.IGNORECASE),
     re.compile(r"\bdon'?t\s+(?:go to|visit)\s+(?:the\s+)?hospital", re.IGNORECASE),
     re.compile(r"\b(?:you (?:do not|don'?t) need|no need for)\s+(?:emergency|urgent)\s+(?:care|attention|medical)", re.IGNORECASE),
+    re.compile(r"\bgo (?:to )?(?:the )?(?:hospital|ER|emergency room)\s+(?:immediately|right away|now)", re.IGNORECASE),
+    re.compile(r"\bcall\s+(?:911|an ambulance|emergency services)", re.IGNORECASE),
 ]
 
 # Safe replacement message
@@ -86,7 +94,6 @@ class SafetyFilter:
             # Check for unknown units
             unit = v.get("unit", "")
             if not unit:
-                # Mark as uninterpretable but don't block
                 v["unit"] = "unknown"
 
         return PreSafetyResult(blocked=False)
@@ -125,8 +132,10 @@ class SafetyFilter:
         return result
 
     def _extract_text(self, view: dict) -> str:
-        """Extract all text from a view dictionary."""
+        """Extract all text from a view dictionary (supports both lab and history views)."""
         parts = []
+
+        # Lab analysis fields
         if isinstance(view.get("summary"), list):
             parts.extend(view["summary"])
         if isinstance(view.get("body"), list):
@@ -137,6 +146,42 @@ class SafetyFilter:
             parts.append(view["title"])
         if isinstance(view.get("limitations"), str):
             parts.append(view["limitations"])
+
+        # History analysis — clinician summary fields
+        if isinstance(view.get("chief_complaint"), str):
+            parts.append(view["chief_complaint"])
+        if isinstance(view.get("hpi"), str):
+            parts.append(view["hpi"])
+        for key in ("past_medical_history", "family_history", "social_history",
+                     "medications", "allergies", "additional_notes"):
+            if isinstance(view.get(key), list):
+                parts.extend(view[key])
+
+        # History analysis — patient recap fields
+        if isinstance(view.get("greeting"), str):
+            parts.append(view["greeting"])
+        for key in ("what_you_reported", "your_history", "medications_listed"):
+            if isinstance(view.get(key), list):
+                parts.extend(view[key])
+        if isinstance(view.get("next_steps"), str):
+            parts.append(view["next_steps"])
+
+        # Questions, risk factors, timeline
+        if isinstance(view.get("questions"), list):
+            for q in view["questions"]:
+                if isinstance(q, dict):
+                    parts.append(q.get("question", ""))
+                    parts.append(q.get("rationale", ""))
+        if isinstance(view.get("risk_factors"), list):
+            for rf in view["risk_factors"]:
+                if isinstance(rf, dict):
+                    parts.append(rf.get("factor", ""))
+                    parts.append(rf.get("relevance", ""))
+        if isinstance(view.get("timeline"), list):
+            for te in view["timeline"]:
+                if isinstance(te, dict):
+                    parts.append(te.get("event", ""))
+
         return " ".join(str(p) for p in parts)
 
     def _check_text(self, text: str, is_patient: bool = True) -> list[dict]:
@@ -194,18 +239,22 @@ class SafetyFilter:
         language = view.get("language", "en")
         fallback = SAFE_FALLBACK.get(language, SAFE_FALLBACK["en"])
 
-        # Replace body with safe message
         return {
             "language": language,
-            "title": view.get("title", "Your Results"),
+            "title": view.get("title", "Your Summary"),
+            "greeting": view.get("greeting", "Hello,"),
             "body": [
                 fallback,
                 "Please discuss your results with your doctor for a complete explanation.",
             ],
-            "questions_for_doctor": view.get("questions_for_doctor", [
-                "What do these results mean?",
-                "What should I do next?",
-            ]),
+            "what_you_reported": [
+                fallback,
+                "Please discuss your symptoms with your doctor.",
+            ],
+            "your_history": [],
+            "medications_listed": [],
+            "next_steps": "Please discuss with your doctor.",
+            "disclaimer": "This summary is for your reference only. It is not a diagnosis. Please consult your doctor.",
         }
 
     def _rewrite_doctor_view(self, view: dict, findings: list[dict]) -> dict:
@@ -220,6 +269,6 @@ class SafetyFilter:
         return {
             **view,
             "summary": summary,
-            "limitations": (view.get("limitations", "") + 
+            "limitations": (view.get("limitations", "") +
                           " Safety filter: treatment recommendations were removed from AI output."),
         }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useTheme } from "@/components/theme-provider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,21 +12,23 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { Sun, Moon } from "lucide-react";
 
 export function Navbar() {
   const [user, setUser] = useState<{ name: string; role: string } | null>(null);
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
       <div className="flex h-16 items-center justify-between px-6">
         {/* Brand */}
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary neon-glow">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary glow-primary">
             <svg viewBox="0 0 24 24" className="h-5 w-5 text-primary-foreground" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M12 2v20M2 12h20" strokeLinecap="round" />
             </svg>
           </div>
-          <span className="text-lg font-bold tracking-tight text-primary neon-text">
+          <span className="text-lg font-bold tracking-tight text-primary">
             Medic1905
           </span>
         </div>
@@ -35,19 +38,32 @@ export function Navbar() {
           <Link href="/dashboard" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
             Dashboard
           </Link>
-          <Link href="/documents" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            Documents
-          </Link>
-          <Link href="/doctors" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            Doctors
+          <Link href="/patients" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            Patients
           </Link>
           <Link href="/appointments" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
             Appointments
           </Link>
+          <Link href="/documents" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            Lab Results
+          </Link>
         </nav>
 
-        {/* User menu */}
+        {/* User menu + theme toggle */}
         <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            aria-label="Toggle theme"
+            data-testid="button-theme-toggle"
+          >
+            {theme === "dark" ? (
+              <Sun className="h-4 w-4" />
+            ) : (
+              <Moon className="h-4 w-4" />
+            )}
+          </Button>
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center gap-2 rounded-full p-1 hover:bg-muted transition-colors">
@@ -75,7 +91,7 @@ export function Navbar() {
                 <Button variant="ghost" size="sm">Sign In</Button>
               </Link>
               <Link href="/auth/signup">
-                <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 neon-glow">Sign Up</Button>
+                <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 glow-primary">Sign Up</Button>
               </Link>
             </div>
           )}

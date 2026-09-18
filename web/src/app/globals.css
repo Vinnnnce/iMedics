@@ -48,74 +48,76 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Medic1905 Dark Neon Theme — teal #22d3ee on dark #020617 */
+/* iMedics Theme — Light Mode (clinical, clean, professional) */
+/* Primary #6C5CE7 (purple), accentBlue #0984E3, accentTeal #00B894, accentRed #E74C3C */
 :root {
-  --background: #020617;
-  --foreground: #e2e8f0;
-  --card: #0f172a;
-  --card-foreground: #e2e8f0;
-  --popover: #0f172a;
-  --popover-foreground: #e2e8f0;
-  --primary: #22d3ee;
-  --primary-foreground: #020617;
-  --secondary: #1e293b;
-  --secondary-foreground: #e2e8f0;
-  --muted: #1e293b;
-  --muted-foreground: #64748b;
-  --accent: #22d3ee;
-  --accent-foreground: #020617;
-  --destructive: #ef4444;
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #22d3ee;
-  --chart-1: #22d3ee;
-  --chart-2: #a78bfa;
-  --chart-3: #f59e0b;
-  --chart-4: #10b981;
-  --chart-5: #ef4444;
+  --background: #f8f9fb;
+  --foreground: #1a1b2e;
+  --card: #ffffff;
+  --card-foreground: #1a1b2e;
+  --popover: #ffffff;
+  --popover-foreground: #1a1b2e;
+  --primary: #6c5ce7;
+  --primary-foreground: #ffffff;
+  --secondary: #eef0f6;
+  --secondary-foreground: #1a1b2e;
+  --muted: #f1f2f7;
+  --muted-foreground: #6b7280;
+  --accent: #6c5ce7;
+  --accent-foreground: #ffffff;
+  --destructive: #e74c3c;
+  --border: #e2e4ea;
+  --input: #e2e4ea;
+  --ring: #6c5ce7;
+  --chart-1: #6c5ce7;
+  --chart-2: #0984e3;
+  --chart-3: #00b894;
+  --chart-4: #f39c12;
+  --chart-5: #e74c3c;
   --radius: 0.625rem;
-  --sidebar: #0a0f1f;
-  --sidebar-foreground: #e2e8f0;
-  --sidebar-primary: #22d3ee;
-  --sidebar-primary-foreground: #020617;
-  --sidebar-accent: #1e293b;
-  --sidebar-accent-foreground: #e2e8f0;
-  --sidebar-border: #1e293b;
-  --sidebar-ring: #22d3ee;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1a1b2e;
+  --sidebar-primary: #6c5ce7;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f1f2f7;
+  --sidebar-accent-foreground: #1a1b2e;
+  --sidebar-border: #e2e4ea;
+  --sidebar-ring: #6c5ce7;
 }
 
+/* iMedics Theme — Dark Mode */
 .dark {
-  --background: #020617;
-  --foreground: #e2e8f0;
-  --card: #0f172a;
-  --card-foreground: #e2e8f0;
-  --popover: #0f172a;
-  --popover-foreground: #e2e8f0;
-  --primary: #22d3ee;
-  --primary-foreground: #020617;
-  --secondary: #1e293b;
-  --secondary-foreground: #e2e8f0;
-  --muted: #1e293b;
-  --muted-foreground: #64748b;
-  --accent: #22d3ee;
-  --accent-foreground: #020617;
-  --destructive: #ef4444;
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #22d3ee;
-  --chart-1: #22d3ee;
-  --chart-2: #a78bfa;
-  --chart-3: #f59e0b;
-  --chart-4: #10b981;
-  --chart-5: #ef4444;
-  --sidebar: #0a0f1f;
-  --sidebar-foreground: #e2e8f0;
-  --sidebar-primary: #22d3ee;
-  --sidebar-primary-foreground: #020617;
-  --sidebar-accent: #1e293b;
-  --sidebar-accent-foreground: #e2e8f0;
-  --sidebar-border: #1e293b;
-  --sidebar-ring: #22d3ee;
+  --background: #0f1019;
+  --foreground: #e4e6f0;
+  --card: #1a1b2e;
+  --card-foreground: #e4e6f0;
+  --popover: #1a1b2e;
+  --popover-foreground: #e4e6f0;
+  --primary: #a29bfe;
+  --primary-foreground: #0f1019;
+  --secondary: #2d2e44;
+  --secondary-foreground: #e4e6f0;
+  --muted: #252640;
+  --muted-foreground: #9ca3af;
+  --accent: #a29bfe;
+  --accent-foreground: #0f1019;
+  --destructive: #ff6b6b;
+  --border: #2d2e44;
+  --input: #2d2e44;
+  --ring: #a29bfe;
+  --chart-1: #a29bfe;
+  --chart-2: #74b9ff;
+  --chart-3: #55efc4;
+  --chart-4: #ffeaa7;
+  --chart-5: #ff6b6b;
+  --sidebar: #13141f;
+  --sidebar-foreground: #e4e6f0;
+  --sidebar-primary: #a29bfe;
+  --sidebar-primary-foreground: #0f1019;
+  --sidebar-accent: #252640;
+  --sidebar-accent-foreground: #e4e6f0;
+  --sidebar-border: #2d2e44;
+  --sidebar-ring: #a29bfe;
 }
 
 @layer base {
@@ -130,13 +132,29 @@
   }
 }
 
-/* Neon glow effect */
-.neon-glow {
-  box-shadow: 0 0 20px rgba(34, 211, 238, 0.15);
+/* Custom accent colors for iMedics */
+.accent-blue {
+  color: #0984e3;
+}
+.accent-teal {
+  color: #00b894;
+}
+.accent-red {
+  color: #e74c3c;
+}
+.bg-accent-blue {
+  background-color: #0984e3;
+}
+.bg-accent-teal {
+  background-color: #00b894;
+}
+.bg-accent-red {
+  background-color: #e74c3c;
 }
 
-.neon-text {
-  text-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+/* Subtle glow effect for primary elements */
+.glow-primary {
+  box-shadow: 0 0 20px rgba(108, 92, 231, 0.12);
 }
 
 /* Scrollbar styling */

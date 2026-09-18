@@ -42,6 +42,9 @@ model User {
   chatMessages       ChatMessage[]
   doctorRatingsGiven DoctorRating[]  @relation("DoctorRatingPatient")
   doctorRatingsReceived DoctorRating[] @relation("DoctorRatingDoctor")
+  patientProfile         PatientProfile?
+  medicalHistoriesDoctor MedicalHistory[] @relation("MedicalHistoryDoctor")
+  medicalHistoriesReviewer MedicalHistory[] @relation("MedicalHistoryReviewer")
 
   @@map("users")
 }
@@ -72,6 +75,7 @@ model Appointment {
   doctor         User    @relation("AppointmentDoctor", fields: [doctorId], references: [id])
   prescriptions  Prescription[]
   chatMessages   ChatMessage[]
+  medicalHistories MedicalHistory[]
 
   @@map("appointments")
 }
@@ -187,6 +191,353 @@ model DoctorRating {
 
   @@unique([patientId, doctorId])
   @@map("doctor_ratings")
+}
+
+// ── Patient Profiles (Identification) ──────────────────
+model PatientProfile {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @unique @map("user_id") @db.Uuid
+  caseNumber    String   @unique @map("case_number")
+  firstName     String   @map("first_name")
+  lastName      String   @map("last_name")
+  middleName    String?  @map("middle_name")
+  gender        String?  // male, female, non-binary, prefer_not_to_say
+  dateOfBirth   DateTime? @map("date_of_birth") @db.Date
+  heightCm      Float?   @map("height_cm")
+  weightKg      Float?   @map("weight_kg")
+  bmi           Float?   // auto-calculated: weight_kg / (height_m)^2
+  bmiCategory   String?  @map("bmi_category") // underweight, normal, overweight, obese
+  occupation    String?
+  street        String?
+  city          String?
+  stateRegion   String?  @map("state_region")
+  country       String?
+  postalCode    String?  @map("postal_code")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user              User              @relation(fields: [userId], references: [id])
+  emergencyContacts EmergencyContact[]
+  medicalHistories  MedicalHistory[]
+
+  @@index([lastName, firstName])
+  @@index([caseNumber])
+  @@map("patient_profiles")
+}
+
+// ── Emergency Contacts ────────────────────────────────
+model EmergencyContact {
+  id            String   @id @default(uuid()) @db.Uuid
+  patientId     String   @map("patient_id") @db.Uuid
+  name          String
+  relationship  String?  // spouse, parent, sibling, friend, other
+  phone         String
+  street        String?
+  city          String?
+  stateRegion   String?  @map("state_region")
+  country       String?
+  postalCode    String?  @map("postal_code")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  patient PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@map("emergency_contacts")
+}
+
+// ── Medical Histories (Episodes) ──────────────────────
+model MedicalHistory {
+  id                  String   @id @default(uuid()) @db.Uuid
+  patientId           String   @map("patient_id") @db.Uuid
+  doctorId            String?  @map("doctor_id") @db.Uuid
+  appointmentId       String?  @map("appointment_id") @db.Uuid
+  caseNumber          String   @map("case_number")
+  chiefComplaint      String?  @map("chief_complaint") @db.Text
+  status              String   @default("DRAFT") // DRAFT, IN_PROGRESS, COMPLETED
+  aiSummary           Json?    @map("ai_summary")
+  aiPatientRecap      Json?    @map("ai_patient_recap")
+  aiSuggestedQuestions Json?   @map("ai_suggested_questions")
+  aiRiskFactors       Json?    @map("ai_risk_factors")
+  aiSymptomClusters   Json?    @map("ai_symptom_clusters")
+  aiTimeline          Json?    @map("ai_timeline")
+  clinicianNotes      String?  @map("clinician_notes") @db.Text
+  clinicianReviewed   Boolean  @default(false) @map("clinician_reviewed")
+  reviewedAt          DateTime? @map("reviewed_at")
+  reviewedById        String?  @map("reviewed_by_id") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  patient           PatientProfile     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor            User?              @relation("MedicalHistoryDoctor", fields: [doctorId], references: [id])
+  appointment       Appointment?       @relation(fields: [appointmentId], references: [id])
+  reviewer          User?              @relation("MedicalHistoryReviewer", fields: [reviewedById], references: [id])
+  symptoms          Symptom[]
+  medications       MedicationRecord[]
+  woundInjuries     WoundInjury[]
+  chronicConditions ChronicCondition[]
+  familyHistory     FamilyHistoryEntry[]
+  pastHistory       PastHistoryEntry[]
+  allergies         Allergy[]
+  lifestyleFactors  LifestyleFactor[]
+  reproductiveHistory ReproductiveHistory[]
+  mentalHealthRecords MentalHealthRecord[]
+  immunizationRecords ImmunizationRecord[]
+  extensibleFields  ExtensibleField[]
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([status])
+  @@map("medical_histories")
+}
+
+// ── Symptoms ──────────────────────────────────────────
+model Symptom {
+  id              String   @id @default(uuid()) @db.Uuid
+  medicalHistoryId String  @map("medical_history_id") @db.Uuid
+  description     String   @db.Text
+  onset           String?  // sudden, gradual, unknown, custom
+  onsetCustomText String?  @map("onset_custom_text")
+  worseningTime   String?  @map("worsening_time") // morning, afternoon, evening, night, constant
+  reliefTime      String?  @map("relief_time") // morning, afternoon, evening, night, none
+  character       String?  // sharp, dull, throbbing, burning, pressure, intermittent, continuous, other
+  characterCustomText String? @map("character_custom_text")
+  severity        Int?     // 0-10 pain scale
+  duration        String?  // free text description of duration
+  additionalNotes String?  @map("additional_notes") @db.Text
+  sortOrder       Int      @default(0) @map("sort_order")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  medicalHistory MedicalHistory @relation(fields: [medicalHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([medicalHistoryId])
+  @@map("symptoms")
+}
+
+// ── Medication Records ─────────────────────────────────
+model MedicationRecord {
+  id              String   @id @default(uuid()) @db.Uuid
+  medicalHistoryId String  @map("medical_history_id") @db.Uuid
+  name            String
+  dose            String?
+  frequency       String?
+  duration        String?
+  medicationType  String   @default("CURRENT") @map("medication_type") // CURRENT, RECENT
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  medicalHistory MedicalHistory @relation(fields: [medicalHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([medicalHistoryId])
+  @@map("medication_records")
+}
+
+// ── Wound / Injury ────────────────────────────────────
+model WoundInjury {
+  id              String   @id @default(uuid()) @db.Uuid
+  medicalHistoryId String  @map("medical_history_id") @db.Uuid
+  hasInjury       Boolean  @default(false) @map("has_injury")
+  location        String?
+  injuryType      String?  @map("injury_type") // cut, burn, bruise, fracture, other
+  injuryTypeCustom String? @map("injury_type_custom")
+  timeSinceInjury String?  @map("time_since_injury")
+  cause           String?  // fall, accident, work_related, other
+  causeCustom     String?  @map("cause_custom")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  medicalHistory MedicalHistory @relation(fields: [medicalHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([medicalHistoryId])
+  @@map("wound_injuries")
+}
+
+// ── Chronic Conditions (Diabetes, Stroke, Heart Attack, Other) ──
+model ChronicCondition {
+  id              String   @id @default(uuid()) @db.Uuid
+  medicalHistoryId String  @map("medical_history_id") @db.Uuid
+  conditionType   String   @map("condition_type") // DIABETES, STROKE, HEART_ATTACK, OTHER
+  conditionLabel  String?  @map("condition_label") // custom label for OTHER
+  hasCondition    Boolean  @default(false) @map("has_condition")
+  duration        String?  // e.g., "5 years"
+  conditionSubtype String? @map("condition_subtype") // Type 1, Type 2, gestational for diabetes
+  controlStatus   String?  @map("control_status") // well_controlled, poorly_controlled, unknown
+  eventDate       DateTime? @map("event_date") @db.Date
+  residualSymptoms String? @map("residual_symptoms") @db.Text
+  interventions   String?  @db.Text // e.g., stent, bypass surgery
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  medicalHistory MedicalHistory @relation(fields: [medicalHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([medicalHistoryId])
+  @@index([conditionType])
+  @@map("chronic_conditions")
+}
+
+// ── Family History ────────────────────────────────────
+model FamilyHistoryEntry {
+  id              String   @id @default(uuid()) @db.Uuid
+  medicalHistoryId String  @map("medical_history_id") @db.Uuid
+  condition        String   // diabetes, hypertension, stroke, heart_disease, cancer, mental_health, other
+  conditionCustom String?  @map("condition_custom")
+  relationship     String?  // mother, father, sibling, grandparent, other
+  ageAtOnset       Int?     @map("age_at_onset")
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  medicalHistory MedicalHistory @relation(fields: [medicalHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([medicalHistoryId])
+  @@map("family_history_entries")
+}
+
+// ── Past Medical / Surgical History ────────────────────
+model PastHistoryEntry {
+  id              String   @id @default(uuid()) @db.Uuid
+  medicalHistoryId String  @map("medical_history_id") @db.Uuid
+  entryType       String   @map("entry_type") // DIAGNOSIS, SURGERY, HOSPITALIZATION
+  diagnosis       String?  // e.g., hypertension, asthma, chronic kidney disease
+  surgeryType     String?  @map("surgery_type")
+  eventDate       DateTime? @map("event_date") @db.Date
+  outcome         String?  // recovered, ongoing, complications, unknown
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  medicalHistory MedicalHistory @relation(fields: [medicalHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([medicalHistoryId])
+  @@index([entryType])
+  @@map("past_history_entries")
+}
+
+// ── Allergies ─────────────────────────────────────────
+model Allergy {
+  id              String   @id @default(uuid()) @db.Uuid
+  medicalHistoryId String  @map("medical_history_id") @db.Uuid
+  allergenType    String   @map("allergen_type") // DRUG, FOOD, ENVIRONMENTAL
+  allergen         String   // e.g., penicillin, peanuts, pollen
+  reactionType    String?  @map("reaction_type") // rash, anaphylaxis, gi_upset, other
+  reactionCustom   String?  @map("reaction_custom")
+  severity         String?  // mild, moderate, severe, unknown
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  medicalHistory MedicalHistory @relation(fields: [medicalHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([medicalHistoryId])
+  @@index([allergenType])
+  @@map("allergies")
+}
+
+// ── Lifestyle Factors ─────────────────────────────────
+model LifestyleFactor {
+  id              String   @id @default(uuid()) @db.Uuid
+  medicalHistoryId String  @map("medical_history_id") @db.Uuid
+  smokingStatus    String?  @map("smoking_status") // never, former, current
+  smokingQuantity  String?  @map("smoking_quantity") // e.g., "10 cigarettes/day"
+  yearsSmoking     Int?     @map("years_smoking")
+  alcoholUse       String?  @map("alcohol_use") // none, occasional, regular
+  alcoholQuantity  String?  @map("alcohol_quantity")
+  physicalActivity String?  @map("physical_activity") // sedentary, moderate, active
+  exerciseFrequency String? @map("exercise_frequency")
+  sleepPattern     String?  @map("sleep_pattern") // good, fair, poor, insomnia
+  sleepHours       Float?   @map("sleep_hours")
+  travelHistory    String?  @map("travel_history") @db.Text
+  occupationalExposure String? @map("occupational_exposure") @db.Text
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  medicalHistory MedicalHistory @relation(fields: [medicalHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([medicalHistoryId])
+  @@map("lifestyle_factors")
+}
+
+// ── Reproductive / Obstetric History ───────────────────
+model ReproductiveHistory {
+  id              String   @id @default(uuid()) @db.Uuid
+  medicalHistoryId String  @map("medical_history_id") @db.Uuid
+  pregnancies      Int?     @default(0)
+  deliveries      Int?     @default(0)
+  miscarriages    Int?     @default(0)
+  livingChildren  Int?     @map("living_children")
+  complications   String?  @db.Text
+  lastMenstrualPeriod DateTime? @map("last_menstrual_period") @db.Date
+  contraceptionMethod String? @map("contraception_method")
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  medicalHistory MedicalHistory @relation(fields: [medicalHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([medicalHistoryId])
+  @@map("reproductive_histories")
+}
+
+// ── Mental Health Records ─────────────────────────────
+model MentalHealthRecord {
+  id              String   @id @default(uuid()) @db.Uuid
+  medicalHistoryId String  @map("medical_history_id") @db.Uuid
+  condition        String   // depression, anxiety, bipolar, schizophrenia, other
+  conditionCustom String?  @map("condition_custom")
+  duration         String?
+  treatmentStatus  String?  @map("treatment_status") // untreated, in_treatment, resolved
+  currentTreatment String?  @map("current_treatment")
+  notes            String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  medicalHistory MedicalHistory @relation(fields: [medicalHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([medicalHistoryId])
+  @@map("mental_health_records")
+}
+
+// ── Immunization Records ───────────────────────────────
+model ImmunizationRecord {
+  id              String   @id @default(uuid()) @db.Uuid
+  medicalHistoryId String  @map("medical_history_id") @db.Uuid
+  vaccineName      String   @map("vaccine_name")
+  dateAdministered DateTime? @map("date_administered") @db.Date
+  status           String   @default("UP_TO_DATE") // UP_TO_DATE, OVERDUE, UNKNOWN, NOT_RECEIVED
+  boosterDue       DateTime? @map("booster_due") @db.Date
+  notes            String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  medicalHistory MedicalHistory @relation(fields: [medicalHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([medicalHistoryId])
+  @@map("immunization_records")
+}
+
+// ── Extensible Custom Fields ──────────────────────────
+model ExtensibleField {
+  id              String   @id @default(uuid()) @db.Uuid
+  medicalHistoryId String  @map("medical_history_id") @db.Uuid
+  fieldName        String   @map("field_name")
+  fieldValue       Json     @map("field_value")
+  fieldType        String   @default("TEXT") @map("field_type") // TEXT, NUMBER, DATE, SELECT, JSON
+  category         String?  // e.g., travel, occupational, pain, sleep, custom
+  options          Json?    // for SELECT type
+  required         Boolean  @default(false)
+  sortOrder        Int      @default(0) @map("sort_order")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  medicalHistory MedicalHistory @relation(fields: [medicalHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([medicalHistoryId])
+  @@index([category])
+  @@map("extensible_fields")
 }
 
 // ── Audit Logs ─────────────────────────────────────────

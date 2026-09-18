@@ -8,7 +8,7 @@ from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.security import APIKeyHeader
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from app.routers import lab_analysis, health
+from app.routers import lab_analysis, health, history_analysis
 from app.config import settings
 
 app = FastAPI(
@@ -61,5 +61,11 @@ app.include_router(
     lab_analysis.router,
     prefix="/ai",
     tags=["ai"],
+    dependencies=[Depends(verify_service_token)],
+)
+app.include_router(
+    history_analysis.router,
+    prefix="/ai",
+    tags=["ai-history"],
     dependencies=[Depends(verify_service_token)],
 )

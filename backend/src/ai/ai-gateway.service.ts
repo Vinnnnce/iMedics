@@ -67,4 +67,22 @@ export class AiGatewayService {
       return false;
     }
   }
+
+  async analyseHistory(payload: any): Promise<any> {
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.post(`${this.aiServiceUrl}/ai/history/analyse`, payload, {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Service-Token': this.serviceToken,
+          },
+          timeout: 90000, // 90 second timeout for history AI processing
+        }),
+      );
+      return data;
+    } catch (error: any) {
+      this.logger.error(`History AI analysis failed: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
 }
