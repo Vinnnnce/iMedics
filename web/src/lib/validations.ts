@@ -100,32 +100,32 @@ export const medicalHistorySchema = z.object({
   // A. Chief Complaint
   chiefComplaint: z.string().optional(),
   // B. Symptoms
-  symptoms: z.array(symptomSchema).default([]),
+  symptoms: z.array(symptomSchema),
   // C. Medications
-  medications: z.array(medicationSchema).default([]),
+  medications: z.array(medicationSchema),
   // D. Wound/Injury
-  hasWound: z.boolean().default(false),
+  hasWound: z.boolean(),
   woundLocation: z.string().optional(),
   woundType: z.string().optional(),
   woundTimeSinceInjury: z.string().optional(),
   woundCause: z.string().optional(),
   // E. Chronic Conditions
-  hasDiabetes: z.boolean().default(false),
+  hasDiabetes: z.boolean(),
   diabetesDuration: z.string().optional(),
   diabetesType: z.string().optional(),
   diabetesControl: z.string().optional(),
-  hasStroke: z.boolean().default(false),
+  hasStroke: z.boolean(),
   strokeDate: z.string().optional(),
   strokeResidual: z.string().optional(),
-  hasHeartAttack: z.boolean().default(false),
+  hasHeartAttack: z.boolean(),
   heartAttackDate: z.string().optional(),
   heartAttackInterventions: z.string().optional(),
   // F. Family History
-  familyHistory: z.array(familyHistoryItemSchema).default([]),
+  familyHistory: z.array(familyHistoryItemSchema),
   // G. Past History
-  pastHistory: z.array(pastHistoryItemSchema).default([]),
+  pastHistory: z.array(pastHistoryItemSchema),
   // H. Allergies
-  allergies: z.array(allergySchema).default([]),
+  allergies: z.array(allergySchema),
   // I. Lifestyle
   smokingStatus: z.string().optional(),
   smokingQuantity: z.string().optional(),
@@ -137,11 +137,11 @@ export const medicalHistorySchema = z.object({
   deliveries: z.number().int().optional().nullable(),
   reproductiveComplications: z.string().optional(),
   // K. Mental Health
-  mentalHealth: z.array(mentalHealthItemSchema).default([]),
+  mentalHealth: z.array(mentalHealthItemSchema),
   // L. Immunizations
-  immunizations: z.array(immunizationSchema).default([]),
+  immunizations: z.array(immunizationSchema),
   // Status
-  status: z.enum(["draft", "complete"]).default("draft"),
+  status: z.enum(["draft", "complete"]),
 });
 
 export type MedicalHistoryFormData = z.infer<typeof medicalHistorySchema>;
