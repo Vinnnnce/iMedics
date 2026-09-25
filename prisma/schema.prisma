@@ -7,6 +7,43 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============ AUTH & USER MODULE ============
+
+enum UserRole {
+  PATIENT
+  DOCTOR
+  LAB_STAFF
+  ADMIN
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String
+  role          UserRole @default(PATIENT)
+  name          String
+  phone         String?
+  dateOfBirth   DateTime? @db.Date
+  sex           String?
+  language      String   @default("en")
+  avatarUrl     String?  @map("avatar_url")
+  isActive      Boolean  @default(true) @map("is_active")
+  lastLoginAt   DateTime? @map("last_login_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  doctors            Doctor[]
+  patients           Patient[]
+  chatMessages       ChatMessage[]
+  auditLogs          AuditLog[]
+  caseFiles          CaseFile[]
+  doctorRatingsGiven DoctorReview[]  @relation("DoctorReviewPatient")
+
+  @@index([role])
+  @@map("users")
+}
+
 // ============ DOCTOR MODULE ============
 
 model Doctor {
@@ -20,6 +57,7 @@ model Doctor {
   experienceYears Int
   rating        Float    @default(0.0)
   reviewCount   Int      @default(0)
+  likeCount     Int      @default(0)
   licenseNumber String?
   education     String?
   certifications Json?
@@ -28,17 +66,23 @@ model Doctor {
   consultationFee Float?
   location      String?
   available     Boolean  @default(true)
+  verified      Boolean  @default(false)
   email         String?
   phone         String?
+  userId        String?  @map("user_id")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  user            User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
   schedule       DoctorSchedule[]
   reviews        DoctorReview[]
   specialties    DoctorSpecialty[]
   appointments   PatientAppointment[]
   diagnosticsCases DiagnosticsCase[]
   labOrders      LabOrder[]
+  consultations  Consultation[]
+  prescriptions  Prescription[]
+  assignedPatients Patient[] @relation("PatientAssignedDoctor")
 
   @@map("doctors")
 }
@@ -71,11 +115,14 @@ model DoctorReview {
   id        String   @id @default(cuid())
   doctorId  String
   patientName String
+  patientId String? @map("patient_id")
   rating    Float    // 1.0 - 5.0
   comment   String?
+  liked     Boolean  @default(false)
   date      DateTime @default(now())
 
   doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient   User?    @relation("DoctorReviewPatient", fields: [patientId], references: [id], onDelete: SetNull)
 
   @@map("doctor_reviews")
 }
@@ -103,13 +150,23 @@ model Patient {
   emergencyContactRelation String?
   insuranceNumber String?
   photoUrl        String?
+  userId          String?  @map("user_id")
+  status          String   @default("active") @map("status") // active, admitted, discharged
+  admittedAt      DateTime? @map("admitted_at")
+  dischargedAt    DateTime? @map("discharged_at")
+  assignedDoctorId String? @map("assigned_doctor_id")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  user            User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  assignedDoctor  Doctor?         @relation("PatientAssignedDoctor", fields: [assignedDoctorId], references: [id], onDelete: SetNull)
   history         PatientHistory[]
   appointments    PatientAppointment[]
   labTests        PatientLabTest[]
   diagnosticsCases DiagnosticsCase[]
+  caseFiles       CaseFile[]
+  prescriptions   Prescription[]
+  consultations   Consultation[]
 
   @@map("patients")
 }
@@ -138,14 +195,21 @@ model PatientAppointment {
   doctorId      String
   date          DateTime
   duration      Int      // minutes
-  status        String   @default("scheduled") // scheduled, completed, cancelled, no-show
+  status        String   @default("scheduled") // scheduled, confirmed, in_progress, completed, cancelled, no-show
   reason        String?
   notes         String?
-  type          String   @default("in-person") // in-person, telemedicine
+  type          String   @default("in-person") // in-person, telemedicine, follow-up
+  videoRoomId   String?  @map("video_room_id")
+  videoToken    String?  @map("video_token")
+  isFollowUp    Boolean  @default(false) @map("is_follow_up")
+  parentAppointmentId String? @map("parent_appointment_id")
   createdAt     DateTime @default(now())
 
   patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
   doctor        Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  chatMessages  ChatMessage[]
+  prescriptions Prescription[]
+  consultations Consultation[]
 
   @@map("patient_appointments")
 }
@@ -277,6 +341,7 @@ model DiagnosticsCase {
 
   clinicalNotes ClinicalNote[]
   imagingResults ImagingResult[]
+  consultations Consultation[]
   labResultLinks String[] // lab_result IDs
   aiSummary     String?
 
@@ -372,3 +437,132 @@ model MedicalHistoryForm {
 
   @@map("medical_history_forms")
 }
+
+// ============ PRESCRIPTION MODULE ============
+
+model Prescription {
+  id            String   @id @default(cuid())
+  patientId     String   @map("patient_id")
+  doctorId      String   @map("doctor_id")
+  appointmentId String?  @map("appointment_id")
+  medications   Json     @default("[]") // [{name, dose, frequency, duration, instructions}]
+  status        String   @default("active") // active, discontinued, expired
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor        Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  appointment   PatientAppointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@map("prescriptions")
+}
+
+// ============ CHAT MESSAGING MODULE ============
+
+model ChatMessage {
+  id            String   @id @default(cuid())
+  appointmentId String?  @map("appointment_id")
+  senderId      String   @map("sender_id")
+  receiverId    String   @map("receiver_id")
+  message       String
+  messageType   String   @default("TEXT") @map("message_type") // TEXT, IMAGE, FILE, SYSTEM
+  attachmentUrl String?  @map("attachment_url")
+  isRead        Boolean  @default(false) @map("is_read")
+  readAt        DateTime? @map("read_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  sender        User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  appointment   PatientAppointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([appointmentId])
+  @@map("chat_messages")
+}
+
+// ============ CONSULTATION MODULE ============
+
+model Consultation {
+  id            String   @id @default(cuid())
+  patientId     String   @map("patient_id")
+  doctorId      String   @map("doctor_id")
+  appointmentId String?  @map("appointment_id")
+  caseId        String?  @map("case_id")
+  // Structured consultation notes
+  chiefComplaint String? @map("chief_complaint")
+  historyPresentIllness String? @map("history_present_illness")
+  examination    String?
+  diagnosis      String?
+  differentialDiagnosis String? @map("differential_diagnosis")
+  treatmentPlan  String?  @map("treatment_plan")
+  followUpPlan   String?  @map("follow_up_plan")
+  notes          String?
+  // AI-assisted fields (doctor only)
+  aiDraft        String?  @map("ai_draft")
+  aiRiskFactors  Json?    @map("ai_risk_factors")
+  aiFollowUpQuestions Json? @map("ai_follow_up_questions")
+  aiUsed         Boolean  @default(false) @map("ai_used")
+  status         String   @default("draft") // draft, finalized, amended
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  patient        Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor         Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  appointment    PatientAppointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  diagnosticsCase DiagnosticsCase? @relation(fields: [caseId], references: [id], onDelete: SetNull)
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@map("consultations")
+}
+
+// ============ CASE FILE MODULE ============
+
+model CaseFile {
+  id            String   @id @default(cuid())
+  patientId     String   @map("patient_id")
+  caseNumber    String   @unique @map("case_number")
+  status        String   @default("open") // open, closed
+  openedAt      DateTime @default(now()) @map("opened_at")
+  closedAt      DateTime? @map("closed_at")
+  summary       String?
+  // References to related records
+  consultationIds String[] @default([]) @map("consultation_ids")
+  labResultIds    String[] @default([]) @map("lab_result_ids")
+  imagingIds      String[] @default([]) @map("imaging_ids")
+  prescriptionIds String[] @default([]) @map("prescription_ids")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  patient        Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  openedBy       User?    @relation(fields: [openedById], references: [id], onDelete: SetNull)
+  openedById     String?  @map("opened_by_id")
+
+  @@index([patientId])
+  @@map("case_files")
+}
+
+// ============ AUDIT LOG MODULE ============
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  userId        String?  @map("user_id")
+  action        String   // CREATE, READ, UPDATE, DELETE, LOGIN, LOGOUT
+  resourceType  String   @map("resource_type")
+  resourceId    String?  @map("resource_id")
+  details       Json     @default("{}")
+  ipAddress     String?  @map("ip_address")
+  userAgent     String?  @map("user_agent")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
