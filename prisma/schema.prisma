@@ -1,0 +1,374 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ DOCTOR MODULE ============
+
+model Doctor {
+  id            String   @id @default(cuid())
+  firstName     String
+  lastName      String
+  middleName    String?
+  photoUrl      String?
+  specialty     String
+  subSpecialty  String?
+  experienceYears Int
+  rating        Float    @default(0.0)
+  reviewCount   Int      @default(0)
+  licenseNumber String?
+  education     String?
+  certifications Json?
+  bio           String?
+  languages     String[]
+  consultationFee Float?
+  location      String?
+  available     Boolean  @default(true)
+  email         String?
+  phone         String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  schedule       DoctorSchedule[]
+  reviews        DoctorReview[]
+  specialties    DoctorSpecialty[]
+  appointments   PatientAppointment[]
+  diagnosticsCases DiagnosticsCase[]
+  labOrders      LabOrder[]
+
+  @@map("doctors")
+}
+
+model DoctorSpecialty {
+  id       String @id @default(cuid())
+  doctorId String
+  name     String
+  icon     String?
+
+  doctor   Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("doctor_specialties")
+}
+
+model DoctorSchedule {
+  id        String   @id @default(cuid())
+  doctorId  String
+  dayOfWeek Int      // 0=Sunday ... 6=Saturday
+  startTime String   // "09:00"
+  endTime   String   // "17:00"
+  isAvailable Boolean @default(true)
+
+  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("doctor_schedule")
+}
+
+model DoctorReview {
+  id        String   @id @default(cuid())
+  doctorId  String
+  patientName String
+  rating    Float    // 1.0 - 5.0
+  comment   String?
+  date      DateTime @default(now())
+
+  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("doctor_reviews")
+}
+
+// ============ PATIENT MODULE ============
+
+model Patient {
+  id              String   @id @default(cuid())
+  caseNumber      String   @unique
+  firstName       String
+  lastName        String
+  middleName      String?
+  dateOfBirth     DateTime?
+  gender          String?  // male, female, other
+  address         String?
+  phone           String?
+  email           String?
+  heightCm        Float?
+  weightKg        Float?
+  bmi             Float?
+  occupation      String?
+  bloodType       String?
+  emergencyContactName String?
+  emergencyContactPhone String?
+  emergencyContactRelation String?
+  insuranceNumber String?
+  photoUrl        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  history         PatientHistory[]
+  appointments    PatientAppointment[]
+  labTests        PatientLabTest[]
+  diagnosticsCases DiagnosticsCase[]
+
+  @@map("patients")
+}
+
+model PatientHistory {
+  id            String   @id @default(cuid())
+  patientId     String
+  entryType     String   // consultation, lab_test, imaging, prescription, procedure, note
+  date          DateTime @default(now())
+  doctorId      String?
+  doctorName    String?
+  title         String
+  summary       String?
+  details       Json?    // structured data for the entry
+  attachments   Json?    // array of file URLs
+  aiSummary     String?  // AI-generated summary
+
+  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@map("patient_history")
+}
+
+model PatientAppointment {
+  id            String   @id @default(cuid())
+  patientId     String
+  doctorId      String
+  date          DateTime
+  duration      Int      // minutes
+  status        String   @default("scheduled") // scheduled, completed, cancelled, no-show
+  reason        String?
+  notes         String?
+  type          String   @default("in-person") // in-person, telemedicine
+  createdAt     DateTime @default(now())
+
+  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor        Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("patient_appointments")
+}
+
+model PatientLabTest {
+  id            String   @id @default(cuid())
+  patientId     String
+  orderId       String?
+  testId        String?
+  testName      String
+  status        String   @default("ordered") // ordered, in_progress, completed, cancelled
+  orderDate     DateTime @default(now())
+  resultDate    DateTime?
+  labName       String?
+  doctorId      String?
+  resultValues  Json?    // array of {name, value, unit, refRange, status}
+  aiInterpretation String?
+  attachments   Json?    // file URLs
+  notes         String?
+
+  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@map("patient_lab_tests")
+}
+
+// ============ LAB TEST MODULE ============
+
+model LabTest {
+  id            String   @id @default(cuid())
+  name          String
+  category      String   // blood, urine, stool, swab, imaging
+  description   String?
+  preparation   String?  // preparation instructions
+  duration      String?  // e.g. "24 hours"
+  price         Float?
+  icon          String?
+  isActive      Boolean  @default(true)
+  referenceValues Json?  // array of {name, unit, minNormal, maxNormal}
+  createdAt     DateTime @default(now())
+
+  orders        LabOrder[]
+
+  @@map("lab_tests")
+}
+
+model LabOrder {
+  id            String   @id @default(cuid())
+  testId        String
+  patientId     String
+  doctorId      String?
+  labName       String?
+  preferredDate DateTime?
+  status        String   @default("pending") // pending, confirmed, in_progress, completed, cancelled
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  test          LabTest  @relation(fields: [testId], references: [id], onDelete: Cascade)
+  doctor        Doctor?  @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+
+  @@map("lab_orders")
+}
+
+model LabResult {
+  id            String   @id @default(cuid())
+  orderId       String?
+  patientId     String
+  testName      String
+  labName       String?
+  resultDate    DateTime @default(now())
+  status        String   @default("pending") // pending, ready, reviewed
+  values        Json?    // array of {name, value, unit, refRange, status}
+  aiInterpretation String?
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  resultValues  LabResultValue[]
+  resultFiles   LabResultFile[]
+
+  @@map("lab_results")
+}
+
+model LabResultValue {
+  id            String   @id @default(cuid())
+  resultId      String
+  testName      String
+  value         Float
+  unit          String
+  refRange      String?
+  refMin        Float?
+  refMax        Float?
+  status        String   @default("normal") // normal, high, low, critical
+
+  result        LabResult @relation(fields: [resultId], references: [id], onDelete: Cascade)
+
+  @@map("lab_result_values")
+}
+
+model LabResultFile {
+  id            String   @id @default(cuid())
+  resultId      String
+  fileName      String
+  fileUrl       String
+  fileType      String?  // pdf, image, etc.
+  uploadedAt    DateTime @default(now())
+
+  result        LabResult @relation(fields: [resultId], references: [id], onDelete: Cascade)
+
+  @@map("lab_result_files")
+}
+
+// ============ DIAGNOSTICS MODULE ============
+
+model DiagnosticsCase {
+  id            String   @id @default(cuid())
+  patientId     String
+  doctorId      String?
+  caseNumber    String   @unique
+  status        String   @default("open") // open, in_review, closed
+  priority      String   @default("normal") // low, normal, high, urgent
+  title         String
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  closedAt      DateTime?
+
+  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor        Doctor?  @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+
+  clinicalNotes ClinicalNote[]
+  imagingResults ImagingResult[]
+  labResultLinks String[] // lab_result IDs
+  aiSummary     String?
+
+  @@map("diagnostics_cases")
+}
+
+model ClinicalNote {
+  id            String   @id @default(cuid())
+  caseId        String
+  authorId      String?
+  authorName    String
+  noteType      String   @default("progress") // progress, assessment, plan, observation
+  content       String
+  createdAt     DateTime @default(now())
+
+  case          DiagnosticsCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@map("clinical_notes")
+}
+
+model ImagingResult {
+  id            String   @id @default(cuid())
+  caseId        String
+  modality      String   // x-ray, ct, mri, ultrasound
+  bodyPart      String
+  studyDate     DateTime @default(now())
+  report        String?
+  findings      String?
+  imageUrl      String?
+  status        String   @default("pending") // pending, reported, reviewed
+  createdAt     DateTime @default(now())
+
+  case          DiagnosticsCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@map("imaging_results")
+}
+
+// ============ MEDICAL HISTORY (structured form) ============
+
+model MedicalHistoryForm {
+  id            String   @id @default(cuid())
+  patientId     String
+  
+  // Complaint & Symptoms
+  complaint      String?
+  symptomOnset   String?
+  symptomWorseningTime String?
+  symptomReliefTime String?
+  symptomCharacter String?
+  
+  // Medication
+  currentMedications String?
+  
+  // Wound/Injury
+  woundInjury    String?
+  
+  // Medical History
+  historyOfDiabetes  Boolean @default(false)
+  historyOfStroke    Boolean @default(false)
+  historyOfHeartAttack Boolean @default(false)
+  familyHistory      String?
+  pastHistory        String?
+  
+  // Allergies
+  allergies          String?
+  
+  // Lifestyle
+  smokingStatus      String?  // never, former, current
+  alcoholUse         String?  // never, occasional, regular, heavy
+  activityLevel      String?  // sedentary, light, moderate, active, very_active
+  
+  // Mental Health
+  mentalHealthNotes  String?
+  
+  // Immunization
+  immunizationRecords String?
+  
+  // Travel & Occupational
+  travelHistory     String?
+  occupationalExposure String?
+  
+  // Pain & Sleep
+  painScale         Int?  // 0-10
+  sleepPatterns     String?
+  
+  // AI-generated
+  aiClinicianSummary String?
+  aiPatientRecap     String?
+  aiFollowUpQuestions String?
+  
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("medical_history_forms")
+}
