@@ -13,8 +13,9 @@ datasource db {
 // ── Users ──────────────────────────────────────────────
 model User {
   id            String   @id @default(uuid()) @db.Uuid
+  clerkId       String?  @unique @map("clerk_id")
   email         String   @unique
-  password      String
+  password      String?
   role          Role     @default(PATIENT)
   name          String
   phone         String?
@@ -25,6 +26,7 @@ model User {
   medications   Json     @default("[]")
   insuranceInfo Json?    @map("insurance_info")
   kycVerified   Boolean  @default(false) @map("kyc_verified")
+  onboardingComplete Boolean @default(false) @map("onboarding_complete")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -42,6 +44,10 @@ model User {
   chatMessages       ChatMessage[]
   doctorRatingsGiven DoctorRating[]  @relation("DoctorRatingPatient")
   doctorRatingsReceived DoctorRating[] @relation("DoctorRatingDoctor")
+  doctorProfile        DoctorProfile?
+  labStaffProfile      LabStaffProfile?
+  consultationsPatient Consultation[] @relation("ConsultationPatient")
+  consultationsDoctor  Consultation[] @relation("ConsultationDoctor")
 
   @@map("users")
 }
@@ -72,6 +78,7 @@ model Appointment {
   doctor         User    @relation("AppointmentDoctor", fields: [doctorId], references: [id])
   prescriptions  Prescription[]
   chatMessages   ChatMessage[]
+  consultations  Consultation[]
 
   @@map("appointments")
 }
@@ -351,4 +358,68 @@ model MedicalKnowledge {
 
   @@index([category])
   @@map("medical_knowledge")
+}
+
+// ── Doctor Profiles ───────────────────────────────────
+model DoctorProfile {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @map("user_id") @db.Uuid
+  gender            String?
+  licenseNumber     String?  @map("license_number")
+  yearsOfExperience Int?     @map("years_of_experience")
+  specialty         String?
+  affiliation       String?
+  biography         String?
+  areasOfExpertise  Json     @default("[]") @map("areas_of_expertise")
+  aiToolsEnabled    Boolean  @default(false) @map("ai_tools_enabled")
+  verified          Boolean  @default(false)
+  documentUrls      Json     @default("[]") @map("document_urls")
+  consultationSchedule Json  @default("{}") @map("consultation_schedule")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user              User     @relation(fields: [userId], references: [id])
+
+  @@map("doctor_profiles")
+}
+
+// ── Lab Staff Profiles ────────────────────────────────
+model LabStaffProfile {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @map("user_id") @db.Uuid
+  laboratoryName    String?  @map("laboratory_name")
+  position          String?  // technician, scientist, supervisor
+  licenseIdNumber   String?  @map("license_id_number")
+  documentUrls      Json     @default("[]") @map("document_urls")
+  departments       Json     @default("[]") // hematology, microbiology, etc.
+  verified          Boolean  @default(false)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user              User     @relation(fields: [userId], references: [id])
+
+  @@map("lab_staff_profiles")
+}
+
+// ── Consultations ────────────────────────────────────
+model Consultation {
+  id            String   @id @default(uuid()) @db.Uuid
+  patientId     String   @map("patient_id") @db.Uuid
+  doctorId      String   @map("doctor_id") @db.Uuid
+  appointmentId String?  @map("appointment_id") @db.Uuid
+  notes         String?
+  diagnosis     String?
+  treatmentPlan String?  @map("treatment_plan")
+  aiSummary     String?  @map("ai_summary")
+  status        String   @default("draft") // draft, complete
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  patient     User         @relation("ConsultationPatient", fields: [patientId], references: [id])
+  doctor      User         @relation("ConsultationDoctor", fields: [doctorId], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@map("consultations")
 }

@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -48,76 +47,81 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* iMedics Theme — Light Mode (clinical, clean, professional) */
-/* Primary #6C5CE7 (purple), accentBlue #0984E3, accentTeal #00B894, accentRed #E74C3C */
+/* ═══════════════════════════════════════════════════════
+   Medic1905 — Beeline-Style Theme
+   Neon yellow (#FFCB00) + Teal (#00B956) accents
+   Bold rounded cards, soft shadows, mobile-first
+   ═══════════════════════════════════════════════════════ */
+
 :root {
-  --background: #f8f9fb;
-  --foreground: #1a1b2e;
-  --card: #ffffff;
-  --card-foreground: #1a1b2e;
-  --popover: #ffffff;
-  --popover-foreground: #1a1b2e;
-  --primary: #6c5ce7;
-  --primary-foreground: #ffffff;
-  --secondary: #eef0f6;
-  --secondary-foreground: #1a1b2e;
-  --muted: #f1f2f7;
-  --muted-foreground: #6b7280;
-  --accent: #6c5ce7;
-  --accent-foreground: #ffffff;
-  --destructive: #e74c3c;
-  --border: #e2e4ea;
-  --input: #e2e4ea;
-  --ring: #6c5ce7;
-  --chart-1: #6c5ce7;
-  --chart-2: #0984e3;
-  --chart-3: #00b894;
-  --chart-4: #f39c12;
-  --chart-5: #e74c3c;
-  --radius: 0.625rem;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #1a1b2e;
-  --sidebar-primary: #6c5ce7;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f1f2f7;
-  --sidebar-accent-foreground: #1a1b2e;
-  --sidebar-border: #e2e4ea;
-  --sidebar-ring: #6c5ce7;
+  --background: #0F0F12;
+  --foreground: #FFFFFF;
+  --card: #1A1A1F;
+  --card-foreground: #FFFFFF;
+  --popover: #1A1A1F;
+  --popover-foreground: #FFFFFF;
+  --primary: #FFCB00;
+  --primary-foreground: #0F0F12;
+  --secondary: #252530;
+  --secondary-foreground: #FFFFFF;
+  --muted: #252530;
+  --muted-foreground: #8B8B96;
+  --accent: #00B956;
+  --accent-foreground: #FFFFFF;
+  --destructive: #FF3B30;
+  --border: #2A2A35;
+  --input: #2A2A35;
+  --ring: #FFCB00;
+  --chart-1: #FFCB00;
+  --chart-2: #00B956;
+  --chart-3: #0984E3;
+  --chart-4: #FF9500;
+  --chart-5: #FF3B30;
+  --radius: 1rem;
+  --sidebar: #151519;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #FFCB00;
+  --sidebar-primary-foreground: #0F0F12;
+  --sidebar-accent: #252530;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #2A2A35;
+  --sidebar-ring: #FFCB00;
 }
 
-/* iMedics Theme — Dark Mode */
-.dark {
-  --background: #0f1019;
-  --foreground: #e4e6f0;
-  --card: #1a1b2e;
-  --card-foreground: #e4e6f0;
-  --popover: #1a1b2e;
-  --popover-foreground: #e4e6f0;
-  --primary: #a29bfe;
-  --primary-foreground: #0f1019;
-  --secondary: #2d2e44;
-  --secondary-foreground: #e4e6f0;
-  --muted: #252640;
-  --muted-foreground: #9ca3af;
-  --accent: #a29bfe;
-  --accent-foreground: #0f1019;
-  --destructive: #ff6b6b;
-  --border: #2d2e44;
-  --input: #2d2e44;
-  --ring: #a29bfe;
-  --chart-1: #a29bfe;
-  --chart-2: #74b9ff;
-  --chart-3: #55efc4;
-  --chart-4: #ffeaa7;
-  --chart-5: #ff6b6b;
-  --sidebar: #13141f;
-  --sidebar-foreground: #e4e6f0;
-  --sidebar-primary: #a29bfe;
-  --sidebar-primary-foreground: #0f1019;
-  --sidebar-accent: #252640;
-  --sidebar-accent-foreground: #e4e6f0;
-  --sidebar-border: #2d2e44;
-  --sidebar-ring: #a29bfe;
+/* Light Mode */
+.light {
+  --background: #F5F5F7;
+  --foreground: #1A1A1F;
+  --card: #FFFFFF;
+  --card-foreground: #1A1A1F;
+  --popover: #FFFFFF;
+  --popover-foreground: #1A1A1F;
+  --primary: #FFCB00;
+  --primary-foreground: #0F0F12;
+  --secondary: #F0F0F3;
+  --secondary-foreground: #1A1A1F;
+  --muted: #F0F0F3;
+  --muted-foreground: #6B6B7B;
+  --accent: #00B956;
+  --accent-foreground: #FFFFFF;
+  --destructive: #FF3B30;
+  --border: #E0E0E5;
+  --input: #E0E0E5;
+  --ring: #FFCB00;
+  --chart-1: #FFCB00;
+  --chart-2: #00B956;
+  --chart-3: #0984E3;
+  --chart-4: #FF9500;
+  --chart-5: #FF3B30;
+  --radius: 1rem;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1A1A1F;
+  --sidebar-primary: #FFCB00;
+  --sidebar-primary-foreground: #0F0F12;
+  --sidebar-accent: #F0F0F3;
+  --sidebar-accent-foreground: #1A1A1F;
+  --sidebar-border: #E0E0E5;
+  --sidebar-ring: #FFCB00;
 }
 
 @layer base {
@@ -132,29 +136,72 @@
   }
 }
 
-/* Custom accent colors for iMedics */
-.accent-blue {
-  color: #0984e3;
-}
-.accent-teal {
-  color: #00b894;
-}
-.accent-red {
-  color: #e74c3c;
-}
-.bg-accent-blue {
-  background-color: #0984e3;
-}
-.bg-accent-teal {
-  background-color: #00b894;
-}
-.bg-accent-red {
-  background-color: #e74c3c;
+/* ═══════════════════════════════════════════════════════
+   Beeline UI Utilities
+   ═══════════════════════════════════════════════════════ */
+
+/* Neon glow for primary elements */
+.neon-glow {
+  box-shadow: 0 0 24px rgba(255, 203, 0, 0.15);
 }
 
-/* Subtle glow effect for primary elements */
-.glow-primary {
-  box-shadow: 0 0 20px rgba(108, 92, 231, 0.12);
+.neon-glow-teal {
+  box-shadow: 0 0 24px rgba(0, 185, 86, 0.15);
+}
+
+.neon-text {
+  text-shadow: 0 0 12px rgba(255, 203, 0, 0.3);
+}
+
+/* Beeline tile — large rounded action card */
+.beeline-tile {
+  border-radius: 1.5rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.beeline-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* Beeline card */
+.beeline-card {
+  border-radius: 1.25rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+/* Accent helpers */
+.accent-yellow { color: #FFCB00; }
+.accent-teal { color: #00B956; }
+.accent-blue { color: #0984E3; }
+.accent-red { color: #FF3B30; }
+.bg-accent-yellow { background-color: #FFCB00; }
+.bg-accent-teal { background-color: #00B956; }
+.bg-accent-blue { background-color: #0984E3; }
+.bg-accent-red { background-color: #FF3B30; }
+
+/* Gradient backgrounds */
+.bg-beeline-gradient {
+  background: linear-gradient(135deg, #FFCB00 0%, #00B956 100%);
+}
+.bg-beeline-dark {
+  background: linear-gradient(180deg, #0F0F12 0%, #1A1A1F 100%);
+}
+
+/* Bottom nav for mobile */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: 64px;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  backdrop-filter: blur(12px);
 }
 
 /* Scrollbar styling */
@@ -171,4 +218,37 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--muted-foreground);
+}
+
+/* Clerk component overrides for Beeline style */
+.cl-card {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 1.25rem !important;
+  box-shadow: 0 0 24px rgba(255, 203, 0, 0.08) !important;
+}
+
+.cl-formButtonPrimary {
+  background: #FFCB00 !important;
+  color: #0F0F12 !important;
+  border-radius: 0.75rem !important;
+  font-weight: 700 !important;
+}
+
+.cl-formButtonPrimary:hover {
+  background: #FFD633 !important;
+}
+
+.cl-socialButtonsBlockButton,
+.cl-socialButtonsBlockButton:hover {
+  border-radius: 0.75rem !important;
+}
+
+.cl-input {
+  border-radius: 0.75rem !important;
+}
+
+.cl-headerTitle,
+.cl-headerSubtitle {
+  color: var(--foreground) !important;
 }
