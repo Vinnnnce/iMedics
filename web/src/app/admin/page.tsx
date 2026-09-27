@@ -50,10 +50,10 @@ export default function AdminPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F5F5F5] p-4">
       <div className="w-full max-w-md">
-        <div className="rounded-2xl border border-[#D0D0D0] bg-white p-8 shadow-sm">
+        <div className="rounded-lg border border-[#D0D0D0] bg-white p-8 shadow-sm">
           {/* Logo */}
           <div className="mb-6 text-center">
-            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#111111]">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-lg bg-[#111111]">
               <svg viewBox="0 0 32 32" className="h-8 w-8 text-white" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M16 2L4 8v8c0 6 4.5 11 12 14 7.5-3 12-8 12-14V8L16 2z" />
                 <path d="M16 8v8M12 12h8" strokeLinecap="round" />

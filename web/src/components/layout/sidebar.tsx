@@ -76,12 +76,12 @@ export function Sidebar() {
   return (
     <aside className="hidden w-64 shrink-0 border-r border-border bg-sidebar md:flex md:flex-col">
       <div className="flex h-16 items-center gap-2 border-b border-border px-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary neon-glow">
-          <svg viewBox="0 0 24 24" className="h-5 w-5 text-primary-foreground" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-foreground">
+          <svg viewBox="0 0 24 24" className="h-5 w-5 text-background" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M12 2v20M2 12h20" strokeLinecap="round" />
           </svg>
         </div>
-        <span className="text-base font-bold text-primary neon-text">Medic1905</span>
+        <span className="text-base font-bold text-foreground">Medic1905</span>
       </div>
 
       <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
@@ -92,9 +92,9 @@ export function Sidebar() {
             <Link
               key={item.label}
               href={item.href}
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 isActive
-                  ? "bg-primary/10 text-primary neon-glow"
+                  ? "bg-foreground/10 text-foreground"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >

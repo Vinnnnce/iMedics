@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 export default function CookiesPage() {
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold tracking-tight text-primary neon-text mb-2">Cookies Policy</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-foreground mb-2">Cookies Policy</h1>
       <p className="text-xs text-muted-foreground mb-6">Last updated: September 16, 2026</p>
       <Card className="bg-card border-border">
         <CardContent className="space-y-6 p-6 text-sm text-muted-foreground leading-relaxed">
@@ -103,7 +103,7 @@ export default function CookiesPage() {
 
           <section className="space-y-2">
             <h2 className="text-base font-semibold text-foreground">7. Contact Us</h2>
-            <p>If you have questions about our use of cookies, please contact us at <a href="mailto:privacy@medic1905.com" className="text-primary hover:underline">privacy@medic1905.com</a>.</p>
+            <p>If you have questions about our use of cookies, please contact us at <a href="mailto:privacy@medic1905.com" className="text-foreground hover:underline">privacy@medic1905.com</a>.</p>
           </section>
 
           <div className="rounded-lg border border-border p-4 bg-muted/20">

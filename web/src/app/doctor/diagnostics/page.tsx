@@ -18,7 +18,7 @@ export default function DoctorDiagnosticsPage() {
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Scan className="h-5 w-5 text-primary" />
+            <Scan className="h-5 w-5 text-foreground" />
             Request Diagnostic
           </CardTitle>
         </CardHeader>
@@ -27,7 +27,7 @@ export default function DoctorDiagnosticsPage() {
             <div className="space-y-2">
               <Label>Patient</Label>
               <Select>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select patient" /></SelectTrigger>
+                <SelectTrigger className="rounded-lg"><SelectValue placeholder="Select patient" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">John Doe</SelectItem>
                   <SelectItem value="2">Jane Smith</SelectItem>
@@ -38,7 +38,7 @@ export default function DoctorDiagnosticsPage() {
             <div className="space-y-2">
               <Label>Diagnostic Type</Label>
               <Select>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select type" /></SelectTrigger>
+                <SelectTrigger className="rounded-lg"><SelectValue placeholder="Select type" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ecg">ECG (Electrocardiogram)</SelectItem>
                   <SelectItem value="xray">X-Ray</SelectItem>
@@ -51,12 +51,12 @@ export default function DoctorDiagnosticsPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="region">Body Region</Label>
-              <Input id="region" placeholder="e.g., Chest, Head, Abdomen" className="rounded-xl" />
+              <Input id="region" placeholder="e.g., Chest, Head, Abdomen" className="rounded-lg" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="priority">Priority</Label>
               <Select>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select priority" /></SelectTrigger>
+                <SelectTrigger className="rounded-lg"><SelectValue placeholder="Select priority" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="routine">Routine</SelectItem>
                   <SelectItem value="urgent">Urgent</SelectItem>
@@ -65,7 +65,7 @@ export default function DoctorDiagnosticsPage() {
               </Select>
             </div>
           </div>
-          <Button className="bg-primary text-primary-foreground rounded-xl">Submit Request</Button>
+          <Button className="bg-foreground text-background rounded-lg">Submit Request</Button>
         </CardContent>
       </Card>
 
@@ -79,16 +79,16 @@ export default function DoctorDiagnosticsPage() {
             { patient: "Jane Smith", type: "Chest X-Ray", date: "Sep 8", status: "Completed" },
             { patient: "Emily Davis", type: "Ultrasound — Abdomen", date: "Sep 5", status: "Pending" },
           ].map((req, i) => (
-            <div key={i} className="flex items-center justify-between rounded-xl border border-border p-3">
+            <div key={i} className="flex items-center justify-between rounded-lg border border-border p-3">
               <div className="flex items-center gap-3">
-                <Heart className="h-4 w-4 text-accent-red" />
+                <Heart className="h-4 w-4 text-destructive" />
                 <div>
                   <p className="text-sm font-medium">{req.patient} — {req.type}</p>
                   <p className="text-xs text-muted-foreground">{req.date}</p>
                 </div>
               </div>
               <span className={`text-xs font-medium rounded-lg px-2 py-1 ${
-                req.status === "Completed" ? "bg-accent-teal/10 text-accent-teal" : "bg-primary/10 text-primary"
+                req.status === "Completed" ? "bg-muted text-muted-foreground" : "bg-foreground/10 text-foreground"
               }`}>{req.status}</span>
             </div>
           ))}

@@ -135,7 +135,7 @@ export default function NewPatientPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <UserPlus className="h-4 w-4 text-primary" />
+                <UserPlus className="h-4 w-4 text-foreground" />
                 Patient Identification
               </CardTitle>
               <CardDescription>

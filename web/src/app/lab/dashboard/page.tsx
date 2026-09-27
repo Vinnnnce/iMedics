@@ -5,16 +5,16 @@ import { Users, ClipboardList, Upload, FlaskConical } from "lucide-react";
 
 export default function LabDashboardPage() {
   const stats = [
-    { label: "Total Users", value: 142, icon: Users, color: "text-primary", bg: "bg-primary/10" },
-    { label: "Pending Orders", value: 8, icon: ClipboardList, color: "text-accent-teal", bg: "bg-accent-teal/10" },
-    { label: "Results to Upload", value: 5, icon: Upload, color: "text-accent-blue", bg: "bg-accent-blue/10" },
-    { label: "Completed Today", value: 12, icon: FlaskConical, color: "text-accent-red", bg: "bg-accent-red/10" },
+    { label: "Total Users", value: 142, icon: Users, color: "text-foreground", bg: "bg-foreground/10" },
+    { label: "Pending Orders", value: 8, icon: ClipboardList, color: "text-muted-foreground", bg: "bg-muted" },
+    { label: "Results to Upload", value: 5, icon: Upload, color: "text-muted-foreground", bg: "bg-muted" },
+    { label: "Completed Today", value: 12, icon: FlaskConical, color: "text-destructive", bg: "bg-muted" },
   ];
 
   const quickActions = [
-    { href: "/lab/orders", label: "Lab Orders", icon: ClipboardList, color: "text-primary", bg: "bg-primary/10" },
-    { href: "/lab/users", label: "User Directory", icon: Users, color: "text-accent-teal", bg: "bg-accent-teal/10" },
-    { href: "/lab/upload", label: "Upload Results", icon: Upload, color: "text-accent-blue", bg: "bg-accent-blue/10" },
+    { href: "/lab/orders", label: "Lab Orders", icon: ClipboardList, color: "text-foreground", bg: "bg-foreground/10" },
+    { href: "/lab/users", label: "User Directory", icon: Users, color: "text-muted-foreground", bg: "bg-muted" },
+    { href: "/lab/upload", label: "Upload Results", icon: Upload, color: "text-muted-foreground", bg: "bg-muted" },
   ];
 
   return (
@@ -31,7 +31,7 @@ export default function LabDashboardPage() {
           return (
             <Card key={stat.label} className="beeline-card">
               <CardContent className="p-4">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${stat.bg} mb-2`}>
+                <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${stat.bg} mb-2`}>
                   <Icon className={`h-5 w-5 ${stat.color}`} />
                 </div>
                 <p className="text-2xl font-bold">{stat.value}</p>
@@ -50,7 +50,7 @@ export default function LabDashboardPage() {
             <a key={action.href} href={action.href}>
               <Card className="beeline-tile beeline-card cursor-pointer h-full">
                 <CardContent className="flex items-center gap-3 p-4">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${action.bg}`}>
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${action.bg}`}>
                     <Icon className={`h-6 w-6 ${action.color}`} />
                   </div>
                   <p className="text-sm font-medium">{action.label}</p>
@@ -65,7 +65,7 @@ export default function LabDashboardPage() {
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <ClipboardList className="h-5 w-5 text-primary" />
+            <ClipboardList className="h-5 w-5 text-foreground" />
             Pending Lab Orders
           </CardTitle>
         </CardHeader>
@@ -75,7 +75,7 @@ export default function LabDashboardPage() {
             { patient: "Jane Smith", doctor: "Dr. Johnson", test: "Lipid Panel", date: "Sep 14", status: "In Progress" },
             { patient: "Emily Davis", doctor: "Dr. Lee", test: "Liver Function", date: "Sep 13", status: "Ordered" },
           ].map((order, i) => (
-            <div key={i} className="flex items-center justify-between rounded-xl border border-border p-3">
+            <div key={i} className="flex items-center justify-between rounded-lg border border-border p-3">
               <div>
                 <p className="text-sm font-medium">{order.patient} — {order.test}</p>
                 <p className="text-xs text-muted-foreground">Ordered by {order.doctor} — {order.date}</p>

@@ -15,14 +15,14 @@ export default async function DashboardPage() {
   if (role === "LAB_SCIENTIST") redirect("/lab/dashboard");
 
   const quickActions = [
-    { href: "/patient/results", label: "Analysis Results", icon: FlaskConical, color: "text-accent-teal", bg: "bg-accent-teal/10" },
-    { href: "/patient/diagnostics", label: "Diagnostics", icon: Heart, color: "text-accent-red", bg: "bg-accent-red/10" },
-    { href: "/patient/case-file", label: "Case File", icon: FileText, color: "text-primary", bg: "bg-primary/10" },
-    { href: "/patient/history", label: "Case History", icon: ClipboardList, color: "text-accent-blue", bg: "bg-accent-blue/10" },
-    { href: "/patient/prescriptions", label: "Prescriptions", icon: Pill, color: "text-accent-teal", bg: "bg-accent-teal/10" },
-    { href: "/doctors", label: "Find Doctors", icon: Star, color: "text-primary", bg: "bg-primary/10" },
-    { href: "/patient/appointments", label: "Book Appointment", icon: Calendar, color: "text-accent-blue", bg: "bg-accent-blue/10" },
-    { href: "/patient/consult", label: "Consultation", icon: Video, color: "text-accent-teal", bg: "bg-accent-teal/10" },
+    { href: "/patient/results", label: "Analysis Results", icon: FlaskConical, color: "text-muted-foreground", bg: "bg-muted" },
+    { href: "/patient/diagnostics", label: "Diagnostics", icon: Heart, color: "text-destructive", bg: "bg-muted" },
+    { href: "/patient/case-file", label: "Case File", icon: FileText, color: "text-foreground", bg: "bg-foreground/10" },
+    { href: "/patient/history", label: "Case History", icon: ClipboardList, color: "text-muted-foreground", bg: "bg-muted" },
+    { href: "/patient/prescriptions", label: "Prescriptions", icon: Pill, color: "text-muted-foreground", bg: "bg-muted" },
+    { href: "/doctors", label: "Find Doctors", icon: Star, color: "text-foreground", bg: "bg-foreground/10" },
+    { href: "/patient/appointments", label: "Book Appointment", icon: Calendar, color: "text-muted-foreground", bg: "bg-muted" },
+    { href: "/patient/consult", label: "Consultation", icon: Video, color: "text-muted-foreground", bg: "bg-muted" },
   ];
 
   return (
@@ -39,7 +39,7 @@ export default async function DashboardPage() {
             <Link key={action.href} href={action.href}>
               <Card className="beeline-tile beeline-card cursor-pointer h-full">
                 <CardContent className="flex flex-col items-center justify-center p-4 text-center">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${action.bg} mb-2`}>
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${action.bg} mb-2`}>
                     <Icon className={`h-6 w-6 ${action.color}`} />
                   </div>
                   <p className="text-xs md:text-sm font-medium">{action.label}</p>
@@ -53,24 +53,24 @@ export default async function DashboardPage() {
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <FlaskConical className="h-5 w-5 text-primary" />
+            <FlaskConical className="h-5 w-5 text-foreground" />
             Recent Lab Results
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <div className="flex items-center justify-between rounded-xl border border-border p-3">
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
             <div>
               <p className="text-sm font-medium">Complete Blood Count (CBC)</p>
               <p className="text-xs text-muted-foreground">Sep 14, 2026 — Verified</p>
             </div>
-            <Button size="sm" variant="outline" className="rounded-xl">View</Button>
+            <Button size="sm" variant="outline" className="rounded-lg">View</Button>
           </div>
-          <div className="flex items-center justify-between rounded-xl border border-border p-3">
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
             <div>
               <p className="text-sm font-medium">Lipid Panel</p>
               <p className="text-xs text-muted-foreground">Sep 10, 2026 — Verified</p>
             </div>
-            <Button size="sm" variant="outline" className="rounded-xl">View</Button>
+            <Button size="sm" variant="outline" className="rounded-lg">View</Button>
           </div>
         </CardContent>
       </Card>

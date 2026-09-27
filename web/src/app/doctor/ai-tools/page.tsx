@@ -18,8 +18,8 @@ export default function DoctorAiToolsPage() {
         <p className="text-sm text-muted-foreground mt-1">AI-powered tools for clinical decision support</p>
       </div>
 
-      <div className="flex items-center gap-3 rounded-xl border border-accent-teal/30 bg-accent-teal/5 p-4">
-        <Sparkles className="h-5 w-5 text-accent-teal shrink-0" />
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-muted p-4">
+        <Sparkles className="h-5 w-5 text-muted-foreground shrink-0" />
         <p className="text-xs text-muted-foreground">
           AI tools are for informational purposes only. Doctors remain responsible for all clinical decisions.
         </p>
@@ -32,18 +32,18 @@ export default function DoctorAiToolsPage() {
             <Card key={tool.title} className="beeline-card">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${tool.enabled ? "bg-accent-teal/10" : "bg-muted"}`}>
-                    <Icon className={`h-6 w-6 ${tool.enabled ? "text-accent-teal" : "text-muted-foreground"}`} />
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${tool.enabled ? "bg-muted" : "bg-muted"}`}>
+                    <Icon className={`h-6 w-6 ${tool.enabled ? "text-muted-foreground" : "text-muted-foreground"}`} />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold">{tool.title}</p>
-                      <Badge variant={tool.enabled ? "secondary" : "outline"} className={tool.enabled ? "bg-accent-teal/10 text-accent-teal rounded-lg" : "rounded-lg"}>
+                      <Badge variant={tool.enabled ? "secondary" : "outline"} className={tool.enabled ? "bg-muted text-muted-foreground rounded-lg" : "rounded-lg"}>
                         {tool.enabled ? "Enabled" : "Disabled"}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">{tool.desc}</p>
-                    <Button size="sm" variant="outline" className="mt-2 rounded-xl">
+                    <Button size="sm" variant="outline" className="mt-2 rounded-lg">
                       {tool.enabled ? "Open" : "Enable"}
                     </Button>
                   </div>

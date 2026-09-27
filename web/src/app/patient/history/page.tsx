@@ -23,7 +23,7 @@ export default function PatientHistoryPage() {
         {timeline.map((event, i) => (
           <div key={i} className="relative flex gap-4 pl-12">
             <div className={`absolute left-2.5 top-3 h-3 w-3 rounded-full ${
-              event.status === "completed" ? "bg-accent-teal" : "bg-primary"
+              event.status === "completed" ? "bg-foreground" : "bg-foreground"
             }`} />
             <Card className="beeline-card flex-1">
               <CardContent className="p-4">

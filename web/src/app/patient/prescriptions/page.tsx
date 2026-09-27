@@ -22,8 +22,8 @@ export default function PatientPrescriptionsPage() {
           <Card key={rx.id} className="beeline-card">
             <CardContent className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                  <Pill className="h-5 w-5 text-primary" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-foreground/10">
+                  <Pill className="h-5 w-5 text-foreground" />
                 </div>
                 <div>
                   <p className="text-sm font-medium">{rx.meds}</p>
@@ -31,10 +31,10 @@ export default function PatientPrescriptionsPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant={rx.status === "Active" ? "secondary" : "outline"} className={rx.status === "Active" ? "bg-accent-teal/10 text-accent-teal rounded-lg" : "rounded-lg"}>
+                <Badge variant={rx.status === "Active" ? "secondary" : "outline"} className={rx.status === "Active" ? "bg-muted text-muted-foreground rounded-lg" : "rounded-lg"}>
                   {rx.status}
                 </Badge>
-                <Button size="sm" variant="outline" className="rounded-xl">
+                <Button size="sm" variant="outline" className="rounded-lg">
                   <Download className="h-4 w-4" />
                 </Button>
               </div>

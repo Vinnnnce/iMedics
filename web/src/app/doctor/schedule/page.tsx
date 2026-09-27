@@ -24,7 +24,7 @@ export default function DoctorSchedulePage() {
           <h1 className="text-2xl font-bold">Schedule Management</h1>
           <p className="text-sm text-muted-foreground mt-1">Publish your consultation availability</p>
         </div>
-        <Button className="bg-primary text-primary-foreground rounded-xl">
+        <Button className="bg-foreground text-background rounded-lg">
           <Plus className="h-4 w-4 mr-1" /> Add Slot
         </Button>
       </div>
@@ -35,8 +35,8 @@ export default function DoctorSchedulePage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                    <Calendar className="h-5 w-5 text-primary" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-foreground/10">
+                    <Calendar className="h-5 w-5 text-foreground" />
                   </div>
                   <div>
                     <p className="text-sm font-semibold">{slot.day}</p>
@@ -47,7 +47,7 @@ export default function DoctorSchedulePage() {
                   {slot.booked} booked
                 </Badge>
               </div>
-              <Button size="sm" variant="outline" className="w-full rounded-xl">Edit</Button>
+              <Button size="sm" variant="outline" className="w-full rounded-lg">Edit</Button>
             </CardContent>
           </Card>
         ))}

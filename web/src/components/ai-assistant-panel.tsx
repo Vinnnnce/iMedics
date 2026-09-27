@@ -82,7 +82,7 @@ export function AIAssistantPanel({
         data-testid="button-ai-toggle"
       >
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
+          <Sparkles className="h-4 w-4 text-foreground" />
           <span className="text-sm font-semibold">AI Assistant</span>
         </div>
         <ChevronRight
@@ -142,7 +142,7 @@ export function AIAssistantPanel({
 
           {loading && (
             <div className="flex items-center justify-center py-6">
-              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <Loader2 className="h-5 w-5 animate-spin text-foreground" />
               <span className="ml-2 text-sm text-muted-foreground">
                 Generating...
               </span>
@@ -165,7 +165,7 @@ export function AIAssistantPanel({
                 analysis.suggestedQuestions.length > 0 && (
                   <div className="space-y-2">
                     <div className="flex items-center gap-1.5">
-                      <Sparkles className="h-3.5 w-3.5 text-primary" />
+                      <Sparkles className="h-3.5 w-3.5 text-foreground" />
                       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Suggested Questions
                       </h3>
@@ -213,7 +213,7 @@ export function AIAssistantPanel({
                 Object.keys(analysis.symptomClusters).length > 0 && (
                   <div className="space-y-2">
                     <div className="flex items-center gap-1.5">
-                      <Activity className="h-3.5 w-3.5 text-primary" />
+                      <Activity className="h-3.5 w-3.5 text-foreground" />
                       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Symptom Clusters
                       </h3>
@@ -249,7 +249,7 @@ export function AIAssistantPanel({
               {analysis.hpi && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5">
-                    <FileText className="h-3.5 w-3.5 text-primary" />
+                    <FileText className="h-3.5 w-3.5 text-foreground" />
                     <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Structured HPI
                     </h3>
@@ -266,7 +266,7 @@ export function AIAssistantPanel({
               {analysis.recap && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5">
-                    <MessageSquare className="h-3.5 w-3.5 text-primary" />
+                    <MessageSquare className="h-3.5 w-3.5 text-foreground" />
                     <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Patient Recap
                     </h3>

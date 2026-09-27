@@ -23,7 +23,7 @@ export default function DoctorAdmitPage() {
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <UserPlus className="h-5 w-5 text-accent-teal" />
+            <UserPlus className="h-5 w-5 text-muted-foreground" />
             Admit New Patient
           </CardTitle>
         </CardHeader>
@@ -42,7 +42,7 @@ export default function DoctorAdmitPage() {
               <p className="text-sm font-medium">Today</p>
             </div>
           </div>
-          <Button className="mt-4 bg-accent-teal text-white rounded-xl">
+          <Button className="mt-4 bg-foreground text-background rounded-lg">
             <UserPlus className="h-4 w-4 mr-1" /> Admit Patient
           </Button>
         </CardContent>
@@ -52,15 +52,15 @@ export default function DoctorAdmitPage() {
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Building2 className="h-5 w-5 text-primary" />
+            <Building2 className="h-5 w-5 text-foreground" />
             Current Admissions
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {admitted.map((patient) => (
-            <div key={patient.id} className="flex items-center justify-between rounded-xl border border-border p-3">
+            <div key={patient.id} className="flex items-center justify-between rounded-lg border border-border p-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-foreground/10 text-foreground font-bold">
                   {patient.name.split(" ").map((n) => n[0]).join("")}
                 </div>
                 <div>
@@ -69,11 +69,11 @@ export default function DoctorAdmitPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant={patient.status === "Admitted" ? "secondary" : "outline"} className={patient.status === "Admitted" ? "bg-accent-teal/10 text-accent-teal rounded-lg" : "rounded-lg"}>
+                <Badge variant={patient.status === "Admitted" ? "secondary" : "outline"} className={patient.status === "Admitted" ? "bg-muted text-muted-foreground rounded-lg" : "rounded-lg"}>
                   {patient.status}
                 </Badge>
                 {patient.status === "Admitted" && (
-                  <Button size="sm" variant="outline" className="rounded-xl text-destructive">
+                  <Button size="sm" variant="outline" className="rounded-lg text-destructive">
                     <UserMinus className="h-4 w-4 mr-1" /> Discharge
                   </Button>
                 )}

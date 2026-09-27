@@ -24,8 +24,8 @@ export default function LabOrdersPage() {
           <Card key={order.id} className="beeline-card">
             <CardContent className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                  <ClipboardList className="h-5 w-5 text-primary" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-foreground/10">
+                  <ClipboardList className="h-5 w-5 text-foreground" />
                 </div>
                 <div>
                   <p className="text-sm font-medium">{order.patient} — {order.test}</p>
@@ -34,13 +34,13 @@ export default function LabOrdersPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant={order.status === "Completed" ? "secondary" : "outline"} className={
-                  order.status === "Completed" ? "bg-accent-teal/10 text-accent-teal rounded-lg" :
-                  order.status === "In Progress" ? "bg-primary/10 text-primary rounded-lg" : "rounded-lg"
+                  order.status === "Completed" ? "bg-muted text-muted-foreground rounded-lg" :
+                  order.status === "In Progress" ? "bg-foreground/10 text-foreground rounded-lg" : "rounded-lg"
                 }>
                   {order.status}
                 </Badge>
                 {order.status !== "Completed" && (
-                  <Button size="sm" className="bg-primary text-primary-foreground rounded-xl">Update</Button>
+                  <Button size="sm" className="bg-foreground text-background rounded-lg">Update</Button>
                 )}
               </div>
             </CardContent>

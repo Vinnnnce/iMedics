@@ -53,10 +53,10 @@ export default function DoctorOnboardingPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-24 md:pb-6">
       <div className="text-center">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 neon-glow">
-          <Stethoscope className="h-7 w-7 text-primary" />
+        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-lg bg-foreground/10">
+          <Stethoscope className="h-7 w-7 text-foreground" />
         </div>
-        <h1 className="text-2xl font-bold text-primary neon-text">Doctor Registration</h1>
+        <h1 className="text-2xl font-bold text-foreground">Doctor Registration</h1>
         <p className="text-sm text-muted-foreground mt-1">Complete your professional profile</p>
       </div>
 
@@ -65,7 +65,7 @@ export default function DoctorOnboardingPage() {
         <Card className="beeline-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Stethoscope className="h-5 w-5 text-primary" />
+              <Stethoscope className="h-5 w-5 text-foreground" />
               Personal Information
             </CardTitle>
           </CardHeader>
@@ -73,17 +73,17 @@ export default function DoctorOnboardingPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First Name *</Label>
-                <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required className="rounded-xl" />
+                <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required className="rounded-lg" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">Last Name *</Label>
-                <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required className="rounded-xl" />
+                <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required className="rounded-lg" />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="gender">Gender</Label>
               <Select value={gender} onValueChange={(v) => setGender(v || "")}>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select gender" /></SelectTrigger>
+                <SelectTrigger className="rounded-lg"><SelectValue placeholder="Select gender" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="male">Male</SelectItem>
                   <SelectItem value="female">Female</SelectItem>
@@ -98,7 +98,7 @@ export default function DoctorOnboardingPage() {
         <Card className="beeline-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <BadgeCheck className="h-5 w-5 text-accent-teal" />
+              <BadgeCheck className="h-5 w-5 text-muted-foreground" />
               Professional Credentials
             </CardTitle>
             <CardDescription>Your medical license and practice details</CardDescription>
@@ -107,11 +107,11 @@ export default function DoctorOnboardingPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="license">Medical License Number *</Label>
-                <Input id="license" value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} required className="rounded-xl" />
+                <Input id="license" value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} required className="rounded-lg" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="years">Years of Experience</Label>
-                <Input id="years" type="number" value={yearsExperience} onChange={(e) => setYearsExperience(e.target.value)} className="rounded-xl" />
+                <Input id="years" type="number" value={yearsExperience} onChange={(e) => setYearsExperience(e.target.value)} className="rounded-lg" />
               </div>
             </div>
 
@@ -119,7 +119,7 @@ export default function DoctorOnboardingPage() {
               <div className="space-y-2">
                 <Label htmlFor="specialty">Specialty *</Label>
                 <Select value={specialty} onValueChange={(v) => setSpecialty(v || "")}>
-                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select specialty" /></SelectTrigger>
+                  <SelectTrigger className="rounded-lg"><SelectValue placeholder="Select specialty" /></SelectTrigger>
                   <SelectContent>
                     {SPECIALTIES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
@@ -127,13 +127,13 @@ export default function DoctorOnboardingPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="affiliation">Clinic/Hospital Affiliation</Label>
-                <Input id="affiliation" value={affiliation} onChange={(e) => setAffiliation(e.target.value)} className="rounded-xl" />
+                <Input id="affiliation" value={affiliation} onChange={(e) => setAffiliation(e.target.value)} className="rounded-lg" />
               </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="bio">Short Biography</Label>
-              <Textarea id="bio" value={biography} onChange={(e) => setBiography(e.target.value)} className="rounded-xl" rows={3} />
+              <Textarea id="bio" value={biography} onChange={(e) => setBiography(e.target.value)} className="rounded-lg" rows={3} />
             </div>
 
             {/* Areas of Expertise */}
@@ -145,14 +145,14 @@ export default function DoctorOnboardingPage() {
                   onChange={(e) => setExpertiseInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addExpertise(); } }}
                   placeholder="Type and press Enter"
-                  className="rounded-xl"
+                  className="rounded-lg"
                 />
-                <Button type="button" onClick={addExpertise} variant="outline" className="rounded-xl">Add</Button>
+                <Button type="button" onClick={addExpertise} variant="outline" className="rounded-lg">Add</Button>
               </div>
               {expertise.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {expertise.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="rounded-lg bg-primary/10 text-primary">
+                    <Badge key={tag} variant="secondary" className="rounded-lg bg-foreground/10 text-foreground">
                       {tag}
                       <button type="button" onClick={() => setExpertise(expertise.filter((e) => e !== tag))} className="ml-2">
                         ×
@@ -169,27 +169,27 @@ export default function DoctorOnboardingPage() {
         <Card className="beeline-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Upload className="h-5 w-5 text-accent-blue" />
+              <Upload className="h-5 w-5 text-muted-foreground" />
               Verification Documents
             </CardTitle>
             <CardDescription>Upload your medical license and ID for verification</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-xl border-2 border-dashed border-border p-6 text-center hover:border-primary/30 transition-colors">
+              <div className="rounded-lg border-2 border-dashed border-border p-6 text-center hover:border-primary/30 transition-colors">
                 <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
                 <p className="text-sm font-medium">Medical License</p>
                 <p className="text-xs text-muted-foreground">PDF, JPG, PNG</p>
-                <Button type="button" variant="outline" size="sm" className="mt-3 rounded-xl">Upload</Button>
+                <Button type="button" variant="outline" size="sm" className="mt-3 rounded-lg">Upload</Button>
               </div>
-              <div className="rounded-xl border-2 border-dashed border-border p-6 text-center hover:border-primary/30 transition-colors">
+              <div className="rounded-lg border-2 border-dashed border-border p-6 text-center hover:border-primary/30 transition-colors">
                 <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
                 <p className="text-sm font-medium">Government ID</p>
                 <p className="text-xs text-muted-foreground">PDF, JPG, PNG</p>
-                <Button type="button" variant="outline" size="sm" className="mt-3 rounded-xl">Upload</Button>
+                <Button type="button" variant="outline" size="sm" className="mt-3 rounded-lg">Upload</Button>
               </div>
             </div>
-            <div className="flex items-center justify-between rounded-xl border border-border p-4">
+            <div className="flex items-center justify-between rounded-lg border border-border p-4">
               <div>
                 <p className="text-sm font-medium">AI-Driven Consultation Tools</p>
                 <p className="text-xs text-muted-foreground">Enable AI-assisted diagnosis and recommendations</p>
@@ -200,14 +200,14 @@ export default function DoctorOnboardingPage() {
         </Card>
 
         {/* Verification Badge Notice */}
-        <div className="flex items-center gap-3 rounded-xl border border-accent-teal/30 bg-accent-teal/5 p-4">
-          <BadgeCheck className="h-5 w-5 text-accent-teal shrink-0" />
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-muted p-4">
+          <BadgeCheck className="h-5 w-5 text-muted-foreground shrink-0" />
           <p className="text-xs text-muted-foreground">
             A verification badge will appear on your profile once your credentials are verified by our team.
           </p>
         </div>
 
-        <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90 neon-glow rounded-xl h-12 text-base font-bold" disabled={loading}>
+        <Button type="submit" className="w-full bg-foreground text-background hover:bg-foreground/90 rounded-lg h-12 text-base font-bold" disabled={loading}>
           {loading ? "Saving..." : "Complete Registration"}
         </Button>
       </form>

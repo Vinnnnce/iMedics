@@ -30,17 +30,17 @@ export default function DoctorChatPage() {
       <Card className="beeline-card">
         <CardContent className="p-0">
           <div className="flex items-center gap-3 border-b border-border p-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold">JD</div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-foreground/10 text-foreground font-bold">JD</div>
             <div>
               <p className="text-sm font-semibold">John Doe</p>
-              <p className="text-xs text-accent-teal">● Online</p>
+              <p className="text-xs text-muted-foreground">● Online</p>
             </div>
           </div>
           <div className="h-96 overflow-y-auto p-4 space-y-3">
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.sender === "doctor" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${
-                  msg.sender === "doctor" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                <div className={`max-w-[75%] rounded-lg px-4 py-2 ${
+                  msg.sender === "doctor" ? "bg-foreground text-background" : "bg-muted text-foreground"
                 }`}>
                   <p className="text-sm">{msg.text}</p>
                 </div>
@@ -53,9 +53,9 @@ export default function DoctorChatPage() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }}
               placeholder="Type a message..."
-              className="rounded-xl"
+              className="rounded-lg"
             />
-            <Button onClick={sendMessage} className="bg-primary text-primary-foreground rounded-xl">
+            <Button onClick={sendMessage} className="bg-foreground text-background rounded-lg">
               <Send className="h-4 w-4" />
             </Button>
           </div>

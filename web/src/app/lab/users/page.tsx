@@ -25,14 +25,14 @@ export default function LabUsersPage() {
           <Card key={user.id} className="beeline-card">
             <CardContent className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
-                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${user.role === "Doctor" ? "bg-primary/10" : "bg-accent-teal/10"} font-bold`}>
+                <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${user.role === "Doctor" ? "bg-foreground/10" : "bg-muted"} font-bold`}>
                   {user.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold">{user.name}</p>
                     {user.verified && (
-                      <Badge variant="secondary" className="bg-accent-teal/10 text-accent-teal rounded-lg">Verified</Badge>
+                      <Badge variant="secondary" className="bg-muted text-muted-foreground rounded-lg">Verified</Badge>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -40,7 +40,7 @@ export default function LabUsersPage() {
                   </p>
                 </div>
               </div>
-              <Button size="sm" variant="outline" className="rounded-xl">View</Button>
+              <Button size="sm" variant="outline" className="rounded-lg">View</Button>
             </CardContent>
           </Card>
         ))}

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useTheme } from "@/components/theme-provider";
 import {
   DropdownMenu,
@@ -45,32 +44,35 @@ export function Navbar() {
               <Menu className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary neon-glow">
-                <svg viewBox="0 0 24 24" className="h-5 w-5 text-primary-foreground" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-foreground">
+                <svg viewBox="0 0 24 24" className="h-5 w-5 text-background" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M12 2v20M2 12h20" strokeLinecap="round" />
                 </svg>
               </div>
-              <span className="text-lg font-bold tracking-tight text-primary neon-text hidden sm:inline">
+              <span className="text-lg font-bold tracking-tight text-foreground hidden sm:inline">
                 Medic1905
               </span>
             </div>
           </div>
 
-          {/* User menu + theme toggle */}
+          {/* User menu + theme switch toggle */}
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
+            {/* Switch Toggle for Theme */}
+            <button
               onClick={toggleTheme}
               aria-label="Toggle theme"
               data-testid="button-theme-toggle"
+              className="rs-switch"
+              data-active={theme === "light"}
             >
-              {theme === "dark" ? (
-                <Sun className="h-4 w-4" />
-              ) : (
-                <Moon className="h-4 w-4" />
-              )}
-            </Button>
+              <span className="rs-switch-thumb flex items-center justify-center">
+                {theme === "dark" ? (
+                  <Moon className="h-3 w-3" />
+                ) : (
+                  <Sun className="h-3 w-3" />
+                )}
+              </span>
+            </button>
 
             <Show when="signed-out">
               <div className="flex items-center gap-2">
@@ -78,7 +80,7 @@ export function Navbar() {
                   <Button variant="ghost" size="sm">Sign In</Button>
                 </SignInButton>
                 <SignUpButton>
-                  <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 neon-glow">Sign Up</Button>
+                  <Button size="sm" className="bg-foreground text-background hover:bg-foreground/90">Sign Up</Button>
                 </SignUpButton>
               </div>
             </Show>
@@ -87,7 +89,7 @@ export function Navbar() {
               <UserButton
                 appearance={{
                   elements: {
-                    avatarBox: "h-9 w-9 rounded-xl",
+                    avatarBox: "h-9 w-9 rounded-lg",
                   },
                 }}
               />

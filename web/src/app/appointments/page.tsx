@@ -36,7 +36,7 @@ export default function AppointmentsPage() {
                   <button
                     key={doc}
                     onClick={() => setSelectedDoctor(doc)}
-                    className={`w-full text-left rounded-lg p-3 border-2 transition-colors ${selectedDoctor === doc ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}
+                    className={`w-full text-left rounded-lg p-3 border-2 transition-colors ${selectedDoctor === doc ? "border-primary bg-foreground/5" : "border-border hover:border-primary/30"}`}
                   >
                     <span className="text-sm font-medium">{doc}</span>
                   </button>
@@ -63,7 +63,7 @@ export default function AppointmentsPage() {
                   <button
                     key={time}
                     onClick={() => setSelectedTime(time)}
-                    className={`rounded-lg p-2 text-sm font-medium border-2 transition-colors ${selectedTime === time ? "border-primary bg-primary/5 text-primary" : "border-border hover:border-primary/30"}`}
+                    className={`rounded-lg p-2 text-sm font-medium border-2 transition-colors ${selectedTime === time ? "border-primary bg-foreground/5 text-foreground" : "border-border hover:border-primary/30"}`}
                   >
                     {time}
                   </button>
@@ -72,19 +72,19 @@ export default function AppointmentsPage() {
             </CardContent>
           </Card>
 
-          <Button onClick={handleBook} disabled={!selectedDate || !selectedTime} className="w-full bg-primary text-primary-foreground hover:bg-primary/90 neon-glow" size="lg">
+          <Button onClick={handleBook} disabled={!selectedDate || !selectedTime} className="w-full bg-foreground text-background hover:bg-foreground/90" size="lg">
             Confirm Booking
           </Button>
         </>
       ) : (
-        <Card className="bg-card border-primary/30 neon-glow">
+        <Card className="bg-card border-primary/30">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-              <svg className="h-6 w-6 text-primary" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-foreground/10">
+              <svg className="h-6 w-6 text-foreground" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <CardTitle className="text-lg text-primary">Appointment Confirmed</CardTitle>
+            <CardTitle className="text-lg text-foreground">Appointment Confirmed</CardTitle>
             <CardDescription className="text-sm">
               {selectedDoctor} on {selectedDate} at {selectedTime}
             </CardDescription>
@@ -94,7 +94,7 @@ export default function AppointmentsPage() {
               <div className="flex justify-between text-sm"><span className="text-muted-foreground">Doctor</span><span className="font-medium">{selectedDoctor}</span></div>
               <div className="flex justify-between text-sm"><span className="text-muted-foreground">Date</span><span className="font-medium">{selectedDate}</span></div>
               <div className="flex justify-between text-sm"><span className="text-muted-foreground">Time</span><span className="font-medium">{selectedTime}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Type</span><Badge variant="outline" className="border-primary/30 text-primary">Video Call</Badge></div>
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Type</span><Badge variant="outline" className="border-primary/30 text-foreground">Video Call</Badge></div>
             </div>
             <Button onClick={() => setConfirmed(false)} variant="outline" className="w-full">Book Another</Button>
           </CardContent>

@@ -33,14 +33,14 @@ export default function DoctorsPage() {
           <Card key={doc.id} className="beeline-card">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary font-bold text-lg">
+                <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-foreground/10 text-foreground font-bold text-lg">
                   {doc.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold">{doc.name}</p>
                     {doc.verified && (
-                      <span className="flex items-center gap-1 text-xs text-accent-teal">
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Star className="h-3 w-3 fill-current" /> Verified
                       </span>
                     )}
@@ -48,7 +48,7 @@ export default function DoctorsPage() {
                   <p className="text-xs text-muted-foreground">{doc.specialty}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <div className="flex items-center gap-1">
-                      <Star className="h-3 w-3 fill-primary text-primary" />
+                      <Star className="h-3 w-3 fill-primary text-foreground" />
                       <span className="text-xs font-medium">{doc.rating}</span>
                     </div>
                     <span className="text-xs text-muted-foreground">({doc.reviews} reviews)</span>
@@ -58,25 +58,25 @@ export default function DoctorsPage() {
               </div>
 
               <div className="flex gap-2 mt-3">
-                <Button size="sm" className="flex-1 bg-primary text-primary-foreground rounded-xl">
+                <Button size="sm" className="flex-1 bg-foreground text-background rounded-lg">
                   <Calendar className="h-4 w-4 mr-1" /> Book
                 </Button>
-                <Button size="sm" variant="outline" className="rounded-xl">
+                <Button size="sm" variant="outline" className="rounded-lg">
                   <Video className="h-4 w-4 mr-1" /> Consult
                 </Button>
-                <Button size="sm" variant="ghost" className="rounded-xl" onClick={() => setShowRating(showRating === doc.id ? null : doc.id)}>
+                <Button size="sm" variant="ghost" className="rounded-lg" onClick={() => setShowRating(showRating === doc.id ? null : doc.id)}>
                   <Heart className="h-4 w-4" />
                 </Button>
               </div>
 
               {/* Rating Modal */}
               {showRating === doc.id && (
-                <div className="mt-4 space-y-3 rounded-xl border border-border p-4">
+                <div className="mt-4 space-y-3 rounded-lg border border-border p-4">
                   <p className="text-sm font-semibold">Rate & Review Dr. {doc.name.split(" ")[1]}</p>
                   <div className="flex gap-1">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button key={star} type="button" onClick={() => setRating(star)}>
-                        <Star className={`h-6 w-6 ${star <= rating ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+                        <Star className={`h-6 w-6 ${star <= rating ? "fill-primary text-foreground" : "text-muted-foreground"}`} />
                       </button>
                     ))}
                   </div>
@@ -84,12 +84,12 @@ export default function DoctorsPage() {
                     value={review}
                     onChange={(e) => setReview(e.target.value)}
                     placeholder="Write your review..."
-                    className="rounded-xl"
+                    className="rounded-lg"
                     rows={2}
                   />
                   <div className="flex gap-2">
-                    <Button size="sm" className="bg-primary text-primary-foreground rounded-xl">Submit Review</Button>
-                    <Button size="sm" variant="outline" className="rounded-xl">Like</Button>
+                    <Button size="sm" className="bg-foreground text-background rounded-lg">Submit Review</Button>
+                    <Button size="sm" variant="outline" className="rounded-lg">Like</Button>
                   </div>
                 </div>
               )}

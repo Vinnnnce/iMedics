@@ -13,24 +13,24 @@ const ROLES = [
     label: "Patient",
     desc: "Book consults, view results, manage your health",
     icon: Heart,
-    color: "text-accent-teal",
-    bgColor: "bg-accent-teal/10",
+    color: "text-muted-foreground",
+    bgColor: "bg-muted",
   },
   {
     value: "DOCTOR",
     label: "Doctor",
     desc: "Review patients, write consultations, prescribe",
     icon: Stethoscope,
-    color: "text-primary",
-    bgColor: "bg-primary/10",
+    color: "text-foreground",
+    bgColor: "bg-foreground/10",
   },
   {
     value: "LAB_SCIENTIST",
     label: "Laboratory Staff",
     desc: "Manage lab orders, upload results, verify tests",
     icon: FlaskConical,
-    color: "text-accent-blue",
-    bgColor: "bg-accent-blue/10",
+    color: "text-muted-foreground",
+    bgColor: "bg-muted",
   },
 ];
 
@@ -68,7 +68,7 @@ export default function RoleSelectionPage() {
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center p-4">
       <div className="w-full max-w-lg">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-primary neon-text">Choose Your Role</h1>
+          <h1 className="text-2xl font-bold text-foreground">Choose Your Role</h1>
           <p className="text-sm text-muted-foreground mt-1">Select how you'll use Medic1905</p>
         </div>
 
@@ -83,12 +83,12 @@ export default function RoleSelectionPage() {
                 onClick={() => setSelectedRole(role.value)}
                 className={`w-full text-left transition-all beeline-tile ${
                   isSelected
-                    ? "border-2 border-primary bg-primary/5 neon-glow"
+                    ? "border-2 border-primary bg-foreground/5"
                     : "border-2 border-border hover:border-primary/30"
-                } rounded-2xl p-4`}
+                } rounded-lg p-4`}
               >
                 <div className="flex items-center gap-4">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${role.bgColor}`}>
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${role.bgColor}`}>
                     <Icon className={`h-6 w-6 ${role.color}`} />
                   </div>
                   <div className="flex-1">
@@ -96,10 +96,10 @@ export default function RoleSelectionPage() {
                     <p className="text-sm text-muted-foreground">{role.desc}</p>
                   </div>
                   <div className={`h-6 w-6 rounded-full border-2 ${
-                    isSelected ? "border-primary bg-primary" : "border-border"
+                    isSelected ? "border-primary bg-foreground" : "border-border"
                   }`}>
                     {isSelected && (
-                      <svg viewBox="0 0 24 24" className="h-full w-full p-1 text-primary-foreground" fill="none" stroke="currentColor" strokeWidth="3">
+                      <svg viewBox="0 0 24 24" className="h-full w-full p-1 text-foreground-foreground" fill="none" stroke="currentColor" strokeWidth="3">
                         <path d="M5 12l5 5L20 7" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     )}
@@ -112,7 +112,7 @@ export default function RoleSelectionPage() {
 
         <Button
           type="button"
-          className="w-full mt-6 bg-primary text-primary-foreground hover:bg-primary/90 neon-glow rounded-xl h-12 text-base font-bold"
+          className="w-full mt-6 bg-foreground text-background hover:bg-foreground/90 rounded-lg h-12 text-base font-bold"
           disabled={!selectedRole || loading}
           onClick={handleContinue}
         >

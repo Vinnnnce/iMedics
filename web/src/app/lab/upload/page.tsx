@@ -44,7 +44,7 @@ export default function LabUploadPage() {
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <FlaskConical className="h-5 w-5 text-primary" />
+            <FlaskConical className="h-5 w-5 text-foreground" />
             Result Details
           </CardTitle>
         </CardHeader>
@@ -53,7 +53,7 @@ export default function LabUploadPage() {
             <div className="space-y-2">
               <Label>Patient</Label>
               <Select>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select patient" /></SelectTrigger>
+                <SelectTrigger className="rounded-lg"><SelectValue placeholder="Select patient" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">John Doe — MED-2026-04821</SelectItem>
                   <SelectItem value="2">Jane Smith — MED-2026-03102</SelectItem>
@@ -64,7 +64,7 @@ export default function LabUploadPage() {
             <div className="space-y-2">
               <Label>Result Type</Label>
               <Select value={resultType} onValueChange={(v) => setResultType(v || "")}>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select type" /></SelectTrigger>
+                <SelectTrigger className="rounded-lg"><SelectValue placeholder="Select type" /></SelectTrigger>
                 <SelectContent>
                   {RESULT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                 </SelectContent>
@@ -72,11 +72,11 @@ export default function LabUploadPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="testDate">Test Date</Label>
-              <Input id="testDate" type="date" className="rounded-xl" />
+              <Input id="testDate" type="date" className="rounded-lg" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="labName">Lab Name</Label>
-              <Input id="labName" placeholder="Laboratory name" className="rounded-xl" />
+              <Input id="labName" placeholder="Laboratory name" className="rounded-lg" />
             </div>
           </div>
         </CardContent>
@@ -86,7 +86,7 @@ export default function LabUploadPage() {
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <FileText className="h-5 w-5 text-accent-teal" />
+            <FileText className="h-5 w-5 text-muted-foreground" />
             Numeric Values
           </CardTitle>
         </CardHeader>
@@ -95,26 +95,26 @@ export default function LabUploadPage() {
             <div key={i} className="grid gap-2 md:grid-cols-[1fr_1fr_1fr_1fr_auto] items-end">
               <div className="space-y-1">
                 <Label className="text-xs">Parameter</Label>
-                <Input placeholder="e.g., Hemoglobin" className="rounded-xl" />
+                <Input placeholder="e.g., Hemoglobin" className="rounded-lg" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Value</Label>
-                <Input placeholder="e.g., 14.5" className="rounded-xl" />
+                <Input placeholder="e.g., 14.5" className="rounded-lg" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Unit</Label>
-                <Input placeholder="e.g., g/dL" className="rounded-xl" />
+                <Input placeholder="e.g., g/dL" className="rounded-lg" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Ref Range</Label>
-                <Input placeholder="e.g., 13.5-17.5" className="rounded-xl" />
+                <Input placeholder="e.g., 13.5-17.5" className="rounded-lg" />
               </div>
-              <Button variant="ghost" size="icon" onClick={() => removeValue(i)} className="rounded-xl">
+              <Button variant="ghost" size="icon" onClick={() => removeValue(i)} className="rounded-lg">
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
             </div>
           ))}
-          <Button variant="outline" onClick={addValue} className="rounded-xl">
+          <Button variant="outline" onClick={addValue} className="rounded-lg">
             <Plus className="h-4 w-4 mr-1" /> Add Parameter
           </Button>
         </CardContent>
@@ -124,16 +124,16 @@ export default function LabUploadPage() {
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Upload className="h-5 w-5 text-accent-blue" />
+            <Upload className="h-5 w-5 text-muted-foreground" />
             Upload Result Files
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="rounded-xl border-2 border-dashed border-border p-8 text-center hover:border-primary/30 transition-colors">
+          <div className="rounded-lg border-2 border-dashed border-border p-8 text-center hover:border-primary/30 transition-colors">
             <Upload className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
             <p className="text-sm font-medium">Drop files here or click to upload</p>
             <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG — Max 10MB</p>
-            <Button type="button" variant="outline" size="sm" className="mt-3 rounded-xl">Select Files</Button>
+            <Button type="button" variant="outline" size="sm" className="mt-3 rounded-lg">Select Files</Button>
           </div>
         </CardContent>
       </Card>
@@ -144,11 +144,11 @@ export default function LabUploadPage() {
           <CardTitle className="text-lg">Lab Notes</CardTitle>
         </CardHeader>
         <CardContent>
-          <Textarea placeholder="Additional notes or comments about the results..." className="rounded-xl" rows={3} />
+          <Textarea placeholder="Additional notes or comments about the results..." className="rounded-lg" rows={3} />
         </CardContent>
       </Card>
 
-      <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90 neon-glow rounded-xl h-12 text-base font-bold">
+      <Button className="w-full bg-foreground text-background hover:bg-foreground/90 rounded-lg h-12 text-base font-bold">
         Submit Results
       </Button>
     </div>

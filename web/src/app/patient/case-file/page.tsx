@@ -24,7 +24,7 @@ export default function PatientCaseFilePage() {
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <FileText className="h-5 w-5 text-primary" />
+            <FileText className="h-5 w-5 text-foreground" />
             Patient Information
           </CardTitle>
         </CardHeader>
@@ -33,7 +33,7 @@ export default function PatientCaseFilePage() {
             {caseInfo.map((info) => {
               const Icon = info.icon;
               return (
-                <div key={info.label} className="flex items-center gap-3 rounded-xl border border-border p-3">
+                <div key={info.label} className="flex items-center gap-3 rounded-lg border border-border p-3">
                   <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground">{info.label}</p>
@@ -51,15 +51,15 @@ export default function PatientCaseFilePage() {
           <CardTitle className="text-lg">Medical Summary</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="rounded-xl border border-border p-3">
+          <div className="rounded-lg border border-border p-3">
             <p className="text-xs text-muted-foreground">Chief Complaint</p>
             <p className="text-sm font-medium mt-1">Recurring headaches and fatigue over the past 2 weeks</p>
           </div>
-          <div className="rounded-xl border border-border p-3">
+          <div className="rounded-lg border border-border p-3">
             <p className="text-xs text-muted-foreground">Current Medications</p>
             <p className="text-sm font-medium mt-1">Ibuprofen 400mg as needed</p>
           </div>
-          <div className="rounded-xl border border-border p-3">
+          <div className="rounded-lg border border-border p-3">
             <p className="text-xs text-muted-foreground">Allergies</p>
             <p className="text-sm font-medium mt-1">Penicillin</p>
           </div>

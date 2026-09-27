@@ -48,10 +48,10 @@ export default function LabOnboardingPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-24 md:pb-6">
       <div className="text-center">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-blue/10">
-          <FlaskConical className="h-7 w-7 text-accent-blue" />
+        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-lg bg-muted">
+          <FlaskConical className="h-7 w-7 text-muted-foreground" />
         </div>
-        <h1 className="text-2xl font-bold text-primary neon-text">Lab Staff Registration</h1>
+        <h1 className="text-2xl font-bold text-foreground">Lab Staff Registration</h1>
         <p className="text-sm text-muted-foreground mt-1">Complete your laboratory profile</p>
       </div>
 
@@ -59,7 +59,7 @@ export default function LabOnboardingPage() {
         <Card className="beeline-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Building2 className="h-5 w-5 text-primary" />
+              <Building2 className="h-5 w-5 text-foreground" />
               Personal & Lab Information
             </CardTitle>
           </CardHeader>
@@ -67,17 +67,17 @@ export default function LabOnboardingPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First Name *</Label>
-                <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required className="rounded-xl" />
+                <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required className="rounded-lg" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">Last Name *</Label>
-                <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required className="rounded-xl" />
+                <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required className="rounded-lg" />
               </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="labName">Laboratory Name *</Label>
-              <Input id="labName" value={labName} onChange={(e) => setLabName(e.target.value)} required className="rounded-xl" />
+              <Input id="labName" value={labName} onChange={(e) => setLabName(e.target.value)} required className="rounded-lg" />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -89,8 +89,8 @@ export default function LabOnboardingPage() {
                       key={pos}
                       type="button"
                       onClick={() => setPosition(pos)}
-                      className={`rounded-xl border-2 p-2 text-xs font-medium transition-colors ${
-                        position === pos ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground"
+                      className={`rounded-lg border-2 p-2 text-xs font-medium transition-colors ${
+                        position === pos ? "border-primary bg-foreground/5 text-foreground" : "border-border text-muted-foreground"
                       }`}
                     >
                       {pos}
@@ -100,7 +100,7 @@ export default function LabOnboardingPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="licenseId">License/ID Number *</Label>
-                <Input id="licenseId" value={licenseId} onChange={(e) => setLicenseId(e.target.value)} required className="rounded-xl" />
+                <Input id="licenseId" value={licenseId} onChange={(e) => setLicenseId(e.target.value)} required className="rounded-lg" />
               </div>
             </div>
           </CardContent>
@@ -110,7 +110,7 @@ export default function LabOnboardingPage() {
         <Card className="beeline-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <FlaskConical className="h-5 w-5 text-accent-teal" />
+              <FlaskConical className="h-5 w-5 text-muted-foreground" />
               Departments Handled
             </CardTitle>
             <CardDescription>Select all departments you work with</CardDescription>
@@ -120,8 +120,8 @@ export default function LabOnboardingPage() {
               {DEPARTMENTS.map((dept) => (
                 <div
                   key={dept}
-                  className={`flex items-center justify-between rounded-xl border-2 p-3 transition-colors cursor-pointer ${
-                    selectedDepts.includes(dept) ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+                  className={`flex items-center justify-between rounded-lg border-2 p-3 transition-colors cursor-pointer ${
+                    selectedDepts.includes(dept) ? "border-primary bg-foreground/5" : "border-border hover:border-primary/30"
                   }`}
                   onClick={() => toggleDept(dept)}
                 >
@@ -133,7 +133,7 @@ export default function LabOnboardingPage() {
             {selectedDepts.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-4">
                 {selectedDepts.map((d) => (
-                  <Badge key={d} variant="secondary" className="rounded-lg bg-accent-teal/10 text-accent-teal">
+                  <Badge key={d} variant="secondary" className="rounded-lg bg-muted text-muted-foreground">
                     {d}
                   </Badge>
                 ))}
@@ -146,22 +146,22 @@ export default function LabOnboardingPage() {
         <Card className="beeline-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Upload className="h-5 w-5 text-accent-blue" />
+              <Upload className="h-5 w-5 text-muted-foreground" />
               Verification Documents
             </CardTitle>
             <CardDescription>Upload your lab license and certification</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="rounded-xl border-2 border-dashed border-border p-6 text-center hover:border-primary/30 transition-colors">
+            <div className="rounded-lg border-2 border-dashed border-border p-6 text-center hover:border-primary/30 transition-colors">
               <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
               <p className="text-sm font-medium">Lab License & Certification</p>
               <p className="text-xs text-muted-foreground">PDF, JPG, PNG</p>
-              <Button type="button" variant="outline" size="sm" className="mt-3 rounded-xl">Upload</Button>
+              <Button type="button" variant="outline" size="sm" className="mt-3 rounded-lg">Upload</Button>
             </div>
           </CardContent>
         </Card>
 
-        <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90 neon-glow rounded-xl h-12 text-base font-bold" disabled={loading}>
+        <Button type="submit" className="w-full bg-foreground text-background hover:bg-foreground/90 rounded-lg h-12 text-base font-bold" disabled={loading}>
           {loading ? "Saving..." : "Complete Registration"}
         </Button>
       </form>

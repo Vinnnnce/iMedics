@@ -24,7 +24,7 @@ export default function PatientAppointmentsPage() {
           <h1 className="text-2xl font-bold">Appointments</h1>
           <p className="text-sm text-muted-foreground mt-1">Book and manage your consultations</p>
         </div>
-        <Button onClick={() => setShowBooking(!showBooking)} className="bg-primary text-primary-foreground rounded-xl">
+        <Button onClick={() => setShowBooking(!showBooking)} className="bg-foreground text-background rounded-lg">
           <Calendar className="h-4 w-4 mr-1" /> Book New
         </Button>
       </div>
@@ -39,7 +39,7 @@ export default function PatientAppointmentsPage() {
               <div className="space-y-2">
                 <Label>Doctor</Label>
                 <Select>
-                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select doctor" /></SelectTrigger>
+                  <SelectTrigger className="rounded-lg"><SelectValue placeholder="Select doctor" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="schmidt">Dr. Anna Schmidt</SelectItem>
                     <SelectItem value="johnson">Dr. Mark Johnson</SelectItem>
@@ -50,7 +50,7 @@ export default function PatientAppointmentsPage() {
               <div className="space-y-2">
                 <Label>Consultation Type</Label>
                 <Select>
-                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select type" /></SelectTrigger>
+                  <SelectTrigger className="rounded-lg"><SelectValue placeholder="Select type" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="video">Video Consultation</SelectItem>
                     <SelectItem value="inperson">In-Person</SelectItem>
@@ -59,20 +59,20 @@ export default function PatientAppointmentsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="date">Date</Label>
-                <Input id="date" type="date" className="rounded-xl" />
+                <Input id="date" type="date" className="rounded-lg" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="time">Time</Label>
-                <Input id="time" type="time" className="rounded-xl" />
+                <Input id="time" type="time" className="rounded-lg" />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="reason">Reason for Visit</Label>
-              <Textarea id="reason" className="rounded-xl" rows={2} />
+              <Textarea id="reason" className="rounded-lg" rows={2} />
             </div>
             <div className="flex gap-2">
-              <Button className="bg-primary text-primary-foreground rounded-xl">Book Follow-up</Button>
-              <Button variant="outline" className="rounded-xl" onClick={() => setShowBooking(false)}>Cancel</Button>
+              <Button className="bg-foreground text-background rounded-lg">Book Follow-up</Button>
+              <Button variant="outline" className="rounded-lg" onClick={() => setShowBooking(false)}>Cancel</Button>
             </div>
           </CardContent>
         </Card>
@@ -83,15 +83,15 @@ export default function PatientAppointmentsPage() {
           <Card key={apt.id} className="beeline-card">
             <CardContent className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                  <Clock className="h-5 w-5 text-primary" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-foreground/10">
+                  <Clock className="h-5 w-5 text-foreground" />
                 </div>
                 <div>
                   <p className="text-sm font-medium">{apt.doctor}</p>
                   <p className="text-xs text-muted-foreground">{apt.date} — {apt.time} — {apt.type}</p>
                 </div>
               </div>
-              <Button size="sm" variant={apt.status === "Upcoming" ? "default" : "outline"} className="rounded-xl">
+              <Button size="sm" variant={apt.status === "Upcoming" ? "default" : "outline"} className="rounded-lg">
                 {apt.status === "Upcoming" ? "Join" : "View"}
               </Button>
             </CardContent>

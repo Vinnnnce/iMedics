@@ -18,7 +18,7 @@ export default function DoctorPatientsPage() {
           <h1 className="text-2xl font-bold">My Patients</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage your patient roster</p>
         </div>
-        <Button className="bg-primary text-primary-foreground rounded-xl">
+        <Button className="bg-foreground text-background rounded-lg">
           <Plus className="h-4 w-4 mr-1" /> Add Patient
         </Button>
       </div>
@@ -28,13 +28,13 @@ export default function DoctorPatientsPage() {
           <Card key={patient.id} className="beeline-card">
             <CardContent className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary font-bold">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-foreground/10 text-foreground font-bold">
                   {patient.name.split(" ").map((n) => n[0]).join("")}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold">{patient.name}</p>
-                    <Badge variant={patient.status === "Active" ? "secondary" : "outline"} className={patient.status === "Active" ? "bg-accent-teal/10 text-accent-teal rounded-lg" : "rounded-lg"}>
+                    <Badge variant={patient.status === "Active" ? "secondary" : "outline"} className={patient.status === "Active" ? "bg-muted text-muted-foreground rounded-lg" : "rounded-lg"}>
                       {patient.status}
                     </Badge>
                   </div>
@@ -42,7 +42,7 @@ export default function DoctorPatientsPage() {
                   <p className="text-xs text-muted-foreground">Last visit: {patient.lastVisit}</p>
                 </div>
               </div>
-              <Button size="sm" variant="outline" className="rounded-xl">View</Button>
+              <Button size="sm" variant="outline" className="rounded-lg">View</Button>
             </CardContent>
           </Card>
         ))}

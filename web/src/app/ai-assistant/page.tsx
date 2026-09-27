@@ -65,7 +65,7 @@ export default function AIAssistantPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
+          <Sparkles className="h-5 w-5 text-foreground" />
           AI Assistant
         </h1>
         <p className="text-sm text-muted-foreground">

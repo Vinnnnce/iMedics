@@ -33,7 +33,7 @@ export default function DoctorConsultationsPage() {
         </CardHeader>
         <CardContent>
           <Select>
-            <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select patient" /></SelectTrigger>
+            <SelectTrigger className="rounded-lg"><SelectValue placeholder="Select patient" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="1">John Doe — MED-2026-04821</SelectItem>
               <SelectItem value="2">Jane Smith — MED-2026-03102</SelectItem>
@@ -47,22 +47,22 @@ export default function DoctorConsultationsPage() {
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <ClipboardList className="h-5 w-5 text-primary" />
+            <ClipboardList className="h-5 w-5 text-foreground" />
             Clinical Notes
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="diagnosis">Diagnosis</Label>
-            <Input id="diagnosis" value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} placeholder="Primary diagnosis" className="rounded-xl" />
+            <Input id="diagnosis" value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} placeholder="Primary diagnosis" className="rounded-lg" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="notes">Consultation Notes</Label>
-            <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Detailed clinical observations..." className="rounded-xl" rows={4} />
+            <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Detailed clinical observations..." className="rounded-lg" rows={4} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="treatment">Treatment Plan</Label>
-            <Textarea id="treatment" value={treatmentPlan} onChange={(e) => setTreatmentPlan(e.target.value)} placeholder="Prescribed treatment and follow-up plan..." className="rounded-xl" rows={3} />
+            <Textarea id="treatment" value={treatmentPlan} onChange={(e) => setTreatmentPlan(e.target.value)} placeholder="Prescribed treatment and follow-up plan..." className="rounded-lg" rows={3} />
           </div>
         </CardContent>
       </Card>
@@ -71,25 +71,25 @@ export default function DoctorConsultationsPage() {
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Sparkles className="h-5 w-5 text-accent-teal" />
+            <Sparkles className="h-5 w-5 text-muted-foreground" />
             AI-Generated Summary
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {aiSummary ? (
-            <div className="rounded-xl border border-accent-teal/30 bg-accent-teal/5 p-4">
+            <div className="rounded-lg border border-border bg-muted p-4">
               <p className="text-sm">{aiSummary}</p>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">Generate an AI summary based on your consultation notes.</p>
           )}
-          <Button onClick={generateAiSummary} className="bg-accent-teal text-white rounded-xl">
+          <Button onClick={generateAiSummary} className="bg-foreground text-background rounded-lg">
             <Sparkles className="h-4 w-4 mr-1" /> Generate AI Summary
           </Button>
         </CardContent>
       </Card>
 
-      <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90 neon-glow rounded-xl h-12 text-base font-bold">
+      <Button className="w-full bg-foreground text-background hover:bg-foreground/90 rounded-lg h-12 text-base font-bold">
         Save Consultation
       </Button>
     </div>

@@ -170,7 +170,7 @@ export default function DocumentsPage() {
 
       {/* Submit */}
       <div className="space-y-2">
-        <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90 neon-glow" size="lg">
+        <Button className="w-full bg-foreground text-background hover:bg-foreground/90" size="lg">
           Submit for AI Analysis
         </Button>
         <p className="text-xs text-muted-foreground text-center">

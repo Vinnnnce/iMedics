@@ -24,8 +24,8 @@ export default function DoctorBookingRequestsPage() {
             <CardContent className="p-4">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-                    <Calendar className="h-6 w-6 text-primary" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-foreground/10">
+                    <Calendar className="h-6 w-6 text-foreground" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
@@ -37,10 +37,10 @@ export default function DoctorBookingRequestsPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" className="bg-accent-teal text-white rounded-xl">
+                  <Button size="sm" className="bg-foreground text-background rounded-lg">
                     <Check className="h-4 w-4 mr-1" /> Accept
                   </Button>
-                  <Button size="sm" variant="outline" className="rounded-xl">
+                  <Button size="sm" variant="outline" className="rounded-lg">
                     <X className="h-4 w-4 mr-1" /> Decline
                   </Button>
                 </div>

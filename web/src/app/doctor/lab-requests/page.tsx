@@ -30,7 +30,7 @@ export default function DoctorLabRequestsPage() {
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <FlaskConical className="h-5 w-5 text-primary" />
+            <FlaskConical className="h-5 w-5 text-foreground" />
             Request Lab Test
           </CardTitle>
         </CardHeader>
@@ -39,7 +39,7 @@ export default function DoctorLabRequestsPage() {
             <div className="space-y-2">
               <Label>Patient</Label>
               <Select>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select patient" /></SelectTrigger>
+                <SelectTrigger className="rounded-lg"><SelectValue placeholder="Select patient" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">John Doe</SelectItem>
                   <SelectItem value="2">Jane Smith</SelectItem>
@@ -50,7 +50,7 @@ export default function DoctorLabRequestsPage() {
             <div className="space-y-2">
               <Label>Panel Type</Label>
               <Select>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select panel" /></SelectTrigger>
+                <SelectTrigger className="rounded-lg"><SelectValue placeholder="Select panel" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cbc">Complete Blood Count (CBC)</SelectItem>
                   <SelectItem value="lipid">Lipid Panel</SelectItem>
@@ -73,16 +73,16 @@ export default function DoctorLabRequestsPage() {
                 onChange={(e) => setTestInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTest(); } }}
                 placeholder="Add specific test..."
-                className="rounded-xl"
+                className="rounded-lg"
               />
-              <Button type="button" onClick={addTest} variant="outline" className="rounded-xl">
+              <Button type="button" onClick={addTest} variant="outline" className="rounded-lg">
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
             {tests.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {tests.map((t) => (
-                  <span key={t} className="rounded-lg bg-primary/10 text-primary px-3 py-1 text-xs font-medium">
+                  <span key={t} className="rounded-lg bg-foreground/10 text-foreground px-3 py-1 text-xs font-medium">
                     {t}
                     <button onClick={() => setTests(tests.filter((x) => x !== t))} className="ml-2">×</button>
                   </span>
@@ -93,10 +93,10 @@ export default function DoctorLabRequestsPage() {
 
           <div className="space-y-2">
             <Label htmlFor="notes">Clinical Notes</Label>
-            <Textarea id="notes" placeholder="Reason for test, clinical context..." className="rounded-xl" rows={3} />
+            <Textarea id="notes" placeholder="Reason for test, clinical context..." className="rounded-lg" rows={3} />
           </div>
 
-          <Button className="bg-primary text-primary-foreground rounded-xl">Submit Lab Request</Button>
+          <Button className="bg-foreground text-background rounded-lg">Submit Lab Request</Button>
         </CardContent>
       </Card>
 
@@ -111,14 +111,14 @@ export default function DoctorLabRequestsPage() {
             { patient: "Jane Smith", test: "Liver Function Test", date: "Sep 10", status: "In Progress" },
             { patient: "Emily Davis", test: "Thyroid Panel", date: "Sep 5", status: "Ordered" },
           ].map((req, i) => (
-            <div key={i} className="flex items-center justify-between rounded-xl border border-border p-3">
+            <div key={i} className="flex items-center justify-between rounded-lg border border-border p-3">
               <div>
                 <p className="text-sm font-medium">{req.patient} — {req.test}</p>
                 <p className="text-xs text-muted-foreground">{req.date}</p>
               </div>
               <span className={`text-xs font-medium rounded-lg px-2 py-1 ${
-                req.status === "Completed" ? "bg-accent-teal/10 text-accent-teal" :
-                req.status === "In Progress" ? "bg-primary/10 text-primary" :
+                req.status === "Completed" ? "bg-muted text-muted-foreground" :
+                req.status === "In Progress" ? "bg-foreground/10 text-foreground" :
                 "bg-muted text-muted-foreground"
               }`}>{req.status}</span>
             </div>

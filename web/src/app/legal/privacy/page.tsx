@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 export default function PrivacyPage() {
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold tracking-tight text-primary neon-text mb-2">Privacy Policy</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-foreground mb-2">Privacy Policy</h1>
       <p className="text-xs text-muted-foreground mb-6">Last updated: September 16, 2026</p>
       <Card className="bg-card border-border">
         <CardContent className="space-y-6 p-6 text-sm text-muted-foreground leading-relaxed">
@@ -114,7 +114,7 @@ export default function PrivacyPage() {
               <li><strong className="text-foreground">Right to data portability:</strong> Receive your data in a structured, machine-readable format</li>
               <li><strong className="text-foreground">Right to withdraw consent:</strong> Withdraw consent for processing based on consent at any time</li>
             </ul>
-            <p>To exercise any of these rights, contact us at <a href="mailto:privacy@medic1905.com" className="text-primary hover:underline">privacy@medic1905.com</a>.</p>
+            <p>To exercise any of these rights, contact us at <a href="mailto:privacy@medic1905.com" className="text-foreground hover:underline">privacy@medic1905.com</a>.</p>
           </section>
 
           <section className="space-y-2">

@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 export default function TermsPage() {
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold tracking-tight text-primary neon-text mb-2">Terms of Use</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-foreground mb-2">Terms of Use</h1>
       <p className="text-xs text-muted-foreground mb-6">Last updated: September 16, 2026</p>
       <Card className="bg-card border-border">
         <CardContent className="space-y-6 p-6 text-sm text-muted-foreground leading-relaxed">

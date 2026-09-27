@@ -105,7 +105,7 @@ export default function PatientDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <User className="h-4 w-4 text-primary" />
+              <User className="h-4 w-4 text-foreground" />
               Patient Information
             </CardTitle>
           </CardHeader>
@@ -136,7 +136,7 @@ export default function PatientDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-primary" />
+              <MapPin className="h-4 w-4 text-foreground" />
               Contact & Emergency
             </CardTitle>
           </CardHeader>

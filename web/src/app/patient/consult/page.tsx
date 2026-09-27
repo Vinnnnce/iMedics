@@ -33,14 +33,14 @@ export default function PatientConsultPage() {
         <Button
           variant={mode === "chat" ? "default" : "outline"}
           onClick={() => setMode("chat")}
-          className="rounded-xl"
+          className="rounded-lg"
         >
           <MessageSquare className="h-4 w-4 mr-1" /> Chat
         </Button>
         <Button
           variant={mode === "video" ? "default" : "outline"}
           onClick={() => setMode("video")}
-          className="rounded-xl"
+          className="rounded-lg"
         >
           <Video className="h-4 w-4 mr-1" /> Video Call
         </Button>
@@ -53,8 +53,8 @@ export default function PatientConsultPage() {
             <div className="h-96 overflow-y-auto p-4 space-y-3">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.sender === "patient" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${
-                    msg.sender === "patient" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                  <div className={`max-w-[75%] rounded-lg px-4 py-2 ${
+                    msg.sender === "patient" ? "bg-foreground text-background" : "bg-muted text-foreground"
                   }`}>
                     <p className="text-sm">{msg.text}</p>
                   </div>
@@ -68,9 +68,9 @@ export default function PatientConsultPage() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }}
                 placeholder="Type a message..."
-                className="rounded-xl"
+                className="rounded-lg"
               />
-              <Button onClick={sendMessage} className="bg-primary text-primary-foreground rounded-xl">
+              <Button onClick={sendMessage} className="bg-foreground text-background rounded-lg">
                 <Send className="h-4 w-4" />
               </Button>
             </div>
@@ -79,11 +79,11 @@ export default function PatientConsultPage() {
       ) : (
         <Card className="beeline-card">
           <CardContent className="p-6">
-            <div className="flex flex-col items-center justify-center h-96 rounded-2xl bg-muted">
+            <div className="flex flex-col items-center justify-center h-96 rounded-lg bg-muted">
               <Video className="h-16 w-16 text-muted-foreground mb-3" />
               <p className="text-sm text-muted-foreground">Video call will start when the doctor joins</p>
               <div className="flex gap-2 mt-4">
-                <Button className="bg-accent-teal text-white rounded-xl">
+                <Button className="bg-foreground text-background rounded-lg">
                   <Phone className="h-4 w-4 mr-1" /> Start Call
                 </Button>
               </div>
