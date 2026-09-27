@@ -3,15 +3,73 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-  <meta name="description" content="Medic1905 Admin Dashboard — Monitor and manage the telemedicine platform">
-  <title>Medic1905 — Admin Dashboard</title>
+  <meta name="description" content="Medic1905 — Telemedicine platform for Nigeria. Admin dashboard, consultations, lab tests, and diagnostics.">
+  <meta name="author" content="Medic1905">
+  <meta name="theme-color" content="#F5F5F5">
+  <title>Medic1905 — Telemedicine Platform (Nigeria)</title>
   <link rel="preconnect" href="https://api.fontshare.com">
   <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=satoshi@300,400,500,700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23111' stroke-width='2'><path d='M12 2L2 7v6c0 5 3.5 9.5 10 11 6.5-1.5 10-6 10-11V7L12 2z'/><path d='M9 12l2 2 4-4'/></svg>">
 </head>
 <body>
-  <!-- Sidebar -->
+  <!-- ═══ NAVBAR (top, global) ═══ -->
+  <header class="navbar" id="navbar">
+    <div class="navbar-inner">
+      <!-- Left: Logo + nav links -->
+      <div class="navbar-left">
+        <button class="hamburger" id="sidebar-toggle" aria-label="Toggle sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        </button>
+        <a href="#/dashboard" class="navbar-logo" aria-label="Medic1905 home">
+          <svg class="logo-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M16 2L4 8v8c0 6 4.5 11 12 14 7.5-3 12-8 12-14V8L16 2z"/>
+            <path d="M16 8v8M12 12h8" stroke-linecap="round"/>
+          </svg>
+          <span class="logo-text">Medic1905</span>
+        </a>
+        <nav class="navbar-links">
+          <a href="#/dashboard" class="navbar-link" data-route="dashboard">Dashboard</a>
+          <a href="#/users" class="navbar-link" data-route="users">Users</a>
+          <a href="#/consultations" class="navbar-link" data-route="consultations">Consultations</a>
+          <a href="#/downloads" class="navbar-link" data-route="downloads">Downloads</a>
+          <a href="#/legal/privacy" class="navbar-link">Privacy</a>
+        </nav>
+      </div>
+
+      <!-- Right: Search, notifications, Login, Sign Up -->
+      <div class="navbar-right">
+        <div class="navbar-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" placeholder="Search patients, doctors, records..." aria-label="Search">
+        </div>
+        <button class="icon-btn navbar-notification" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="badge-dot"></span>
+        </button>
+        <a href="#/auth/login" class="btn btn-secondary navbar-auth-btn" data-route="login">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+          <span>Login</span>
+        </a>
+        <a href="#/auth/signup" class="btn btn-primary navbar-auth-btn" data-route="signup">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 8 0 4 4 0 0 0-8 0zM19 8v6M22 11h-6"/></svg>
+          <span>Sign Up</span>
+        </a>
+        <div class="admin-profile navbar-profile">
+          <div class="avatar">AD</div>
+          <div class="admin-info">
+            <div class="admin-name">Admin</div>
+            <div class="admin-role">Administrator</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sidebar overlay (mobile) -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- ═══ SIDEBAR ═══ -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <svg class="logo" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" aria-label="Medic1905 logo">
@@ -77,57 +135,34 @@
         <span>Android</span>
       </a>
     </div>
+
+    <!-- Login / Sign Up at bottom of sidebar (mobile) -->
+    <div class="sidebar-auth">
+      <a href="#/auth/login" class="btn btn-secondary" style="flex:1">Login</a>
+      <a href="#/auth/signup" class="btn btn-primary" style="flex:1">Sign Up</a>
+    </div>
   </aside>
 
-  <!-- Mobile overlay -->
-  <div class="sidebar-overlay" id="sidebar-overlay"></div>
-
-  <!-- Main content -->
+  <!-- ═══ MAIN WRAPPER ═══ -->
   <div class="main-wrapper">
-    <!-- Top bar -->
-    <header class="topbar">
-      <button class="hamburger" id="hamburger" aria-label="Toggle menu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
-      </button>
-      <div class="search-bar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        <input type="text" placeholder="Search users, consultations, records..." aria-label="Search">
-      </div>
-      <div class="topbar-actions">
-        <button class="icon-btn" aria-label="Notifications">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <span class="badge-dot"></span>
-        </button>
-        <div class="admin-profile">
-          <div class="avatar">AD</div>
-          <div class="admin-info">
-            <div class="admin-name">Admin User</div>
-            <div class="admin-role">System Administrator</div>
-          </div>
-        </div>
-      </div>
-    </header>
-
     <!-- Navigation tip banner -->
     <div class="tip-banner" id="tip-banner">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-      <p><strong>Tip:</strong> Start from your dashboard to see what matters most — patients can view results and appointments, doctors can manage consultations and schedules, and lab staff can update test results. Use the sidebar to switch between sections, and the footer to download the app for Windows, iOS, or Android.</p>
+      <p><strong>Tip:</strong> Use the top navbar to log in or sign up, the sidebar to move between sections, and the footer to download the app for Windows, iOS, or Android. Your dashboard shows everything you need at a glance.</p>
       <button class="tip-close" id="tip-close" aria-label="Dismiss tip">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
     </div>
 
     <!-- Content area -->
-    <main class="content" id="content">
-      <!-- Content is rendered by app.js -->
-    </main>
+    <main class="content" id="content"></main>
 
     <!-- Footer -->
     <footer class="footer">
       <div class="footer-inner">
         <div class="footer-left">
           <span class="footer-logo">Medic1905</span>
-          <span class="footer-copy">© 2026 Medic1905. All rights reserved.</span>
+          <span class="footer-copy">© 2026 Medic1905. Serving Nigeria.</span>
         </div>
         <div class="footer-links">
           <a href="#/legal/privacy">Privacy Policy</a>

@@ -53,6 +53,10 @@
     return '<span class="badge badge-' + type + '">' + text + '</span>';
   }
 
+  function navLinkActive(route, hash) {
+    return hash.includes(route) ? 'navbar-link active' : 'navbar-link';
+  }
+
   function statusBadge(status) {
     const map = {
       'active': ['Active', 'success'],
@@ -84,7 +88,7 @@
         <div class="page-header">
           <div>
             <h1 class="page-title">Dashboard Overview</h1>
-            <p class="page-subtitle">Monitor key metrics across the Medic1905 platform</p>
+            <p class="page-subtitle">Monitor key metrics across the Medic1905 platform — serving Nigeria</p>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-secondary" onclick="alert('Exporting CSV...')">Export Report</button>
@@ -884,7 +888,7 @@
         <div class="page-header">
           <div>
             <h1 class="page-title">Download Medic1905</h1>
-            <p class="page-subtitle">Get the Medic1905 app for your platform</p>
+            <p class="page-subtitle">Get the Medic1905 app for your platform — available across Nigeria</p>
           </div>
         </div>
 
@@ -962,57 +966,59 @@
           <p class="legal-updated">Last updated: September 27, 2026</p>
 
           <h2>1. Introduction</h2>
-          <p>Medic1905 ("Medic1905", "we", "us", "our") operates a telemedicine platform that enables patients, healthcare professionals and laboratory staff to interact and exchange medical information. This Privacy Policy explains how we collect, use, disclose and protect personal data, including health-related information, in connection with the use of our services.</p>
+          <p>Medic1905 ("we", "us", "our") operates a telemedicine platform serving users in Nigeria. This Privacy Policy explains how we collect, use, disclose and protect personal data, including health-related information, in connection with the use of our services.</p>
 
-          <h2>2. Categories of Data Collected</h2>
+          <h2>2. Data We Collect</h2>
           <p>We may collect the following categories of data:</p>
           <ul>
             <li><strong>Identification data:</strong> name, contact details, account credentials, role (patient, doctor, laboratory staff).</li>
             <li><strong>Medical data:</strong> case files, medical history, consultation notes, diagnostic reports, laboratory results, imaging files and prescriptions.</li>
             <li><strong>Technical data:</strong> IP address, device information, browser type, usage logs and cookies.</li>
-            <li><strong>Administrative data:</strong> verification documents for healthcare professionals and laboratory staff.</li>
+            <li><strong>Verification data:</strong> professional documents for doctors and laboratory staff.</li>
           </ul>
 
-          <h2>3. Purposes of Processing</h2>
-          <p>We process personal data for the following purposes:</p>
+          <h2>3. Purpose of Processing</h2>
+          <p>We process personal data to:</p>
           <ul>
-            <li>To provide and maintain the telemedicine platform and related services.</li>
-            <li>To facilitate consultations, diagnostics, laboratory workflows and appointment management.</li>
-            <li>To manage user accounts, roles and permissions.</li>
-            <li>To ensure security, prevent fraud and monitor system performance.</li>
-            <li>To comply with legal, regulatory and professional obligations.</li>
+            <li>Provide telemedicine services to patients across Nigeria.</li>
+            <li>Facilitate consultations, diagnostics, laboratory workflows and appointment management.</li>
+            <li>Manage user accounts, roles and permissions.</li>
+            <li>Ensure security, prevent fraud and monitor system performance.</li>
+            <li>Comply with Nigerian legal and regulatory obligations, including the Nigeria Data Protection Act (NDPA) 2023 and the National Health Research Ethics Code.</li>
           </ul>
 
-          <h2>4. Legal Bases for Processing</h2>
-          <p>Depending on the jurisdiction and context, we may rely on one or more of the following legal bases:</p>
+          <h2>4. Legal Basis</h2>
+          <p>Depending on the context, we may rely on one or more of the following legal bases:</p>
           <ul>
             <li>Performance of a contract (providing the services you request).</li>
-            <li>Compliance with legal obligations.</li>
+            <li>Compliance with legal obligations under Nigerian law.</li>
             <li>Legitimate interests (service improvement, security, fraud prevention).</li>
-            <li>Explicit consent for processing certain categories of health data, where required.</li>
+            <li>Explicit consent for processing certain categories of health data, where required by the NDPA 2023.</li>
           </ul>
 
-          <h2>5. Data Sharing and Recipients</h2>
+          <h2>5. Data Sharing</h2>
           <p>We may share personal data with:</p>
           <ul>
             <li>Healthcare professionals and laboratory staff involved in your care, as authorized by you.</li>
+            <li>Laboratory staff processing your tests.</li>
             <li>Service providers (hosting, storage, authentication, analytics) bound by contractual confidentiality and data protection obligations.</li>
-            <li>Regulatory or law enforcement authorities where required by applicable law.</li>
+            <li>Regulatory or law enforcement authorities where required by Nigerian law.</li>
           </ul>
           <p>We do not sell personal data.</p>
 
           <h2>6. International Transfers</h2>
-          <p>Where personal data is transferred across borders, we implement appropriate safeguards, such as standard contractual clauses or equivalent mechanisms, in accordance with applicable data protection laws.</p>
+          <p>Where personal data is transferred outside Nigeria, we implement appropriate safeguards, such as standard contractual clauses or equivalent mechanisms, in accordance with the Nigeria Data Protection Act 2023 and applicable data protection regulations.</p>
 
           <h2>7. Data Retention</h2>
-          <p>We retain personal data only for as long as necessary to fulfill the purposes described in this Policy, or as required by law, professional regulations or contractual obligations.</p>
+          <p>We retain personal data only for as long as necessary to fulfill the purposes described in this Policy, or as required by Nigerian law, professional regulations or contractual obligations.</p>
 
           <h2>8. Your Rights</h2>
-          <p>Subject to applicable law, you may have rights to:</p>
+          <p>Subject to applicable Nigerian law, you may have the right to:</p>
           <ul>
             <li>Access your personal data.</li>
-            <li>Request rectification of inaccurate data.</li>
-            <li>Request erasure or restriction of processing.</li>
+            <li>Request correction of inaccurate data.</li>
+            <li>Request deletion of your personal data.</li>
+            <li>Request restriction of processing.</li>
             <li>Object to certain processing activities.</li>
             <li>Request data portability.</li>
             <li>Withdraw consent where processing is based on consent.</li>
@@ -1020,10 +1026,10 @@
           <p>Requests may be subject to verification and legal limitations.</p>
 
           <h2>9. Security Measures</h2>
-          <p>We implement technical and organizational measures to protect personal data, including encryption, access controls and audit logging. While no system can be guaranteed to be completely secure, we strive to maintain a high level of security appropriate to the risks.</p>
+          <p>We implement technical and organizational measures to protect personal data, including encryption, access controls and monitoring. While no system can be guaranteed to be completely secure, we strive to maintain a high level of security appropriate to the risks.</p>
 
           <h2>10. Contact</h2>
-          <p>If you have questions about this Privacy Policy or wish to exercise your rights, please contact us using the contact details provided within the Medic1905 platform.</p>
+          <p>If you have questions about this Privacy Policy or wish to exercise your rights, please contact us using the contact details provided within the Medic1905 platform. You may also contact the Nigeria Data Protection Commission (NDPC) for further guidance.</p>
         </div>
       `;
     },
@@ -1035,40 +1041,40 @@
           <h1>Terms of Use — Medic1905</h1>
           <p class="legal-updated">Last updated: September 27, 2026</p>
 
-          <h2>1. Acceptance of Terms</h2>
+          <h2>1. Acceptance</h2>
           <p>These Terms of Use ("Terms") govern your access to and use of the Medic1905 platform. By creating an account or using the platform, you acknowledge that you have read, understood and agree to be bound by these Terms.</p>
 
-          <h2>2. Nature of the Service</h2>
-          <p>Medic1905 provides a technology platform that connects patients, healthcare professionals and laboratory staff. Medic1905 itself does not practice medicine and does not provide clinical services. Any medical advice, diagnosis or treatment is provided solely by licensed healthcare professionals, not by Medic1905.</p>
+          <h2>2. Nature of Service</h2>
+          <p>Medic1905 is a technology platform that connects patients, healthcare professionals and laboratory staff in Nigeria. Medic1905 itself does not practice medicine and does not provide clinical services. Any medical advice, diagnosis or treatment is provided solely by licensed Nigerian healthcare professionals, not by Medic1905.</p>
 
           <h2>3. User Responsibilities</h2>
           <p>You agree to:</p>
           <ul>
             <li>Provide accurate and up-to-date information.</li>
-            <li>Use the platform in compliance with applicable laws and professional regulations.</li>
+            <li>Use the platform in compliance with applicable Nigerian laws and professional regulations.</li>
             <li>Maintain the confidentiality of your login credentials.</li>
             <li>Refrain from any misuse of the platform, including unauthorized access, data scraping, or uploading unlawful or harmful content.</li>
           </ul>
 
           <h2>4. Professional Responsibilities</h2>
-          <p>Healthcare professionals and laboratory staff remain solely responsible for:</p>
+          <p>Doctors and laboratory staff remain solely responsible for:</p>
           <ul>
             <li>The accuracy and completeness of their clinical documentation.</li>
             <li>Their diagnostic and treatment decisions.</li>
-            <li>Compliance with professional standards and regulatory requirements.</li>
+            <li>Compliance with professional standards and Nigerian regulatory requirements, including those set by the Medical and Dental Council of Nigeria (MDCN) and the Medical Laboratory Science Council of Nigeria (MLSCN).</li>
           </ul>
 
-          <h2>5. Limitations of Liability</h2>
-          <p>To the maximum extent permitted by law, Medic1905 shall not be liable for any indirect, incidental, consequential or punitive damages arising out of or related to your use of the platform. Where liability cannot be excluded, it shall be limited to the amount you have paid for the use of the platform, if any, during the twelve (12) months preceding the event giving rise to the claim.</p>
+          <h2>5. Liability</h2>
+          <p>To the maximum extent permitted by Nigerian law, Medic1905 shall not be liable for any indirect, incidental, consequential or punitive damages arising out of or related to your use of the platform. Where liability cannot be excluded, it shall be limited to the amount you have paid for the use of the platform, if any, during the twelve (12) months preceding the event giving rise to the claim.</p>
 
-          <h2>6. Modifications and Availability</h2>
+          <h2>6. Modifications</h2>
           <p>We may modify, suspend or discontinue any part of the platform at any time, with or without notice, subject to applicable law. We may also update these Terms from time to time. Continued use of the platform after changes take effect constitutes acceptance of the updated Terms.</p>
 
           <h2>7. Termination</h2>
           <p>We may suspend or terminate your access to the platform if you violate these Terms, engage in fraudulent or unlawful activity, or pose a security or operational risk. You may terminate your account at any time, subject to applicable data retention obligations.</p>
 
-          <h2>8. Governing Law and Dispute Resolution</h2>
-          <p>These Terms shall be governed by the laws specified in the legal section of the platform. Any disputes arising out of or in connection with these Terms shall be submitted to the competent courts of that jurisdiction, unless mandatory law provides otherwise.</p>
+          <h2>8. Governing Law</h2>
+          <p>These Terms shall be governed by and construed in accordance with the laws of the Federal Republic of Nigeria. Any disputes arising out of or in connection with these Terms shall be submitted to the competent courts of Nigeria, unless mandatory law provides otherwise.</p>
         </div>
       `;
     },
@@ -1091,19 +1097,111 @@
             <li><strong>Analytics cookies:</strong> used to understand how the platform is used, so we can improve performance and user experience.</li>
           </ul>
 
-          <h2>3. Purposes of Cookies</h2>
-          <p>Cookies are used to:</p>
-          <ul>
-            <li>Keep you signed in securely.</li>
-            <li>Provide a consistent and personalized user experience.</li>
-            <li>Measure and improve the performance and reliability of the platform.</li>
-          </ul>
+          <h2>3. Purpose of Cookies</h2>
+          <p>Cookies help keep you signed in securely, personalize your experience, and measure and improve the performance and reliability of the platform.</p>
 
           <h2>4. Managing Cookies</h2>
-          <p>You can manage or disable cookies through your browser or device settings. Please note that disabling certain cookies may affect the functionality or performance of the platform.</p>
+          <p>You may disable cookies through your browser or device settings. Please note that disabling certain cookies may affect the functionality or performance of the platform. Under the Nigeria Data Protection Act 2023, you have the right to withdraw consent for non-essential cookies at any time.</p>
 
           <h2>5. Updates to This Cookies Policy</h2>
           <p>We may update this Cookies Policy from time to time. The most recent version will be made available within the Medic1905 platform, and continued use of the platform after changes take effect constitutes acceptance of the updated Policy.</p>
+        </div>
+      `;
+    },
+
+    // ═══ AUTH: LOGIN ═══
+    authLogin: function () {
+      return `
+        <div class="auth-page">
+          <div class="auth-card">
+            <div class="auth-header">
+              <svg class="auth-logo" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 2L4 8v8c0 6 4.5 11 12 14 7.5-3 12-8 12-14V8L16 2z"/>
+                <path d="M16 8v8M12 12h8" stroke-linecap="round"/>
+              </svg>
+              <h1 class="auth-title">Welcome Back</h1>
+              <p class="auth-subtitle">Sign in to your Medic1905 account</p>
+            </div>
+
+            <div class="auth-form">
+              <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input class="form-input" type="email" placeholder="your@email.com" data-testid="input-email">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Password</label>
+                <input class="form-input" type="password" placeholder="••••••••" data-testid="input-password">
+              </div>
+              <div class="auth-options">
+                <label class="auth-remember">
+                  <input type="checkbox"> <span>Remember me</span>
+                </label>
+                <a href="#/auth/login" class="auth-link">Forgot password?</a>
+              </div>
+              <button class="btn btn-primary auth-submit" onclick="alert('Login functionality requires backend integration.')" data-testid="button-login">
+                Sign In
+              </button>
+              <p class="auth-footer">
+                Don't have an account? <a href="#/auth/signup" class="auth-link">Sign up</a>
+              </p>
+            </div>
+          </div>
+        </div>
+      `;
+    },
+
+    // ═══ AUTH: SIGN UP ═══
+    authSignup: function () {
+      return `
+        <div class="auth-page">
+          <div class="auth-card">
+            <div class="auth-header">
+              <svg class="auth-logo" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 2L4 8v8c0 6 4.5 11 12 14 7.5-3 12-8 12-14V8L16 2z"/>
+                <path d="M16 8v8M12 12h8" stroke-linecap="round"/>
+              </svg>
+              <h1 class="auth-title">Create Account</h1>
+              <p class="auth-subtitle">Join Medic1905 — Nigeria's telemedicine platform</p>
+            </div>
+
+            <div class="auth-form">
+              <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input class="form-input" type="text" placeholder="Enter your full name" data-testid="input-name">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input class="form-input" type="email" placeholder="your@email.com" data-testid="input-email">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Phone Number</label>
+                <input class="form-input" type="tel" placeholder="+234 800 000 0000" data-testid="input-phone">
+              </div>
+              <div class="form-group">
+                <label class="form-label">I am a...</label>
+                <select class="form-select" data-testid="select-role">
+                  <option value="patient">Patient</option>
+                  <option value="doctor">Doctor</option>
+                  <option value="lab">Lab Staff</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Password</label>
+                <input class="form-input" type="password" placeholder="••••••••" data-testid="input-password">
+              </div>
+              <div class="auth-options">
+                <label class="auth-remember">
+                  <input type="checkbox" data-testid="checkbox-terms"> <span>I agree to the <a href="#/legal/terms" class="auth-link">Terms of Use</a> and <a href="#/legal/privacy" class="auth-link">Privacy Policy</a></span>
+                </label>
+              </div>
+              <button class="btn btn-primary auth-submit" onclick="alert('Sign up functionality requires backend integration.')" data-testid="button-signup">
+                Create Account
+              </button>
+              <p class="auth-footer">
+                Already have an account? <a href="#/auth/login" class="auth-link">Log in</a>
+              </p>
+            </div>
+          </div>
         </div>
       `;
     },
@@ -1142,6 +1240,10 @@
       viewName = 'legalTerms';
     } else if (hash === '/legal/cookies') {
       viewName = 'legalCookies';
+    } else if (hash === '/auth/login') {
+      viewName = 'authLogin';
+    } else if (hash === '/auth/signup') {
+      viewName = 'authSignup';
     } else {
       viewName = 'dashboard';
     }
@@ -1158,6 +1260,15 @@
       const route = item.getAttribute('data-route');
       if (route && hash.includes(route)) {
         item.classList.add('active');
+      }
+    });
+
+    // Update navbar links
+    document.querySelectorAll('.navbar-link').forEach(link => {
+      link.classList.remove('active');
+      const route = link.getAttribute('data-route');
+      if (route && hash.includes(route)) {
+        link.classList.add('active');
       }
     });
 
@@ -1196,10 +1307,13 @@
   // ── Event listeners ────────────────────────
   window.addEventListener('hashchange', router);
 
-  document.getElementById('hamburger').addEventListener('click', function () {
-    document.getElementById('sidebar').classList.toggle('open');
-    document.getElementById('sidebar-overlay').classList.toggle('active');
-  });
+  var sidebarToggle = document.getElementById('sidebar-toggle') || document.getElementById('hamburger');
+  if (sidebarToggle) {
+    sidebarToggle.addEventListener('click', function () {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('sidebar-overlay').classList.toggle('active');
+    });
+  }
 
   document.getElementById('sidebar-overlay').addEventListener('click', function () {
     document.getElementById('sidebar').classList.remove('open');
