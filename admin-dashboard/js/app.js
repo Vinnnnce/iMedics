@@ -1209,7 +1209,7 @@
 
   // ── Router ─────────────────────────────────
   function router() {
-    const hash = window.location.hash.slice(2) || '/dashboard';
+    const hash = window.location.hash.slice(1) || '/dashboard';
     const content = document.getElementById('content');
 
     // Parse route
