@@ -12,7 +12,7 @@ export default function PatientResultsPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto px-4 md:px-0">
       <div>
         <h1 className="text-2xl font-bold">Analysis Results</h1>
         <p className="text-sm text-muted-foreground mt-1">View your lab test results</p>
@@ -21,7 +21,7 @@ export default function PatientResultsPage() {
       <div className="space-y-3">
         {results.map((result) => (
           <Card key={result.id} className="beeline-card">
-            <CardContent className="flex items-center justify-between p-4">
+            <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
                   <FlaskConical className="h-5 w-5 text-muted-foreground" />

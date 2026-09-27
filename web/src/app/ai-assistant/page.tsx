@@ -62,7 +62,7 @@ export default function AIAssistantPage() {
   const selectedHistory = histories.find((h) => h.id === selectedHistoryId);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto px-4 md:px-0">
       <div>
         <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-foreground" />
@@ -145,7 +145,7 @@ export default function AIAssistantPage() {
       {/* AI Panel */}
       {selectedPatientId && selectedHistoryId && selectedPatient && selectedHistory ? (
         <div className="flex h-[calc(100vh-20rem)]">
-          <div className="w-full max-w-md">
+          <div className="w-full max-w-md mx-auto">
             <AIAssistantPanel
               patientId={selectedPatientId}
               historyId={selectedHistoryId}

@@ -15,7 +15,8 @@ type UserRecord = {
   name: string;
   email: string;
   role: string;
-  status: "active" | "suspended" | "banned";
+  status: "active" | "suspended" | "banned" | "pending";
+  accountType?: string;
   createdAt: string;
 };
 
@@ -218,8 +219,8 @@ export default function AdminDashboardPage() {
     ? [
         { label: "Total Users", value: stats.users.total, icon: Users },
         { label: "Active", value: stats.users.active, icon: CheckCircle },
+        { label: "Pending", value: (stats.users as any).pending || 0, icon: AlertTriangle },
         { label: "Suspended", value: stats.users.suspended, icon: AlertTriangle },
-        { label: "Banned", value: stats.users.banned, icon: Ban },
       ]
     : [];
 
@@ -377,6 +378,7 @@ export default function AdminDashboardPage() {
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
+              <option value="pending">Pending</option>
               <option value="suspended">Suspended</option>
               <option value="banned">Banned</option>
             </select>
@@ -425,10 +427,12 @@ export default function AdminDashboardPage() {
                       <td>
                         <span className={`status-badge ${
                           user.status === "active" ? "bg-muted text-foreground" :
+                          user.status === "pending" ? "bg-foreground/10 text-warning" :
                           user.status === "suspended" ? "bg-muted text-muted-foreground" :
                           "bg-muted text-destructive"
                         }`}>
                           {user.status === "active" && <CheckCircle className="h-3 w-3" />}
+                          {user.status === "pending" && <AlertTriangle className="h-3 w-3" />}
                           {user.status === "suspended" && <AlertTriangle className="h-3 w-3" />}
                           {user.status === "banned" && <Ban className="h-3 w-3" />}
                           {user.status}
@@ -439,7 +443,17 @@ export default function AdminDashboardPage() {
                       </td>
                       <td>
                         <div className="flex gap-1">
-                          {user.status !== "suspended" && (
+                          {user.status === "pending" && (
+                            <button
+                              onClick={() => updateUser(user.id, { status: "active" })}
+                              className="p-1.5 rounded hover:bg-accent text-foreground"
+                              title="Approve"
+                              data-testid={`button-approve-${user.id}`}
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </button>
+                          )}
+                          {user.status !== "suspended" && user.status !== "pending" && (
                             <button
                               onClick={() => updateUser(user.id, { status: "suspended" })}
                               className="p-1.5 rounded hover:bg-accent text-muted-foreground"
@@ -459,7 +473,7 @@ export default function AdminDashboardPage() {
                               <Ban className="h-4 w-4" />
                             </button>
                           )}
-                          {user.status !== "active" && (
+                          {user.status !== "active" && user.status !== "pending" && (
                             <button
                               onClick={() => updateUser(user.id, { status: "active" })}
                               className="p-1.5 rounded hover:bg-accent text-foreground"

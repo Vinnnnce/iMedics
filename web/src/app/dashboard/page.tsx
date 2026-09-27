@@ -11,6 +11,13 @@ export default async function DashboardPage() {
   if (role === "DOCTOR") redirect("/doctor/dashboard");
   if (role === "LAB_SCIENTIST") redirect("/lab/dashboard");
 
+  // Check if registration is pending
+  const registrationStatus = (clerkUser?.unsafeMetadata as Record<string, unknown>)?.registrationStatus as string;
+  const registrationComplete = (clerkUser?.unsafeMetadata as Record<string, unknown>)?.registrationComplete as boolean;
+  if (registrationComplete && registrationStatus === "pending") {
+    redirect("/auth/callback");
+  }
+
   const stats = [
     { label: "Appointments", value: "3", sub: "1 upcoming", icon: Calendar },
     { label: "Lab Results", value: "5", sub: "2 new", icon: FlaskConical },

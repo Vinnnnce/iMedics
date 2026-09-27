@@ -28,7 +28,8 @@ model User {
   kycVerified   Boolean  @default(false) @map("kyc_verified")
   onboardingComplete Boolean @default(false) @map("onboarding_complete")
   // Account moderation state managed from the admin dashboard
-  status        String   @default("active") // active, suspended, banned
+  status        String   @default("active") // active, suspended, banned, pending
+  accountType   String?  @map("account_type") // patient, doctor, laboratory, diagnostic_centre, hospital
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -368,6 +369,8 @@ model DoctorProfile {
   userId            String   @unique @map("user_id") @db.Uuid
   gender            String?
   licenseNumber     String?  @map("license_number")
+  mdcnRegistrationNumber String? @map("mdcn_registration_number")
+  yearOfRegistration Int?    @map("year_of_registration")
   yearsOfExperience Int?     @map("years_of_experience")
   specialty         String?
   affiliation       String?
@@ -392,6 +395,8 @@ model LabStaffProfile {
   laboratoryName    String?  @map("laboratory_name")
   position          String?  // technician, scientist, supervisor
   licenseIdNumber   String?  @map("license_id_number")
+  cacRegistrationNumber String? @map("cac_registration_number")
+  facilityLicenseNumber String? @map("facility_license_number")
   documentUrls      Json     @default("[]") @map("document_urls")
   departments       Json     @default("[]") // hematology, microbiology, etc.
   verified          Boolean  @default(false)

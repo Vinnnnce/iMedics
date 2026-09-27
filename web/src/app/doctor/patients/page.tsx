@@ -12,8 +12,8 @@ export default function DoctorPatientsPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 max-w-4xl mx-auto px-4 md:px-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">My Patients</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage your patient roster</p>
@@ -26,7 +26,7 @@ export default function DoctorPatientsPage() {
       <div className="space-y-3">
         {patients.map((patient) => (
           <Card key={patient.id} className="beeline-card">
-            <CardContent className="flex items-center justify-between p-4">
+            <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-foreground/10 text-foreground font-bold">
                   {patient.name.split(" ").map((n) => n[0]).join("")}

@@ -14,7 +14,7 @@ export default function LabUsersPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto px-4 md:px-0">
       <div>
         <h1 className="text-2xl font-bold">User Directory</h1>
         <p className="text-sm text-muted-foreground mt-1">All registered doctors and patients</p>
@@ -23,7 +23,7 @@ export default function LabUsersPage() {
       <div className="space-y-3">
         {users.map((user) => (
           <Card key={user.id} className="beeline-card">
-            <CardContent className="flex items-center justify-between p-4">
+            <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4">
               <div className="flex items-center gap-3">
                 <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${user.role === "Doctor" ? "bg-foreground/10" : "bg-muted"} font-bold`}>
                   {user.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}

@@ -184,7 +184,7 @@ export default function DoctorConsultationsPage() {
   const selectedPatient = patients.find((p) => p.id === patientId);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold">Write Consultation</h1>
         <p className="text-sm text-muted-foreground mt-1">

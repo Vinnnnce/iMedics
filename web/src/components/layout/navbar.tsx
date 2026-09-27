@@ -30,7 +30,6 @@ const PATIENT_NAV: NavItem[] = [
   { href: "/patient/consult", label: "Consultation", icon: Video, roles: ["PATIENT"] },
   { href: "/profile", label: "Profile", icon: User, roles: ["PATIENT"] },
   { href: "/profile", label: "Settings", icon: Settings, roles: ["PATIENT"] },
-  { href: "/admin", label: "Admin Panel", icon: Shield, roles: ["PATIENT"] },
 ];
 
 const DOCTOR_NAV: NavItem[] = [
@@ -46,7 +45,6 @@ const DOCTOR_NAV: NavItem[] = [
   { href: "/doctor/admit", label: "Admit/Discharge", icon: Building2, roles: ["DOCTOR"] },
   { href: "/profile", label: "Profile", icon: User, roles: ["DOCTOR"] },
   { href: "/profile", label: "Settings", icon: Settings, roles: ["DOCTOR"] },
-  { href: "/admin", label: "Admin Panel", icon: Shield, roles: ["DOCTOR"] },
 ];
 
 const LAB_NAV: NavItem[] = [
@@ -56,7 +54,6 @@ const LAB_NAV: NavItem[] = [
   { href: "/lab/upload", label: "Upload Results", icon: Upload, roles: ["LAB_SCIENTIST"] },
   { href: "/profile", label: "Profile", icon: User, roles: ["LAB_SCIENTIST"] },
   { href: "/profile", label: "Settings", icon: Settings, roles: ["LAB_SCIENTIST"] },
-  { href: "/admin", label: "Admin Panel", icon: Shield, roles: ["LAB_SCIENTIST"] },
 ];
 
 const BOTTOM_NAV_ITEMS = [
@@ -112,7 +109,16 @@ export function Navbar({ children }: { children: React.ReactNode }) {
   const role = ((user?.publicMetadata as Record<string, unknown>)?.role as string) ||
     ((user?.unsafeMetadata as Record<string, unknown>)?.role as string) || "PATIENT";
 
+  // Admin panel is only visible to the authorized admin email
+  const adminEmails = ["imedtalk@gmail.com", "medicmed26@gmail.com", "admin@medic1905.com", "vincentuzochi@gmail.com"];
+  const userEmail = user?.emailAddresses?.[0]?.emailAddress || "";
+  const isAdminEmail = adminEmails.includes(userEmail);
+
   const navItems = role === "DOCTOR" ? DOCTOR_NAV : role === "LAB_SCIENTIST" ? LAB_NAV : PATIENT_NAV;
+  // Conditionally add admin panel link for authorized emails
+  const visibleNavItems = isAdminEmail
+    ? [...navItems, { href: "/admin", label: "Admin Panel", icon: Shield, roles: [role] }]
+    : navItems;
   const bottomNav = BOTTOM_NAV_ITEMS.filter((item) => item.roles.includes(role));
   const suggestions = role === "DOCTOR" ? DOCTOR_AI_SUGGESTIONS : AI_SUGGESTIONS;
 
@@ -127,7 +133,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
     const results: { title: string; subtitle: string; href: string; icon: any }[] = [];
 
     // Search nav items
-    navItems.forEach((item) => {
+    visibleNavItems.forEach((item) => {
       if (item.label.toLowerCase().includes(q)) {
         results.push({
           title: item.label,
@@ -165,7 +171,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
     });
 
     return results.slice(0, 6);
-  }, [searchQuery, navItems, suggestions]);
+  }, [searchQuery, visibleNavItems, suggestions]);
 
   const searchResults = getSearchResults();
 
@@ -336,7 +342,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
       {/* Desktop Sidebar */}
       <aside className="desktop-sidebar w-64 shrink-0 border-r border-border bg-sidebar flex-col sticky top-16 h-[calc(100vh-4rem)]">
         <nav className="flex-1 space-y-1 p-3 overflow-y-auto pt-5">
-          {navItems.map((item, index) => {
+          {visibleNavItems.map((item, index) => {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (
@@ -381,7 +387,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
               <span className="text-base font-bold text-foreground">Medic1905</span>
             </div>
             <nav className="p-3 space-y-1">
-              {navItems.map((item, index) => {
+              {visibleNavItems.map((item, index) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
                 return (

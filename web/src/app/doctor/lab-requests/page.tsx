@@ -21,7 +21,7 @@ export default function DoctorLabRequestsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto px-4 md:px-0">
       <div>
         <h1 className="text-2xl font-bold">Lab Requests</h1>
         <p className="text-sm text-muted-foreground mt-1">Order lab tests and diagnostics for patients</p>
@@ -111,7 +111,7 @@ export default function DoctorLabRequestsPage() {
             { patient: "Jane Smith", test: "Liver Function Test", date: "Sep 10", status: "In Progress" },
             { patient: "Emily Davis", test: "Thyroid Panel", date: "Sep 5", status: "Ordered" },
           ].map((req, i) => (
-            <div key={i} className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-border p-3">
               <div>
                 <p className="text-sm font-medium">{req.patient} — {req.test}</p>
                 <p className="text-xs text-muted-foreground">{req.date}</p>

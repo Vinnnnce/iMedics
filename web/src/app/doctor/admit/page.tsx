@@ -13,7 +13,7 @@ export default function DoctorAdmitPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto px-4 md:px-0">
       <div>
         <h1 className="text-2xl font-bold">Admit / Discharge</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage patient admissions and discharges</p>
@@ -58,7 +58,7 @@ export default function DoctorAdmitPage() {
         </CardHeader>
         <CardContent className="space-y-2">
           {admitted.map((patient) => (
-            <div key={patient.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div key={patient.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-border p-3">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-foreground/10 text-foreground font-bold">
                   {patient.name.split(" ").map((n) => n[0]).join("")}

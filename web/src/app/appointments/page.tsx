@@ -20,7 +20,7 @@ export default function AppointmentsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-2xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Book an Appointment</h1>
         <p className="text-sm text-muted-foreground mt-1">Choose a doctor, date, and time</p>

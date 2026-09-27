@@ -12,13 +12,20 @@ export default async function HomePage() {
     ((user.unsafeMetadata as Record<string, unknown>)?.role as string) || "PATIENT";
 
   // Admins land on the admin dashboard
-  const adminEmails = ["medicmed26@gmail.com", "admin@medic1905.com", "vincentuzochi@gmail.com"];
+  const adminEmails = ["imedtalk@gmail.com", "medicmed26@gmail.com", "admin@medic1905.com", "vincentuzochi@gmail.com"];
   const isAdmin =
     role === "ADMIN" ||
     adminEmails.includes(user.emailAddresses?.[0]?.emailAddress || "");
 
   if (isAdmin) {
     redirect("/admin/dashboard");
+  }
+
+  // Check if registration is pending (for doctors, labs, diagnostic centres, hospitals)
+  const registrationStatus = (user.unsafeMetadata as Record<string, unknown>)?.registrationStatus as string;
+  const registrationComplete = (user.unsafeMetadata as Record<string, unknown>)?.registrationComplete as boolean;
+  if (registrationComplete && registrationStatus === "pending") {
+    redirect("/auth/callback");
   }
 
   switch (role) {

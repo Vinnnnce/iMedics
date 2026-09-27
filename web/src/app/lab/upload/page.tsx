@@ -34,7 +34,7 @@ export default function LabUploadPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto px-4 md:px-0">
       <div>
         <h1 className="text-2xl font-bold">Upload Lab Results</h1>
         <p className="text-sm text-muted-foreground mt-1">Enter or upload patient test results</p>
@@ -92,7 +92,7 @@ export default function LabUploadPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {numericValues.map((val, i) => (
-            <div key={i} className="grid gap-2 md:grid-cols-[1fr_1fr_1fr_1fr_auto] items-end">
+            <div key={i} className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_1fr_1fr_auto] items-end">
               <div className="space-y-1">
                 <Label className="text-xs">Parameter</Label>
                 <Input placeholder="e.g., Hemoglobin" className="rounded-lg" />

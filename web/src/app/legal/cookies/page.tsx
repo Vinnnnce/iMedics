@@ -2,11 +2,11 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export default function CookiesPage() {
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-3xl mx-auto px-4 md:px-0">
       <h1 className="text-2xl font-bold tracking-tight text-foreground mb-2">Cookies Policy</h1>
       <p className="text-xs text-muted-foreground mb-6">Last updated: September 16, 2026</p>
       <Card className="bg-card border-border">
-        <CardContent className="space-y-6 p-6 text-sm text-muted-foreground leading-relaxed">
+        <CardContent className="space-y-6 p-4 md:p-6 text-sm text-muted-foreground leading-relaxed">
 
           <section className="space-y-2">
             <h2 className="text-base font-semibold text-foreground">1. What Are Cookies?</h2>

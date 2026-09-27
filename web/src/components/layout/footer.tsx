@@ -17,10 +17,6 @@ export function Footer() {
           <Link href="/legal/cookies" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
             Cookies Policy
           </Link>
-          <span className="hidden sm:inline text-xs text-border">|</span>
-          <Link href="/admin" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-            Admin Panel
-          </Link>
         </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-center gap-3 sm:justify-end">

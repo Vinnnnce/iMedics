@@ -12,7 +12,7 @@ export default function PatientHistoryPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold">Case History</h1>
         <p className="text-sm text-muted-foreground mt-1">Timeline of your medical events</p>

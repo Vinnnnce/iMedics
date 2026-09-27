@@ -12,7 +12,7 @@ export default function DoctorBookingRequestsPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto px-4 md:px-0">
       <div>
         <h1 className="text-2xl font-bold">Booking Requests</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage incoming appointment requests</p>

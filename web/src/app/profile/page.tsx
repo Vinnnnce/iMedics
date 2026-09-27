@@ -15,7 +15,7 @@ export default function ProfilePage() {
     ((user?.unsafeMetadata as Record<string, unknown>)?.role as string) || "PATIENT";
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-2xl mx-auto px-4 md:px-0">
       <div>
         <h1 className="text-2xl font-bold">Profile & Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage your account and preferences</p>
@@ -49,14 +49,14 @@ export default function ProfilePage() {
           <CardTitle className="text-lg">Preferences</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-border p-3">
             <div className="flex items-center gap-3">
               <Bell className="h-5 w-5 text-muted-foreground" />
               <span className="text-sm">Notifications</span>
             </div>
             <Button variant="outline" size="sm" className="rounded-lg">Manage</Button>
           </div>
-          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-border p-3">
             <div className="flex items-center gap-3">
               <Shield className="h-5 w-5 text-muted-foreground" />
               <span className="text-sm">Privacy & Security</span>

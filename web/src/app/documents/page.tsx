@@ -52,7 +52,7 @@ export default function DocumentsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl mx-auto px-4 md:px-0">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Upload Lab Results</h1>
         <p className="text-sm text-muted-foreground mt-1">Upload a file or enter values manually for AI analysis</p>
@@ -111,7 +111,7 @@ export default function DocumentsPage() {
       {/* Manual entry */}
       <Card className="bg-card border-border">
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
               <CardTitle className="text-base">Manual Value Entry</CardTitle>
               <CardDescription className="text-xs">Enter lab values for structured AI analysis</CardDescription>
@@ -125,7 +125,7 @@ export default function DocumentsPage() {
           <CardContent className="space-y-4">
             {values.map((field, i) => (
               <div key={i} className="rounded-lg border border-border p-4 space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <span className="text-sm font-medium">Value #{i + 1}</span>
                   {values.length > 1 && (
                     <Button variant="ghost" size="sm" onClick={() => removeValue(i)}>
@@ -133,7 +133,7 @@ export default function DocumentsPage() {
                     </Button>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Code</Label>
                     <Input value={field.code} onChange={(e) => updateValue(i, "code", e.target.value)} placeholder="HGB" />

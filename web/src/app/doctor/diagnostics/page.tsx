@@ -9,7 +9,7 @@ import { Heart, X, Scan } from "lucide-react";
 
 export default function DoctorDiagnosticsPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto px-4 md:px-0">
       <div>
         <h1 className="text-2xl font-bold">Diagnostics</h1>
         <p className="text-sm text-muted-foreground mt-1">Request diagnostic tests for patients</p>
@@ -79,7 +79,7 @@ export default function DoctorDiagnosticsPage() {
             { patient: "Jane Smith", type: "Chest X-Ray", date: "Sep 8", status: "Completed" },
             { patient: "Emily Davis", type: "Ultrasound — Abdomen", date: "Sep 5", status: "Pending" },
           ].map((req, i) => (
-            <div key={i} className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-border p-3">
               <div className="flex items-center gap-3">
                 <Heart className="h-4 w-4 text-destructive" />
                 <div>

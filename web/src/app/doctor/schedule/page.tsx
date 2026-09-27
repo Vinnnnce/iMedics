@@ -18,8 +18,8 @@ export default function DoctorSchedulePage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 max-w-4xl mx-auto">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Schedule Management</h1>
           <p className="text-sm text-muted-foreground mt-1">Publish your consultation availability</p>
