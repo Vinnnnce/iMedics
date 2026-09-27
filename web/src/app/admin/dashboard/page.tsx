@@ -1,0 +1,289 @@
+"use client";
+
+import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+
+export default function AdminDashboardPage() {
+  const router = useRouter();
+  const [authenticated, setAuthenticated] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Check auth via API
+  useEffect(() => {
+    fetch("/api/admin-auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ check: true }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) {
+          setAuthenticated(true);
+        } else {
+          router.push("/admin");
+        }
+        setChecking(false);
+      })
+      .catch(() => {
+        router.push("/admin");
+        setChecking(false);
+      });
+  }, [router]);
+
+  // Inject the admin dashboard HTML, CSS, and JS once authenticated
+  useEffect(() => {
+    if (!authenticated || !containerRef.current) return;
+
+    const container = containerRef.current;
+    container.innerHTML = ADMIN_DASHBOARD_HTML;
+
+    // Load the CSS
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "/admin/styles.css";
+    document.head.appendChild(link);
+
+    // Load the JS
+    const script = document.createElement("script");
+    script.src = "/admin/app.js?v=3";
+    script.async = false;
+    document.body.appendChild(script);
+
+    // Cleanup
+    return () => {
+      if (link.parentNode) document.head.removeChild(link);
+      if (script.parentNode) document.body.removeChild(script);
+    };
+  }, [authenticated]);
+
+  const handleLogout = async () => {
+    // Clear the auth cookie by setting it to expired
+    document.cookie = "admin_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "admin_email=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    router.push("/admin");
+  };
+
+  if (checking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F5F5F5]">
+        <p className="text-sm text-[#555555]">Checking authorization...</p>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F5F5F5]">
+        <p className="text-sm text-[#555555]">Redirecting...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Logout bar */}
+      <div className="fixed right-4 top-4 z-[999]">
+        <button
+          onClick={handleLogout}
+          data-testid="button-admin-logout"
+          className="rounded-lg border border-[#D0D0D0] bg-white px-4 py-2 text-sm font-medium text-[#111111] shadow-sm transition-colors hover:bg-[#F5F5F5]"
+        >
+          Logout
+        </button>
+      </div>
+      {/* Admin dashboard container */}
+      <div ref={containerRef} />
+    </div>
+  );
+}
+
+// The full admin dashboard HTML
+const ADMIN_DASHBOARD_HTML = `<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <meta name="description" content="Medic1905 — Telemedicine platform for Nigeria. Admin dashboard, consultations, lab tests, and diagnostics.">
+  <title>Medic1905 — Telemedicine Platform (Nigeria)</title>
+</head>
+<body>
+  <!-- NAVBAR -->
+  <header class="navbar" id="navbar">
+    <div class="navbar-inner">
+      <div class="navbar-left">
+        <button class="hamburger" id="sidebar-toggle" aria-label="Toggle sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        </button>
+        <a href="#/dashboard" class="navbar-logo" aria-label="Medic1905 home">
+          <svg class="logo-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M16 2L4 8v8c0 6 4.5 11 12 14 7.5-3 12-8 12-14V8L16 2z"/>
+            <path d="M16 8v8M12 12h8" stroke-linecap="round"/>
+          </svg>
+          <span class="logo-text">Medic1905</span>
+        </a>
+        <nav class="navbar-links">
+          <a href="#/dashboard" class="navbar-link" data-route="dashboard">Dashboard</a>
+          <a href="#/users" class="navbar-link" data-route="users">Users</a>
+          <a href="#/consultations" class="navbar-link" data-route="consultations">Consultations</a>
+          <a href="#/downloads" class="navbar-link" data-route="downloads">Downloads</a>
+          <a href="#/legal/privacy" class="navbar-link">Privacy</a>
+        </nav>
+      </div>
+      <div class="navbar-right">
+        <div class="navbar-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" placeholder="Search patients, doctors..." aria-label="Search">
+        </div>
+        <button class="icon-btn navbar-notification" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="badge-dot"></span>
+        </button>
+        <a href="#/auth/login" class="btn btn-secondary navbar-auth-btn" data-route="login">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+          <span>Login</span>
+        </a>
+        <a href="#/auth/signup" class="btn btn-primary navbar-auth-btn" data-route="signup">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 8 0 4 4 0 0 0-8 0zM19 8v6M22 11h-6"/></svg>
+          <span>Sign Up</span>
+        </a>
+        <div class="admin-profile navbar-profile">
+          <div class="avatar">AD</div>
+          <div class="admin-info">
+            <div class="admin-name">Admin</div>
+            <div class="admin-role">Administrator</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <svg class="logo" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" aria-label="Medic1905 logo">
+        <path d="M16 2L4 8v8c0 6 4.5 11 12 14 7.5-3 12-8 12-14V8L16 2z"/>
+        <path d="M16 8v8M12 12h8" stroke-linecap="round"/>
+      </svg>
+      <span class="logo-text">Medic1905</span>
+      <span class="logo-badge">Admin</span>
+    </div>
+    <nav class="sidebar-nav" role="list">
+      <a href="#/dashboard" class="nav-item active" data-route="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="#/users" class="nav-item" data-route="users">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Users</span>
+      </a>
+      <a href="#/roles" class="nav-item" data-route="roles">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+        <span>Roles & Permissions</span>
+      </a>
+      <a href="#/consultations" class="nav-item" data-route="consultations">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Consultations</span>
+      </a>
+      <a href="#/lab-diagnostics" class="nav-item" data-route="lab-diagnostics">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 5-5"/></svg>
+        <span>Lab & Diagnostics</span>
+      </a>
+      <a href="#/verification" class="nav-item" data-route="verification">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4M12 2L4 7v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V7l-8-5z"/></svg>
+        <span>Verification</span>
+      </a>
+      <a href="#/system-health" class="nav-item" data-route="system-health">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        <span>System Health</span>
+      </a>
+      <a href="#/app-downloads" class="nav-item" data-route="app-downloads">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        <span>App Downloads</span>
+      </a>
+      <a href="#/settings" class="nav-item" data-route="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Settings</span>
+      </a>
+    </nav>
+    <div class="sidebar-downloads">
+      <div class="downloads-label">Download App</div>
+      <a href="#/downloads" class="download-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+        <span>Windows</span>
+      </a>
+      <a href="#/downloads" class="download-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+        <span>iOS</span>
+      </a>
+      <a href="#/downloads" class="download-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7l5 5-5 5M14 7l5 5-5 5"/></svg>
+        <span>Android</span>
+      </a>
+    </div>
+    <div class="sidebar-auth">
+      <a href="#/auth/login" class="btn btn-secondary" style="flex:1">Login</a>
+      <a href="#/auth/signup" class="btn btn-primary" style="flex:1">Sign Up</a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main-wrapper">
+    <div class="tip-banner" id="tip-banner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      <p><strong>Tip:</strong> Use the top navbar to log in or sign up, the sidebar to move between sections, and the footer to download the app for Windows, iOS, or Android. Your dashboard shows everything you need at a glance.</p>
+      <button class="tip-close" id="tip-close" aria-label="Dismiss tip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <main class="content" id="content"></main>
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="footer-left">
+          <span class="footer-logo">Medic1905</span>
+          <span class="footer-copy">© 2026 Medic1905. Serving Nigeria.</span>
+        </div>
+        <div class="footer-links">
+          <a href="#/legal/privacy">Privacy Policy</a>
+          <a href="#/legal/terms">Terms of Use</a>
+          <a href="#/legal/cookies">Cookies Policy</a>
+          <span class="footer-divider"></span>
+          <a href="#/downloads" class="footer-download">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+            Windows
+          </a>
+          <a href="#/downloads" class="footer-download">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+            iOS
+          </a>
+          <a href="#/downloads" class="footer-download">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7l5 5-5 5M14 7l5 5-5 5"/></svg>
+            Android
+          </a>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <nav class="bottom-nav" id="bottom-nav">
+    <a href="#/dashboard" class="bottom-nav-item active" data-route="dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+      <span>Home</span>
+    </a>
+    <a href="#/users" class="bottom-nav-item" data-route="users">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+      <span>Users</span>
+    </a>
+    <a href="#/consultations" class="bottom-nav-item" data-route="consultations">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span>Activity</span>
+    </a>
+    <a href="#/downloads" class="bottom-nav-item" data-route="downloads">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+      <span>Download</span>
+    </a>
+  </nav>
+</body>
+</html>`;

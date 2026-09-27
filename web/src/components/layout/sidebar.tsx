@@ -19,6 +19,7 @@ import {
   ClipboardList,
   Upload,
   Building2,
+  Shield,
 } from "lucide-react";
 
 type NavItem = {
@@ -61,6 +62,7 @@ const NAV_ITEMS: NavItem[] = [
   // Shared
   { href: "/profile", label: "Profile", icon: User, roles: ["PATIENT", "DOCTOR", "LAB_SCIENTIST"] },
   { href: "/profile", label: "Settings", icon: Settings, roles: ["PATIENT", "DOCTOR", "LAB_SCIENTIST"] },
+  { href: "/admin", label: "Admin Panel", icon: Shield, roles: ["PATIENT", "DOCTOR", "LAB_SCIENTIST"] },
 ];
 
 export function Sidebar() {
@@ -104,9 +106,15 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-border p-4">
-        <p className="text-xs text-muted-foreground">
-          Medic1905 is a platform only, not a medical provider. AI content is informational.
-        </p>
+        <div className="space-y-3">
+          <Link href="/admin" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
+            <Shield className="h-3.5 w-3.5" />
+            Admin Panel
+          </Link>
+          <p className="text-xs text-muted-foreground">
+            Medic1905 is a platform only, not a medical provider. AI content is informational.
+          </p>
+        </div>
       </div>
     </aside>
   );
