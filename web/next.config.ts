@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   // Allow local dev access via 127.0.0.1 (Next 16 blocks cross-origin
   // dev resources like HMR otherwise, which breaks hydration in dev).
   allowedDevOrigins: ["127.0.0.1", "localhost"],
