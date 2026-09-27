@@ -30,6 +30,10 @@ model User {
   // Account moderation state managed from the admin dashboard
   status        String   @default("active") // active, suspended, banned, pending
   accountType   String?  @map("account_type") // patient, doctor, laboratory, diagnostic_centre, hospital
+  address       String?  // full residential address
+  city          String?
+  state         String?
+  emergencyContact Json?  @map("emergency_contact") // { name, relationship, phone }
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       facilityLicenseNumber,
       occupation, emergencyContactName, emergencyContactRelationship,
       emergencyContactPhone,
+      bloodGroup, genotype, allergies, chronicConditions,
       accountType,
     } = body;
 
@@ -44,7 +45,15 @@ export async function POST(req: NextRequest) {
         onboardingComplete: false,
         status: "pending",
         accountType,
-        conditions: [],
+        address,
+        city,
+        state,
+        emergencyContact: emergencyContactName ? {
+          name: emergencyContactName,
+          relationship: emergencyContactRelationship,
+          phone: emergencyContactPhone,
+        } : undefined,
+        conditions: allergies || chronicConditions ? [...(allergies || []), ...(chronicConditions || [])] : [],
         medications: [],
       },
       update: {
@@ -55,6 +64,14 @@ export async function POST(req: NextRequest) {
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
         status: "pending",
         accountType,
+        address,
+        city,
+        state,
+        emergencyContact: emergencyContactName ? {
+          name: emergencyContactName,
+          relationship: emergencyContactRelationship,
+          phone: emergencyContactPhone,
+        } : undefined,
       },
     });
 
