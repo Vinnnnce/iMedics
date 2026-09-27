@@ -38,6 +38,8 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -48,43 +50,45 @@
 }
 
 /* ═══════════════════════════════════════════════════════
-   Medic1905 — RuStore-Style Monochrome Theme
-   Gray, White & Black only — clean, minimal, card-based
+   Medic1905 — Monochrome Responsive Theme
+   Gray, White & Black — mobile-first, RuStore-inspired
    ═══════════════════════════════════════════════════════ */
 
 /* Dark Mode (default) */
 :root {
-  --background: #0E0E10;
+  --background: #0B0F17;
   --foreground: #FFFFFF;
-  --card: #1A1A1D;
+  --card: #141C2B;
   --card-foreground: #FFFFFF;
-  --popover: #1A1A1D;
+  --popover: #141C2B;
   --popover-foreground: #FFFFFF;
   --primary: #FFFFFF;
-  --primary-foreground: #0E0E10;
-  --secondary: #252528;
+  --primary-foreground: #0B0F17;
+  --secondary: #1A2333;
   --secondary-foreground: #FFFFFF;
-  --muted: #252528;
-  --muted-foreground: #8B8B92;
-  --accent: #2A2A2E;
+  --muted: #1A2333;
+  --muted-foreground: #94A3B8;
+  --accent: #222F46;
   --accent-foreground: #FFFFFF;
-  --destructive: #FF3B30;
-  --border: #2A2A2E;
-  --input: #2A2A2E;
+  --destructive: #EF4444;
+  --success: #22C55E;
+  --warning: #F59E0B;
+  --border: #222F46;
+  --input: #222F46;
   --ring: #FFFFFF;
   --chart-1: #FFFFFF;
-  --chart-2: #B0B0B8;
-  --chart-3: #6E6E73;
-  --chart-4: #4A4A50;
-  --chart-5: #FF3B30;
+  --chart-2: #94A3B8;
+  --chart-3: #64748B;
+  --chart-4: #475569;
+  --chart-5: #EF4444;
   --radius: 0.75rem;
-  --sidebar: #161618;
+  --sidebar: #0F1620;
   --sidebar-foreground: #FFFFFF;
   --sidebar-primary: #FFFFFF;
-  --sidebar-primary-foreground: #0E0E10;
-  --sidebar-accent: #252528;
+  --sidebar-primary-foreground: #0B0F17;
+  --sidebar-accent: #1A2333;
   --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #2A2A2E;
+  --sidebar-border: #222F46;
   --sidebar-ring: #FFFFFF;
 }
 
@@ -104,7 +108,9 @@
   --muted-foreground: #6E6E73;
   --accent: #F0F0F3;
   --accent-foreground: #111111;
-  --destructive: #FF3B30;
+  --destructive: #EF4444;
+  --success: #22C55E;
+  --warning: #F59E0B;
   --border: #E0E0E5;
   --input: #E0E0E5;
   --ring: #111111;
@@ -112,7 +118,7 @@
   --chart-2: #6E6E73;
   --chart-3: #8B8B92;
   --chart-4: #B0B0B8;
-  --chart-5: #FF3B30;
+  --chart-5: #EF4444;
   --radius: 0.75rem;
   --sidebar: #FFFFFF;
   --sidebar-foreground: #111111;
@@ -137,78 +143,97 @@
 }
 
 /* ═══════════════════════════════════════════════════════
-   RuStore-Style UI Utilities
+   UI Component Classes
    ═══════════════════════════════════════════════════════ */
 
-/* Card — clean rounded container */
-.rs-card {
-  border-radius: 0.75rem;
+/* Hero card — large gradient card */
+.hero-card {
+  border-radius: 1.25rem;
+  background: linear-gradient(135deg, var(--card) 0%, var(--secondary) 100%);
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.hero-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at top right, rgba(255,255,255,0.05) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* Stat card */
+.stat-card {
+  border-radius: 1rem;
   background: var(--card);
   border: 1px solid var(--border);
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
 }
 
-/* Tile — interactive card with hover effect */
-.rs-tile {
-  border-radius: 0.75rem;
-  transition: background 0.15s ease, transform 0.1s ease;
+/* Module card — horizontal navigation card */
+.module-card {
+  border-radius: 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  transition: transform 0.15s ease, background 0.15s ease;
   cursor: pointer;
 }
-.rs-tile:hover {
-  background: var(--accent);
+.module-card:hover {
   transform: translateY(-1px);
+  background: var(--accent);
 }
 
-/* Pill — small rounded label */
-.rs-pill {
+/* Icon badge — circular container for icons */
+.icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+/* Pill button */
+.pill-btn {
+  border-radius: 9999px;
+  font-weight: 600;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+.pill-btn:hover {
+  opacity: 0.85;
+}
+.pill-btn:active {
+  transform: scale(0.98);
+}
+
+/* Status badge */
+.status-badge {
   border-radius: 9999px;
   padding: 2px 10px;
   font-size: 11px;
-  font-weight: 500;
-  background: var(--muted);
-  color: var(--muted-foreground);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
-/* Gray accent helpers (monochrome only) */
-.accent-gray { color: var(--muted-foreground); }
-.accent-light { color: var(--foreground); }
-.accent-dark { color: var(--background); }
-.bg-accent-gray { background-color: var(--muted); }
-.bg-accent-light { background-color: var(--card); }
-.bg-accent-dark { background-color: var(--background); }
-
-/* Backward-compatible aliases for old class names */
-.accent-yellow { color: var(--foreground); }
-.accent-teal { color: var(--muted-foreground); }
-.accent-blue { color: var(--muted-foreground); }
-.accent-red { color: var(--destructive); }
-.bg-accent-yellow { background-color: var(--accent); }
-.bg-accent-teal { background-color: var(--accent); }
-.bg-accent-blue { background-color: var(--accent); }
-.bg-accent-red { background-color: var(--accent); }
-.bg-beeline-gradient { background: var(--muted); }
-.bg-beeline-dark { background: var(--background); }
-
-/* Backward-compatible aliases for old card/tile classes */
-.beeline-tile {
-  border-radius: 0.75rem;
-  transition: background 0.15s ease, transform 0.1s ease;
-}
-.beeline-tile:hover {
-  transform: translateY(-1px);
-}
-.beeline-card {
-  border-radius: 0.75rem;
-  background: var(--card);
+/* AI insight card */
+.ai-card {
+  border-radius: 1rem;
+  background: var(--secondary);
   border: 1px solid var(--border);
 }
 
-/* Neon glow aliases — now no-ops (monochrome) */
-.neon-glow { box-shadow: none; }
-.neon-glow-teal { box-shadow: none; }
-.neon-text { text-shadow: none; }
+/* Disclaimer box */
+.disclaimer-box {
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--warning) 8%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--warning) 20%, transparent);
+}
 
-/* Bottom nav for mobile */
+/* Bottom navigation bar */
 .bottom-nav {
   position: fixed;
   bottom: 0;
@@ -219,28 +244,54 @@
   justify-content: space-around;
   align-items: center;
   height: 64px;
-  background: var(--card);
+  background: color-mix(in srgb, var(--card) 90%, transparent);
   border-top: 1px solid var(--border);
   backdrop-filter: blur(12px);
 }
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 16px;
+  border-radius: 0.5rem;
+  color: var(--muted-foreground);
+  transition: color 0.15s ease, background 0.15s ease;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 500;
+}
+.bottom-nav-item.active {
+  color: var(--foreground);
+}
+.bottom-nav-item.active svg {
+  color: var(--foreground);
+}
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Desktop sidebar */
+.desktop-sidebar {
+  display: none;
 }
-::-webkit-scrollbar-track {
-  background: var(--background);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--muted);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--muted-foreground);
+@media (min-width: 768px) {
+  .desktop-sidebar {
+    display: flex;
+  }
+  .bottom-nav {
+    display: none;
+  }
 }
 
-/* ─── Switch Toggle ─── */
+/* Main content padding for bottom nav */
+.has-bottom-nav {
+  padding-bottom: 80px;
+}
+@media (min-width: 768px) {
+  .has-bottom-nav {
+    padding-bottom: 0;
+  }
+}
+
+/* Switch toggle */
 .rs-switch {
   position: relative;
   display: inline-flex;
@@ -265,48 +316,126 @@
   border-radius: 9999px;
   background: var(--background);
   transition: transform 0.2s ease, background 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .rs-switch[data-active="true"] .rs-switch-thumb {
   transform: translateX(20px);
   background: var(--card);
 }
-.rs-switch[data-active="true"] .rs-switch-thumb svg {
-  color: var(--foreground);
+
+/* Search bar */
+.ai-search-bar {
+  border-radius: 9999px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
-.rs-switch-thumb svg {
-  color: var(--muted-foreground);
-  transition: color 0.2s ease;
+.ai-search-bar:focus-within {
+  border-color: var(--foreground);
+  background: var(--card);
 }
 
-/* Clerk component overrides for monochrome style */
+/* Search filter chip */
+.filter-chip {
+  border-radius: 9999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.filter-chip.active {
+  background: var(--foreground);
+  color: var(--background);
+}
+.filter-chip:hover:not(.active) {
+  border-color: var(--border);
+  color: var(--foreground);
+}
+
+/* AI suggestion dropdown */
+.ai-suggestions {
+  border-radius: 0.75rem;
+  background: var(--popover);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+/* Admin table */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.admin-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground);
+  border-bottom: 1px solid var(--border);
+}
+.admin-table td {
+  padding: 12px 16px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.admin-table tr:hover td {
+  background: var(--accent);
+}
+
+/* Backward-compatible aliases */
+.beeline-tile { border-radius: 1rem; transition: transform 0.15s ease; }
+.beeline-tile:hover { transform: translateY(-1px); }
+.beeline-card { border-radius: 1rem; background: var(--card); border: 1px solid var(--border); }
+.neon-glow { box-shadow: none; }
+.neon-glow-teal { box-shadow: none; }
+.neon-text { text-shadow: none; }
+.accent-yellow { color: var(--foreground); }
+.accent-teal { color: var(--muted-foreground); }
+.accent-blue { color: var(--muted-foreground); }
+.accent-red { color: var(--destructive); }
+.bg-accent-yellow { background-color: var(--accent); }
+.bg-accent-teal { background-color: var(--accent); }
+.bg-accent-blue { background-color: var(--accent); }
+.bg-accent-red { background-color: var(--accent); }
+.bg-beeline-gradient { background: var(--muted); }
+.bg-beeline-dark { background: var(--background); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--background); }
+::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
+
+/* Clerk overrides */
 .cl-card {
   background: var(--card) !important;
   border: 1px solid var(--border) !important;
-  border-radius: 0.75rem !important;
+  border-radius: 1rem !important;
   box-shadow: none !important;
 }
-
 .cl-formButtonPrimary {
   background: var(--primary) !important;
   color: var(--primary-foreground) !important;
   border-radius: 0.5rem !important;
   font-weight: 600 !important;
 }
-
-.cl-formButtonPrimary:hover {
-  opacity: 0.85 !important;
-}
-
-.cl-socialButtonsBlockButton,
-.cl-socialButtonsBlockButton:hover {
-  border-radius: 0.5rem !important;
-}
-
-.cl-input {
-  border-radius: 0.5rem !important;
-}
-
-.cl-headerTitle,
-.cl-headerSubtitle {
+.cl-formButtonPrimary:hover { opacity: 0.85 !important; }
+.cl-socialButtonsBlockButton, .cl-socialButtonsBlockButton:hover { border-radius: 0.5rem !important; }
+.cl-input { border-radius: 0.5rem !important; }
+.cl-headerTitle, .cl-headerSubtitle { color: var(--foreground) !important; }
+.cl-socialButtonsBlockButton {
+  background: var(--secondary) !important;
   color: var(--foreground) !important;
+  border: 1px solid var(--border) !important;
 }
+.cl-footerActionLink { color: var(--foreground) !important; }
+.cl-internalNote { color: var(--muted-foreground) !important; }

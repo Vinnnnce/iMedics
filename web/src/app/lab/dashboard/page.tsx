@@ -2,23 +2,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, ClipboardList, Upload, FlaskConical } from "lucide-react";
+import Link from "next/link";
 
 export default function LabDashboardPage() {
   const stats = [
-    { label: "Total Users", value: 142, icon: Users, color: "text-foreground", bg: "bg-foreground/10" },
-    { label: "Pending Orders", value: 8, icon: ClipboardList, color: "text-muted-foreground", bg: "bg-muted" },
-    { label: "Results to Upload", value: 5, icon: Upload, color: "text-muted-foreground", bg: "bg-muted" },
-    { label: "Completed Today", value: 12, icon: FlaskConical, color: "text-destructive", bg: "bg-muted" },
+    { label: "Total Users", value: 142, icon: Users },
+    { label: "Pending Orders", value: 8, icon: ClipboardList },
+    { label: "Results to Upload", value: 5, icon: Upload },
+    { label: "Completed Today", value: 12, icon: FlaskConical },
   ];
 
-  const quickActions = [
-    { href: "/lab/orders", label: "Lab Orders", icon: ClipboardList, color: "text-foreground", bg: "bg-foreground/10" },
-    { href: "/lab/users", label: "User Directory", icon: Users, color: "text-muted-foreground", bg: "bg-muted" },
-    { href: "/lab/upload", label: "Upload Results", icon: Upload, color: "text-muted-foreground", bg: "bg-muted" },
+  const modules = [
+    { href: "/lab/orders", label: "Lab Orders", desc: "Manage pending and completed orders", icon: ClipboardList },
+    { href: "/lab/users", label: "User Directory", desc: "Browse patients and doctors", icon: Users },
+    { href: "/lab/upload", label: "Upload Results", desc: "Upload lab test results", icon: Upload },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold">Lab Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage lab orders and results</p>
@@ -29,34 +30,36 @@ export default function LabDashboardPage() {
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Card key={stat.label} className="beeline-card">
-              <CardContent className="p-4">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${stat.bg} mb-2`}>
-                  <Icon className={`h-5 w-5 ${stat.color}`} />
-                </div>
-                <p className="text-2xl font-bold">{stat.value}</p>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-              </CardContent>
-            </Card>
+            <div key={stat.label} className="stat-card p-4">
+              <div className="icon-badge h-9 w-9 bg-muted mb-2">
+                <Icon className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <p className="text-2xl font-bold">{stat.value}</p>
+              <p className="text-xs text-muted-foreground">{stat.label}</p>
+            </div>
           );
         })}
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {quickActions.map((action) => {
-          const Icon = action.icon;
+      {/* Module Cards */}
+      <div className="space-y-3">
+        {modules.map((mod) => {
+          const Icon = mod.icon;
           return (
-            <a key={action.href} href={action.href}>
-              <Card className="beeline-tile beeline-card cursor-pointer h-full">
-                <CardContent className="flex items-center gap-3 p-4">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${action.bg}`}>
-                    <Icon className={`h-6 w-6 ${action.color}`} />
-                  </div>
-                  <p className="text-sm font-medium">{action.label}</p>
-                </CardContent>
-              </Card>
-            </a>
+            <Link key={mod.href} href={mod.href}>
+              <div className="module-card flex items-center gap-4 p-4">
+                <div className="icon-badge h-12 w-12 bg-muted">
+                  <Icon className="h-5 w-5 text-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold">{mod.label}</h3>
+                  <p className="text-xs text-muted-foreground truncate">{mod.desc}</p>
+                </div>
+                <svg className="h-5 w-5 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+            </Link>
           );
         })}
       </div>
@@ -65,8 +68,7 @@ export default function LabDashboardPage() {
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <ClipboardList className="h-5 w-5 text-foreground" />
-            Pending Lab Orders
+            <ClipboardList className="h-5 w-5" /> Pending Lab Orders
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">

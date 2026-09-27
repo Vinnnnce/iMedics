@@ -1,29 +1,39 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Users, ClipboardList, FlaskConical, Sparkles, Building2, BadgeCheck, Video, MessageSquare } from "lucide-react";
+import {
+  Users, Calendar, ClipboardList, FlaskConical, Sparkles,
+  Building2, BadgeCheck, Video, MessageSquare, FileText,
+  Heart, Stethoscope, ArrowRight,
+} from "lucide-react";
+import Link from "next/link";
 
 export default function DoctorDashboardPage() {
   const stats = [
-    { label: "Booking Requests", value: 5, icon: Calendar, color: "text-foreground", bg: "bg-foreground/10" },
-    { label: "Active Patients", value: 28, icon: Users, color: "text-muted-foreground", bg: "bg-muted" },
-    { label: "Pending Lab Results", value: 3, icon: FlaskConical, color: "text-muted-foreground", bg: "bg-muted" },
-    { label: "Consultations Today", value: 7, icon: ClipboardList, color: "text-destructive", bg: "bg-muted" },
+    { label: "Booking Requests", value: 5, icon: Calendar },
+    { label: "Active Patients", value: 28, icon: Users },
+    { label: "Pending Labs", value: 3, icon: FlaskConical },
+    { label: "Consultations Today", value: 7, icon: ClipboardList },
   ];
 
-  const quickActions = [
-    { href: "/doctor/booking-requests", label: "Booking Requests", icon: Calendar, color: "text-foreground", bg: "bg-foreground/10" },
-    { href: "/doctor/patients", label: "My Patients", icon: Users, color: "text-muted-foreground", bg: "bg-muted" },
-    { href: "/doctor/consultations", label: "Write Consultation", icon: ClipboardList, color: "text-muted-foreground", bg: "bg-muted" },
-    { href: "/doctor/chat", label: "Patient Chat", icon: MessageSquare, color: "text-muted-foreground", bg: "bg-muted" },
-    { href: "/doctor/lab-requests", label: "Request Labs", icon: FlaskConical, color: "text-foreground", bg: "bg-foreground/10" },
-    { href: "/doctor/ai-tools", label: "AI Tools", icon: Sparkles, color: "text-muted-foreground", bg: "bg-muted" },
-    { href: "/doctor/admit", label: "Admit/Discharge", icon: Building2, color: "text-muted-foreground", bg: "bg-muted" },
-    { href: "/doctor/schedule", label: "Schedule", icon: Calendar, color: "text-foreground", bg: "bg-foreground/10" },
+  const aiTools = [
+    { href: "/doctor/ai-tools", label: "AI Case Analysis", desc: "AI-powered case history review and insights", icon: Sparkles },
+    { href: "/doctor/diagnostics", label: "AI Diagnostics", desc: "AI-assisted diagnostic suggestions", icon: Heart },
+    { href: "/doctor/lab-requests", label: "AI Results Analysis", desc: "AI interpretation of lab results", icon: FlaskConical },
+  ];
+
+  const modules = [
+    { href: "/doctor/patients", label: "Find a Patient", desc: "Search patient records and history", icon: Users },
+    { href: "/doctor/booking-requests", label: "Booking Requests", desc: "Review pending appointment requests", icon: Calendar },
+    { href: "/doctor/consultations", label: "Write Consultation", desc: "Create consultation notes", icon: ClipboardList },
+    { href: "/doctor/chat", label: "Patient Chat", desc: "Message with patients", icon: MessageSquare },
+    { href: "/doctor/schedule", label: "Schedule", desc: "Manage your availability", icon: Calendar },
+    { href: "/doctor/admit", label: "Admit/Discharge", desc: "Hospital admission management", icon: Building2 },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto">
+      {/* Header */}
       <div className="flex items-center gap-3">
         <div>
           <h1 className="text-2xl font-bold">Doctor Dashboard</h1>
@@ -34,49 +44,98 @@ export default function DoctorDashboardPage() {
         </Badge>
       </div>
 
+      {/* Hero Card */}
+      <div className="hero-card p-6">
+        <div className="relative z-10">
+          <span className="status-badge bg-muted text-muted-foreground mb-3">
+            <Sparkles className="h-3 w-3" /> AI-Powered Tools
+          </span>
+          <h2 className="text-xl font-bold text-foreground mb-2">AI-Driven Clinical Assistance</h2>
+          <p className="text-sm text-muted-foreground mb-4 max-w-md">
+            Leverage AI for case history analysis, diagnostic suggestions, and lab result interpretation.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/doctor/ai-tools" className="pill-btn bg-foreground text-background px-5 py-2.5 text-sm flex items-center gap-2">
+              <Sparkles className="h-4 w-4" /> Open AI Tools
+            </Link>
+            <Link href="/doctor/patients" className="pill-btn bg-secondary text-foreground border border-border px-5 py-2.5 text-sm flex items-center gap-2">
+              <Users className="h-4 w-4" /> Find a Patient
+            </Link>
+          </div>
+        </div>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Card key={stat.label} className="beeline-card">
-              <CardContent className="p-4">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${stat.bg} mb-2`}>
-                  <Icon className={`h-5 w-5 ${stat.color}`} />
-                </div>
-                <p className="text-2xl font-bold">{stat.value}</p>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-              </CardContent>
-            </Card>
+            <div key={stat.label} className="stat-card p-4">
+              <div className="icon-badge h-9 w-9 bg-muted mb-2">
+                <Icon className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <p className="text-2xl font-bold">{stat.value}</p>
+              <p className="text-xs text-muted-foreground">{stat.label}</p>
+            </div>
           );
         })}
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {quickActions.map((action) => {
-          const Icon = action.icon;
-          return (
-            <a key={action.href} href={action.href}>
-              <Card className="beeline-tile beeline-card cursor-pointer h-full">
-                <CardContent className="flex flex-col items-center justify-center p-4 text-center">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${action.bg} mb-2`}>
-                    <Icon className={`h-6 w-6 ${action.color}`} />
+      {/* AI Tools Section */}
+      <div>
+        <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+          <Sparkles className="h-5 w-5" /> AI-Driven Tools
+        </h3>
+        <div className="space-y-3">
+          {aiTools.map((tool) => {
+            const Icon = tool.icon;
+            return (
+              <Link key={tool.href} href={tool.href}>
+                <div className="module-card flex items-center gap-4 p-4">
+                  <div className="icon-badge h-12 w-12 bg-foreground">
+                    <Icon className="h-5 w-5 text-background" />
                   </div>
-                  <p className="text-xs md:text-sm font-medium">{action.label}</p>
-                </CardContent>
-              </Card>
-            </a>
-          );
-        })}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-semibold text-foreground">{tool.label}</h4>
+                    <p className="text-xs text-muted-foreground truncate">{tool.desc}</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Recent Booking Requests */}
+      {/* Module Cards */}
+      <div>
+        <h3 className="text-lg font-bold mb-3">Quick Actions</h3>
+        <div className="space-y-3">
+          {modules.map((mod) => {
+            const Icon = mod.icon;
+            return (
+              <Link key={mod.href} href={mod.href}>
+                <div className="module-card flex items-center gap-4 p-4">
+                  <div className="icon-badge h-10 w-10 bg-muted">
+                    <Icon className="h-5 w-5 text-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-semibold text-foreground">{mod.label}</h4>
+                    <p className="text-xs text-muted-foreground truncate">{mod.desc}</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Recent Requests */}
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Calendar className="h-5 w-5 text-foreground" />
-            Recent Booking Requests
+            <Calendar className="h-5 w-5" /> Recent Booking Requests
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">

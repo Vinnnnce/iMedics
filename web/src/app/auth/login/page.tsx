@@ -8,7 +8,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-lg bg-foreground">
-            <svg viewBox="0 0 24 24" className="h-7 w-7 text-foreground-foreground" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg viewBox="0 0 24 24" className="h-7 w-7 text-background" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M12 2v20M2 12h20" strokeLinecap="round" />
             </svg>
           </div>
@@ -16,21 +16,23 @@ export default function LoginPage() {
           <p className="text-sm text-muted-foreground mt-1">Sign in to manage your care</p>
         </div>
 
-        <div className="beeline-card p-6">
+        <div className="stat-card p-6">
           <SignIn
             appearance={{
               variables: {
                 colorBackground: "transparent",
                 colorPrimary: "var(--primary)",
-                borderRadius: "0.75rem",
+                borderRadius: "0.5rem",
               },
               elements: {
                 card: "bg-transparent border-0 shadow-none",
-                headerTitle: "text-white",
-                headerSubtitle: "text-gray-400",
-                formButtonPrimary: "bg-foreground text-background font-bold",
-                socialButtonsBlockButton: "border border-border text-white",
+                headerTitle: "text-foreground",
+                headerSubtitle: "text-muted-foreground",
+                formButtonPrimary: "bg-foreground text-background font-semibold",
+                socialButtonsBlockButton: "border border-border text-foreground bg-secondary",
                 footerActionLink: "text-foreground",
+                formFieldLabel: "text-foreground",
+                formFieldInput: "bg-muted border-border text-foreground",
               },
             }}
             routing="path"

@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export function Footer() {
   return (
-    <footer className="border-t border-border bg-card px-6 py-4">
+    <footer className="hidden md:block border-t border-border bg-card px-6 py-4">
       <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
         <p className="text-xs text-muted-foreground">
           © 2026 Medic1905. Serving Nigeria. All rights reserved.

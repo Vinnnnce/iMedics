@@ -1,79 +1,106 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { FlaskConical, Heart, FileText, ClipboardList, Pill, Calendar, Video, Star } from "lucide-react";
+import { Stethoscope, Calendar, FileText, Heart, Video, FlaskConical } from "lucide-react";
 
 export default async function DashboardPage() {
   const clerkUser = await currentUser();
   const role = ((clerkUser?.publicMetadata as Record<string, unknown>)?.role as string) ||
     ((clerkUser?.unsafeMetadata as Record<string, unknown>)?.role as string) || "PATIENT";
 
-  // Redirect doctors and lab staff to their dashboards
   if (role === "DOCTOR") redirect("/doctor/dashboard");
   if (role === "LAB_SCIENTIST") redirect("/lab/dashboard");
 
-  const quickActions = [
-    { href: "/patient/results", label: "Analysis Results", icon: FlaskConical, color: "text-muted-foreground", bg: "bg-muted" },
-    { href: "/patient/diagnostics", label: "Diagnostics", icon: Heart, color: "text-destructive", bg: "bg-muted" },
-    { href: "/patient/case-file", label: "Case File", icon: FileText, color: "text-foreground", bg: "bg-foreground/10" },
-    { href: "/patient/history", label: "Case History", icon: ClipboardList, color: "text-muted-foreground", bg: "bg-muted" },
-    { href: "/patient/prescriptions", label: "Prescriptions", icon: Pill, color: "text-muted-foreground", bg: "bg-muted" },
-    { href: "/doctors", label: "Find Doctors", icon: Star, color: "text-foreground", bg: "bg-foreground/10" },
-    { href: "/patient/appointments", label: "Book Appointment", icon: Calendar, color: "text-muted-foreground", bg: "bg-muted" },
-    { href: "/patient/consult", label: "Consultation", icon: Video, color: "text-muted-foreground", bg: "bg-muted" },
+  const stats = [
+    { label: "Appointments", value: "3", sub: "1 upcoming", icon: Calendar },
+    { label: "Lab Results", value: "5", sub: "2 new", icon: FlaskConical },
+    { label: "Active Cases", value: "2", sub: "1 ongoing", icon: FileText },
+    { label: "Messages", value: "4", sub: "1 unread", icon: Video },
+  ];
+
+  const modules = [
+    { href: "/doctors", label: "Find a Doctor", desc: "Search and book appointments with specialists", icon: Stethoscope },
+    { href: "/patient/appointments", label: "My Appointments", desc: "View upcoming and past appointments", icon: Calendar },
+    { href: "/patient/results", label: "Lab Results", desc: "View your test results and reports", icon: FlaskConical },
+    { href: "/patient/case-file", label: "Case File", desc: "Your medical history and documents", icon: FileText },
+    { href: "/patient/consult", label: "Consultation", desc: "Start a video consultation", icon: Video },
+    { href: "/patient/history", label: "Case History", desc: "Timeline of your medical visits", icon: Heart },
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Patient Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage your health, appointments, and results</p>
+    <div className="space-y-6 max-w-4xl mx-auto">
+      {/* Hero Card */}
+      <div className="hero-card p-6 md:p-8">
+        <div className="relative z-10">
+          <span className="status-badge bg-muted text-muted-foreground mb-3">
+            Welcome to Medic1905
+          </span>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+            Your Health, Simplified
+          </h1>
+          <p className="text-sm text-muted-foreground mb-6 max-w-md">
+            Telemedicine platform for doctors, patients, labs, and diagnostics — all in one place.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/doctors"
+              className="pill-btn bg-foreground text-background px-5 py-2.5 text-sm flex items-center gap-2"
+            >
+              <Stethoscope className="h-4 w-4" />
+              Find a Doctor
+            </Link>
+            <Link
+              href="/patient/consult"
+              className="pill-btn bg-secondary text-foreground border border-border px-5 py-2.5 text-sm flex items-center gap-2"
+            >
+              <Video className="h-4 w-4" />
+              Start Consultation
+            </Link>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        {quickActions.map((action) => {
-          const Icon = action.icon;
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {stats.map((stat) => {
+          const Icon = stat.icon;
           return (
-            <Link key={action.href} href={action.href}>
-              <Card className="beeline-tile beeline-card cursor-pointer h-full">
-                <CardContent className="flex flex-col items-center justify-center p-4 text-center">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${action.bg} mb-2`}>
-                    <Icon className={`h-6 w-6 ${action.color}`} />
-                  </div>
-                  <p className="text-xs md:text-sm font-medium">{action.label}</p>
-                </CardContent>
-              </Card>
-            </Link>
+            <div key={stat.label} className="stat-card p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="icon-badge h-9 w-9 bg-muted">
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+              <p className="text-xs text-muted-foreground">{stat.label}</p>
+              <p className="text-xs text-muted-foreground mt-1">{stat.sub}</p>
+            </div>
           );
         })}
       </div>
 
-      <Card className="beeline-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <FlaskConical className="h-5 w-5 text-foreground" />
-            Recent Lab Results
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="flex items-center justify-between rounded-lg border border-border p-3">
-            <div>
-              <p className="text-sm font-medium">Complete Blood Count (CBC)</p>
-              <p className="text-xs text-muted-foreground">Sep 14, 2026 — Verified</p>
-            </div>
-            <Button size="sm" variant="outline" className="rounded-lg">View</Button>
-          </div>
-          <div className="flex items-center justify-between rounded-lg border border-border p-3">
-            <div>
-              <p className="text-sm font-medium">Lipid Panel</p>
-              <p className="text-xs text-muted-foreground">Sep 10, 2026 — Verified</p>
-            </div>
-            <Button size="sm" variant="outline" className="rounded-lg">View</Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Module Cards */}
+      <div className="space-y-3">
+        {modules.map((mod) => {
+          const Icon = mod.icon;
+          return (
+            <Link key={mod.href} href={mod.href}>
+              <div className="module-card flex items-center gap-4 p-4">
+                <div className="icon-badge h-12 w-12 bg-muted">
+                  <Icon className="h-5 w-5 text-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold text-foreground">{mod.label}</h3>
+                  <p className="text-xs text-muted-foreground truncate">{mod.desc}</p>
+                </div>
+                <svg className="h-5 w-5 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
