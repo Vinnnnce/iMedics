@@ -27,6 +27,8 @@ model User {
   insuranceInfo Json?    @map("insurance_info")
   kycVerified   Boolean  @default(false) @map("kyc_verified")
   onboardingComplete Boolean @default(false) @map("onboarding_complete")
+  // Account moderation state managed from the admin dashboard
+  status        String   @default("active") // active, suspended, banned
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -402,16 +404,44 @@ model LabStaffProfile {
 }
 
 // ── Consultations ────────────────────────────────────
+// Structured consultation report, modelled on the JEMYS hospital
+// information system (jemys.ru) electronic medical record:
+// complaints, anamnesis, objective examination/vitals, diagnosis,
+// laboratory and diagnostic findings, prescriptions, treatment plan.
 model Consultation {
   id            String   @id @default(uuid()) @db.Uuid
   patientId     String   @map("patient_id") @db.Uuid
   doctorId      String   @map("doctor_id") @db.Uuid
   appointmentId String?  @map("appointment_id") @db.Uuid
-  notes         String?
+  // Chief complaint (жалобы) — JEMYS EMR section
+  chiefComplaint String? @map("chief_complaint")
+  // History of present illness / anamnesis (анамнез)
+  historyPresentIllness String? @map("history_present_illness")
+  // Past medical history, allergies, family & social history
+  pastMedicalHistory String? @map("past_medical_history")
+  // Symptom list [{name, duration, severity}]
+  symptoms      Json     @default("[]")
+  // Vitals: bloodPressure, heartRate, temperature, respiratoryRate,
+  // spo2, weight, height, bmi
+  vitals        Json     @default("{}")
+  // Physical examination findings (объективный осмотр)
+  examination   String?
+  // Primary diagnosis with ICD-10 code
   diagnosis     String?
+  icdCode       String?  @map("icd_code")
+  differentialDiagnosis String? @map("differential_diagnosis")
+  // Laboratory findings (лабораторные данные)
+  labFindings   String?  @map("lab_findings")
+  // Diagnostic imaging / instrumental findings (диагностические обследования)
+  imagingFindings String? @map("imaging_findings")
+  // Prescriptions [{name, dose, frequency, duration, instructions}]
+  medications   Json     @default("[]")
   treatmentPlan String?  @map("treatment_plan")
+  recommendations String?
+  followUpDate  DateTime? @map("follow_up_date")
+  notes         String?
   aiSummary     String?  @map("ai_summary")
-  status        String   @default("draft") // draft, complete
+  status        String   @default("draft") // draft, finalized
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -422,4 +452,29 @@ model Consultation {
   @@index([patientId])
   @@index([doctorId])
   @@map("consultations")
+}
+
+// ── Admin Notices ─────────────────────────────────────
+// Platform-wide notices published from the admin dashboard
+model Notice {
+  id        String   @id @default(uuid()) @db.Uuid
+  text      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("notices")
+}
+
+// ── Admin Advertisements ──────────────────────────────
+model Ad {
+  id        String   @id @default(uuid()) @db.Uuid
+  title     String
+  content   String
+  placement String   @default("sidebar") // sidebar, dashboard, login
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("ads")
 }

@@ -2,6 +2,37 @@
 
 import { SignUp } from "@clerk/nextjs";
 
+const clerkAppearance = {
+  variables: {
+    colorBackground: "var(--card)",
+    colorText: "var(--foreground)",
+    colorTextSecondary: "var(--muted-foreground)",
+    colorInputText: "var(--foreground)",
+    colorInputBackground: "var(--muted)",
+    colorInputBorderColor: "var(--border)",
+    colorInputPlaceholder: "var(--muted-foreground)",
+    colorPrimary: "var(--foreground)",
+    colorPrimaryText: "var(--background)",
+    colorDanger: "var(--destructive)",
+    borderRadius: "0.5rem",
+  },
+  elements: {
+    card: "bg-transparent border-0 shadow-none",
+    headerTitle: "text-foreground",
+    headerSubtitle: "text-muted-foreground",
+    formButtonPrimary: "bg-foreground text-background font-semibold hover:opacity-90",
+    formFieldLabel: "text-foreground",
+    formFieldInput: "bg-muted border-border text-foreground placeholder:text-muted-foreground",
+    socialButtonsBlockButton: "border border-border text-foreground bg-secondary",
+    socialButtonsBlockButtonText: "text-foreground",
+    footerActionLink: "text-foreground underline",
+    alternativeMethodsBlockButtonArrow: "text-foreground",
+    dividerLine: "bg-border",
+    dividerText: "text-muted-foreground",
+    footer: "bg-transparent",
+  },
+};
+
 export default function SignUpPage() {
   return (
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center p-4">
@@ -16,25 +47,9 @@ export default function SignUpPage() {
           <p className="text-sm text-muted-foreground mt-1">Join Medic1905 to manage your care</p>
         </div>
 
-        <div className="stat-card p-6">
+        <div className="stat-card p-4 sm:p-6" data-testid="card-signup">
           <SignUp
-            appearance={{
-              variables: {
-                colorBackground: "transparent",
-                colorPrimary: "var(--primary)",
-                borderRadius: "0.5rem",
-              },
-              elements: {
-                card: "bg-transparent border-0 shadow-none",
-                headerTitle: "text-foreground",
-                headerSubtitle: "text-muted-foreground",
-                formButtonPrimary: "bg-foreground text-background font-semibold",
-                socialButtonsBlockButton: "border border-border text-foreground bg-secondary",
-                footerActionLink: "text-foreground",
-                formFieldLabel: "text-foreground",
-                formFieldInput: "bg-muted border-border text-foreground",
-              },
-            }}
+            appearance={clerkAppearance}
             routing="path"
             path="/auth/signup"
             signInUrl="/auth/login"

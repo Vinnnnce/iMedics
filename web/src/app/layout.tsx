@@ -22,12 +22,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <html lang="en" className={`${inter.variable} h-full antialiased`}>
         <body className="min-h-full flex flex-col bg-background text-foreground">
           <ThemeProvider>
-            <div className="flex min-h-screen">
-              <Navbar />
-              <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex min-h-screen flex-col">
+              <Navbar>
                 <main className="flex-1 p-4 md:p-6 has-bottom-nav">{children}</main>
                 <Footer />
-              </div>
+              </Navbar>
             </div>
           </ThemeProvider>
         </body>

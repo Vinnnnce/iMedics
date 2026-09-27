@@ -23,6 +23,9 @@ export default function PostSignupRedirect() {
           case "LAB_SCIENTIST":
             router.push("/lab/dashboard");
             break;
+          case "ADMIN":
+            router.push("/admin/dashboard");
+            break;
           default:
             router.push("/dashboard");
         }

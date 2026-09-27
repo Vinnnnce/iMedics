@@ -99,7 +99,7 @@ const FILTER_CHIPS = [
   { label: "Prescriptions", value: "prescriptions" },
 ];
 
-export function Navbar() {
+export function Navbar({ children }: { children: React.ReactNode }) {
   const { theme, toggleTheme } = useTheme();
   const { user } = useUser();
   const pathname = usePathname();
@@ -203,7 +203,7 @@ export function Navbar() {
           </Link>
 
           {/* AI Search Bar */}
-          <div className="flex-1 max-w-xl mx-auto">
+          <div className="flex-1 max-w-xl mx-auto min-w-0">
             <div className="ai-search-bar flex items-center gap-2 px-4 py-2">
               <Search className="h-4 w-4 text-muted-foreground shrink-0" />
               <input
@@ -213,7 +213,7 @@ export function Navbar() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setSearchOpen(true)}
-                className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                className="flex-1 min-w-0 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
               />
               {searchQuery && (
                 <button onClick={() => { setSearchQuery(""); setSearchOpen(false); }} className="text-muted-foreground hover:text-foreground">
@@ -331,18 +331,11 @@ export function Navbar() {
         </div>
       </header>
 
+      {/* Content row: sidebar beside main content, below the full-width header */}
+      <div className="flex flex-1 min-h-[calc(100vh-4rem)]">
       {/* Desktop Sidebar */}
-      <aside className="desktop-sidebar w-64 shrink-0 border-r border-border bg-sidebar flex-col h-screen sticky top-0">
-        <div className="flex h-16 items-center gap-2 border-b border-border px-6 shrink-0">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-foreground">
-            <svg viewBox="0 0 24 24" className="h-5 w-5 text-background" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M12 2v20M2 12h20" strokeLinecap="round" />
-            </svg>
-          </div>
-          <span className="text-base font-bold text-foreground">Medic1905</span>
-        </div>
-
-        <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
+      <aside className="desktop-sidebar w-64 shrink-0 border-r border-border bg-sidebar flex-col sticky top-16 h-[calc(100vh-4rem)]">
+        <nav className="flex-1 space-y-1 p-3 overflow-y-auto pt-5">
           {navItems.map((item, index) => {
             const Icon = item.icon;
             const active = isActive(item.href);
@@ -369,6 +362,10 @@ export function Navbar() {
           </p>
         </div>
       </aside>
+
+      {/* Main content column */}
+      <div className="flex-1 flex flex-col min-w-0">{children}</div>
+      </div>
 
       {/* Mobile sidebar overlay */}
       {mobileSidebarOpen && (
