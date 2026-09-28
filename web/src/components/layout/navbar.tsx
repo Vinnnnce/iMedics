@@ -29,7 +29,7 @@ const PATIENT_NAV: NavItem[] = [
   { href: "/patient/prescriptions", label: "Prescriptions", icon: FileText, roles: ["PATIENT"] },
   { href: "/patient/consult", label: "Consultation", icon: Video, roles: ["PATIENT"] },
   { href: "/profile", label: "Profile", icon: User, roles: ["PATIENT"] },
-  { href: "/profile", label: "Settings", icon: Settings, roles: ["PATIENT"] },
+  { href: "/settings", label: "Settings", icon: Settings, roles: ["PATIENT"] },
 ];
 
 const DOCTOR_NAV: NavItem[] = [
@@ -44,7 +44,7 @@ const DOCTOR_NAV: NavItem[] = [
   { href: "/doctor/schedule", label: "Schedule", icon: Calendar, roles: ["DOCTOR"] },
   { href: "/doctor/admit", label: "Admit/Discharge", icon: Building2, roles: ["DOCTOR"] },
   { href: "/profile", label: "Profile", icon: User, roles: ["DOCTOR"] },
-  { href: "/profile", label: "Settings", icon: Settings, roles: ["DOCTOR"] },
+  { href: "/settings", label: "Settings", icon: Settings, roles: ["DOCTOR"] },
 ];
 
 const LAB_NAV: NavItem[] = [
@@ -53,7 +53,7 @@ const LAB_NAV: NavItem[] = [
   { href: "/lab/users", label: "User Directory", icon: Users, roles: ["LAB_SCIENTIST"] },
   { href: "/lab/upload", label: "Upload Results", icon: Upload, roles: ["LAB_SCIENTIST"] },
   { href: "/profile", label: "Profile", icon: User, roles: ["LAB_SCIENTIST"] },
-  { href: "/profile", label: "Settings", icon: Settings, roles: ["LAB_SCIENTIST"] },
+  { href: "/settings", label: "Settings", icon: Settings, roles: ["LAB_SCIENTIST"] },
 ];
 
 const BOTTOM_NAV_ITEMS = [

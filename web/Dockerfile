@@ -2,6 +2,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 COPY package*.json ./
+# Copy prisma schema before npm install so the postinstall
+# script (prisma generate) can find it during dependency setup.
+COPY prisma ./prisma/
 RUN npm install --legacy-peer-deps
 COPY . .
 RUN npx prisma generate

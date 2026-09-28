@@ -9,6 +9,10 @@ const isPublicRoute = createRouteMatcher([
   "/legal/(.*)",
   "/admin(.*)",
   "/admin-dashboard/(.*)",
+  // Admin API routes use their own cookie-based auth (admin_auth),
+  // not Clerk — they must be reachable without a Clerk session.
+  "/api/admin-auth(.*)",
+  "/api/admin/(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
