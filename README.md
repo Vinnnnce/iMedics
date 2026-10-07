@@ -160,7 +160,9 @@ npm run dev
 
 ## Database Schema
 
-The complete Prisma schema is in `prisma/schema.prisma`. The database is hosted on Neon (PostgreSQL).
+The canonical Prisma schema is in `prisma/schema.prisma`. The web app is configured to point at this schema explicitly to avoid duplicate schema drift between the root app and the `web/` app.
+
+If you run Prisma commands from the repo root, use the root schema. If you run from `web/`, use the explicit `--schema ../prisma/schema.prisma` flag.
 
 ### Neon Project
 - Project: Medic1905 (nameless-cloud-06240692)
