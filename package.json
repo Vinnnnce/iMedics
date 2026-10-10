@@ -2,46 +2,55 @@
   "name": "medic1905",
   "version": "0.1.0",
   "private": true,
+  "eslintConfig": {
+    "extends": ["next/core-web-vitals"]
+  },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
-    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
-    "prisma:push": "prisma db push --schema prisma/schema.prisma",
-    "prisma:validate": "prisma validate --schema prisma/schema.prisma",
-    "prisma:studio": "prisma studio --schema prisma/schema.prisma"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "db:seed": "node --experimental-strip-types prisma/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.700.0",
+    "@aws-sdk/s3-request-presigner": "^3.700.0",
+    "@base-ui/react": "^1.8.0",
+    "@clerk/nextjs": "^7.9.7",
+    "@hookform/resolvers": "^5.9.1",
+    "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
-    "@radix-ui/react-avatar": "^1.2.6",
-    "@radix-ui/react-dialog": "^1.1.23",
-    "@radix-ui/react-dropdown-menu": "^2.1.24",
-    "@radix-ui/react-label": "^2.1.15",
-    "@radix-ui/react-progress": "^1.1.16",
-    "@radix-ui/react-scroll-area": "^1.2.18",
-    "@radix-ui/react-separator": "^1.1.15",
-    "@radix-ui/react-slot": "^1.3.3",
-    "@radix-ui/react-switch": "^1.3.7",
-    "@radix-ui/react-tabs": "^1.1.21",
-    "@radix-ui/react-toggle": "^1.1.18",
-    "@radix-ui/react-tooltip": "^1.2.16",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^1.48.0",
-    "next": "16.3.6",
+    "lucide-react": "^1.46.0",
+    "next": "16.3.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-hook-form": "^7.88.0",
     "tailwind-merge": "^3.7.0",
-    "tailwindcss-animate": "^1.0.7",
-    "tw-animate-css": "^1.4.0"
+    "tw-animate-css": "^1.4.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.5",
     "prisma": "^7.10.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=22.12"
   }
 }

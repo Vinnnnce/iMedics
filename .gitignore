@@ -1,9 +1,30 @@
-node_modules/
-.next/
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# next.js
+/.next/
+/out/
+/build
+
+# env files (only .env.example is committed)
 .env
-.env.local
-.vercel/
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+
+# misc
+.DS_Store
+*.pem
 *.tsbuildinfo
 next-env.d.ts
+
+# vercel
 .vercel
-.env.production
+
+# prisma generated output
+/prisma/generated

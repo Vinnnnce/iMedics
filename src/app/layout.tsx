@@ -1,35 +1,36 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Inter } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
-import { SideNav } from "@/components/shared/side-nav";
-import { MobileNav } from "@/components/shared/mobile-nav";
+import { Navbar } from "@/components/layout/navbar";
+import { Footer } from "@/components/layout/footer";
+import { ThemeProvider } from "@/components/theme-provider";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
-const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-display" });
+const inter = Inter({
+  variable: "--font-sans",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: "Medic1905 — Telemedicine Platform",
-  description: "Modern telemedicine & medical records platform with AI-powered diagnostics",
+  title: "Medic1905 — AI-Powered Telemedicine",
+  description: "Connect with doctors, upload lab results, and get AI-powered health insights.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.variable} ${spaceGrotesk.variable} font-sans`}>
-        <div className="min-h-screen bg-background text-foreground">
-          <div className="flex">
-            <SideNav />
-            <main className="flex-1 md:ml-72 min-h-screen pb-20 md:pb-0">
-              <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">
-                {children}
-              </div>
-            </main>
-          </div>
-          <MobileNav />
-        </div>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" className={`${inter.variable} h-full antialiased`}>
+        <body className="min-h-full flex flex-col bg-background text-foreground">
+          <ThemeProvider>
+            <div className="flex min-h-screen flex-col">
+              <Navbar>
+                <main className="flex-1 p-4 md:p-6 has-bottom-nav">{children}</main>
+                <Footer />
+              </Navbar>
+            </div>
+          </ThemeProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

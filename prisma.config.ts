@@ -1,11 +1,14 @@
 // prisma.config.ts
-import "dotenv/config"; // Ensure your environment variables are loaded
-import { defineConfig, env } from "prisma/config"; // Import the 'env' helper
+import "dotenv/config";
+import { defineConfig, env } from "prisma/config";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
+  migrations: {
+    path: "prisma/migrations",
+  },
   datasource: {
-    // This helper returns a strict 'string' type and fixes the TypeScript error!
-    url: env("DATABASE_URL"), 
+    // Force the CLI tools to bypass the pooler during migrations
+    url: env("DIRECT_URL"), 
   },
 });
