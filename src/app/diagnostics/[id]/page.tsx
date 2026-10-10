@@ -1,12 +1,12 @@
 "use client";
 import Link from "next/link";
-import { ArrowLeft, FlaskConical, Image, FileText, Brain, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, User, Hash } from "lucide-react";
+import { ArrowLeft, FlaskConical, Image as ImageIcon, FileText, Brain, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, User, Hash } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
-export default function DiagnosticsDetail({ params }: { params: { id: string } }) {
+export default function DiagnosticsDetail() {
   return (
     <div className="space-y-6 animate-fade-in">
       <Link href="/diagnostics">
@@ -78,7 +78,7 @@ export default function DiagnosticsDetail({ params }: { params: { id: string } }
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Image className="h-5 w-5 text-purple-400" /> Imaging Summary
+            <ImageIcon className="h-5 w-5 text-purple-400" /> Imaging Summary
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -90,7 +90,7 @@ export default function DiagnosticsDetail({ params }: { params: { id: string } }
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400">
-                    <Image className="h-4 w-4" />
+                    <ImageIcon className="h-4 w-4" />
                   </div>
                   <div>
                     <p className="font-bold text-sm">{img.modality}</p>

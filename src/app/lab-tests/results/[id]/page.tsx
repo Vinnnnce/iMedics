@@ -3,7 +3,6 @@ import { FlaskConical, Calendar, Building2, Brain, FileText, Download, MessageSq
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 
 const result = {
   testName: "Complete Blood Count (CBC)",
@@ -27,7 +26,7 @@ const result = {
   ],
 };
 
-export default function LabResultDetail({ params }: { params: { id: string } }) {
+export default function LabResultDetail() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}

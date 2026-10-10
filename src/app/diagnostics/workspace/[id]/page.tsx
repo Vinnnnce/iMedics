@@ -1,12 +1,12 @@
 "use client";
-import { FlaskConical, Image, FileText, Brain, Save, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown } from "lucide-react";
+import { FlaskConical, Image as ImageIcon, FileText, Brain, Save, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
-export default function DoctorDiagnosticsWorkspace({ params }: { params: { id: string } }) {
+export default function DoctorDiagnosticsWorkspace() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -98,7 +98,7 @@ export default function DoctorDiagnosticsWorkspace({ params }: { params: { id: s
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Image className="h-4 w-4 text-purple-400" /> Imaging Reports
+                <ImageIcon className="h-4 w-4 text-purple-400" /> Imaging Reports
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">

@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { FlaskConical, Image, FileText, AlertTriangle, CheckCircle2, TrendingUp, ChevronRight, Activity, Brain } from "lucide-react";
+import { FlaskConical, Image as ImageIcon, FileText, AlertTriangle, CheckCircle2, ChevronRight, Brain } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,7 @@ export default function DiagnosticsOverview() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatTile icon={FlaskConical} label="Lab Results" value="12" accent="teal" subtitle="3 abnormal" />
-        <StatTile icon={Image} label="Imaging Studies" value="5" accent="purple" subtitle="2 pending" />
+        <StatTile icon={ImageIcon} label="Imaging Studies" value="5" accent="purple" subtitle="2 pending" />
         <StatTile icon={FileText} label="Clinical Notes" value="18" accent="yellow" subtitle="3 new" />
         <StatTile icon={AlertTriangle} label="Needs Attention" value="4" accent="orange" subtitle="1 urgent" />
       </div>
@@ -67,7 +67,7 @@ export default function DiagnosticsOverview() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Image className="h-5 w-5 text-purple-400" /> Imaging Studies
+            <ImageIcon className="h-5 w-5 text-purple-400" /> Imaging Studies
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -78,7 +78,7 @@ export default function DiagnosticsOverview() {
           ].map((item, i) => (
             <div key={i} className="flex items-center gap-4 rounded-2xl bg-muted/50 p-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-500/10 text-purple-400">
-                <Image className="h-5 w-5" />
+              <ImageIcon className="h-5 w-5" />
               </div>
               <div className="flex-1">
                 <p className="font-bold text-sm">{item.name}</p>

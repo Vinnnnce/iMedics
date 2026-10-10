@@ -2,7 +2,6 @@
 import Link from "next/link";
 import { Calendar, FlaskConical, MessageSquare, Users, FlaskConical as Lab, Activity, Settings, Stethoscope, Clock, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/shared/stat-tile";
 
@@ -59,7 +58,7 @@ export default function DoctorDashboard() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-primary" /> Today's Schedule
+            <Clock className="h-5 w-5 text-primary" /> Today&apos;s Schedule
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">

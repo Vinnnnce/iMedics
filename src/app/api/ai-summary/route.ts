@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
       const mockResponse = {
         clinicianSummary: generateMockClinicianSummary(body),
         patientRecap: generateMockPatientRecap(body),
-        followUpQuestions: generateMockQuestions(body),
+        followUpQuestions: generateMockQuestions(),
       };
       return NextResponse.json(mockResponse);
     }
@@ -65,7 +65,7 @@ ${data.historyOfDiabetes || data.historyOfStroke || data.historyOfHeartAttack ? 
 Remember to keep following up with your doctor for personalized medical advice. Your health information is securely stored and available for your healthcare team to review.`;
 }
 
-function generateMockQuestions(data: MedicalHistoryInput): string[] {
+function generateMockQuestions(): string[] {
   return [
     "Can you describe the onset of your symptoms — was it sudden or gradual?",
     "What makes the symptoms better or worse?",

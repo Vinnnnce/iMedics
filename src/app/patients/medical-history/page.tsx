@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { Brain, Send, Clock, AlertTriangle, Activity, Heart, Shield, Pill, Plane, Briefcase, Moon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { Brain, AlertTriangle, Activity, Heart, Shield, Pill, Briefcase } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -234,7 +235,7 @@ export default function MedicalHistoryPage() {
                 </div>
                 <h3 className="font-display text-lg font-bold">AI Summary Not Generated Yet</h3>
                 <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-                  Fill in the medical form and click "Generate AI Summary" to get a structured clinician summary, patient recap, and follow-up questions.
+                  Fill in the medical form and click &quot;Generate AI Summary&quot; to get a structured clinician summary, patient recap, and follow-up questions.
                 </p>
                 <Button variant="neon" className="mt-4" onClick={handleGenerateAI}>
                   <Brain className="mr-2 h-4 w-4" /> Generate Now
@@ -322,7 +323,7 @@ export default function MedicalHistoryPage() {
   );
 }
 
-function ToggleCard({ label, icon: Icon, value, onChange }: { label: string; icon: any; value: boolean; onChange: (v: boolean) => void }) {
+function ToggleCard({ label, icon: Icon, value, onChange }: { label: string; icon: LucideIcon; value: boolean; onChange: (v: boolean) => void }) {
   return (
     <div className={cn("flex items-center justify-between rounded-2xl border-2 p-4 transition-all", value ? "border-primary bg-primary/5" : "border-border bg-muted/30")}>
       <div className="flex items-center gap-2">
