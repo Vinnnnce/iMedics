@@ -16,6 +16,14 @@ const buttonVariants = cva(
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
+        warning:
+          "bg-warning/10 text-warning hover:bg-warning/15 focus-visible:border-warning/40 focus-visible:ring-warning/20",
+        success:
+          "bg-success/10 text-success hover:bg-success/15 focus-visible:border-success/40 focus-visible:ring-success/20",
+        neon:
+          "bg-primary text-background hover:bg-primary/90 focus-visible:border-primary/40 focus-visible:ring-primary/20",
+        teal:
+          "bg-secondary text-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_7%)] focus-visible:border-ring focus-visible:ring-ring/30",
         link: "text-foreground underline-offset-4 hover:underline",
       },
       size: {
