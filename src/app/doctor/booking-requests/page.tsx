@@ -3,9 +3,13 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { AppointmentActions } from "@/components/shared/appointment-actions";
+import { ReschedulePanel } from "@/components/shared/reschedule-panel";
+import { clinicToday } from "@/lib/clinic-time";
 import { prisma } from "@/lib/prisma";
 import { getDoctorProfile, requirePageRole } from "@/lib/guards";
 import { formatClinicDateTime } from "@/lib/format";
+import { visibleToDoctor } from "@/lib/booking";
+import { formatMoney } from "@/lib/money";
 
 const MODE_LABEL = { VIDEO: "Video", CHAT: "Chat", IN_PERSON: "In person" } as const;
 
@@ -15,7 +19,7 @@ export default async function DoctorBookingRequestsPage() {
   if (!doctor) notFound();
 
   const appointments = await prisma.appointment.findMany({
-    where: { doctorId: doctor.id, status: { in: ["BOOKED", "CONFIRMED"] }, scheduledAt: { gte: new Date() } },
+    where: { AND: [{ doctorId: doctor.id, status: { in: ["BOOKED", "CONFIRMED"] }, scheduledAt: { gte: new Date() } }, visibleToDoctor] },
     orderBy: { scheduledAt: "asc" },
     take: 100,
     include: { patient: { select: { firstName: true, lastName: true, caseNumber: true } } },
@@ -42,6 +46,9 @@ export default async function DoctorBookingRequestsPage() {
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground">{formatClinicDateTime(a.scheduledAt)}</p>
+              <p className="text-xs text-muted-foreground">
+                {Number(a.feeAmount) > 0 ? `${a.feeKind === "FOLLOW_UP" ? "Follow-up" : "Consultation"} · ${formatMoney(a.feeAmount.toString(), a.feeCurrency)} paid` : "No fee"}
+              </p>
               {a.reason && <p className="mt-1 text-xs text-muted-foreground">Reason: {a.reason}</p>}
             </div>
           </div>
@@ -80,7 +87,15 @@ export default async function DoctorBookingRequestsPage() {
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground">Confirmed ({confirmed.length})</h2>
         {confirmed.length === 0 && <p className="text-sm text-muted-foreground">No confirmed appointments.</p>}
-        {confirmed.map((a) => renderCard(a, <AppointmentActions appointmentId={a.id} actions={[{ label: "Cancel", status: "CANCELLED" }]} />))}
+        {confirmed.map((a) =>
+          renderCard(
+            a,
+            <div className="flex flex-wrap items-start justify-end gap-2">
+              <ReschedulePanel appointmentId={a.id} doctorId={doctor.id} today={clinicToday()} />
+              <AppointmentActions appointmentId={a.id} actions={[{ label: "Cancel", status: "CANCELLED" }]} />
+            </div>,
+          ),
+        )}
       </section>
     </div>
   );

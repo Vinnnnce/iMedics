@@ -1,15 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiClient } from "@/lib/api-client";
-import { formatClinicDateTime } from "@/lib/format";
+import { CheckoutForm } from "@/components/shared/checkout-form";
+import { formatClinicDateTime, formatDate } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
 
 interface Slot {
   startsAt: string;
   durationMinutes: number;
+}
+
+interface Fee {
+  configured: boolean;
+  kind: "STANDARD" | "FOLLOW_UP";
+  amount: number;
+  currency: string;
+  standardAmount: number;
+  followUpAmount: number | null;
+  followUpWindowDays: number;
+  qualifiesUntil: string | null;
 }
 
 const timeOf = (iso: string) =>
@@ -27,6 +40,28 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
   const [error, setError] = useState("");
   const [booked, setBooked] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [fee, setFee] = useState<{ slot: string; fee: Fee } | null>(null);
+  const [reviewing, setReviewing] = useState(false);
+  // Remember the booking once created, so a failed payment start can be retried without booking twice.
+  const createdPaymentId = useRef<string | null>(null);
+
+  // The price for the chosen slot, as this patient would be charged (the server repeats this when booking).
+  const currentFee = slot && fee?.slot === slot ? fee.fee : null;
+  useEffect(() => {
+    if (!slot) return;
+    let cancelled = false;
+    apiClient
+      .get<{ fee: Fee }>(`/doctors/${doctorId}/pricing?scheduledAt=${encodeURIComponent(slot)}`)
+      .then((data) => {
+        if (!cancelled) setFee({ slot, fee: data.fee });
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Could not load the price");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [doctorId, slot]);
 
   // Slots for the chosen date. "Loading" is derived: we have not loaded this date yet.
   const loading = loaded?.date !== date;
@@ -49,7 +84,15 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
     };
   }, [doctorId, date]);
 
-  const book = async () => {
+  const createBooking = async () => {
+    if (createdPaymentId.current) return { paymentId: createdPaymentId.current };
+    const res = await apiClient.post<{ payment: { id: string } | null }>("/appointments", { doctorId, scheduledAt: slot, mode, reason: reason || undefined });
+    if (!res.payment) throw new Error("This booking does not need a payment");
+    createdPaymentId.current = res.payment.id;
+    return { paymentId: res.payment.id };
+  };
+
+  const bookFree = async () => {
     if (!slot) return;
     setSubmitting(true);
     setError("");
@@ -91,6 +134,7 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
           <input type="date" min={today} value={date} onChange={(e) => {
               setDate(e.target.value);
               setSlot(null);
+              setReviewing(false);
             }} className={`${field} mt-1`} />
         </label>
 
@@ -127,11 +171,58 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
           <textarea className="mt-1 min-h-20 w-full rounded-lg border border-input bg-background p-2 text-sm" maxLength={1000} value={reason} onChange={(e) => setReason(e.target.value)} />
         </label>
 
+        {slot && currentFee && <FeeSummary fee={currentFee} />}
+
         {error && <p className="text-sm text-destructive">{error}</p>}
-        <Button className="w-full bg-foreground text-background rounded-lg" disabled={!slot || submitting} onClick={book}>
-          {submitting ? "Sending…" : "Request this time"}
-        </Button>
+
+        {reviewing && currentFee && currentFee.amount > 0 ? (
+          <div className="space-y-3 border-t border-border pt-4">
+            <div className="text-sm">
+              <p className="font-medium">{slot && formatClinicDateTime(slot)}</p>
+              <p className="text-xs text-muted-foreground">
+                {currentFee.kind === "FOLLOW_UP" ? "Follow-up consultation" : "Consultation"} · {mode === "CHAT" ? "Chat" : "In person"}
+              </p>
+            </div>
+            <CheckoutForm amount={currentFee.amount} currency={currentFee.currency} prepare={createBooking} label="Pay" />
+            <button type="button" className="w-full text-center text-xs text-muted-foreground underline" onClick={() => setReviewing(false)}>
+              Change time or details
+            </button>
+          </div>
+        ) : (
+          <Button
+            className="w-full bg-foreground text-background rounded-lg"
+            disabled={!slot || submitting || !currentFee || !currentFee.configured}
+            onClick={() => (currentFee && currentFee.amount > 0 ? setReviewing(true) : bookFree())}
+          >
+            {submitting ? "Sending…" : currentFee && currentFee.amount > 0 ? `Continue to payment · ${formatMoney(currentFee.amount, currentFee.currency)}` : "Request this time"}
+          </Button>
+        )}
       </CardContent>
     </Card>
+  );
+}
+
+function FeeSummary({ fee }: { fee: Fee }) {
+  if (!fee.configured) {
+    return <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">This doctor has not published a consultation fee yet, so booking is not available.</p>;
+  }
+  return (
+    <div className="space-y-1 rounded-lg bg-muted p-3 text-sm" data-testid="fee-summary">
+      <div className="flex items-center justify-between">
+        <span className="text-muted-foreground">{fee.kind === "FOLLOW_UP" ? "Follow-up consultation" : "Consultation fee"}</span>
+        <span className="font-semibold">{fee.amount > 0 ? formatMoney(fee.amount, fee.currency) : "Free"}</span>
+      </div>
+      {fee.kind === "FOLLOW_UP" && (
+        <p className="text-xs text-muted-foreground">
+          Reduced rate applies because you saw this doctor recently (standard fee {formatMoney(fee.standardAmount, fee.currency)}).
+          {fee.qualifiesUntil ? ` Available until ${formatDate(fee.qualifiesUntil)}.` : ""}
+        </p>
+      )}
+      {fee.kind === "STANDARD" && fee.followUpAmount !== null && fee.followUpAmount < fee.standardAmount && (
+        <p className="text-xs text-muted-foreground">
+          Book again within {fee.followUpWindowDays} days of a completed consultation and pay only {formatMoney(fee.followUpAmount, fee.currency)}.
+        </p>
+      )}
+    </div>
   );
 }

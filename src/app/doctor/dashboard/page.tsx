@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getDoctorProfile, requirePageRole } from "@/lib/guards";
 import { clinicInstant, clinicToday } from "@/lib/clinic-time";
 import { countPendingReview } from "@/lib/data/ai-review";
+import { visibleToDoctor } from "@/lib/booking";
 import { formatClinicDateTime } from "@/lib/format";
 import { notFound } from "next/navigation";
 import { NotificationsCard } from "@/components/shared/notifications-card";
@@ -21,12 +22,12 @@ export default async function DoctorDashboardPage() {
   const dayEnd = clinicInstant(today, 24 * 60);
 
   const [pendingBookings, activePatients, consultationsToday, aiToReview, upcoming, notifications] = await Promise.all([
-    prisma.appointment.count({ where: { doctorId: doctor.id, status: "BOOKED", scheduledAt: { gte: new Date() } } }),
+    prisma.appointment.count({ where: { AND: [{ doctorId: doctor.id, status: "BOOKED", scheduledAt: { gte: new Date() } }, visibleToDoctor] } }),
     prisma.patientAssignment.count({ where: { doctorId: doctor.id, status: "ACTIVE", patient: { deletedAt: null } } }),
     prisma.consultation.count({ where: { doctorId: doctor.id, createdAt: { gte: dayStart, lt: dayEnd } } }),
     countPendingReview(user),
     prisma.appointment.findMany({
-      where: { doctorId: doctor.id, status: { in: ["BOOKED", "CONFIRMED"] }, scheduledAt: { gte: new Date() } },
+      where: { AND: [{ doctorId: doctor.id, status: { in: ["BOOKED", "CONFIRMED"] }, scheduledAt: { gte: new Date() } }, visibleToDoctor] },
       orderBy: { scheduledAt: "asc" },
       take: 5,
       include: { patient: { select: { id: true, firstName: true, lastName: true } } },

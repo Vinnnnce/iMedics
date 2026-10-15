@@ -12,6 +12,8 @@ const publicSelect = {
   areasOfExpertise: true,
   location: true,
   consultationFee: true,
+  followUpFee: true,
+  followUpWindowDays: true,
   currency: true,
   yearsOfExperience: true,
   acceptingPatients: true,
@@ -24,8 +26,14 @@ const publicSelect = {
 type PublicRow = Prisma.DoctorProfileGetPayload<{ select: typeof publicSelect }>;
 
 /** Public shape of a doctor: no licence or registration numbers, flat name. */
-function toPublic({ user, consultationFee, ...profile }: PublicRow) {
-  return { ...profile, name: user.name, avatarUrl: user.avatarUrl, consultationFee: consultationFee?.toString() ?? null };
+function toPublic({ user, consultationFee, followUpFee, ...profile }: PublicRow) {
+  return {
+    ...profile,
+    name: user.name,
+    avatarUrl: user.avatarUrl,
+    consultationFee: consultationFee === null ? null : Number(consultationFee),
+    followUpFee: followUpFee === null ? null : Number(followUpFee),
+  };
 }
 
 const visibleDoctor: Prisma.DoctorProfileWhereInput = {

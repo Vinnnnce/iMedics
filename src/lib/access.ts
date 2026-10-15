@@ -22,6 +22,15 @@ export async function getVerifiedDoctorProfile(user: User) {
   return profile;
 }
 
+/** The caller's facility profile (laboratory, diagnostic centre or hospital); it must be verified to publish services. */
+export async function getVerifiedFacilityProfile(user: User) {
+  const profile = await prisma.labStaffProfile.findUnique({ where: { userId: user.id } });
+  if (!profile || profile.verificationStatus !== "VERIFIED") {
+    throw forbidden("Your facility account has not been verified yet");
+  }
+  return profile;
+}
+
 export interface PatientScope {
   /** Prisma filter selecting exactly the patients the caller may access. */
   where: Prisma.PatientWhereInput;

@@ -1,3 +1,4 @@
+import { formatMoney } from "@/lib/money";
 import Link from "next/link";
 import { Heart, MapPin, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -55,11 +56,9 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Prom
                     </span>
                   </div>
                 </div>
-                {d.consultationFee && (
-                  <Badge variant="secondary" className="rounded-lg">
-                    {d.currency} {d.consultationFee}
-                  </Badge>
-                )}
+                <Badge variant="secondary" className="rounded-lg">
+                  {d.consultationFee === null ? "Fee not set" : d.consultationFee > 0 ? formatMoney(d.consultationFee, d.currency) : "Free"}
+                </Badge>
               </CardContent>
             </Card>
           </Link>

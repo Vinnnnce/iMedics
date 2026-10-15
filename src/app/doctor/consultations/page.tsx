@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Icd10Picker, type Icd10Selection } from "@/components/doctor/icd10-picker";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -49,7 +50,7 @@ type ConsultationRecord = {
   id: string;
   chiefComplaint: string | null;
   diagnosis: string | null;
-  icdCode: string | null;
+  diagnoses: { code: string; description: string; isPrimary: boolean }[];
   status: string;
   createdAt: string;
   followUpDate: string | null;
@@ -82,8 +83,7 @@ export default function DoctorConsultationsPage() {
   const [symptoms, setSymptoms] = useState<Symptom[]>([{ name: "", duration: "", severity: "mild" }]);
   const [vitals, setVitals] = useState<Vitals>(emptyVitals);
   const [examination, setExamination] = useState("");
-  const [diagnosis, setDiagnosis] = useState("");
-  const [icdCode, setIcdCode] = useState("");
+  const [diagnoses, setDiagnoses] = useState<Icd10Selection[]>([]);
   const [differentialDiagnosis, setDifferentialDiagnosis] = useState("");
   const [labFindings, setLabFindings] = useState("");
   const [imagingFindings, setImagingFindings] = useState("");
@@ -150,7 +150,7 @@ export default function DoctorConsultationsPage() {
   const resetForm = () => {
     setChiefComplaint(""); setHistoryPresentIllness(""); setPastMedicalHistory("");
     setSymptoms([{ name: "", duration: "", severity: "mild" }]);
-    setVitals(emptyVitals); setExamination(""); setDiagnosis(""); setIcdCode("");
+    setVitals(emptyVitals); setExamination(""); setDiagnoses([]);
     setDifferentialDiagnosis(""); setLabFindings(""); setImagingFindings("");
     setMedications([{ ...emptyMedication }]); setTreatmentPlan("");
     setRecommendations(""); setFollowUpDate(""); setNotes("");
@@ -162,8 +162,8 @@ export default function DoctorConsultationsPage() {
       setError("Select a patient first.");
       return;
     }
-    if (!diagnosis.trim()) {
-      setError("A diagnosis is required before saving the report.");
+    if (diagnoses.length === 0) {
+      setError("Select at least one ICD-10 diagnosis before saving the report.");
       return;
     }
     setSaving(true);
@@ -179,8 +179,7 @@ export default function DoctorConsultationsPage() {
           symptoms: symptoms.filter((s) => s.name.trim()),
           vitals,
           examination,
-          diagnosis,
-          icdCode,
+          diagnoses: diagnoses.map(({ code, isPrimary }) => ({ code, isPrimary })),
           differentialDiagnosis,
           labFindings,
           imagingFindings,
@@ -412,29 +411,12 @@ export default function DoctorConsultationsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="diagnosis">Primary Diagnosis *</Label>
-              <Input
-                id="diagnosis"
-                value={diagnosis}
-                onChange={(e) => setDiagnosis(e.target.value)}
-                placeholder="e.g. Essential hypertension"
-                className="rounded-lg"
-                data-testid="input-diagnosis"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="icd">ICD-10 Code</Label>
-              <Input
-                id="icd"
-                value={icdCode}
-                onChange={(e) => setIcdCode(e.target.value)}
-                placeholder="e.g. I10"
-                className="rounded-lg"
-                data-testid="input-icd"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label>Diagnoses (ICD-10) *</Label>
+            <Icd10Picker value={diagnoses} onChange={setDiagnoses} />
+            <p className="text-xs text-muted-foreground">
+              Search by code or name and select all that apply. The starred diagnosis is the primary one.
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="differential">Differential Diagnosis</Label>
@@ -652,7 +634,7 @@ export default function DoctorConsultationsPage() {
                   {r.patient.name} — {r.diagnosis || "No diagnosis recorded"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {r.icdCode ? `ICD-10 ${r.icdCode} · ` : ""}
+                  {r.diagnoses.length > 0 ? `ICD-10 ${r.diagnoses.map((d) => d.code).join(", ")} · ` : ""}
                   {new Date(r.createdAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
                   {r.followUpDate ? ` · Follow-up: ${new Date(r.followUpDate).toLocaleDateString()}` : ""}
                 </p>

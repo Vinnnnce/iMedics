@@ -2,7 +2,7 @@
 
 Telemedicine and medical-records web app for patients, doctors and laboratory staff.
 
-**Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · shadcn/ui · Prisma 6 · Neon Postgres · Clerk · S3-compatible storage (Cloudflare R2 / AWS S3) · Kimi K3 (doctor-side AI assistance) · Vitest · Vercel.
+**Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · shadcn/ui · Prisma 7 · Neon Postgres · Clerk · S3-compatible storage (Cloudflare R2 / AWS S3) · Kimi K3 (doctor-side AI assistance) · Vitest · Vercel.
 
 > Scope: web only. A mobile app is planned for a later release.
 
@@ -28,10 +28,10 @@ npm install
 # 2. Configure
 cp .env.example .env        # fill in Clerk, Neon, S3/R2, Kimi and ADMIN_EMAILS
 
-# 3. Create the database schema (first run creates prisma/migrations/<timestamp>_init; commit it)
-npx prisma migrate dev --name init
+# 3. Create the database schema (applies every migration in prisma/migrations)
+npm run db:deploy            # or `npx prisma migrate reset` to wipe and rebuild a test database
 
-# 4. Seed the lab-test catalogue
+# 4. Seed reference data: lab-test catalogue and the ICD-10 code list (idempotent)
 npm run db:seed
 
 # 5. Verify
@@ -54,9 +54,18 @@ Sign up with an email listed in `ADMIN_EMAILS` (and verify it in Clerk) to becom
 
 Set every variable from `.env.example`, and run `npm run db:deploy` against production before the first deploy and after each schema change.
 
+Also add a scheduled job that calls `GET /api/cron/appointment-reminders` every 15 minutes with `Authorization: Bearer $CRON_SECRET` (Vercel Cron does this when `CRON_SECRET` is set; note Vercel's free plan limits cron frequency). It sends appointment reminders, releases slots held by unpaid bookings and retries refunds the gateway has not accepted. In the Paystack dashboard, set the webhook URL to `<your-domain>/api/payments/webhook/paystack`.
+
+## Clinical coding, pricing, payments and notifications
+
+- **ICD-10 diagnoses.** Doctors search by code or name (`I10`, `hypertension`) and pick several; one is primary. Codes come from the imported release recorded in `code_system_releases` (default: WHO ICD-10, 2019). Diagnoses store a snapshot of the code and wording, so updating the list never rewrites past records. See [docs/ICD10.md](docs/ICD10.md).
+- **Fees.** Doctors set a standard and a reduced follow-up fee at `/doctor/fees`; laboratories, diagnostic centres and hospitals publish priced services at `/lab/services`. Patients see the price before booking, and the server recomputes it when booking.
+- **Payments.** Paystack (cards, bank transfer, USSD, mobile money) behind a provider interface. Bookings hold their slot for 30 minutes while unpaid; doctors and facilities see a booking only once it is paid. Receipts live at `/payments`. See [docs/PAYMENTS_AND_NOTIFICATIONS.md](docs/PAYMENTS_AND_NOTIFICATIONS.md).
+- **Notifications.** In-app (bell + pop-ups), email (Resend) and web push, with per-category preferences on the profile page. Messages never contain health details; they link back into the signed-in app.
+
 ## Scripts
 
-`dev` · `build` · `start` · `lint` · `typecheck` · `test` · `test:watch` · `db:migrate` · `db:deploy` · `db:seed` · `db:studio`
+`dev` · `build` · `start` · `lint` · `typecheck` · `test` · `test:watch` · `db:migrate` · `db:deploy` · `db:seed` · `db:studio` · `icd10:import`
 
 ## How access control works
 

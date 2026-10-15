@@ -7,35 +7,39 @@ datasource db {
 }
 
 model User {
-  id                 String            @id @default(uuid()) @db.Uuid
-  clerkId            String            @unique @map("clerk_id")
-  email              String            @unique
+  id                 String                   @id @default(uuid()) @db.Uuid
+  clerkId            String                   @unique @map("clerk_id")
+  email              String                   @unique
   name               String
   phone              String?
-  avatarUrl          String?           @map("avatar_url")
-  language           String            @default("en")
-  role               Role              @default(PATIENT)
-  accountType        AccountType?      @map("account_type")
-  status             UserStatus        @default(ACTIVE)
-  onboardingComplete Boolean           @default(false) @map("onboarding_complete")
-  termsAcceptedAt    DateTime?         @map("terms_accepted_at")
-  termsVersion       String?           @map("terms_version")
-  lastLoginAt        DateTime?         @map("last_login_at")
-  createdAt          DateTime          @default(now()) @map("created_at")
-  updatedAt          DateTime          @updatedAt @map("updated_at")
-  deletedAt          DateTime?         @map("deleted_at")
-  aiReviews          AiAnalysis[]      @relation("AiAnalysisReviewedBy")
+  avatarUrl          String?                  @map("avatar_url")
+  language           String                   @default("en")
+  role               Role                     @default(PATIENT)
+  accountType        AccountType?             @map("account_type")
+  status             UserStatus               @default(ACTIVE)
+  onboardingComplete Boolean                  @default(false) @map("onboarding_complete")
+  termsAcceptedAt    DateTime?                @map("terms_accepted_at")
+  termsVersion       String?                  @map("terms_version")
+  lastLoginAt        DateTime?                @map("last_login_at")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+  deletedAt          DateTime?                @map("deleted_at")
+  aiReviews          AiAnalysis[]             @relation("AiAnalysisReviewedBy")
   auditLogs          AuditLog[]
   messagesSent       ChatMessage[]
-  doctorProfile      DoctorProfile?    @relation("DoctorProfileUser")
-  doctorsVerified    DoctorProfile[]   @relation("DoctorVerifiedBy")
-  labOrdersOrdered   LabOrder[]        @relation("LabOrderOrderedBy")
-  labResultsUploaded LabResult[]       @relation("LabResultUploadedBy")
-  labResultsVerified LabResult[]       @relation("LabResultVerifiedBy")
-  labStaffProfile    LabStaffProfile?  @relation("LabStaffProfileUser")
-  labStaffVerified   LabStaffProfile[] @relation("LabStaffVerifiedBy")
+  doctorProfile      DoctorProfile?           @relation("DoctorProfileUser")
+  doctorsVerified    DoctorProfile[]          @relation("DoctorVerifiedBy")
+  labOrdersOrdered   LabOrder[]               @relation("LabOrderOrderedBy")
+  labResultsUploaded LabResult[]              @relation("LabResultUploadedBy")
+  labResultsVerified LabResult[]              @relation("LabResultVerifiedBy")
+  labStaffProfile    LabStaffProfile?         @relation("LabStaffProfileUser")
+  labStaffVerified   LabStaffProfile[]        @relation("LabStaffVerifiedBy")
+  notificationPrefs  NotificationPreference[]
   notifications      Notification[]
   patient            Patient?
+  paymentsReceived   Payment[]                @relation("PaymentPayee")
+  paymentsMade       Payment[]                @relation("PaymentPayer")
+  pushSubscriptions  PushSubscription[]
 
   @@index([role])
   @@index([status])
@@ -58,7 +62,7 @@ model DoctorProfile {
   languages              String[]
   areasOfExpertise       String[]            @map("areas_of_expertise")
   location               String?
-  consultationFee        Decimal?            @map("consultation_fee") @db.Decimal(10, 2)
+  consultationFee        Decimal?            @map("consultation_fee") @db.Decimal(12, 2)
   currency               String              @default("NGN")
   acceptingPatients      Boolean             @default(true) @map("accepting_patients")
   aiToolsEnabled         Boolean             @default(false) @map("ai_tools_enabled")
@@ -71,6 +75,8 @@ model DoctorProfile {
   likeCount              Int                 @default(0) @map("like_count")
   createdAt              DateTime            @default(now()) @map("created_at")
   updatedAt              DateTime            @updatedAt @map("updated_at")
+  followUpFee            Decimal?            @map("follow_up_fee") @db.Decimal(12, 2)
+  followUpWindowDays     Int                 @default(14) @map("follow_up_window_days")
   appointments           Appointment[]
   clinicalNotes          ClinicalNote[]
   consultations          Consultation[]
@@ -103,6 +109,12 @@ model LabStaffProfile {
   verifiedById          String?            @map("verified_by_id") @db.Uuid
   createdAt             DateTime           @default(now()) @map("created_at")
   updatedAt             DateTime           @updatedAt @map("updated_at")
+  about                 String?
+  addressLine           String?            @map("address_line")
+  city                  String?
+  operatingHours        String?            @map("operating_hours")
+  state                 String?
+  services              FacilityService[]
   user                  User               @relation("LabStaffProfileUser", fields: [userId], references: [id], onDelete: Cascade)
   verifiedBy            User?              @relation("LabStaffVerifiedBy", fields: [verifiedById], references: [id])
 
@@ -186,6 +198,7 @@ model Patient {
   conversations    Conversation[]
   likes            DoctorLike[]
   reviews          DoctorReview[]
+  facilityBookings FacilityBooking[]
   labOrders        LabOrder[]
   labResults       LabResult[]
   medicalHistories MedicalHistory[]
@@ -260,25 +273,31 @@ model MedicalHistory {
 }
 
 model Appointment {
-  id              String            @id @default(uuid()) @db.Uuid
-  patientId       String            @map("patient_id") @db.Uuid
-  doctorId        String            @map("doctor_id") @db.Uuid
-  scheduledAt     DateTime          @map("scheduled_at")
-  durationMinutes Int               @default(30) @map("duration_minutes")
-  mode            AppointmentMode   @default(VIDEO)
-  status          AppointmentStatus @default(BOOKED)
-  reason          String?
-  notes           String?
-  videoRoomId     String?           @map("video_room_id")
-  followUpOfId    String?           @map("follow_up_of_id") @db.Uuid
-  createdAt       DateTime          @default(now()) @map("created_at")
-  updatedAt       DateTime          @updatedAt @map("updated_at")
-  doctor          DoctorProfile     @relation(fields: [doctorId], references: [id])
-  followUpOf      Appointment?      @relation("AppointmentFollowUp", fields: [followUpOfId], references: [id])
-  followUps       Appointment[]     @relation("AppointmentFollowUp")
-  patient         Patient           @relation(fields: [patientId], references: [id])
-  messages        ChatMessage[]
-  consultations   Consultation[]
+  id                String              @id @default(uuid()) @db.Uuid
+  patientId         String              @map("patient_id") @db.Uuid
+  doctorId          String              @map("doctor_id") @db.Uuid
+  scheduledAt       DateTime            @map("scheduled_at")
+  durationMinutes   Int                 @default(30) @map("duration_minutes")
+  mode              AppointmentMode     @default(VIDEO)
+  status            AppointmentStatus   @default(BOOKED)
+  reason            String?
+  notes             String?
+  videoRoomId       String?             @map("video_room_id")
+  followUpOfId      String?             @map("follow_up_of_id") @db.Uuid
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+  feeAmount         Decimal             @default(0) @map("fee_amount") @db.Decimal(12, 2)
+  feeCurrency       String              @default("NGN") @map("fee_currency")
+  feeKind           ConsultationFeeKind @default(STANDARD) @map("fee_kind")
+  reminder1hSentAt  DateTime?           @map("reminder_1h_sent_at")
+  reminder24hSentAt DateTime?           @map("reminder_24h_sent_at")
+  doctor            DoctorProfile       @relation(fields: [doctorId], references: [id])
+  followUpOf        Appointment?        @relation("AppointmentFollowUp", fields: [followUpOfId], references: [id])
+  followUps         Appointment[]       @relation("AppointmentFollowUp")
+  patient           Patient             @relation(fields: [patientId], references: [id])
+  messages          ChatMessage[]
+  consultations     Consultation[]
+  payment           Payment?
 
   @@index([doctorId, scheduledAt])
   @@index([patientId, scheduledAt])
@@ -286,34 +305,34 @@ model Appointment {
 }
 
 model Consultation {
-  id                    String             @id @default(uuid()) @db.Uuid
-  patientId             String             @map("patient_id") @db.Uuid
-  doctorId              String             @map("doctor_id") @db.Uuid
-  appointmentId         String?            @map("appointment_id") @db.Uuid
-  chiefComplaint        String?            @map("chief_complaint")
-  historyPresentIllness String?            @map("history_present_illness")
-  pastMedicalHistory    String?            @map("past_medical_history")
-  symptoms              Json               @default("[]")
-  vitals                Json               @default("{}")
+  id                    String                  @id @default(uuid()) @db.Uuid
+  patientId             String                  @map("patient_id") @db.Uuid
+  doctorId              String                  @map("doctor_id") @db.Uuid
+  appointmentId         String?                 @map("appointment_id") @db.Uuid
+  chiefComplaint        String?                 @map("chief_complaint")
+  historyPresentIllness String?                 @map("history_present_illness")
+  pastMedicalHistory    String?                 @map("past_medical_history")
+  symptoms              Json                    @default("[]")
+  vitals                Json                    @default("{}")
   examination           String?
   diagnosis             String?
-  icdCode               String?            @map("icd_code")
-  differentialDiagnosis String?            @map("differential_diagnosis")
-  labFindings           String?            @map("lab_findings")
-  imagingFindings       String?            @map("imaging_findings")
-  treatmentPlan         String?            @map("treatment_plan")
+  differentialDiagnosis String?                 @map("differential_diagnosis")
+  labFindings           String?                 @map("lab_findings")
+  imagingFindings       String?                 @map("imaging_findings")
+  treatmentPlan         String?                 @map("treatment_plan")
   recommendations       String?
-  followUpDate          DateTime?          @map("follow_up_date")
+  followUpDate          DateTime?               @map("follow_up_date")
   notes                 String?
-  status                ConsultationStatus @default(DRAFT)
-  finalizedAt           DateTime?          @map("finalized_at")
-  createdAt             DateTime           @default(now()) @map("created_at")
-  updatedAt             DateTime           @updatedAt @map("updated_at")
+  status                ConsultationStatus      @default(DRAFT)
+  finalizedAt           DateTime?               @map("finalized_at")
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt @map("updated_at")
   aiAnalysis            AiAnalysis?
   clinicalNotes         ClinicalNote[]
-  appointment           Appointment?       @relation(fields: [appointmentId], references: [id])
-  doctor                DoctorProfile      @relation(fields: [doctorId], references: [id])
-  patient               Patient            @relation(fields: [patientId], references: [id])
+  diagnoses             ConsultationDiagnosis[]
+  appointment           Appointment?            @relation(fields: [appointmentId], references: [id])
+  doctor                DoctorProfile           @relation(fields: [doctorId], references: [id])
+  patient               Patient                 @relation(fields: [patientId], references: [id])
   prescriptions         Prescription[]
 
   @@index([patientId])
@@ -548,10 +567,185 @@ model Notification {
   data      Json?
   readAt    DateTime?        @map("read_at")
   createdAt DateTime         @default(now()) @map("created_at")
+  /// Safe, relative in-app path (e.g. /patient/appointments). Never contains clinical details.
+  href      String?
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, readAt])
+  @@index([userId, createdAt])
   @@map("notifications")
+}
+
+model NotificationPreference {
+  id       String              @id @default(uuid()) @db.Uuid
+  userId   String              @map("user_id") @db.Uuid
+  category NotificationType
+  channel  NotificationChannel
+  enabled  Boolean             @default(true)
+  user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category, channel])
+  @@map("notification_preferences")
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+/// One imported release of a clinical code set (e.g. ICD-10, WHO 2019). Exactly one release per system is active.
+model CodeSystemRelease {
+  id           String                  @id @default(uuid()) @db.Uuid
+  system       String
+  edition      String
+  jurisdiction String
+  label        String
+  sourceUrl    String?                 @map("source_url")
+  codeCount    Int                     @map("code_count")
+  isActive     Boolean                 @default(false) @map("is_active")
+  importedAt   DateTime                @default(now()) @map("imported_at")
+  diagnoses    ConsultationDiagnosis[]
+  codes        Icd10Code[]
+
+  @@unique([system, edition, jurisdiction])
+  @@index([system, isActive])
+  @@map("code_system_releases")
+}
+
+model Icd10Code {
+  id             String            @id @default(uuid()) @db.Uuid
+  releaseId      String            @map("release_id") @db.Uuid
+  code           String
+  /// Code without the dot, upper-case, for dot-insensitive search (A000 finds A00.0).
+  codeNormalized String            @map("code_normalized")
+  description    String
+  chapter        String?
+  chapterTitle   String?           @map("chapter_title")
+  block          String?
+  parentCode     String?           @map("parent_code")
+  /// Only leaf codes can be assigned to a diagnosis.
+  isSelectable   Boolean           @default(true) @map("is_selectable")
+  release        CodeSystemRelease @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@unique([releaseId, code])
+  @@index([releaseId, isSelectable, codeNormalized])
+  @@map("icd10_codes")
+}
+
+/// A diagnosis on a consultation. Code and description are snapshots, so records stay correct when the code set is updated.
+model ConsultationDiagnosis {
+  id             String             @id @default(uuid()) @db.Uuid
+  consultationId String             @map("consultation_id") @db.Uuid
+  releaseId      String?            @map("release_id") @db.Uuid
+  code           String
+  description    String
+  isPrimary      Boolean            @default(false) @map("is_primary")
+  position       Int                @default(0)
+  consultation   Consultation       @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  release        CodeSystemRelease? @relation(fields: [releaseId], references: [id])
+
+  @@unique([consultationId, code])
+  @@index([code])
+  @@map("consultation_diagnoses")
+}
+
+/// A priced service offered by a laboratory, diagnostic centre or hospital.
+model FacilityService {
+  id              String            @id @default(uuid()) @db.Uuid
+  facilityId      String            @map("facility_id") @db.Uuid
+  name            String
+  description     String?
+  category        ServiceCategory   @default(LAB_TEST)
+  price           Decimal           @db.Decimal(12, 2)
+  currency        String            @default("NGN")
+  turnaroundHours Int?              @map("turnaround_hours")
+  /// Free-text availability, e.g. "Mon–Sat 8am–4pm" or "Walk-in".
+  availability    String?
+  isActive        Boolean           @default(true) @map("is_active")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  bookings        FacilityBooking[]
+  facility        LabStaffProfile   @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@index([facilityId, isActive])
+  @@map("facility_services")
+}
+
+model FacilityBooking {
+  id          String                @id @default(uuid()) @db.Uuid
+  patientId   String                @map("patient_id") @db.Uuid
+  serviceId   String                @map("service_id") @db.Uuid
+  /// Snapshots, so later edits to the service never change a booking.
+  serviceName String                @map("service_name")
+  amount      Decimal               @db.Decimal(12, 2)
+  currency    String
+  preferredAt DateTime              @map("preferred_at")
+  status      FacilityBookingStatus @default(REQUESTED)
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+  patient     Patient               @relation(fields: [patientId], references: [id])
+  service     FacilityService       @relation(fields: [serviceId], references: [id])
+  payment     Payment?
+
+  @@index([patientId, createdAt])
+  @@index([serviceId, status])
+  @@map("facility_bookings")
+}
+
+model Payment {
+  id                String           @id @default(uuid()) @db.Uuid
+  kind              PaymentKind
+  payerId           String           @map("payer_id") @db.Uuid
+  payeeId           String           @map("payee_id") @db.Uuid
+  appointmentId     String?          @unique @map("appointment_id") @db.Uuid
+  facilityBookingId String?          @unique @map("facility_booking_id") @db.Uuid
+  /// Generic label shown in lists and receipts, e.g. "Consultation fee". Never clinical detail.
+  description       String
+  amount            Decimal          @db.Decimal(12, 2)
+  currency          String
+  method            PaymentMethod?
+  status            PaymentStatus    @default(PENDING)
+  provider          String
+  providerReference String           @unique @map("provider_reference")
+  receiptNumber     String?          @unique @map("receipt_number")
+  failureReason     String?          @map("failure_reason")
+  expiresAt         DateTime?        @map("expires_at")
+  paidAt            DateTime?        @map("paid_at")
+  refundedAt        DateTime?        @map("refunded_at")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+  events            PaymentEvent[]
+  appointment       Appointment?     @relation(fields: [appointmentId], references: [id])
+  facilityBooking   FacilityBooking? @relation(fields: [facilityBookingId], references: [id])
+  payee             User             @relation("PaymentPayee", fields: [payeeId], references: [id])
+  payer             User             @relation("PaymentPayer", fields: [payerId], references: [id])
+
+  @@index([payerId, createdAt])
+  @@index([payeeId, createdAt])
+  @@index([status, expiresAt])
+  @@map("payments")
+}
+
+/// Append-only trail of everything that happened to a payment (initiation, webhooks, verification, refunds).
+model PaymentEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  paymentId String   @map("payment_id") @db.Uuid
+  type      String
+  details   Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId, createdAt])
+  @@map("payment_events")
 }
 
 model AuditLog {
@@ -746,6 +940,54 @@ enum NotificationType {
   PRESCRIPTION
   MESSAGE
   SYSTEM
+  PAYMENT
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  PUSH
+}
+
+enum ConsultationFeeKind {
+  STANDARD
+  FOLLOW_UP
+}
+
+enum ServiceCategory {
+  LAB_TEST
+  IMAGING
+  PROCEDURE
+  CONSULTATION
+  OTHER
+}
+
+enum FacilityBookingStatus {
+  REQUESTED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentKind {
+  CONSULTATION
+  FACILITY_SERVICE
+}
+
+enum PaymentMethod {
+  CARD
+  BANK_TRANSFER
+  USSD
+  MOBILE_MONEY
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESSFUL
+  FAILED
+  REFUND_PENDING
+  REFUNDED
+  CANCELLED
 }
 
 enum AdPlacement {

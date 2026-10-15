@@ -6,6 +6,10 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseId } from "@/lib/api";
 import { getVerifiedDoctorProfile } from "@/lib/access";
 import { conflict, forbidden, notFound } from "@/lib/errors";
+import { visibleToDoctor } from "@/lib/booking";
+import { PAID_STATUSES } from "@/lib/payments/config";
+import { isRefundEligible, settlePaymentOnCancellation } from "@/lib/payments/service";
+import { queueNotification } from "@/lib/notifications/service";
 import { APPOINTMENT_TRANSITIONS } from "@/lib/appointments";
 import { appointmentInclude, serializeAppointment } from "@/lib/appointment-shape";
 import { writeAudit } from "@/lib/audit";
@@ -24,12 +28,12 @@ export const PATCH = withAuth<{ id: string }>(["DOCTOR", "PATIENT"], async (req,
 
   const access: Prisma.AppointmentWhereInput =
     user.role === "DOCTOR"
-      ? { doctorId: (await getVerifiedDoctorProfile(user)).id }
+      ? { AND: [{ doctorId: (await getVerifiedDoctorProfile(user)).id }, visibleToDoctor] }
       : { patient: { userId: user.id } };
 
   const appointment = await prisma.appointment.findFirst({
     where: { AND: [{ id }, access] },
-    include: { patient: { select: { userId: true } }, doctor: { select: { userId: true } } },
+    include: { patient: { select: { userId: true } }, doctor: { select: { userId: true } }, payment: true },
   });
   if (!appointment) throw notFound("Appointment not found");
 
@@ -38,6 +42,11 @@ export const PATCH = withAuth<{ id: string }>(["DOCTOR", "PATIENT"], async (req,
   }
   if (!APPOINTMENT_TRANSITIONS[appointment.status].includes(status)) {
     throw conflict(`An appointment that is ${appointment.status.toLowerCase()} cannot be changed to ${status.toLowerCase()}`);
+  }
+
+  // A paid booking is the only kind a doctor can accept.
+  if (status === "CONFIRMED" && appointment.payment && appointment.payment.status !== "SUCCESSFUL") {
+    throw conflict("This booking has not been paid for");
   }
 
   const now = new Date();
@@ -68,21 +77,26 @@ export const PATCH = withAuth<{ id: string }>(["DOCTOR", "PATIENT"], async (req,
       });
     }
 
-    if (status === "CONFIRMED" || status === "CANCELLED") {
-      const recipient = user.role === "DOCTOR" ? appointment.patient.userId : appointment.doctor.userId;
-      if (recipient) {
-        await tx.notification.create({
-          data: {
-            userId: recipient,
-            type: "APPOINTMENT",
-            title: status === "CONFIRMED" ? "Appointment confirmed" : "Appointment cancelled",
-            data: { appointmentId: id },
-          },
-        });
-      }
-    }
     return result;
   });
+
+  if (status === "CANCELLED") {
+    const refund = isRefundEligible({
+      cancelledBy: user.role,
+      wasConfirmed: appointment.status !== "BOOKED",
+      startsAt: appointment.scheduledAt,
+      now,
+    });
+    await settlePaymentOnCancellation(appointment.payment, refund, user.role === "DOCTOR" ? "Cancelled by the doctor" : "Cancelled by the patient");
+  }
+
+  // Only tell the doctor about a patient's cancellation if the booking had been paid (otherwise they never saw it).
+  const doctorKnows = !appointment.payment || (PAID_STATUSES as readonly string[]).includes(appointment.payment.status);
+  if (status === "CONFIRMED") queueNotification(appointment.patient.userId, { kind: "APPOINTMENT_CONFIRMED", appointmentId: id });
+  if (status === "CANCELLED") {
+    if (user.role === "DOCTOR") queueNotification(appointment.patient.userId, { kind: "APPOINTMENT_CANCELLED", appointmentId: id });
+    else if (doctorKnows) queueNotification(appointment.doctor.userId, { kind: "APPOINTMENT_CANCELLED", appointmentId: id });
+  }
 
   await writeAudit({
     userId: user.id,

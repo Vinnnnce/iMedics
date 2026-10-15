@@ -6,6 +6,7 @@ export const consultationInclude = {
   },
   doctor: { select: { id: true, user: { select: { name: true } } } },
   prescriptions: { include: { items: true } },
+  diagnoses: { orderBy: [{ isPrimary: "desc" }, { position: "asc" }], select: { code: true, description: true, isPrimary: true } },
 } satisfies Prisma.ConsultationInclude;
 
 export type ConsultationWithRelations = Prisma.ConsultationGetPayload<{ include: typeof consultationInclude }>;

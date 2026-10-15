@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { ProfileForm } from "@/components/profile-form";
+import { NotificationPreferences } from "@/components/shared/notification-preferences";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -24,6 +25,7 @@ export default async function ProfilePage() {
         verificationStatus={doctor?.verificationStatus ?? lab?.verificationStatus ?? null}
         initial={{ name: user.name, phone: user.phone ?? "", language: user.language }}
       />
+      <NotificationPreferences />
     </div>
   );
 }

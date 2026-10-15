@@ -6,6 +6,8 @@ import { withAuth, parseBody, parseQuery } from "@/lib/api";
 import { findAccessiblePatient, getVerifiedDoctorProfile } from "@/lib/access";
 import { consultationInclude, serializeConsultation } from "@/lib/consultation";
 import { writeAudit } from "@/lib/audit";
+import { badRequest } from "@/lib/errors";
+import { buildDiagnosisRows } from "@/lib/icd10/service";
 
 const listQuerySchema = z.object({
   patientId: z.string().uuid().optional(),
@@ -53,8 +55,11 @@ const createSchema = z.object({
     .default([]),
   vitals: z.record(z.string(), z.string().trim().max(50)).default({}),
   examination: text,
-  diagnosis: text,
-  icdCode: z.string().trim().max(20).optional(),
+  /** ICD-10 codes picked from the searchable list. The primary diagnosis is the flagged entry, else the first. */
+  diagnoses: z
+    .array(z.object({ code: z.string().trim().min(1).max(10), isPrimary: z.boolean().optional() }))
+    .max(20)
+    .default([]),
   differentialDiagnosis: text,
   labFindings: text,
   imagingFindings: text,
@@ -90,6 +95,14 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
   const symptoms = data.symptoms.filter((s) => s.name);
   const medications = data.medications.filter((m) => m.name);
   const finalized = data.status === "finalized";
+  if (finalized && data.diagnoses.length === 0) throw badRequest("Select at least one ICD-10 diagnosis");
+
+  let diagnosisRows;
+  try {
+    diagnosisRows = await buildDiagnosisRows(data.diagnoses);
+  } catch (error) {
+    throw badRequest(error instanceof Error ? error.message : "Invalid diagnosis");
+  }
 
   const consultation = await prisma.consultation.create({
     data: {
@@ -101,8 +114,9 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
       symptoms,
       vitals: data.vitals,
       examination: data.examination || null,
-      diagnosis: data.diagnosis || null,
-      icdCode: data.icdCode || null,
+      // Denormalised summary of the primary diagnosis for lists and the AI pipeline.
+      diagnosis: diagnosisRows.summary,
+      diagnoses: { create: diagnosisRows.rows },
       differentialDiagnosis: data.differentialDiagnosis || null,
       labFindings: data.labFindings || null,
       imagingFindings: data.imagingFindings || null,
@@ -141,7 +155,7 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
     action: "CONSULTATION_CREATED",
     resourceType: "Consultation",
     resourceId: consultation.id,
-    details: { status: consultation.status, prescribed: medications.length },
+    details: { status: consultation.status, prescribed: medications.length, diagnoses: diagnosisRows.rows.length },
     req,
   });
 

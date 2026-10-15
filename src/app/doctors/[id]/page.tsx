@@ -8,6 +8,7 @@ import { requirePageRole } from "@/lib/guards";
 import { getDoctorProfileView } from "@/lib/data/doctors";
 import { clinicToday } from "@/lib/clinic-time";
 import { formatDate, initials } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
 import { z } from "zod";
 
 export default async function DoctorProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -35,7 +36,14 @@ export default async function DoctorProfilePage({ params }: { params: Promise<{ 
                 <Star className="h-4 w-4" /> {doctor.ratingCount > 0 ? `${doctor.ratingAvg.toFixed(1)} (${doctor.ratingCount} reviews)` : "No reviews yet"}
               </span>
               {doctor.yearsOfExperience != null && <span className="text-muted-foreground">{doctor.yearsOfExperience} years of experience</span>}
-              {doctor.consultationFee && <span className="text-muted-foreground">{doctor.currency} {doctor.consultationFee} per consultation</span>}
+              <span className="text-muted-foreground">
+                {doctor.consultationFee === null
+                  ? "Fee not published yet"
+                  : `${doctor.consultationFee > 0 ? formatMoney(doctor.consultationFee, doctor.currency) : "Free"} per consultation`}
+                {doctor.followUpFee !== null && doctor.consultationFee !== null && doctor.followUpFee < doctor.consultationFee
+                  ? ` · ${formatMoney(doctor.followUpFee, doctor.currency)} follow-up (within ${doctor.followUpWindowDays} days)`
+                  : ""}
+              </span>
             </div>
             {user.role === "PATIENT" && <LikeButton doctorId={doctor.id} initialLiked={viewer.liked} initialCount={doctor.likeCount} />}
           </div>

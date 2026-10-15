@@ -5,8 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseQuery } from "@/lib/api";
 import { getVerifiedDoctorProfile } from "@/lib/access";
 import { badRequest, conflict, notFound } from "@/lib/errors";
-import { clinicParts, hhmmToMinutes } from "@/lib/clinic-time";
-import { ACTIVE_APPOINTMENT_STATUSES, MAX_APPOINTMENT_MINUTES, addMinutes, overlaps } from "@/lib/appointments";
+import { assertSlotFree, findSlotMinutes, visibleToDoctor } from "@/lib/booking";
+import { resolveConsultationFee } from "@/lib/pricing";
+import { assertPaymentsAvailable, createPendingPayment, expireStalePayments } from "@/lib/payments/service";
+import { queueNotification } from "@/lib/notifications/service";
 import { appointmentInclude, serializeAppointment } from "@/lib/appointment-shape";
 import { writeAudit } from "@/lib/audit";
 
@@ -19,7 +21,9 @@ const bookSchema = z.object({
 });
 
 // POST /api/appointments — a patient books a slot from a doctor's published availability.
-// The doctor must confirm; confirming also admits the patient to the doctor's care.
+// The price is decided here, never by the client: standard fee, or the follow-up fee when the patient qualifies.
+// Paid bookings hold the slot until payment completes (see PAYMENT_HOLD_MINUTES); the doctor hears about a booking
+// only once it is paid. The doctor must then confirm, which also admits the patient to their care.
 export const POST = withAuth(["PATIENT"], async (req, { user }) => {
   const data = await parseBody(req, bookSchema);
 
@@ -40,25 +44,11 @@ export const POST = withAuth(["PATIENT"], async (req, { user }) => {
   });
   if (!doctor) throw notFound("Doctor not found");
 
-  const start = data.scheduledAt;
-  if (start.getTime() <= Date.now()) throw badRequest("Appointments must be in the future");
+  // Release slots held by abandoned payments before checking availability.
+  await expireStalePayments();
 
-  // The requested time must be exactly one of the doctor's published slots.
-  const { dayOfWeek, minutes } = clinicParts(start);
-  const windows = await prisma.doctorSchedule.findMany({
-    where: { doctorId: doctor.id, dayOfWeek, isActive: true },
-  });
-  const aligned = start.getUTCSeconds() === 0 && start.getUTCMilliseconds() === 0;
-  const window = windows.find((w) => {
-    const from = hhmmToMinutes(w.startTime);
-    return (
-      aligned &&
-      minutes >= from &&
-      minutes + w.slotMinutes <= hhmmToMinutes(w.endTime) &&
-      (minutes - from) % w.slotMinutes === 0
-    );
-  });
-  if (!window) throw conflict("That time is not one of the doctor's available slots");
+  const start = data.scheduledAt;
+  const duration = await findSlotMinutes(doctor.id, start);
 
   if (data.followUpOfId) {
     const previous = await prisma.appointment.findFirst({
@@ -68,30 +58,14 @@ export const POST = withAuth(["PATIENT"], async (req, { user }) => {
     if (!previous) throw badRequest("The appointment you are following up on was not found");
   }
 
-  const duration = window.slotMinutes;
-  const end = addMinutes(start, duration);
+  const fee = await resolveConsultationFee(doctor.id, patient.id, start);
+  if (!fee.configured) throw conflict("This doctor has not published a consultation fee yet");
+  if (fee.amount > 0) assertPaymentsAvailable();
 
   // Serializable: two people racing for the same slot cannot both succeed.
-  const appointment = await prisma.$transaction(
+  const { appointment, payment } = await prisma.$transaction(
     async (tx) => {
-      const range = { gte: addMinutes(start, -MAX_APPOINTMENT_MINUTES), lt: end };
-      const select = { scheduledAt: true, durationMinutes: true } as const;
-
-      const doctorBusy = await tx.appointment.findMany({
-        where: { doctorId: doctor.id, status: { in: ACTIVE_APPOINTMENT_STATUSES }, scheduledAt: range },
-        select,
-      });
-      if (doctorBusy.some((b) => overlaps(start, duration, b.scheduledAt, b.durationMinutes))) {
-        throw conflict("This slot has just been taken");
-      }
-
-      const patientBusy = await tx.appointment.findMany({
-        where: { patientId: patient.id, status: { in: ACTIVE_APPOINTMENT_STATUSES }, scheduledAt: range },
-        select,
-      });
-      if (patientBusy.some((b) => overlaps(start, duration, b.scheduledAt, b.durationMinutes))) {
-        throw conflict("You already have an appointment at this time");
-      }
+      await assertSlotFree(tx, { doctorId: doctor.id, patientId: patient.id, start, durationMinutes: duration });
 
       const created = await tx.appointment.create({
         data: {
@@ -101,25 +75,33 @@ export const POST = withAuth(["PATIENT"], async (req, { user }) => {
           durationMinutes: duration,
           mode: data.mode,
           reason: data.reason || null,
-          followUpOfId: data.followUpOfId,
+          followUpOfId: data.followUpOfId ?? (fee.kind === "FOLLOW_UP" ? fee.qualifyingAppointmentId : null),
+          feeKind: fee.kind,
+          feeAmount: fee.amount,
+          feeCurrency: fee.currency,
         },
         include: appointmentInclude,
       });
 
-      // No patient details in the notification text.
-      await tx.notification.create({
-        data: {
-          userId: doctor.userId,
-          type: "APPOINTMENT",
-          title: "New booking request",
-          body: "A patient has requested an appointment.",
-          data: { appointmentId: created.id },
-        },
-      });
-      return created;
+      const charge =
+        fee.amount > 0
+          ? await createPendingPayment(tx, {
+              kind: "CONSULTATION",
+              payerId: user.id,
+              payeeId: doctor.userId,
+              appointmentId: created.id,
+              description: fee.kind === "FOLLOW_UP" ? "Follow-up consultation fee" : "Consultation fee",
+              amount: fee.amount,
+              currency: fee.currency,
+            })
+          : null;
+      return { appointment: created, payment: charge };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
   );
+
+  // Free bookings reach the doctor now; paid ones are announced when the payment succeeds.
+  if (!payment) queueNotification(doctor.userId, { kind: "APPOINTMENT_REQUESTED", appointmentId: appointment.id });
 
   await writeAudit({
     userId: user.id,
@@ -127,10 +109,17 @@ export const POST = withAuth(["PATIENT"], async (req, { user }) => {
     action: "APPOINTMENT_BOOKED",
     resourceType: "Appointment",
     resourceId: appointment.id,
+    details: { feeKind: fee.kind, amount: fee.amount, currency: fee.currency },
     req,
   });
 
-  return NextResponse.json({ appointment: serializeAppointment(appointment) }, { status: 201 });
+  return NextResponse.json(
+    {
+      appointment: serializeAppointment(appointment),
+      payment: payment && { id: payment.id, amount: Number(payment.amount), currency: payment.currency, status: payment.status, expiresAt: payment.expiresAt },
+    },
+    { status: 201 },
+  );
 });
 
 const listSchema = z.object({
@@ -146,7 +135,7 @@ export const GET = withAuth(["DOCTOR", "PATIENT"], async (req, { user }) => {
 
   const owner: Prisma.AppointmentWhereInput =
     user.role === "DOCTOR"
-      ? { doctorId: (await getVerifiedDoctorProfile(user)).id }
+      ? { AND: [{ doctorId: (await getVerifiedDoctorProfile(user)).id }, visibleToDoctor] }
       : { patient: { userId: user.id } };
 
   const where: Prisma.AppointmentWhereInput = {

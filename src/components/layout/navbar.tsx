@@ -6,11 +6,12 @@ import { usePathname } from "next/navigation";
 import { useMe } from "@/lib/use-me";
 import { useUser } from "@clerk/nextjs";
 import { useTheme } from "@/components/theme-provider";
+import { NotificationCenter } from "@/components/shared/notification-center";
 import {
   Search, Sun, Moon, Menu, X, Home, Stethoscope, Users,
   FlaskConical, Heart, Sparkles, User, Shield,
   Calendar, FileText, Video, MessageSquare, Building2,
-  ClipboardList, Upload, LayoutDashboard, ArrowRight,
+  ClipboardList, Upload, LayoutDashboard, ArrowRight, Receipt, Wallet, Tags,
   type LucideIcon,
 } from "lucide-react";
 
@@ -25,6 +26,8 @@ const PATIENT_NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["PATIENT"] },
   { href: "/doctors", label: "Find Doctors", icon: Stethoscope, roles: ["PATIENT"] },
   { href: "/patient/appointments", label: "Appointments", icon: Calendar, roles: ["PATIENT"] },
+  { href: "/facilities", label: "Labs & Services", icon: Building2, roles: ["PATIENT"] },
+  { href: "/payments", label: "Payments", icon: Receipt, roles: ["PATIENT"] },
   { href: "/patient/results", label: "Lab Results", icon: FlaskConical, roles: ["PATIENT"] },
   { href: "/patient/case-file", label: "Case File", icon: FileText, roles: ["PATIENT"] },
   { href: "/patient/history", label: "Case History", icon: ClipboardList, roles: ["PATIENT"] },
@@ -43,6 +46,8 @@ const DOCTOR_NAV: NavItem[] = [
   { href: "/doctor/diagnostics", label: "Clinical Notes", icon: Heart, roles: ["DOCTOR"] },
   { href: "/doctor/ai-tools", label: "AI Review", icon: Sparkles, roles: ["DOCTOR"] },
   { href: "/doctor/schedule", label: "Schedule", icon: Calendar, roles: ["DOCTOR"] },
+  { href: "/doctor/fees", label: "Fees", icon: Tags, roles: ["DOCTOR"] },
+  { href: "/payments", label: "Payments", icon: Wallet, roles: ["DOCTOR"] },
   { href: "/doctor/admit", label: "Care Roster", icon: Building2, roles: ["DOCTOR"] },
   { href: "/profile", label: "Profile", icon: User, roles: ["DOCTOR"] },
 ];
@@ -52,6 +57,9 @@ const LAB_NAV: NavItem[] = [
   { href: "/lab/orders", label: "Lab Orders", icon: ClipboardList, roles: ["LAB_SCIENTIST"] },
   { href: "/lab/users", label: "Patient Lookup", icon: Users, roles: ["LAB_SCIENTIST"] },
   { href: "/lab/upload", label: "Upload Results", icon: Upload, roles: ["LAB_SCIENTIST"] },
+  { href: "/lab/services", label: "Services & Prices", icon: Tags, roles: ["LAB_SCIENTIST"] },
+  { href: "/lab/bookings", label: "Bookings", icon: Calendar, roles: ["LAB_SCIENTIST"] },
+  { href: "/payments", label: "Payments", icon: Wallet, roles: ["LAB_SCIENTIST"] },
   { href: "/profile", label: "Profile", icon: User, roles: ["LAB_SCIENTIST"] },
 ];
 
@@ -295,6 +303,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
 
           {/* Right side actions */}
           <div className="flex items-center gap-3 shrink-0">
+            <NotificationCenter enabled={Boolean(me)} />
             {/* Theme switch toggle */}
             <button
               onClick={toggleTheme}

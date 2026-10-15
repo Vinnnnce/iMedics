@@ -5,6 +5,7 @@ import { withAuth, parseBody, parseId } from "@/lib/api";
 import { findAccessiblePatient } from "@/lib/access";
 import { conflict, notFound } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
+import { queueNotification } from "@/lib/notifications/service";
 
 const schema = z.object({ decision: z.enum(["APPROVED", "REJECTED"]) });
 
@@ -44,18 +45,10 @@ export const POST = withAuth<{ id: string }>(["DOCTOR"], async (req, { user, par
       data: { reviewStatus: decision, reviewedById: user.id, reviewedAt: new Date() },
     });
 
-    if (decision === "APPROVED" && patient.userId) {
-      await tx.notification.create({
-        data: {
-          userId: patient.userId,
-          type: analysis.labResult ? "LAB_RESULT" : "SYSTEM",
-          title: "A new summary is available",
-          data: { analysisId: id },
-        },
-      });
-    }
     return result;
   });
+
+  if (decision === "APPROVED") queueNotification(patient.userId, { kind: "RESULTS_AVAILABLE", analysisId: id });
 
   await writeAudit({
     userId: user.id,

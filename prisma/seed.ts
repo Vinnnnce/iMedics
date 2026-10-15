@@ -1,7 +1,7 @@
 /**
  * Reference-data seed (safe to run in any environment, idempotent).
  *
- * Seeds the lab-test catalogue only. No demo users are created: accounts are
+ * Seeds the lab-test catalogue and the ICD-10 code list. No demo users are created: accounts are
  * provisioned through Clerk, and the first admins come from ADMIN_EMAILS.
  *
  * Run with: npm run db:seed   (Node >= 22.12; reads .env via --env-file)
@@ -9,6 +9,8 @@
 import pkg from "@prisma/client";
 import type { LabCategory } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import path from "node:path";
+import { importIcd10 } from "../src/lib/icd10/import.ts";
 
 const { PrismaClient } = pkg;
 // Prisma 7 connects through a driver adapter (DATABASE_URL is read from .env by `npm run db:seed`).
@@ -57,6 +59,23 @@ const LAB_TESTS: TestSeed[] = [
   { code: "MRI_BRAIN", name: "MRI brain", category: "MRI" },
 ];
 
+/** The ICD-10 list clinicians pick from. Imported once; use `npm run icd10:import` to add or activate another edition. */
+async function seedIcd10() {
+  const existing = await prisma.codeSystemRelease.count({ where: { system: "ICD10" } });
+  if (existing > 0) {
+    console.log("ICD-10 already imported; skipping (run `npm run icd10:import` to re-import).");
+    return;
+  }
+  const result = await importIcd10(prisma, {
+    file: path.join(import.meta.dirname, "data/icd10-who-2019.json"),
+    edition: "2019",
+    jurisdiction: "WHO",
+    label: "ICD-10 (WHO, 2019 edition)",
+    sourceUrl: "https://icd.who.int/browse10/2019/en",
+  });
+  console.log(`Imported ${result.codes} ICD-10 codes.`);
+}
+
 async function main() {
   for (const test of LAB_TESTS) {
     await prisma.labTest.upsert({
@@ -66,6 +85,7 @@ async function main() {
     });
   }
   console.log(`Seeded ${LAB_TESTS.length} lab tests.`);
+  await seedIcd10();
 }
 
 main()

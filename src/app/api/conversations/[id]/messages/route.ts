@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseId, parseQuery } from "@/lib/api";
 import { assertCanSend, findConversation } from "@/lib/chat";
+import { queueNotification } from "@/lib/notifications/service";
 
 const listSchema = z.object({
   after: z.coerce.date().optional(),
@@ -49,6 +50,14 @@ export const POST = withAuth<{ id: string }>(["DOCTOR", "PATIENT"], async (req, 
   const message = await prisma.chatMessage.create({
     data: { conversationId: id, senderId: user.id, body },
   });
+
+  // Tell the other participant (the text itself is never included). Rapid-fire messages are coalesced.
+  const participants = await prisma.conversation.findUnique({
+    where: { id },
+    select: { patient: { select: { userId: true } }, doctor: { select: { userId: true } } },
+  });
+  const recipient = participants && (participants.patient.userId === user.id ? participants.doctor.userId : participants.patient.userId);
+  queueNotification(recipient, { kind: "MESSAGE_RECEIVED", conversationId: id });
 
   return NextResponse.json(
     { message: { id: message.id, mine: true, type: message.type, body: message.body, createdAt: message.createdAt, readAt: null } },

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseId, parseQuery } from "@/lib/api";
 import { notFound } from "@/lib/errors";
 import { clinicInstant, hhmmToMinutes } from "@/lib/clinic-time";
+import { expireStalePayments } from "@/lib/payments/service";
 import { ACTIVE_APPOINTMENT_STATUSES, MAX_APPOINTMENT_MINUTES, addMinutes, overlaps } from "@/lib/appointments";
 
 const querySchema = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD") });
@@ -18,6 +19,9 @@ export const GET = withAuth<{ id: string }>(null, async (req, { params }) => {
     select: { id: true },
   });
   if (!doctor) throw notFound("Doctor not found");
+
+  // Slots held by abandoned payments become free again.
+  await expireStalePayments();
 
   // The weekday of a calendar date does not depend on the time zone.
   const dayOfWeek = new Date(`${date}T12:00:00Z`).getUTCDay();

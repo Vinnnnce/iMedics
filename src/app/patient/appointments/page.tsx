@@ -6,7 +6,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AppointmentActions } from "@/components/shared/appointment-actions";
 import { prisma } from "@/lib/prisma";
 import { requirePageRole } from "@/lib/guards";
+import { PaymentStatusBadge } from "@/components/shared/payment-status-badge";
+import { ReschedulePanel } from "@/components/shared/reschedule-panel";
 import { formatClinicDateTime } from "@/lib/format";
+import { clinicToday } from "@/lib/clinic-time";
+import { formatMoney } from "@/lib/money";
+import { isPayable } from "@/lib/payments/shape";
 
 const MODE_LABEL = { VIDEO: "Video", CHAT: "Chat", IN_PERSON: "In person" } as const;
 const STATUS_LABEL = {
@@ -25,7 +30,10 @@ export default async function PatientAppointmentsPage() {
     where: { patient: { userId: user.id, deletedAt: null } },
     orderBy: { scheduledAt: "desc" },
     take: 100,
-    include: { doctor: { select: { id: true, specialty: true, user: { select: { name: true } } } } },
+    include: {
+      doctor: { select: { id: true, specialty: true, user: { select: { name: true } } } },
+      payment: { select: { id: true, status: true, expiresAt: true } },
+    },
   });
 
   const now = new Date();
@@ -49,10 +57,31 @@ export default async function PatientAppointmentsPage() {
               <Badge variant="secondary" className="rounded-lg text-xs">{STATUS_LABEL[a.status]}</Badge>
             </div>
             <p className="text-xs text-muted-foreground">{formatClinicDateTime(a.scheduledAt)}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span>
+                {a.feeKind === "FOLLOW_UP" ? "Follow-up · " : ""}
+                {Number(a.feeAmount) > 0 ? formatMoney(a.feeAmount.toString(), a.feeCurrency) : "Free"}
+              </span>
+              {a.payment && <PaymentStatusBadge status={a.payment.status} />}
+            </div>
             {a.reason && <p className="mt-1 text-xs text-muted-foreground">Reason: {a.reason}</p>}
           </div>
         </div>
-        {cancellable && <AppointmentActions appointmentId={a.id} actions={[{ label: "Cancel", status: "CANCELLED" }]} />}
+        {cancellable && (
+          <div className="flex flex-col items-end gap-2">
+            {a.payment && isPayable(a.payment) && (
+              <Link href={`/payments/${a.payment.id}`}>
+                <Button size="sm" className="rounded-lg bg-foreground text-background">
+                  Pay now
+                </Button>
+              </Link>
+            )}
+            <div className="flex flex-wrap items-start justify-end gap-2">
+              <ReschedulePanel appointmentId={a.id} doctorId={a.doctor.id} today={clinicToday()} />
+              <AppointmentActions appointmentId={a.id} actions={[{ label: "Cancel", status: "CANCELLED" }]} />
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
