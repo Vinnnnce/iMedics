@@ -644,7 +644,7 @@ model Icd10Code {
 /// A diagnosis on a consultation. Code and description are snapshots, so records stay correct when the code set is updated.
 model ConsultationDiagnosis {
   id             String             @id @default(uuid()) @db.Uuid
-  consultationId String             @map("consultation_id") @db.Uuid
+  consultationId String             @unique @map("consultation_id") @db.Uuid
   releaseId      String?            @map("release_id") @db.Uuid
   code           String
   description    String
@@ -653,7 +653,6 @@ model ConsultationDiagnosis {
   consultation   Consultation       @relation(fields: [consultationId], references: [id], onDelete: Cascade)
   release        CodeSystemRelease? @relation(fields: [releaseId], references: [id])
 
-  @@unique([consultationId, code])
   @@index([code])
   @@map("consultation_diagnoses")
 }

@@ -2,14 +2,14 @@
 
 ## What clinicians see
 
-On **Write Consultation**, the *Diagnoses (ICD-10)* field is a searchable multi-select:
+On **Write Consultation**, the *Diagnosis (ICD-10)* field is a searchable single-select:
 
 - Search by code (`I10`, `e11.9`, `E119` all work) or by words (`hypertension`, `type 2 diabetes`).
 - Results show `code — description`, e.g. `I10 — Essential (primary) hypertension`, ranked: exact code, code prefix, then description matches.
-- Select several; the starred one is the primary diagnosis (the first by default). At least one is required to finalise a report.
+- Select one diagnosis; selecting another replaces the current one. A diagnosis is required to finalise a report.
 - Only **assignable** (leaf-level) codes can be selected. Parent categories such as `E11` are searchable for navigation but not selectable.
 
-`consultations.diagnosis` keeps the primary diagnosis wording for lists and the AI pipeline; the full set is in `consultation_diagnoses`.
+`consultations.diagnosis` keeps the diagnosis wording for lists and the AI pipeline; the code and its description snapshot are in `consultation_diagnoses`.
 
 ## Which list is used
 

@@ -163,7 +163,7 @@ export default function DoctorConsultationsPage() {
       return;
     }
     if (diagnoses.length === 0) {
-      setError("Select at least one ICD-10 diagnosis before saving the report.");
+      setError("Select an ICD-10 diagnosis before saving the report.");
       return;
     }
     setSaving(true);
@@ -412,10 +412,10 @@ export default function DoctorConsultationsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Diagnoses (ICD-10) *</Label>
+            <Label>Diagnosis (ICD-10) *</Label>
             <Icd10Picker value={diagnoses} onChange={setDiagnoses} />
             <p className="text-xs text-muted-foreground">
-              Search by code or name and select all that apply. The starred diagnosis is the primary one.
+              Search by code or name and select one diagnosis. Selecting another code replaces it.
             </p>
           </div>
           <div className="space-y-2">

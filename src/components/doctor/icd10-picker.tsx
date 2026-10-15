@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Check, Loader2, Search, Star, X } from "lucide-react";
+import { Check, Loader2, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -19,15 +19,13 @@ interface Hit {
 interface Props {
   value: Icd10Selection[];
   onChange: (next: Icd10Selection[]) => void;
-  max?: number;
   disabled?: boolean;
 }
 
 /**
- * Searchable multi-select for ICD-10 diagnoses. Search by code ("I10", "e11.9") or by name ("hypertension").
- * The first selection is the primary diagnosis; click the star on any chip to change it.
+ * Searchable single-select for an ICD-10 diagnosis. Search by code ("I10", "e11.9") or by name ("hypertension").
  */
-export function Icd10Picker({ value, onChange, max = 20, disabled }: Props) {
+export function Icd10Picker({ value, onChange, disabled }: Props) {
   const listId = useId();
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
@@ -75,19 +73,14 @@ export function Icd10Picker({ value, onChange, max = 20, disabled }: Props) {
   }, []);
 
   const add = (hit: Hit) => {
-    if (selected.has(hit.code) || value.length >= max) return;
-    onChange([...value, { ...hit, isPrimary: value.length === 0 }]);
+    onChange([{ ...hit, isPrimary: true }]);
     setQuery("");
     setHits([]);
   };
 
   const remove = (code: string) => {
-    const next = value.filter((v) => v.code !== code);
-    if (next.length > 0 && !next.some((v) => v.isPrimary)) next[0] = { ...next[0], isPrimary: true };
-    onChange(next);
+    onChange(value.filter((v) => v.code !== code));
   };
-
-  const makePrimary = (code: string) => onChange(value.map((v) => ({ ...v, isPrimary: v.code === code })));
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
@@ -110,22 +103,12 @@ export function Icd10Picker({ value, onChange, max = 20, disabled }: Props) {
   return (
     <div ref={rootRef} className="space-y-2" data-testid="icd10-picker">
       {value.length > 0 && (
-        <ul className="flex flex-wrap gap-2" aria-label="Selected diagnoses">
+        <ul className="flex flex-wrap gap-2" aria-label="Selected diagnosis">
           {value.map((v) => (
             <li
               key={v.code}
               className="flex items-center gap-1.5 rounded-lg border border-border bg-muted px-2 py-1 text-sm"
             >
-              <button
-                type="button"
-                onClick={() => makePrimary(v.code)}
-                disabled={disabled}
-                aria-label={v.isPrimary ? `${v.code} is the primary diagnosis` : `Make ${v.code} the primary diagnosis`}
-                title={v.isPrimary ? "Primary diagnosis" : "Make primary"}
-                className="shrink-0"
-              >
-                <Star className={cn("h-3.5 w-3.5", v.isPrimary ? "fill-current text-foreground" : "text-muted-foreground")} />
-              </button>
               <span className="font-mono font-medium">{v.code}</span>
               <span className="max-w-[16rem] truncate text-muted-foreground" title={v.description}>
                 {v.description}
@@ -146,7 +129,7 @@ export function Icd10Picker({ value, onChange, max = 20, disabled }: Props) {
           aria-controls={listId}
           aria-autocomplete="list"
           value={query}
-          disabled={disabled || value.length >= max}
+          disabled={disabled}
           onChange={(e) => {
             setQuery(e.target.value);
             setOpen(true);
@@ -157,7 +140,7 @@ export function Icd10Picker({ value, onChange, max = 20, disabled }: Props) {
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder={value.length >= max ? `Maximum of ${max} diagnoses` : "Search by code or diagnosis, e.g. I10 or hypertension"}
+          placeholder={value.length > 0 ? "Search to replace the diagnosis" : "Search by code or diagnosis, e.g. I10 or hypertension"}
           className="rounded-lg pl-9"
           data-testid="input-icd-search"
         />
@@ -167,7 +150,7 @@ export function Icd10Picker({ value, onChange, max = 20, disabled }: Props) {
           <ul
             id={listId}
             role="listbox"
-            aria-multiselectable="true"
+            aria-multiselectable="false"
             className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-border bg-popover p-1 shadow-lg"
           >
             {error && <li className="px-3 py-2 text-sm text-destructive">{error}</li>}

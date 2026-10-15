@@ -81,6 +81,7 @@ export interface DiagnosisSelection {
  * The primary is the entry flagged `isPrimary`, otherwise the first. Throws a message safe to show to the client.
  */
 export async function buildDiagnosisRows(selection: DiagnosisSelection[]) {
+  if (selection.length > 1) throw new Error("A consultation can have only one ICD-10 diagnosis.");
   if (selection.length === 0) return { rows: [], summary: null as string | null };
   const { release, found, missing } = await resolveDiagnoses(selection.map((s) => s.code));
   if (!release) throw new Error("No ICD-10 code set has been imported yet. Ask an administrator to run the ICD-10 import.");

@@ -55,10 +55,10 @@ const createSchema = z.object({
     .default([]),
   vitals: z.record(z.string(), z.string().trim().max(50)).default({}),
   examination: text,
-  /** ICD-10 codes picked from the searchable list. The primary diagnosis is the flagged entry, else the first. */
+  /** The single ICD-10 code picked from the searchable list. */
   diagnoses: z
     .array(z.object({ code: z.string().trim().min(1).max(10), isPrimary: z.boolean().optional() }))
-    .max(20)
+    .max(1)
     .default([]),
   differentialDiagnosis: text,
   labFindings: text,
@@ -95,7 +95,7 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
   const symptoms = data.symptoms.filter((s) => s.name);
   const medications = data.medications.filter((m) => m.name);
   const finalized = data.status === "finalized";
-  if (finalized && data.diagnoses.length === 0) throw badRequest("Select at least one ICD-10 diagnosis");
+  if (finalized && data.diagnoses.length === 0) throw badRequest("Select an ICD-10 diagnosis");
 
   let diagnosisRows;
   try {
@@ -161,4 +161,3 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
 
   return NextResponse.json({ success: true, consultation: serializeConsultation(consultation) }, { status: 201 });
 });
-
