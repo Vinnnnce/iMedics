@@ -282,10 +282,11 @@ export function Navbar({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* Content row: sidebar beside main content, below the full-width header */}
+      {/* Content row: sidebar beside main content, below the full-width header.
+          Signed-out visitors get a full-width public shell with no empty app sidebar. */}
       <div className="flex flex-1 min-h-[calc(100vh-4rem)]">
       {/* Desktop Sidebar */}
-      <aside className="desktop-sidebar w-64 shrink-0 border-r border-border bg-sidebar flex-col sticky top-16 h-[calc(100vh-4rem)]">
+      {role && <aside className="desktop-sidebar w-64 shrink-0 border-r border-border bg-sidebar flex-col sticky top-16 h-[calc(100vh-4rem)]">
         <nav aria-label="Main navigation" className="flex-1 space-y-1 p-3 overflow-y-auto pt-5">
           {visibleNavItems.map((item, index) => {
             const Icon = item.icon;
@@ -313,14 +314,14 @@ export function Navbar({ children }: { children: React.ReactNode }) {
             Medic1905 is a platform only, not a medical provider. AI content is informational.
           </p>
         </div>
-      </aside>
+      </aside>}
 
       {/* Main content column */}
       <div className="flex-1 flex flex-col min-w-0">{children}</div>
       </div>
 
       {/* Mobile sidebar overlay */}
-      <Drawer open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen} title="Navigation" id="mobile-navigation" className="md:hidden">
+      {role && <Drawer open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen} title="Navigation" id="mobile-navigation" className="md:hidden">
             <div className="flex h-16 items-center gap-2 border-b border-border px-6">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-foreground">
                 <svg viewBox="0 0 24 24" className="h-5 w-5 text-background" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -351,10 +352,10 @@ export function Navbar({ children }: { children: React.ReactNode }) {
                 );
               })}
             </nav>
-      </Drawer>
+      </Drawer>}
 
       {/* Mobile Bottom Navigation */}
-      <nav aria-label="Quick navigation" className="bottom-nav md:hidden">
+      {role && <nav aria-label="Quick navigation" className="bottom-nav md:hidden">
         {bottomNav.map((item, index) => {
           const Icon = item.icon;
           const active = isActive(item.href);
@@ -370,7 +371,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
             </Link>
           );
         })}
-      </nav>
+      </nav>}
     </>
   );
 }

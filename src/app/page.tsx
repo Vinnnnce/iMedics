@@ -1,11 +1,23 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { isAccountBlocked, ROLE_POLICY } from "@/lib/roles";
 import { SignOutButton } from "@/components/shared/sign-out-button";
+import { PublicHomepage } from "@/components/home/public-homepage";
 
+export const metadata: Metadata = {
+  title: "Medic1905 — Quality healthcare, wherever you are",
+  description:
+    "Consult verified doctors, book laboratory tests, access diagnostic centres, and manage your health records securely on Medic1905.",
+};
+
+/**
+ * Public marketing homepage for signed-out visitors. Signed-in users are routed
+ * to their role dashboard exactly as before (blocked/pending accounts included).
+ */
 export default async function HomePage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/auth/login");
+  if (!user) return <PublicHomepage />;
 
   if (isAccountBlocked(user)) {
     return (

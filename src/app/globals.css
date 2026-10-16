@@ -53,6 +53,7 @@
   --color-card: var(--card);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-info: var(--info);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -86,6 +87,7 @@
   --destructive: #EF4444;
   --success: #22C55E;
   --warning: #F59E0B;
+  --info: #38BDF8;
   --border: #222F46;
   --input: #222F46;
   --ring: #FFFFFF;
@@ -124,6 +126,7 @@
   --destructive: #EF4444;
   --success: #22C55E;
   --warning: #F59E0B;
+  --info: #0284C7;
   --border: #E0E0E5;
   --input: #E0E0E5;
   --ring: #111111;

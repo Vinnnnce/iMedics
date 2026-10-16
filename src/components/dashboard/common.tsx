@@ -72,7 +72,7 @@ export function ItemTable({ items, title, actions, exportSection }: {
       columns={[
         { id: "title", header: "Details", sortable: true, cell: item => <div className="min-w-36 space-y-1"><p className="font-medium">{item.title}</p><p className="text-xs text-muted-foreground">{item.subtitle}</p>{item.caseNumber && <p className="text-xs text-muted-foreground">Case {item.caseNumber}</p>}</div> },
         { id: "at", header: "Date", sortable: true, cell: item => item.at ? new Date(item.at).toLocaleString("en-GB", { timeZone: "Africa/Lagos", dateStyle: "medium", timeStyle: "short" }) : "Not scheduled" },
-        { id: "status", header: "Status", cell: item => <StatusChip tone={item.tone === "red" ? "danger" : item.tone === "green" ? "success" : item.tone === "amber" ? "warning" : "neutral"}>{item.status}</StatusChip> },
+        { id: "status", header: "Status", cell: item => <StatusChip tone={item.tone === "red" ? "danger" : item.tone === "green" ? "success" : item.tone === "amber" ? "warning" : item.tone === "blue" ? "info" : "neutral"}>{item.status}</StatusChip> },
         { id: "actions", header: "Actions", cell: item => actions ? actions(item) : item.href ? <Link className="rounded-sm text-sm underline" href={safeNotificationHref(item.href)}>Open</Link> : <span className="text-xs text-muted-foreground">No action required</span> },
       ]} />
   </div>;
