@@ -8,7 +8,7 @@ This phase extends the existing Next.js App Router, TypeScript, Tailwind, Clerk,
 - Reuse the existing schema, providers, and migration files.
 - No new database migrations, dependencies, environment variables, credentials, or deployment configuration.
 - No production database operations or live patient data.
-- Stop after Phase 1. Patient, doctor, facility/admin, and intelligence work in subsequent phases requires separate approval.
+- Historical Phase 1 gate: stop after Phase 1. The user subsequently authorized implementing Phases 2–5 without further phase approvals; see `docs/PHASES_2_TO_5_HANDOFF.md`.
 
 ## Authentication and access
 
