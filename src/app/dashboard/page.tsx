@@ -9,12 +9,15 @@ import { requirePageRole } from "@/lib/guards";
 import { prisma } from "@/lib/prisma";
 import { listUnreadNotifications } from "@/lib/data/notifications";
 import { formatClinicDateTime, formatDate } from "@/lib/format";
+import { loadWorkspace } from "@/lib/workspace/data";
+import { PatientCareSections } from "@/components/dashboard/patient";
 
 export default async function PatientDashboardPage() {
   // Other roles have their own dashboards; "/" already routes everyone correctly.
   const current = await getCurrentUser();
   if (current && current.role !== "PATIENT" && current.onboardingComplete) redirect("/");
   const user = await requirePageRole("PATIENT");
+  const workspace = await loadWorkspace(user);
 
   const owner = { patient: { userId: user.id, deletedAt: null } };
   const [upcoming, activePrescriptions, resultCount, recentResults, notifications] = await Promise.all([
@@ -50,7 +53,7 @@ export default async function PatientDashboardPage() {
 
       <NotificationsCard items={notifications.map((n) => ({ ...n, createdAt: n.createdAt.toISOString() }))} />
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-3">
         {stats.map((s) => (
           <Link key={s.label} href={s.href}>
             <Card className="beeline-card h-full transition-colors hover:bg-muted/50">
@@ -101,6 +104,7 @@ export default async function PatientDashboardPage() {
           ))}
         </CardContent>
       </Card>
+      <PatientCareSections data={workspace} />
     </div>
   );
 }

@@ -23,7 +23,12 @@ export type NotificationEvent =
   | { kind: "TASK_CREATED"; taskId: string }
   | { kind: "TASK_COMPLETED"; taskId: string }
   | { kind: "ACCOUNT_REGISTERED" }
-  | { kind: "ACCOUNT_UPDATED" };
+  | { kind: "ACCOUNT_UPDATED" }
+  | { kind: "DOCUMENT_SHARED" }
+  | { kind: "INTAKE_SUBMITTED" }
+  | { kind: "SUBSCRIPTION_UPDATED" }
+  | { kind: "DISPUTE_UPDATED"; paymentId: string }
+  | { kind: "CONSULTATION_AVAILABLE" };
 
 export interface RenderedNotification {
   type: NotificationType;
@@ -42,6 +47,16 @@ const bookingsHref = (role: Role) => (role === "LAB_SCIENTIST" ? "/lab/bookings"
 
 export function renderNotification(event: NotificationEvent, role: Role): RenderedNotification {
   switch (event.kind) {
+    case "DOCUMENT_SHARED":
+      return { type: "SYSTEM", title: "A document was shared with you", body: "Sign in securely to review the time-limited access.", href: "/doctor/dashboard", data: {} };
+    case "INTAKE_SUBMITTED":
+      return { type: "APPOINTMENT", title: "Pre-visit intake updated", body: "Sign in securely to review the intake before the appointment.", href: "/doctor/dashboard", data: {} };
+    case "SUBSCRIPTION_UPDATED":
+      return { type: "SYSTEM", title: "Subscription updated", body: "Sign in securely to review your subscription status.", href: ROLE_POLICY[role].dashboard, data: {} };
+    case "DISPUTE_UPDATED":
+      return { type: "PAYMENT", title: "Payment dispute updated", body: "Sign in securely to review the outcome.", href: role === "ADMIN" ? "/admin/dashboard" : `/payments/${event.paymentId}`, data: {} };
+    case "CONSULTATION_AVAILABLE":
+      return { type: "SYSTEM", title: "Consultation record available", body: "Your clinician has finalized a consultation record. Sign in securely to review it.", href: "/patient/case-file", data: {} };
     case "ACCOUNT_REGISTERED":
     case "ACCOUNT_UPDATED":
       return { type: "SYSTEM", title: event.kind === "ACCOUNT_REGISTERED" ? "Your account is ready" : "Account updated",

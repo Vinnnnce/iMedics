@@ -7,6 +7,7 @@ import { presignDownload, presignUpload } from "@/lib/storage";
 import { safeFileName, uploadRequestSchema } from "@/lib/uploads";
 import { extensionAudit } from "@/lib/workspace/extensions";
 import { sealWorkspaceUpload } from "@/lib/workspace/storage";
+import { queueNotification } from "@/lib/notifications/service";
 
 type DocumentRow = { id: string; owner_id: string; storage_key: string; file_name: string; mime_type: string; size_bytes: number; confirmed_at: Date | null; created_at: Date };
 export const GET = withAuth(["PATIENT", "DOCTOR"], async (req, { user }) => {
@@ -81,5 +82,6 @@ export const POST = withAuth(["PATIENT"], async (req, { user }) => {
       VALUES(${id}::uuid, ${body.id}::uuid, ${user.id}::uuid, ${doctor.userId}::uuid, ${new Date(Date.now() + body.days * 86400000)})`;
     await tx.auditLog.create({ data: { userId: user.id, actorRole: user.role, action: "WORKSPACE_CONSENT_GRANTED", resourceType: "WorkspaceShare", resourceId: id, details: { days: body.days } } });
   });
+  await queueNotification(doctor.userId, { kind: "DOCUMENT_SHARED" });
   return Response.json({ id }, { status: 201 });
 });
