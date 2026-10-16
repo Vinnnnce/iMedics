@@ -9,6 +9,8 @@ import type { WorkspaceData } from "@/lib/workspace/types";
 import { Panel, ItemTable, apiClient, useDashboardMutation } from "./common";
 import { DocumentsPanel } from "./documents";
 import { TaskPanel } from "./tasks";
+import { PatientIntelligence } from "./intelligence";
+import { EngagementPanel } from "./engagement";
 
 function CaseSearch() {
   const [message, setMessage] = useState("");
@@ -59,5 +61,7 @@ export function PatientCareSections({ data }: { data: WorkspaceData }) {
       <TabsContent value="intake"><PrevisitIntake data={data} /></TabsContent>
     </Tabs>
     <Panel title="Your next steps">{data.insights.length ? <ul className="space-y-3">{data.insights.map(insight => <li key={insight.id}><p className="text-sm font-medium">{insight.title}</p><p className="text-xs text-muted-foreground">{insight.subtitle}</p>{insight.href && <Link href={insight.href} className="text-sm underline">Review</Link>}</li>)}</ul> : <p className="text-sm text-muted-foreground">No care reminders found in your latest records.</p>}</Panel>
+    <PatientIntelligence data={data} />
+    <EngagementPanel role="PATIENT" ready={data.extensionsReady} />
   </section>;
 }

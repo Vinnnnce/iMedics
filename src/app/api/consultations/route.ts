@@ -84,6 +84,7 @@ const createSchema = z.object({
     .optional(),
   notes: text,
   status: z.enum(["draft", "finalized"]).default("finalized"),
+  assistance: z.object({ method: z.enum(["local-extractive", "ai-assisted"]), reviewed: z.literal(true) }).optional(),
 });
 
 // POST /api/consultations — a doctor saves a consultation report for a patient in their care.
@@ -157,7 +158,7 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
     action: "CONSULTATION_CREATED",
     resourceType: "Consultation",
     resourceId: consultation.id,
-    details: { status: consultation.status, prescribed: medications.length, diagnoses: diagnosisRows.rows.length },
+    details: { status: consultation.status, prescribed: medications.length, diagnoses: diagnosisRows.rows.length, ...(data.assistance ? { assistanceMethod: data.assistance.method, assistanceReviewed: true } : {}) },
     req,
   });
 

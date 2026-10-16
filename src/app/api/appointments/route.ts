@@ -11,6 +11,7 @@ import { assertPaymentsAvailable, createPendingPayment, expireStalePayments } fr
 import { queueNotification } from "@/lib/notifications/service";
 import { appointmentInclude, serializeAppointment } from "@/lib/appointment-shape";
 import { writeAudit } from "@/lib/audit";
+import { recordBookingConversion } from "@/lib/workspace/experiments";
 
 const bookSchema = z.object({
   doctorId: z.string().uuid(),
@@ -95,6 +96,7 @@ export const POST = withAuth(["PATIENT"], async (req, { user }) => {
               currency: fee.currency,
             })
           : null;
+      await recordBookingConversion(user, created.id, tx);
       return { appointment: created, payment: charge };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },

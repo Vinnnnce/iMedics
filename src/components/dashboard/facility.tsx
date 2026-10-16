@@ -8,6 +8,7 @@ import { FormField } from "@/components/shared/form-field";
 import { DataTable } from "@/components/shared/data-table";
 import { Panel, ItemTable, useDashboardMutation, apiClient } from "./common";
 import type { WorkspaceData } from "@/lib/workspace/types";
+import { EngagementPanel } from "./engagement";
 interface Analytics {
   resources: { id: string; name: string; kind: string; capacity: number; active: boolean; assignments: number; booked_hours: number; calendarUtilizationPercent: number }[];
   assignments: { id: string; name: string; kind: string; starts_at: string; ends_at: string; booking_id: string }[];
@@ -80,5 +81,6 @@ export function FacilitySections({ data }: { data: WorkspaceData }) {
       ]} /></Panel>}
       </div></TabsContent>
     </Tabs>
+    <EngagementPanel role="LAB_SCIENTIST" ready={data.extensionsReady} />
   </section>;
 }

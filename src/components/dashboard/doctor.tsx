@@ -9,15 +9,19 @@ import { StatusChip } from "@/components/shared/status-chip";
 import { Panel, ItemTable, apiClient, useDashboardMutation } from "./common";
 import { TaskPanel } from "./tasks";
 import { DocumentsPanel } from "./documents";
+import { EngagementPanel } from "./engagement";
+import { buildTrends } from "@/lib/workspace/intelligence";
+import { LineChart } from "@/components/shared/line-chart";
 import type { WorkspaceData } from "@/lib/workspace/types";
 interface Context {
   history: { chiefComplaint: string | null; drugAllergies: unknown; currentDrugs: unknown } | null;
-  consultations: { diagnosis: string | null; createdAt: string }[]; results: { panelType: string; testDate: string }[];
+  consultations: { diagnosis: string | null; createdAt: string }[]; results: { panelType: string; testDate: string; values: { code: string; name: string; value: number; unit: string }[] }[];
   intake: { reason: string; medications: string; allergies: string } | null;
 }
 export function DoctorCareSections({ data }: { data: WorkspaceData }) {
   const next = data.appointments.find(appointment => appointment.at && appointment.at >= data.updatedAt);
-  const [context, setContext] = useState<Context | null>(null);
+  const [scopedContext, setScopedContext] = useState<{ patientId: string; value: Context } | null>(null);
+  const context = scopedContext?.patientId === next?.patientId ? scopedContext?.value ?? null : null;
   const [reminders, setReminders] = useState<{ id: string; due_at: string; delivered_at: string | null }[]>([]);
   const mutation = useDashboardMutation();
   async function followup(event: FormEvent<HTMLFormElement>) {
@@ -29,13 +33,14 @@ export function DoctorCareSections({ data }: { data: WorkspaceData }) {
     <div className="grid gap-4 lg:grid-cols-2"><Panel title="Next patient">
       {next ? <><h3 className="font-semibold">{next.title}</h3><p className="text-sm text-muted-foreground">{next.subtitle} · Case {next.caseNumber}</p>
         <p className="text-sm">{next.at && new Date(next.at).toLocaleString("en-GB", { timeZone: "Africa/Lagos" })} WAT</p>
-        <Button variant="outline" disabled={mutation.busy || !next.patientId} onClick={() => void mutation.run(async () => setContext(await apiClient.get<Context>(`/workspace/clinical-context?patientId=${next.patientId}`)), "Authorized clinical context loaded")}>Review next-patient context</Button>
+        <Button variant="outline" disabled={mutation.busy || !next.patientId} onClick={() => void mutation.run(async () => setScopedContext({ patientId: next.patientId!, value: await apiClient.get<Context>(`/workspace/clinical-context?patientId=${next.patientId}`) }), "Authorized clinical context loaded")}>Review next-patient context</Button>
         {context && <div className="space-y-3 rounded-lg border border-border p-3 text-sm">
           <p><strong>Presenting concern:</strong> {context.history?.chiefComplaint || "No recorded chief complaint"}</p>
           <p><strong>Allergies:</strong> {context.history?.drugAllergies ? JSON.stringify(context.history.drugAllergies) : "Not documented. Confirm with patient."}</p>
           <p><strong>Current medications:</strong> {context.history?.currentDrugs ? JSON.stringify(context.history.currentDrugs) : "Not documented. Confirm with patient."}</p>
           {context.intake && <><p><strong>Patient intake:</strong> {context.intake.reason}</p><p>Patient-reported allergies: {context.intake.allergies || "Not provided"}</p><p>Patient-reported medications: {context.intake.medications || "Not provided"}</p></>}
           <p>{context.results.length} recent verified results · {context.consultations.length} recent finalized consultations.</p>
+          {buildTrends(context.results).map(trend => <LineChart key={`${trend.code}-${trend.unit}`} title={`${trend.name}: this patient only`} unit={trend.unit} points={trend.points.map(point => ({ label: point.date.slice(0, 10), value: point.value }))} />)}
         </div>}
         <Link className="block text-sm underline" href="/doctor/consultations">Open structured consultation and ICD-10 workflow</Link>
       </> : <p className="text-sm text-muted-foreground">No upcoming patients in the loaded schedule.</p>}
@@ -70,5 +75,6 @@ export function DoctorCareSections({ data }: { data: WorkspaceData }) {
     <Panel title="Review suggestions"><p className="text-xs text-muted-foreground">Reminder-priority signals and schedule-gap suggestions are rules, not calibrated predictions. Visits are never moved automatically.</p>
       <ul className="space-y-3">{data.insights.map(insight => <li key={insight.id} className="space-y-1 rounded-lg border border-border p-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-medium">{insight.title}</p><StatusChip>{insight.status}</StatusChip></div><p className="text-xs text-muted-foreground">{insight.subtitle}</p>{insight.href && <Link href={insight.href} className="text-sm underline">Review</Link>}</li>)}</ul>
     </Panel>
+    <EngagementPanel role="DOCTOR" ready={data.extensionsReady} />
   </section>;
 }

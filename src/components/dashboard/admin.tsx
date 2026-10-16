@@ -7,6 +7,7 @@ import { FormField } from "@/components/shared/form-field";
 import { DashboardSkeleton, ErrorState } from "@/components/shared/async-state";
 import { Panel, ItemTable, apiClient, useDashboardMutation, downloadCsv } from "./common";
 import type { WorkspaceData, WorkspaceItem } from "@/lib/workspace/types";
+import { EngagementPanel } from "./engagement";
 interface Operations {
   disputes: { id: string; payment_id: string; status: string; reason: string; resolution: string | null; created_at: string }[];
   subscriptions: { id: string; owner_id: string; name: string; plan: string; status: string; renews_at: string | null }[];
@@ -85,5 +86,6 @@ export function AdminOperations({ users }: { users: { id: string; name: string }
         </form><p className="text-xs text-muted-foreground">Exports omit clinical payloads, addresses, IPs, raw headers, and audit details. Verify encryption, retention, access reviews, and incident-response procedures in deployment infrastructure.</p>
       </Panel></TabsContent>
     </Tabs>
+    <EngagementPanel role="ADMIN" ready={data.extensionsReady} />
   </section>;
 }

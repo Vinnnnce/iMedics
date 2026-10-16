@@ -11,6 +11,7 @@ import { facilityBookingVisible } from "@/lib/facilities";
 
 export const GET = withAuth(null, async (_req, { user }) => {
   await extensionAudit(user, "WORKSPACE_OPERATIONS_READ");
+  await extensionAudit(user, "WORKSPACE_OPERATIONS_READ");
   const admin = user.role === "ADMIN";
   const disputes = admin
     ? await prisma.$queryRaw`SELECT id, payment_id, status, reason, resolution, created_at FROM workspace_disputes ORDER BY created_at DESC LIMIT 100`
