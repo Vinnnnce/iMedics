@@ -320,6 +320,18 @@ export default function AdminDashboardPage() {
             })}
           </div>
 
+          {/* Payments and platform management */}
+          <div className="stat-card p-5">
+            <h3 className="font-semibold mb-3">Payments and platform</h3>
+            <div className="flex flex-wrap gap-2 text-sm">
+              <a className="rounded-lg bg-muted px-3 py-2 hover:text-foreground" href="/admin/providers">Providers and payouts</a>
+              <a className="rounded-lg bg-muted px-3 py-2 hover:text-foreground" href="/admin/commission">Commission configuration</a>
+              <a className="rounded-lg bg-muted px-3 py-2 hover:text-foreground" href="/admin/refunds">Refund approvals</a>
+              <a className="rounded-lg bg-muted px-3 py-2 hover:text-foreground" href="/admin/reconciliation">Reconciliation</a>
+              <a className="rounded-lg bg-muted px-3 py-2 hover:text-foreground" href="/admin/reports">Reports</a>
+            </div>
+          </div>
+
           {/* Platform metrics */}
           <div className="stat-card p-5">
             <h3 className="font-semibold mb-3 flex items-center gap-2">

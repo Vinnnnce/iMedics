@@ -6,6 +6,7 @@ import { withAuth, parseId } from "@/lib/api";
 import { findAccessiblePatient } from "@/lib/access";
 import { notFound } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
+import { requireEntitlement } from "@/lib/subscriptions";
 import { enforceAiRateLimit } from "@/lib/ai/rate-limit";
 import { checkPatientView, safePatientView } from "@/lib/ai/safety";
 
@@ -17,6 +18,8 @@ export const POST = withAuth<{ id: string; historyId: string }>(["DOCTOR"], asyn
   const { id, historyId: rawHistoryId } = await params;
   const patientId = parseId(id);
   const historyId = parseId(rawHistoryId);
+  // AI tools are gated by the doctor's subscription tier.
+  await requireEntitlement(user.id, "ai");
   await findAccessiblePatient(user, patientId);
 
   const { action } = bodySchema.parse(await req.json().catch(() => ({})));

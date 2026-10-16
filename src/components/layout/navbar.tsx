@@ -12,6 +12,7 @@ import {
   FlaskConical, Heart, Sparkles, User, Shield,
   Calendar, FileText, Video, MessageSquare, Building2,
   ClipboardList, Upload, LayoutDashboard, ArrowRight, Receipt, Wallet, Tags,
+  CreditCard, Landmark,
   type LucideIcon,
 } from "lucide-react";
 
@@ -47,7 +48,10 @@ const DOCTOR_NAV: NavItem[] = [
   { href: "/doctor/ai-tools", label: "AI Review", icon: Sparkles, roles: ["DOCTOR"] },
   { href: "/doctor/schedule", label: "Schedule", icon: Calendar, roles: ["DOCTOR"] },
   { href: "/doctor/fees", label: "Fees", icon: Tags, roles: ["DOCTOR"] },
-  { href: "/payments", label: "Payments", icon: Wallet, roles: ["DOCTOR"] },
+  { href: "/earnings", label: "Earnings", icon: Wallet, roles: ["DOCTOR"] },
+  { href: "/doctor/subscription", label: "Subscription", icon: CreditCard, roles: ["DOCTOR"] },
+  { href: "/payout", label: "Payout", icon: Landmark, roles: ["DOCTOR"] },
+  { href: "/payments", label: "Payments", icon: Receipt, roles: ["DOCTOR"] },
   { href: "/doctor/admit", label: "Care Roster", icon: Building2, roles: ["DOCTOR"] },
   { href: "/profile", label: "Profile", icon: User, roles: ["DOCTOR"] },
 ];
@@ -58,6 +62,8 @@ const LAB_NAV: NavItem[] = [
   { href: "/lab/users", label: "Patient Lookup", icon: Users, roles: ["LAB_SCIENTIST"] },
   { href: "/lab/upload", label: "Upload Results", icon: Upload, roles: ["LAB_SCIENTIST"] },
   { href: "/lab/services", label: "Services & Prices", icon: Tags, roles: ["LAB_SCIENTIST"] },
+  { href: "/earnings", label: "Earnings", icon: Wallet, roles: ["LAB_SCIENTIST"] },
+  { href: "/payout", label: "Payout", icon: Landmark, roles: ["LAB_SCIENTIST"] },
   { href: "/lab/bookings", label: "Bookings", icon: Calendar, roles: ["LAB_SCIENTIST"] },
   { href: "/payments", label: "Payments", icon: Wallet, roles: ["LAB_SCIENTIST"] },
   { href: "/profile", label: "Profile", icon: User, roles: ["LAB_SCIENTIST"] },

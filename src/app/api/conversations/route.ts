@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
 import { findAccessiblePatient, getVerifiedDoctorProfile } from "@/lib/access";
 import { conversationAccess } from "@/lib/chat";
+import { hasEntitlement, requireEntitlement } from "@/lib/subscriptions";
 import { badRequest, forbidden, notFound } from "@/lib/errors";
 
 // GET /api/conversations — the caller's conversations, most recently active first
@@ -45,6 +46,8 @@ export const POST = withAuth(["DOCTOR", "PATIENT"], async (req, { user }) => {
   let pair: { patientId: string; doctorId: string };
   if (user.role === "DOCTOR") {
     if (!patientId) throw badRequest("patientId is required");
+    // Patient chat is a subscription-gated feature for doctors.
+    await requireEntitlement(user.id, "chat");
     const doctor = await getVerifiedDoctorProfile(user);
     await findAccessiblePatient(user, patientId, { write: true });
     pair = { patientId, doctorId: doctor.id };
@@ -57,6 +60,11 @@ export const POST = withAuth(["DOCTOR", "PATIENT"], async (req, { user }) => {
       select: { id: true },
     });
     if (!assignment) throw forbidden("You can message a doctor once they have accepted your booking");
+    // The doctor's plan decides whether they can use chat at all.
+    const doctorUser = await prisma.doctorProfile.findUnique({ where: { id: doctorId }, select: { userId: true } });
+    if (doctorUser && !(await hasEntitlement(doctorUser.userId, "chat"))) {
+      throw forbidden("This doctor cannot use chat right now");
+    }
     pair = { patientId: patient.id, doctorId };
   }
 

@@ -39,7 +39,10 @@ model User {
   patient            Patient?
   paymentsReceived   Payment[]                @relation("PaymentPayee")
   paymentsMade       Payment[]                @relation("PaymentPayer")
+  providerSubaccount ProviderSubaccount?
   pushSubscriptions  PushSubscription[]
+  refundsDecided    Refund[]                 @relation("RefundDecidedBy")
+  refundsRequested  Refund[]                 @relation("RefundRequestedBy")
 
   @@index([role])
   @@index([status])
@@ -88,6 +91,8 @@ model DoctorProfile {
   schedule               DoctorSchedule[]
   assignments            PatientAssignment[]
   prescriptions          Prescription[]
+  subscription           DoctorSubscription?
+  subaccount             ProviderSubaccount?
 
   @@index([specialty])
   @@index([verificationStatus])
@@ -115,6 +120,8 @@ model LabStaffProfile {
   operatingHours        String?            @map("operating_hours")
   state                 String?
   services              FacilityService[]
+  subaccount            ProviderSubaccount?
+  commissionRules       CommissionRule[]
   user                  User               @relation("LabStaffProfileUser", fields: [userId], references: [id], onDelete: Cascade)
   verifiedBy            User?              @relation("LabStaffVerifiedBy", fields: [verifiedById], references: [id])
 
@@ -664,6 +671,8 @@ model FacilityService {
   name            String
   description     String?
   category        ServiceCategory   @default(LAB_TEST)
+  /// Optional branch/location label for facilities that price per branch.
+  branch          String?
   price           Decimal           @db.Decimal(12, 2)
   currency        String            @default("NGN")
   turnaroundHours Int?              @map("turnaround_hours")
@@ -711,10 +720,18 @@ model Payment {
   description       String
   amount            Decimal          @db.Decimal(12, 2)
   currency          String
+  /// Snapshot of the split when the charge was created: Medic1905's commission.
+  commissionAmount  Decimal?         @map("commission_amount") @db.Decimal(12, 2)
+  /// Snapshot of the split when the charge was created: the provider's share.
+  providerAmount    Decimal?         @map("provider_amount") @db.Decimal(12, 2)
+  /// Gateway subaccount the provider's share is settled to (null for platform-owned charges).
+  subaccountCode    String?          @map("subaccount_code")
   method            PaymentMethod?
   status            PaymentStatus    @default(PENDING)
   provider          String
   providerReference String           @unique @map("provider_reference")
+  /// The gateway reference of the charge that actually succeeded (a retry uses a fresh reference).
+  chargedReference String?          @map("charged_reference")
   receiptNumber     String?          @unique @map("receipt_number")
   failureReason     String?          @map("failure_reason")
   expiresAt         DateTime?        @map("expires_at")
@@ -727,6 +744,8 @@ model Payment {
   facilityBooking   FacilityBooking? @relation(fields: [facilityBookingId], references: [id])
   payee             User             @relation("PaymentPayee", fields: [payeeId], references: [id])
   payer             User             @relation("PaymentPayer", fields: [payerId], references: [id])
+  refund            Refund?
+  subscription     DoctorSubscription?
 
   @@index([payerId, createdAt])
   @@index([payeeId, createdAt])
@@ -736,12 +755,14 @@ model Payment {
 
 /// Append-only trail of everything that happened to a payment (initiation, webhooks, verification, refunds).
 model PaymentEvent {
-  id        String   @id @default(uuid()) @db.Uuid
-  paymentId String   @map("payment_id") @db.Uuid
-  type      String
-  details   Json     @default("{}")
-  createdAt DateTime @default(now()) @map("created_at")
-  payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid()) @db.Uuid
+  paymentId  String   @map("payment_id") @db.Uuid
+  type       String
+  details    Json     @default("{}")
+  /// Unique claim key for exactly-once external side effects (e.g. a duplicate-charge refund).
+  dedupeKey  String?  @unique @map("dedupe_key")
+  createdAt  DateTime @default(now()) @map("created_at")
+  payment    Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@index([paymentId, createdAt])
   @@map("payment_events")
@@ -940,6 +961,7 @@ enum NotificationType {
   MESSAGE
   SYSTEM
   PAYMENT
+  SUBSCRIPTION
 }
 
 enum NotificationChannel {
@@ -971,6 +993,7 @@ enum FacilityBookingStatus {
 enum PaymentKind {
   CONSULTATION
   FACILITY_SERVICE
+  SUBSCRIPTION
 }
 
 enum PaymentMethod {
@@ -993,4 +1016,233 @@ enum AdPlacement {
   SIDEBAR
   DASHBOARD
   LOGIN
+}
+
+enum ProviderType {
+  DOCTOR
+  HOSPITAL
+  LABORATORY
+  DIAGNOSTIC_CENTRE
+}
+
+enum SubaccountStatus {
+  PENDING
+  CREATED
+  ACTIVE
+  FAILED
+}
+
+enum CommissionKind {
+  PERCENT
+  FIXED
+}
+
+enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+enum SubscriptionStatus {
+  PENDING_PAYMENT
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+enum ReconciliationStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum DiscrepancyType {
+  MISSING_WEBHOOK
+  AMOUNT_MISMATCH
+  DUPLICATE_PAYMENT
+  FAILED_SETTLEMENT
+  ORPHANED_GATEWAY_RECORD
+}
+
+enum DiscrepancySeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+/// A gateway settlement subaccount that a verified provider's earnings are paid into.
+/// Created after admin verification; the gateway code is stored once creation succeeds.
+model ProviderSubaccount {
+  id               String           @id @default(uuid()) @db.Uuid
+  userId           String           @unique @map("user_id") @db.Uuid
+  provider         ProviderType
+  doctorId         String?          @unique @map("doctor_id") @db.Uuid
+  facilityId       String?          @unique @map("facility_id") @db.Uuid
+  businessName     String           @map("business_name")
+  settlementBank   String           @map("settlement_bank")
+  accountNumber    String           @map("account_number")
+  /// Medic1905's commission, in percent, deducted from each payment before settlement.
+  percentageCharge Decimal          @default(0) @map("percentage_charge") @db.Decimal(5, 2)
+  currency        String           @default("NGN")
+  /// The gateway's subaccount code once creation has succeeded.
+  subaccountCode   String?          @unique @map("subaccount_code")
+  status           SubaccountStatus @default(PENDING)
+  lastError       String?          @map("last_error")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  doctor           DoctorProfile?   @relation(fields: [doctorId], references: [id])
+  facility        LabStaffProfile?  @relation(fields: [facilityId], references: [id])
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("provider_subaccounts")
+}
+
+/// How Medic1905's commission on a provider's charges is computed.
+/// A facility-specific rule (facilityId set) overrides the default rule for a provider type.
+model CommissionRule {
+  id           String       @id @default(uuid()) @db.Uuid
+  providerType ProviderType
+  /// Null = the default rule for this provider type. Set = this facility's override.
+  facilityId   String?      @map("facility_id") @db.Uuid
+  kind         CommissionKind
+  /// Percent (0–100) for PERCENT rules, or a flat amount for FIXED rules.
+  value        Decimal      @db.Decimal(12, 2)
+  currency     String?
+  active       Boolean      @default(true)
+  note         String?
+  createdById  String       @map("created_by_id") @db.Uuid
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  facility     LabStaffProfile? @relation(fields: [facilityId], references: [id])
+
+  @@index([providerType, active])
+  @@index([facilityId])
+  @@map("commission_rules")
+}
+
+/// A refund lifecycle record. One per payment (this platform refunds charges in full).
+/// Patient-initiated requests wait for admin approval; policy-eligible cancellations are auto-approved.
+model Refund {
+  id              String       @id @default(uuid()) @db.Uuid
+  paymentId       String       @unique @map("payment_id") @db.Uuid
+  requestedById    String       @map("requested_by_id") @db.Uuid
+  reason          String
+  status          RefundStatus @default(PENDING)
+  amount          Decimal      @db.Decimal(12, 2)
+  currency        String
+  decidedById     String?      @map("decided_by_id") @db.Uuid
+  decidedAt       DateTime?    @map("decided_at")
+  processedAt     DateTime?    @map("processed_at")
+  failureReason   String?      @map("failure_reason")
+  autoApproved    Boolean      @default(false) @map("auto_approved")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  decidedBy       User?        @relation("RefundDecidedBy", fields: [decidedById], references: [id])
+  payment         Payment      @relation(fields: [paymentId], references: [id])
+  requestedBy    User         @relation("RefundRequestedBy", fields: [requestedById], references: [id])
+
+  @@index([status, createdAt])
+  @@map("refund_records")
+}
+
+/// A doctor subscription plan. Features is an entitlement map, e.g. {"chat": true, "video": true, ...}.
+model SubscriptionPlan {
+  id                    String    @id @default(uuid()) @db.Uuid
+  code                  String    @unique
+  name                  String
+  /// Display order, cheapest plan first.
+  sortOrder             Int       @default(0) @map("sort_order")
+  monthlyPrice          Decimal   @map("monthly_price") @db.Decimal(12, 2)
+  currency              String    @default("NGN")
+  /// Consultations included per billing period. Null = unlimited.
+  consultationAllowance Int?
+  features              Json      @default("{}")
+  active                Boolean   @default(true)
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  subscriptions         DoctorSubscription[]
+
+  @@map("subscription_plans")
+}
+
+/// A doctor's subscription. Renewal is a managed flow: near expiry an invoice payment is
+/// created; the subscription stays ACTIVE until the period ends, then lapses to EXPIRED.
+model DoctorSubscription {
+  id                 String             @id @default(uuid()) @db.Uuid
+  doctorId           String             @unique @map("doctor_id") @db.Uuid
+  planId             String            @map("plan_id") @db.Uuid
+  status             SubscriptionStatus @default(PENDING_PAYMENT)
+  currentPeriodStart DateTime           @map("current_period_start")
+  currentPeriodEnd   DateTime           @map("current_period_end")
+  cancelAtPeriodEnd  Boolean            @default(false) @map("cancel_at_period_end")
+  consultationsUsed  Int                 @default(0) @map("consultations_used")
+  paymentId          String?            @unique @map("payment_id") @db.Uuid
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  doctor             DoctorProfile       @relation(fields: [doctorId], references: [id])
+  plan               SubscriptionPlan    @relation(fields: [planId], references: [id])
+  payment            Payment?           @relation(fields: [paymentId], references: [id])
+  events             SubscriptionEvent[]
+
+  @@index([status])
+  @@map("doctor_subscriptions")
+}
+
+/// Append-only trail of subscription lifecycle transitions.
+model SubscriptionEvent {
+  id             String             @id @default(uuid()) @db.Uuid
+  subscriptionId String            @map("subscription_id") @db.Uuid
+  type           String
+  details        Json              @default("{}")
+  /// The subscription charge this event consumed. Unique: a paid charge can activate a plan
+  /// exactly once, no matter how often its webhook or the recovery job replays.
+  paymentId      String?            @unique @map("payment_id") @db.Uuid
+  createdAt      DateTime           @default(now()) @map("created_at")
+  subscription   DoctorSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, createdAt])
+  @@map("subscription_events")
+}
+
+/// One scheduled comparison between our payment records and the gateway's report for a day.
+model ReconciliationRun {
+  id                 String             @id @default(uuid()) @db.Uuid
+  /// The calendar day (in UTC) the run covers.
+  date              DateTime           @db.Date @map("date")
+  provider          String
+  status            ReconciliationStatus @default(PENDING)
+  localCount        Int                @default(0) @map("local_count")
+  localAmountMinor  BigInt              @default(0) @map("local_amount_minor")
+  gatewayCount      Int                @default(0) @map("gateway_count")
+  gatewayAmountMinor BigInt              @default(0) @map("gateway_amount_minor")
+  startedAt         DateTime           @default(now()) @map("started_at")
+  finishedAt        DateTime?           @map("finished_at")
+  discrepancies     ReconciliationDiscrepancy[]
+
+  @@unique([date, provider])
+  @@map("reconciliation_runs")
+}
+
+/// A difference found by a reconciliation run: missing webhooks, mismatched amounts,
+/// duplicate payments, failed settlements or gateway records we have no local payment for.
+model ReconciliationDiscrepancy {
+  id                 String             @id @default(uuid()) @db.Uuid
+  runId              String            @map("run_id") @db.Uuid
+  type               DiscrepancyType
+  severity           DiscrepancySeverity @default(WARNING)
+  paymentId         String?            @map("payment_id") @db.Uuid
+  providerReference String?            @map("provider_reference")
+  expected          Json              @default("{}")
+  actual            Json              @default("{}")
+  resolvedAt        DateTime?           @map("resolved_at")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  run                ReconciliationRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([type, resolvedAt])
+  @@map("reconciliation_discrepancies")
 }

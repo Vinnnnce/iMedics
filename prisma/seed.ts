@@ -76,6 +76,45 @@ async function seedIcd10() {
   console.log(`Imported ${result.codes} ICD-10 codes.`);
 }
 
+/** Doctor subscription plans. Prices are illustrative defaults; admins can deactivate a plan and add new ones. */
+const SUBSCRIPTION_PLANS = [
+  {
+    code: "starter",
+    name: "Starter",
+    sortOrder: 1,
+    monthlyPrice: 5000,
+    consultationAllowance: 15,
+    features: { chat: true, audio: false, video: true, ai: false, analytics: false, listing: true, pricingConfirmed: false },
+  },
+  {
+    code: "professional",
+    name: "Professional",
+    sortOrder: 2,
+    monthlyPrice: 15000,
+    consultationAllowance: 40,
+    features: { chat: true, audio: true, video: true, ai: false, analytics: false, listing: true, pricingConfirmed: false },
+  },
+  {
+    code: "enterprise",
+    name: "Enterprise",
+    sortOrder: 3,
+    monthlyPrice: 50000,
+    consultationAllowance: null,
+    features: { chat: true, audio: true, video: true, ai: true, analytics: true, listing: true, pricingConfirmed: false },
+  },
+];
+
+async function seedSubscriptionPlans() {
+  for (const plan of SUBSCRIPTION_PLANS) {
+    await prisma.subscriptionPlan.upsert({
+      where: { code: plan.code },
+      create: { ...plan, currency: "NGN" },
+      update: { name: plan.name, sortOrder: plan.sortOrder, consultationAllowance: plan.consultationAllowance },
+    });
+  }
+  console.log(`Seeded ${SUBSCRIPTION_PLANS.length} subscription plans.`);
+}
+
 async function main() {
   for (const test of LAB_TESTS) {
     await prisma.labTest.upsert({
@@ -86,6 +125,7 @@ async function main() {
   }
   console.log(`Seeded ${LAB_TESTS.length} lab tests.`);
   await seedIcd10();
+  await seedSubscriptionPlans();
 }
 
 main()

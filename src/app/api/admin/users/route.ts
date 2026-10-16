@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
 import { badRequest } from "@/lib/errors";
+import { provisionSubaccountForUser } from "@/lib/subaccounts";
 import { writeAudit } from "@/lib/audit";
 import type { AccountType, Role } from "@prisma/client";
 
@@ -101,7 +102,7 @@ export const PATCH = withAuth(["ADMIN"], async (req, { user: admin }) => {
     } else if (newRole === "LAB_SCIENTIST") {
       await tx.labStaffProfile.updateMany({ where: { userId: id }, data: verification });
     }
-    return user;
+    return { user, becameProfessional: isProfessional };
   });
 
   await writeAudit({
@@ -114,7 +115,25 @@ export const PATCH = withAuth(["ADMIN"], async (req, { user: admin }) => {
     req,
   });
 
-  const { doctorProfile, labStaffProfile, ...rest } = updated;
+  // Verifying a provider is the trigger for gateway subaccount creation: their earnings can now
+  // be settled directly. If their bank details are missing, provisioning retries later.
+  if (updated.becameProfessional) {
+    try {
+      const subaccountStatus = await provisionSubaccountForUser(id);
+      await writeAudit({
+        userId: admin.id,
+        actorRole: admin.role,
+        action: "SUBACCOUNT_PROVISIONED",
+        resourceType: "ProviderSubaccount",
+        resourceId: id,
+        details: { status: subaccountStatus },
+      });
+    } catch (error) {
+      console.error(`Subaccount provisioning failed for user ${id}:`, error);
+    }
+  }
+
+  const { doctorProfile, labStaffProfile, ...rest } = updated.user;
   return NextResponse.json({
     success: true,
     user: {

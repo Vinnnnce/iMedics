@@ -10,6 +10,33 @@ export interface InitializeInput {
   email: string;
   method: PaymentMethod;
   callbackUrl: string;
+  /** Gateway subaccount the provider's share is settled to; the gateway keeps Medic1905's commission. */
+  subaccountCode?: string;
+  /** Flat platform commission for this charge (minor units), when the rule is FIXED. */
+  commissionFixedMinor?: number;
+}
+
+export interface CreateSubaccountInput {
+  businessName: string;
+  settlementBank: string;
+  accountNumber: string;
+  /** Medic1905's commission in percent (0–100) deducted from each payment before settlement. */
+  percentageCharge: number;
+}
+
+export interface ListSettlementInput {
+  /** Inclusive start of the settlement window. */
+  from: Date;
+  /** Inclusive end of the settlement window. */
+  to: Date;
+}
+
+export interface GatewayTransaction {
+  reference: string;
+  amountMinor: number;
+  currency: string;
+  status: "success" | "failed" | "pending" | "abandoned" | string;
+  paidAt?: Date;
 }
 
 export interface VerifyResult {
@@ -32,6 +59,14 @@ export interface PaymentProvider {
   refund(reference: string): Promise<{ status: "pending" | "processed" }>;
   /** `valid` is false for a bad signature. A valid call can still carry an event we do not act on (event: null). */
   parseWebhook(rawBody: string, signature: string | null): { valid: boolean; event: WebhookEvent | null };
+  /** Creates a settlement subaccount for a verified provider. Returns the gateway's subaccount code. */
+  createSubaccount?(input: CreateSubaccountInput): Promise<{ code: string }>;
+  /** Keeps a subaccount's commission percentage in step with the current commission rule. */
+  updateSubaccountCharge?(code: string, percentageCharge: number): Promise<void>;
+  /** Reads a subaccount's live commission percentage from the gateway, for checkout-time verification. */
+  getSubaccountCharge?(code: string): Promise<number>;
+  /** Transactions the gateway reports for a window; used by daily reconciliation. */
+  listTransactions?(input: ListSettlementInput): Promise<GatewayTransaction[]>;
 }
 
 const PAYSTACK = "https://api.paystack.co";
@@ -59,6 +94,17 @@ function paystack(secret: string): PaymentProvider {
           reference: input.reference,
           callback_url: input.callbackUrl,
           channels: GATEWAY_CHANNELS[input.method],
+          // When a provider subaccount is passed the gateway settles the provider's share to it
+          // directly and keeps Medic1905's commission: the subaccount's percentage_charge for
+          // PERCENT rules, or transaction_charge for a flat (FIXED) commission.
+          ...(input.subaccountCode
+            ? {
+                subaccount: input.subaccountCode,
+                bearer: "subaccount",
+                // Zero is a valid flat commission: only an unset value is omitted.
+                ...(input.commissionFixedMinor !== undefined ? { transaction_charge: input.commissionFixedMinor } : {}),
+              }
+            : {}),
         }),
       });
       return { checkoutUrl: data.authorization_url };
@@ -73,6 +119,49 @@ function paystack(secret: string): PaymentProvider {
     async refund(reference) {
       const data = await call<{ status?: string }>("/refund", { method: "POST", body: JSON.stringify({ transaction: reference }) });
       return { status: data.status === "processed" ? "processed" : "pending" };
+    },
+    async createSubaccount(input) {
+      const data = await call<{ subaccount_code: string }>("/subaccount", {
+        method: "POST",
+        body: JSON.stringify({
+          business_name: input.businessName,
+          settlement_bank: input.settlementBank,
+          account_number: input.accountNumber,
+          percentage_charge: input.percentageCharge,
+        }),
+      });
+      return { code: data.subaccount_code };
+    },
+    async updateSubaccountCharge(code, percentageCharge) {
+      await call(`/subaccount/${encodeURIComponent(code)}`, {
+        method: "PUT",
+        body: JSON.stringify({ percentage_charge: percentageCharge }),
+      });
+    },
+    async getSubaccountCharge(code) {
+      const data = await call<{ percentage_charge?: number | string }>(`/subaccount/${encodeURIComponent(code)}`);
+      return Number(data.percentage_charge ?? 0);
+    },
+    async listTransactions(input) {
+      const transactions: GatewayTransaction[] = [];
+      // Page through the gateway's transaction list for the window. The list endpoint's payload
+      // IS the transaction array (the envelope is unwrapped by the `call` helper).
+      for (let page = 1; page <= 50; page += 1) {
+        const rows = await call<Array<Record<string, unknown>>>(
+          `/transaction?from=${input.from.toISOString().slice(0, 10)}&to=${input.to.toISOString().slice(0, 10)}&perPage=100&page=${page}`,
+        );
+        for (const t of rows ?? []) {
+          transactions.push({
+            reference: String(t.reference),
+            amountMinor: Number(t.amount),
+            currency: String(t.currency),
+            status: String(t.status),
+            paidAt: t.paid_at ? new Date(String(t.paid_at)) : undefined,
+          });
+        }
+        if ((rows?.length ?? 0) < 100) break;
+      }
+      return transactions;
     },
     parseWebhook(rawBody, signature) {
       if (!signature) return { valid: false, event: null };
@@ -117,6 +206,18 @@ const mock: PaymentProvider = {
   },
   async refund() {
     return { status: "processed" };
+  },
+  async createSubaccount(input) {
+    return { code: `ACCT_MOCK_${input.accountNumber.slice(-4)}` };
+  },
+  async updateSubaccountCharge() {
+    /* the mock gateway has nothing to update */
+  },
+  async getSubaccountCharge() {
+    return 0;
+  },
+  async listTransactions() {
+    return [];
   },
   parseWebhook() {
     return { valid: false, event: null };

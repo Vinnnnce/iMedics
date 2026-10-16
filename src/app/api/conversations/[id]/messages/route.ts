@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseId, parseQuery } from "@/lib/api";
 import { assertCanSend, findConversation } from "@/lib/chat";
 import { queueNotification } from "@/lib/notifications/service";
+import { requireEntitlement } from "@/lib/subscriptions";
 
 const listSchema = z.object({
   after: z.coerce.date().optional(),
@@ -43,6 +44,8 @@ const sendSchema = z.object({ body: z.string().trim().min(1, "Message cannot be 
 // POST /api/conversations/[id]/messages — send a text message
 export const POST = withAuth<{ id: string }>(["DOCTOR", "PATIENT"], async (req, { user, params }) => {
   const id = parseId((await params).id);
+  // Patient chat is a subscription-gated feature for doctors, enforced on every message.
+  if (user.role === "DOCTOR") await requireEntitlement(user.id, "chat");
   const conversation = await findConversation(user, id);
   await assertCanSend(conversation);
   const { body } = await parseBody(req, sendSchema);

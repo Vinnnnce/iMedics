@@ -23,10 +23,11 @@ export interface ServiceRow {
   currency: string;
   turnaroundHours: number | null;
   availability: string | null;
+  branch: string | null;
   isActive: boolean;
 }
 
-const empty = { name: "", description: "", category: "LAB_TEST" as Category, price: "", currency: "NGN", turnaroundHours: "", availability: "" };
+const empty = { name: "", description: "", category: "LAB_TEST" as Category, price: "", currency: "NGN", turnaroundHours: "", availability: "", branch: "" };
 const select = "h-9 w-full rounded-lg border border-input bg-background px-2 text-sm";
 
 /** A facility's price list: add, reprice, hide and remove the services patients can book. */
@@ -47,7 +48,7 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
 
   const edit = (s: ServiceRow) => {
     setEditingId(s.id);
-    setForm({ name: s.name, description: s.description ?? "", category: s.category, price: s.price.toString(), currency: s.currency, turnaroundHours: s.turnaroundHours?.toString() ?? "", availability: s.availability ?? "" });
+    setForm({ name: s.name, description: s.description ?? "", category: s.category, price: s.price.toString(), currency: s.currency, turnaroundHours: s.turnaroundHours?.toString() ?? "", availability: s.availability ?? "", branch: s.branch ?? "" });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -67,6 +68,7 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
       currency: form.currency,
       turnaroundHours: form.turnaroundHours.trim() ? Number(form.turnaroundHours) : null,
       availability: form.availability,
+      branch: form.branch,
     };
     try {
       if (editingId) await apiClient.patch(`/facility/services/${editingId}`, body);
@@ -130,6 +132,10 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="svc-desc">Description</Label>
               <Input id="svc-desc" value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="What the service includes, preparation needed…" className="rounded-lg" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="svc-branch">Branch</Label>
+              <Input id="svc-branch" value={form.branch} onChange={(e) => set("branch", e.target.value)} placeholder="e.g. Ikeja branch (optional)" className="rounded-lg" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="svc-avail">Availability</Label>
