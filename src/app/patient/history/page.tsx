@@ -35,6 +35,7 @@ type TimelineEntry = {
   caseId: string | null;
   caseNumber: string | null;
   caseType: CareCaseType | null;
+  doctorName: string | null;
   details: string[];
 };
 
@@ -46,7 +47,7 @@ type TimelineEntry = {
 export default async function PatientHistoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ kind?: string; from?: string; to?: string; q?: string; case?: string; page?: string }>;
+  searchParams: Promise<{ kind?: string; from?: string; to?: string; q?: string; case?: string; doctor?: string; page?: string }>;
 }) {
   const user = await requirePageRole("PATIENT");
   const params = await searchParams;
@@ -61,6 +62,7 @@ export default async function PatientHistoryPage({
   const kindFilter = KIND_OPTIONS.find((k) => k.value === params.kind)?.value;
   const q = params.q?.trim().slice(0, 100) ?? "";
   const caseFilter = params.case?.trim().slice(0, 40) ?? "";
+  const doctorFilter = params.doctor?.trim().slice(0, 100) ?? "";
   const fromDate = params.from ? new Date(params.from) : null;
   const toDate = params.to ? new Date(params.to) : null;
   const from = fromDate && !Number.isNaN(fromDate.getTime()) ? fromDate : null;
@@ -131,6 +133,7 @@ export default async function PatientHistoryPage({
       caseId: c.case?.id ?? null,
       caseNumber: c.case?.caseNumber ?? null,
       caseType: c.case?.type ?? null,
+      doctorName: c.doctor.user.name,
       details: [
         c.chiefComplaint ?? null,
         c.diagnosis ?? null,
@@ -149,6 +152,7 @@ export default async function PatientHistoryPage({
       caseId: o.case?.id ?? null,
       caseNumber: o.case?.caseNumber ?? null,
       caseType: o.case?.type ?? null,
+      doctorName: null,
       details: [
         o.items.map((i) => i.labTest.name).join(", "),
         o.results.length > 0 ? `${o.results.length} result${o.results.length === 1 ? "" : "s"} recorded` : "Results pending",
@@ -166,6 +170,7 @@ export default async function PatientHistoryPage({
       caseId: p.case?.id ?? null,
       caseNumber: p.case?.caseNumber ?? null,
       caseType: p.case?.type ?? null,
+      doctorName: p.doctor.user.name,
       details: [p.items.map((i) => `${i.drugName}${i.dose ? ` ${i.dose}` : ""}${i.frequency ? `, ${i.frequency}` : ""}`).join("; ")],
     });
   }
@@ -181,6 +186,7 @@ export default async function PatientHistoryPage({
       caseId: careCase?.id ?? null,
       caseNumber: careCase?.caseNumber ?? null,
       caseType: careCase?.type ?? null,
+      doctorName: a.doctor.user.name,
       details: [
         a.reason ?? null,
         a.mode.toLowerCase(),
@@ -199,6 +205,7 @@ export default async function PatientHistoryPage({
       caseId: careCase?.id ?? null,
       caseNumber: careCase?.caseNumber ?? null,
       caseType: careCase?.type ?? null,
+      doctorName: null,
       details: [new Intl.NumberFormat("en", { style: "currency", currency: p.currency }).format(Number(p.amount))],
     });
   }
@@ -213,6 +220,7 @@ export default async function PatientHistoryPage({
       caseId: null,
       caseNumber: null,
       caseType: null,
+      doctorName: null,
       details: [],
     });
   }
@@ -221,7 +229,11 @@ export default async function PatientHistoryPage({
     .filter((e) => (!kindFilter || e.kind === kindFilter))
     .filter((e) => inRange(e.date))
     .filter((e) => !caseFilter || (e.caseNumber ?? "").toLowerCase().includes(caseFilter.toLowerCase()))
-    .filter((e) => !q || matches(e.title) || e.details.some(matches) || (e.caseNumber ?? "").toLowerCase().includes(q.toLowerCase()));
+    .filter((e) => !doctorFilter || (e.doctorName ?? "").toLowerCase().includes(doctorFilter.toLowerCase()))
+    .filter((e) => !q || matches(e.title) || e.details.some(matches) || (e.caseNumber ?? "").toLowerCase().includes(q.toLowerCase()))
+    // Global chronological order with a deterministic tie-breaker, applied
+    // before pagination so pages interleave record types correctly.
+    .sort((a, b) => b.date.getTime() - a.date.getTime() || a.id.localeCompare(b.id));
 
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -232,6 +244,7 @@ export default async function PatientHistoryPage({
     if (q) sp.set("q", q);
     if (kindFilter) sp.set("kind", kindFilter);
     if (caseFilter) sp.set("case", caseFilter);
+    if (doctorFilter) sp.set("doctor", doctorFilter);
     if (params.from) sp.set("from", params.from);
     if (params.to) sp.set("to", params.to);
     sp.set("page", String(p));
@@ -265,6 +278,10 @@ export default async function PatientHistoryPage({
         <label className="block text-xs text-muted-foreground">
           Case number
           <input name="case" defaultValue={caseFilter} placeholder="MED1905-…" className="mt-1 h-8 w-full rounded-lg border border-input bg-background px-2 text-sm" />
+        </label>
+        <label className="block text-xs text-muted-foreground">
+          Doctor
+          <input name="doctor" defaultValue={doctorFilter} placeholder="Doctor name" className="mt-1 h-8 w-full rounded-lg border border-input bg-background px-2 text-sm" />
         </label>
         <label className="block text-xs text-muted-foreground">
           From

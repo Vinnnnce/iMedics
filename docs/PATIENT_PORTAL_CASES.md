@@ -41,9 +41,15 @@ timeline, and case-number surfacing across existing views.
   AWAITING_RESULT, RESULT_AVAILABLE, UNDER_REVIEW, TREATMENT_ONGOING,
   FOLLOW_UP_REQUIRED, CLOSED, ARCHIVED — with a validated transition table,
   append-only status history and audit logging. ARCHIVED is terminal.
+  Transitions are compare-and-set: two concurrent transitions cannot both
+  apply (verified by an integration race test).
+- Release policy: a DRAFT consultation's clinical text (chief complaint,
+  diagnosis) is never copied onto the case, because the patient can see the
+  case. Only finalized content is reflected there.
 - Cases are created automatically when a doctor records a consultation, orders
   lab tests, or when a patient books a facility service (its payment links to
-  the same case).
+  the same case). Payments also attach to an episode through the appointment a
+  consultation was recorded against — both are recorded relationships.
 - Pages: `/patient/cases` (filters + pagination) and `/patient/cases/[id]`
   (linked records, payments, status history). Nav entry "My Cases" added.
 - APIs: `GET /api/cases`, `GET /api/cases/[id]`, `POST /api/cases/[id]/status`
@@ -51,9 +57,15 @@ timeline, and case-number surfacing across existing views.
   authorization is always relationship-based.
 
 ### Health timeline (`/patient/history`)
-- Filters: keyword, record type, case number, date range. Expandable entries
-  with source, status, case-number links. Pagination (30/page).
-- Draft consultations and unverified results are never shown.
+- Filters: keyword, record type, doctor, case number, date range. Expandable
+  entries with source, status, case-number links. Pagination (30/page) with a
+  single global chronological sort (deterministic tie-breaker) applied before
+  slicing.
+- Draft consultations are never shown. Note: the pre-existing patient results
+  page shows lab results in any status except REJECTED (including
+  AI_ANALYSIS_COMPLETE before clinician verification). That release policy
+  predates this change and is flagged for clinical review — see "Open
+  decisions" below.
 
 ### Case numbers across existing views
 - Appointments, lab results, prescriptions and timeline entries show their
@@ -61,8 +73,9 @@ timeline, and case-number surfacing across existing views.
 
 ### Self-service profile fields
 - `Patient.preferredName` and `Patient.organDonorStatus` (additive, nullable;
-  null = not recorded, never rendered as "No").
-- `PATCH /api/me` accepts them for PATIENT users; the existing profile form
+  null = not recorded, never rendered as "No"). Emergency contact and
+  residential address are also editable by the patient through the same flow.
+- `PATCH /api/me` accepts them for PATIENT users only; the existing profile form
   shows them for patients only.
 
 ## Migration
@@ -81,8 +94,12 @@ timeline, and case-number surfacing across existing views.
 - `npm run lint`, `tsc --noEmit`, `vitest run` (276 passing incl. 14 new
   case-management tests), `next build` all clean.
 - `scripts/smoke-cases.ts`: integration test on a disposable DB — case number
-  format, increments, concurrency uniqueness (8 parallel), transition
-  validation, event history, prescription linkage. All passing.
+  format, increments, concurrency uniqueness (8 parallel), conflicting
+  concurrent transitions (exactly one wins), transition validation, event
+  history, prescription linkage. All passing.
+- Visual QA in the running app was not possible in this environment (Clerk
+  credentials not available); pages compile and typecheck — verify in a
+  staging deployment.
 
 ## Deferred (blockers, not invented)
 - PDF report generation & QR verification (no renderer configured).
@@ -93,3 +110,15 @@ timeline, and case-number surfacing across existing views.
   emergency health card (P2).
 - Case status notifications (would require a new NotificationType enum value;
   noted for the next migration).
+
+## Open decisions requiring clinical/product approval
+- Patient results page release policy (shows any non-REJECTED result,
+  pre-existing behavior; the case views only count VERIFIED results as
+  released) — needs a clinical decision on whether PENDING_AI_ANALYSIS and
+  AI_ANALYSIS_COMPLETE results should be patient-visible.
+- Backfill status derivation: a finalised consultation without a follow-up
+  date maps its case to CLOSED. This is a mechanical mapping from recorded
+  facts (no follow-up recorded = no outstanding action); review it against
+  the clinical workflow.
+- Emergency contact and address are now patient-editable via the profile —
+  confirm this matches your data-governance policy.

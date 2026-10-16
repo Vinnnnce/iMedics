@@ -109,24 +109,29 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
   }
 
   const consultation = await prisma.$transaction(async tx => {
-    // Every consultation opens a unified care-episode case. The case number is
+    // Every consultation opens a unified care-episode case (or joins an existing
+    // authorized one when the doctor explicitly attaches it). The case number is
     // allocated server-side inside this transaction; the consultation and any
     // prescriptions link to it so related records share one episode.
+    //
+    // Release policy: a DRAFT consultation's clinical text (chief complaint,
+    // diagnosis) is never copied onto the case, because the patient can see the
+    // case. Only finalized content is reflected there.
     const careCase = await createCareCaseInTx(tx, {
       type: "CONSULTATION",
       patientId: data.patientId,
       primaryDoctorId: doctor.id,
       specialty: doctor.specialty || null,
-      presentingComplaint: data.chiefComplaint || null,
-      diagnosisSummary: diagnosisRows.summary || null,
-      followUpDate: data.followUpDate ? new Date(data.followUpDate) : null,
+      presentingComplaint: finalized ? (data.chiefComplaint || null) : null,
+      diagnosisSummary: finalized ? (diagnosisRows.summary || null) : null,
+      followUpDate: finalized && data.followUpDate ? new Date(data.followUpDate) : null,
       status: derivedStatusForConsultation(
         finalized ? "FINALIZED" : "DRAFT",
         finalized ? new Date() : null,
-        data.followUpDate ? new Date(data.followUpDate) : null,
+        finalized && data.followUpDate ? new Date(data.followUpDate) : null,
       ),
       actorId: user.id,
-      note: "Consultation recorded",
+      note: finalized ? "Consultation recorded" : "Draft consultation — not yet released to the patient",
     });
 
     const saved = await tx.consultation.create({

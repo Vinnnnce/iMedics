@@ -40,11 +40,24 @@ export default async function PatientCaseDetailPage({ params }: { params: Promis
         include: { items: { include: { labTest: true } }, results: { select: { id: true, status: true } } },
       },
       prescriptions: { orderBy: { issuedAt: "desc" }, include: { items: true, doctor: { select: { user: { select: { name: true } } } } } },
-      payments: { orderBy: { createdAt: "desc" } },
+      payments: false,
       facilityBookings: { orderBy: { createdAt: "desc" } },
     },
   });
   if (!careCase) notFound();
+
+  // Payments belong to this episode either directly (case_id) or through the
+  // appointment that a consultation of this case was recorded against — both
+  // are recorded relationships, nothing is inferred.
+  const episodePayments = await prisma.payment.findMany({
+    where: {
+      OR: [
+        { caseId: careCase.id },
+        { appointment: { consultations: { some: { caseId: careCase.id } } } },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+  });
 
   return (
     <div className="space-y-4">
@@ -160,11 +173,11 @@ export default async function PatientCaseDetailPage({ params }: { params: Promis
         <Card>
           <CardHeader><CardTitle className="text-lg">Payments</CardTitle></CardHeader>
           <CardContent className="text-sm">
-            {careCase.payments.length === 0 ? (
+            {episodePayments.length === 0 ? (
               <p className="text-muted-foreground">No payments in this episode.</p>
             ) : (
               <ul className="space-y-2">
-                {careCase.payments.map((p) => (
+                {episodePayments.map((p) => (
                   <li key={p.id} className="flex items-center justify-between gap-2">
                     <span>{formatDate(p.createdAt)} · {p.description ?? p.kind.toLowerCase().replace(/_/g, " ")}</span>
                     <span className="flex items-center gap-2">

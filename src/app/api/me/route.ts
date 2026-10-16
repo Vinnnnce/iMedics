@@ -34,10 +34,19 @@ const updateSchema = z
     name: z.string().trim().min(1).max(120).optional(),
     phone: z.string().trim().max(30).nullable().optional(),
     language: z.string().regex(/^[a-z]{2}$/, "Use a two-letter language code").optional(),
-    // Patient-profile fields (self-service only, no clinical data).
+    // Patient self-service profile fields (no clinical data).
     preferredName: z.string().trim().min(1).max(120).nullable().optional(),
     bloodGroup: z.enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]).nullable().optional(),
     organDonorStatus: z.boolean().nullable().optional(),
+    ecName: z.string().trim().max(120).nullable().optional(),
+    ecRelationship: z.string().trim().max(120).nullable().optional(),
+    ecPhone: z.string().trim().max(30).nullable().optional(),
+    addressLine1: z.string().trim().max(200).nullable().optional(),
+    addressLine2: z.string().trim().max(200).nullable().optional(),
+    city: z.string().trim().max(120).nullable().optional(),
+    state: z.string().trim().max(120).nullable().optional(),
+    postalCode: z.string().trim().max(20).nullable().optional(),
+    country: z.string().trim().max(2).nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "Nothing to update" });
 
@@ -47,20 +56,27 @@ const updateSchema = z
 // here, and clinical records are never touched by this endpoint.
 export const PATCH = withAuth(null, async (req, { user }) => {
   const data = await parseBody(req, updateSchema);
-  const { preferredName, bloodGroup, organDonorStatus, ...userFields } = data;
+  const {
+    preferredName, bloodGroup, organDonorStatus,
+    ecName, ecRelationship, ecPhone,
+    addressLine1, addressLine2, city, state, postalCode, country,
+    ...userFields
+  } = data;
+  const patientFields = {
+    preferredName, bloodGroup, organDonorStatus,
+    ecName, ecRelationship, ecPhone,
+    addressLine1, addressLine2, city, state, postalCode, country,
+  };
+  const hasPatientFields = Object.values(patientFields).some((v) => v !== undefined);
 
   const updated = await prisma.$transaction(async (tx) => {
     if (Object.keys(userFields).length > 0) {
       await tx.user.update({ where: { id: user.id }, data: userFields });
     }
-    if (user.role === "PATIENT" && (preferredName !== undefined || bloodGroup !== undefined || organDonorStatus !== undefined)) {
+    if (user.role === "PATIENT" && hasPatientFields) {
       await tx.patient.updateMany({
         where: { userId: user.id, deletedAt: null },
-        data: {
-          ...(preferredName !== undefined ? { preferredName } : {}),
-          ...(bloodGroup !== undefined ? { bloodGroup } : {}),
-          ...(organDonorStatus !== undefined ? { organDonorStatus } : {}),
-        },
+        data: Object.fromEntries(Object.entries(patientFields).filter(([, v]) => v !== undefined)),
       });
     }
     return tx.user.findUnique({

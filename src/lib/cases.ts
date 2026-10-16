@@ -187,13 +187,20 @@ export async function transitionCareCase(
     if (!canTransitionCareCase(careCase.status, to)) {
       throw badRequest(`Case ${careCase.caseNumber} cannot move from ${careCase.status} to ${to}.`);
     }
-    await tx.careCase.update({
-      where: { id: caseId },
+    // Compare-and-set: the update only matches while the status is still the
+    // one we validated against, so two concurrent transitions cannot both win.
+    const updated = await tx.careCase.updateMany({
+      where: { id: caseId, status: careCase.status },
       data: {
         status: to,
         closedAt: to === "CLOSED" || to === "ARCHIVED" ? new Date() : null,
       },
     });
+    if (updated.count === 0) {
+      // Another actor changed the status between our read and write — the
+      // transition must be re-validated against the new state, never forced.
+      throw conflict(`Case ${careCase.caseNumber} was changed by someone else. Please review the current status and try again.`);
+    }
     await tx.careCaseEvent.create({
       data: {
         caseId,

@@ -58,78 +58,88 @@ async function allocateCaseNumber(
 }
 
 async function main() {
-  const summary = { consultations: 0, labOrders: 0, facilityBookings: 0, prescriptionsLinked: 0, paymentsLinked: 0, skipped: 0 };
+  const summary = { consultations: 0, labOrders: 0, facilityBookings: 0, prescriptionsLinked: 0, paymentsLinked: 0 };
 
-  // --- Consultations ---
-  const consultations = await prisma.consultation.findMany({
-    where: { caseId: null },
-    select: {
-      id: true, patientId: true, doctorId: true, status: true, finalizedAt: true,
-      followUpDate: true, chiefComplaint: true, diagnosis: true,
-    },
-    take: 1000,
-  });
+  // --- Consultations (batched; idempotent — only unlinked records are selected) ---
+  for (let batch = 0; batch < 100; batch += 1) {
+    const consultations = await prisma.consultation.findMany({
+      where: { caseId: null },
+      select: {
+        id: true, patientId: true, doctorId: true, status: true, finalizedAt: true,
+        followUpDate: true, chiefComplaint: true, diagnosis: true,
+      },
+      take: 500,
+    });
+    if (consultations.length === 0) break;
 
-  for (const c of consultations) {
-    const doctor = await prisma.doctorProfile.findUnique({ where: { id: c.doctorId }, select: { specialty: true } });
-    const status = derivedStatusForConsultation(c.status, c.finalizedAt, c.followUpDate);
-    if (dryRun) {
-      summary.consultations += 1;
-      continue;
-    }
-    await prisma.$transaction(async (tx) => {
-      const caseNumber = await allocateCaseNumber(tx, "CONSULTATION");
-      const careCase = await tx.careCase.create({
-        data: {
-          caseNumber,
-          type: "CONSULTATION",
-          patientId: c.patientId,
-          primaryDoctorId: c.doctorId,
-          specialty: doctor?.specialty ?? null,
-          presentingComplaint: c.chiefComplaint,
-          diagnosisSummary: c.diagnosis,
-          followUpDate: c.followUpDate,
-          status,
-          closedAt: status === "CLOSED" ? (c.finalizedAt ?? new Date()) : null,
-        },
-      });
-      await tx.careCaseEvent.create({
-        data: {
-          caseId: careCase.id,
-          status,
-          note: "Case created by backfill from existing consultation",
-        },
-      });
-      await tx.consultation.update({ where: { id: c.id }, data: { caseId: careCase.id } });
-      // Prescriptions written on this consultation join the same episode.
-      const rx = await tx.prescription.updateMany({
-        where: { consultationId: c.id, caseId: null },
-        data: { caseId: careCase.id },
-      });
-      summary.prescriptionsLinked += rx.count;
-      // Payments for this consultation's appointment (relationship recorded in data).
-      const appointment = await tx.consultation
-        .findUnique({ where: { id: c.id }, select: { appointmentId: true } })
-        .then((cc) => cc?.appointmentId ?? null);
-      if (appointment) {
-        const pays = await tx.payment.updateMany({
-          where: { appointmentId: appointment, caseId: null },
+    for (const c of consultations) {
+      const doctor = await prisma.doctorProfile.findUnique({ where: { id: c.doctorId }, select: { specialty: true } });
+      const status = derivedStatusForConsultation(c.status, c.finalizedAt, c.followUpDate);
+      // Release policy: a DRAFT consultation's clinical text is never copied
+      // onto the case — the patient can see the case.
+      const finalized = c.status === "FINALIZED" && c.finalizedAt;
+      if (dryRun) {
+        summary.consultations += 1;
+        continue;
+      }
+      await prisma.$transaction(async (tx) => {
+        const caseNumber = await allocateCaseNumber(tx, "CONSULTATION");
+        const careCase = await tx.careCase.create({
+          data: {
+            caseNumber,
+            type: "CONSULTATION",
+            patientId: c.patientId,
+            primaryDoctorId: c.doctorId,
+            specialty: doctor?.specialty ?? null,
+            presentingComplaint: finalized ? c.chiefComplaint : null,
+            diagnosisSummary: finalized ? c.diagnosis : null,
+            followUpDate: finalized ? c.followUpDate : null,
+            status,
+            closedAt: status === "CLOSED" ? (c.finalizedAt ?? new Date()) : null,
+          },
+        });
+        await tx.careCaseEvent.create({
+          data: {
+            caseId: careCase.id,
+            status,
+            note: finalized
+              ? "Case created by backfill from existing consultation"
+              : "Case created by backfill from a draft consultation (clinical text withheld)",
+          },
+        });
+        await tx.consultation.update({ where: { id: c.id }, data: { caseId: careCase.id } });
+        // Prescriptions written on this consultation join the same episode.
+        const rx = await tx.prescription.updateMany({
+          where: { consultationId: c.id, caseId: null },
           data: { caseId: careCase.id },
         });
-        summary.paymentsLinked += pays.count;
-      }
-      summary.consultations += 1;
-    });
+        summary.prescriptionsLinked += rx.count;
+        // Payments for this consultation's appointment (relationship recorded in data).
+        const appointment = await tx.consultation
+          .findUnique({ where: { id: c.id }, select: { appointmentId: true } })
+          .then((cc) => cc?.appointmentId ?? null);
+        if (appointment) {
+          const pays = await tx.payment.updateMany({
+            where: { appointmentId: appointment, caseId: null },
+            data: { caseId: careCase.id },
+          });
+          summary.paymentsLinked += pays.count;
+        }
+        summary.consultations += 1;
+      });
+    }
   }
 
-  // --- Lab orders ---
-  const labOrders = await prisma.labOrder.findMany({
-    where: { caseId: null },
-    select: { id: true, patientId: true, orderedById: true, status: true, clinicalNotes: true },
-    take: 1000,
-  });
+  // --- Lab orders (batched) ---
+  for (let batch = 0; batch < 100; batch += 1) {
+    const labOrders = await prisma.labOrder.findMany({
+      where: { caseId: null },
+      select: { id: true, patientId: true, orderedById: true, status: true, clinicalNotes: true },
+      take: 500,
+    });
+    if (labOrders.length === 0) break;
 
-  for (const o of labOrders) {
+    for (const o of labOrders) {
     const doctorProfile = await prisma.doctorProfile.findUnique({
       where: { userId: o.orderedById },
       select: { id: true, specialty: true },
@@ -158,16 +168,19 @@ async function main() {
       await tx.labOrder.update({ where: { id: o.id }, data: { caseId: careCase.id } });
       summary.labOrders += 1;
     });
+    }
   }
 
-  // --- Facility bookings ---
-  const bookings = await prisma.facilityBooking.findMany({
-    where: { caseId: null },
-    select: { id: true, patientId: true, status: true, serviceName: true },
-    take: 1000,
-  });
+  // --- Facility bookings (batched) ---
+  for (let batch = 0; batch < 100; batch += 1) {
+    const bookings = await prisma.facilityBooking.findMany({
+      where: { caseId: null },
+      select: { id: true, patientId: true, status: true, serviceName: true },
+      take: 500,
+    });
+    if (bookings.length === 0) break;
 
-  for (const b of bookings) {
+    for (const b of bookings) {
     const status = derivedStatusForFacilityBooking(b.status);
     if (dryRun) {
       summary.facilityBookings += 1;
@@ -195,6 +208,7 @@ async function main() {
       summary.paymentsLinked += pays.count;
       summary.facilityBookings += 1;
     });
+    }
   }
 
   console.log(dryRun ? "DRY RUN — no changes written." : "Backfill complete.");

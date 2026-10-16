@@ -45,18 +45,6 @@ const caseInclude = {
       items: { select: { drugName: true, dose: true, frequency: true, duration: true } },
     },
   },
-  payments: {
-    orderBy: { createdAt: "desc" as const },
-    select: {
-      id: true,
-      kind: true,
-      amount: true,
-      currency: true,
-      status: true,
-      createdAt: true,
-      description: true,
-    },
-  },
   facilityBookings: {
     orderBy: { createdAt: "desc" as const },
     select: {
@@ -78,6 +66,19 @@ export const GET = withAuth<{ id: string }>(["PATIENT", "DOCTOR", "ADMIN"], asyn
   const id = parseId((await params).id);
   const careCase = await prisma.careCase.findUnique({ where: { id }, include: caseInclude });
   if (!careCase) throw notFound("Case not found");
+
+  // Payments belong to this episode either directly (case_id) or through the
+  // appointment that a consultation of this case was recorded against.
+  const episodePayments = await prisma.payment.findMany({
+    where: {
+      OR: [
+        { caseId: id },
+        { appointment: { consultations: { some: { caseId: id } } } },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, kind: true, amount: true, currency: true, status: true, createdAt: true, description: true },
+  });
 
   if (user.role === "PATIENT") {
     const patient = await prisma.patient.findFirst({
@@ -158,7 +159,7 @@ export const GET = withAuth<{ id: string }>(["PATIENT", "DOCTOR", "ADMIN"], asyn
           duration: i.duration,
         })),
       })),
-      payments: careCase.payments.map((p) => ({
+      payments: episodePayments.map((p) => ({
         id: p.id,
         kind: p.kind,
         amount: Number(p.amount),

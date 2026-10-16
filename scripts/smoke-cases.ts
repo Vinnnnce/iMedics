@@ -88,6 +88,22 @@ async function main() {
   const numbers = new Set(results.map((r) => r.caseNumber));
   check("8 concurrent case numbers all unique", numbers.size === 8);
 
+  // 5b. Conflicting concurrent transitions: exactly one may win.
+  const raceCase = await createCareCase({ type: "CONSULTATION", patientId: patient.id });
+  await transitionCareCase(raceCase.id, "AWAITING_RESULT", user.id);
+  const outcomes = await Promise.allSettled([
+    transitionCareCase(raceCase.id, "RESULT_AVAILABLE", user.id),
+    transitionCareCase(raceCase.id, "UNDER_REVIEW", user.id),
+  ]);
+  const successes = outcomes.filter((o) => o.status === "fulfilled").length;
+  const finalStatus = (await prisma.careCase.findUniqueOrThrow({ where: { id: raceCase.id } })).status;
+  const finalEvents = await prisma.careCaseEvent.count({ where: { caseId: raceCase.id } });
+  check(
+    "conflicting concurrent transitions: at most one wins",
+    successes <= 1 && ["RESULT_AVAILABLE", "UNDER_REVIEW"].includes(finalStatus),
+  );
+  check("status history has no orphan events after race", finalEvents === 3);
+
   // 6. Derived statuses used by the backfill.
   check("finalized consultation without follow-up maps to CLOSED", derivedStatusForConsultation("FINALIZED", new Date(), null) === "CLOSED");
   check("draft consultation stays OPEN", derivedStatusForConsultation("DRAFT", null, null) === "OPEN");

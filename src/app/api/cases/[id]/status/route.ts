@@ -41,7 +41,9 @@ export const POST = withAuth<{ id: string }>(["DOCTOR", "ADMIN"], async (req, { 
   if (!careCase) throw notFound("Case not found");
 
   if (user.role === "DOCTOR") {
-    const scope = await patientScope(user);
+    // Status changes are mutations: require the doctor's write scope, not just
+    // read access to the patient.
+    const scope = await patientScope(user, { write: true });
     const accessible = await prisma.patient.findFirst({
       where: { AND: [{ id: careCase.patientId }, scope.where] },
       select: { id: true },

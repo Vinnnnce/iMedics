@@ -16,7 +16,20 @@ interface Props {
   verificationStatus: string | null;
   initial: { name: string; phone: string; language: string };
   /** Patient self-service profile fields; shown only for patient users. */
-  patient?: { preferredName: string; bloodGroup: string; organDonorStatus: string };
+  patient?: {
+    preferredName: string;
+    bloodGroup: string;
+    organDonorStatus: string;
+    ecName: string;
+    ecRelationship: string;
+    ecPhone: string;
+    addressLine1: string;
+    addressLine2: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
 }
 
 const field = "h-9 w-full rounded-lg border border-input bg-background px-2 text-sm";
@@ -29,6 +42,15 @@ export function ProfileForm({ email, role, verificationStatus, initial, patient 
     preferredName: patient?.preferredName ?? "",
     bloodGroup: patient?.bloodGroup ?? "",
     organDonorStatus: patient?.organDonorStatus ?? "",
+    ecName: patient?.ecName ?? "",
+    ecRelationship: patient?.ecRelationship ?? "",
+    ecPhone: patient?.ecPhone ?? "",
+    addressLine1: patient?.addressLine1 ?? "",
+    addressLine2: patient?.addressLine2 ?? "",
+    city: patient?.city ?? "",
+    state: patient?.state ?? "",
+    postalCode: patient?.postalCode ?? "",
+    country: patient?.country ?? "",
   });
   const isPatient = role === "PATIENT" && Boolean(patient);
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
@@ -47,6 +69,15 @@ export function ProfileForm({ email, role, verificationStatus, initial, patient 
                 preferredName: patientForm.preferredName.trim() || null,
                 bloodGroup: patientForm.bloodGroup || null,
                 organDonorStatus: patientForm.organDonorStatus === "" ? null : patientForm.organDonorStatus === "yes",
+                ecName: patientForm.ecName.trim() || null,
+                ecRelationship: patientForm.ecRelationship.trim() || null,
+                ecPhone: patientForm.ecPhone.trim() || null,
+                addressLine1: patientForm.addressLine1.trim() || null,
+                addressLine2: patientForm.addressLine2.trim() || null,
+                city: patientForm.city.trim() || null,
+                state: patientForm.state.trim() || null,
+                postalCode: patientForm.postalCode.trim() || null,
+                country: patientForm.country.trim() || null,
               }
             : {}),
         });
@@ -98,6 +129,37 @@ export function ProfileForm({ email, role, verificationStatus, initial, patient 
                   <option value="no">No</option>
                 </select>
               </label>
+              <label className="block text-xs text-muted-foreground">Emergency contact name
+                <input className={field} value={patientForm.ecName} maxLength={120} onChange={(e) => setPatientForm({ ...patientForm, ecName: e.target.value })} />
+              </label>
+              <label className="block text-xs text-muted-foreground">Emergency contact relationship
+                <input className={field} value={patientForm.ecRelationship} maxLength={120} onChange={(e) => setPatientForm({ ...patientForm, ecRelationship: e.target.value })} />
+              </label>
+              <label className="block text-xs text-muted-foreground">Emergency contact phone
+                <input className={field} type="tel" value={patientForm.ecPhone} maxLength={30} onChange={(e) => setPatientForm({ ...patientForm, ecPhone: e.target.value })} />
+              </label>
+              <FormField label="Address line 1">
+                <input className={field} value={patientForm.addressLine1} maxLength={200} onChange={(e) => setPatientForm({ ...patientForm, addressLine1: e.target.value })} />
+              </FormField>
+              <FormField label="Address line 2">
+                <input className={field} value={patientForm.addressLine2} maxLength={200} onChange={(e) => setPatientForm({ ...patientForm, addressLine2: e.target.value })} />
+              </FormField>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField label="City">
+                  <input className={field} value={patientForm.city} maxLength={120} onChange={(e) => setPatientForm({ ...patientForm, city: e.target.value })} />
+                </FormField>
+                <FormField label="State">
+                  <input className={field} value={patientForm.state} maxLength={120} onChange={(e) => setPatientForm({ ...patientForm, state: e.target.value })} />
+                </FormField>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField label="Postal code">
+                  <input className={field} value={patientForm.postalCode} maxLength={20} onChange={(e) => setPatientForm({ ...patientForm, postalCode: e.target.value })} />
+                </FormField>
+                <FormField label="Country (2-letter code)">
+                  <input className={field} value={patientForm.country} maxLength={2} placeholder="NG" onChange={(e) => setPatientForm({ ...patientForm, country: e.target.value.toUpperCase() })} />
+                </FormField>
+              </div>
             </>
           )}
           <div className="flex items-center gap-3">

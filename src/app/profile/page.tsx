@@ -12,7 +12,11 @@ export default async function ProfilePage() {
     user.role === "PATIENT"
       ? prisma.patient.findFirst({
           where: { userId: user.id, deletedAt: null },
-          select: { preferredName: true, bloodGroup: true, organDonorStatus: true },
+          select: {
+            preferredName: true, bloodGroup: true, organDonorStatus: true,
+            ecName: true, ecRelationship: true, ecPhone: true,
+            addressLine1: true, addressLine2: true, city: true, state: true, postalCode: true, country: true,
+          },
         })
       : null,
   ]);
@@ -35,6 +39,15 @@ export default async function ProfilePage() {
                 bloodGroup: patientRecord.bloodGroup ?? "",
                 organDonorStatus:
                   patientRecord.organDonorStatus === null ? "" : patientRecord.organDonorStatus ? "yes" : "no",
+                ecName: patientRecord.ecName ?? "",
+                ecRelationship: patientRecord.ecRelationship ?? "",
+                ecPhone: patientRecord.ecPhone ?? "",
+                addressLine1: patientRecord.addressLine1 ?? "",
+                addressLine2: patientRecord.addressLine2 ?? "",
+                city: patientRecord.city ?? "",
+                state: patientRecord.state ?? "",
+                postalCode: patientRecord.postalCode ?? "",
+                country: patientRecord.country ?? "",
               }
             : undefined
         }

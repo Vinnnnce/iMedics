@@ -43,7 +43,6 @@ export default async function PatientCaseFilePage() {
   const patient = await prisma.patient.findFirst({
     where: { userId: user.id, deletedAt: null },
     include: {
-      medicalHistories: { orderBy: { createdAt: "desc" }, take: 3 },
       assignments: { where: { status: "ACTIVE" }, include: { doctor: { include: { user: { select: { name: true } } } } } },
       prescriptions: { where: { status: "ACTIVE" }, orderBy: { issuedAt: "desc" }, take: 10, include: { items: true } },
       conversations: { select: { id: true, messages: { where: { readAt: null, senderId: { not: user.id } }, select: { id: true } } } },
@@ -60,13 +59,18 @@ export default async function PatientCaseFilePage() {
 
   if (!patient) return <p className="p-6 text-sm">No patient record is linked to your account yet.</p>;
 
-  const latestHistory = patient.medicalHistories.find((h) => h.status === "COMPLETE") ?? null;
+  // The latest COMPLETED intake is the authoritative patient-reported history.
+  // Query it directly so newer drafts can never shadow it.
+  const latestHistory = await prisma.medicalHistory.findFirst({
+    where: { patientId: patient.id, status: "COMPLETE" },
+    orderBy: { createdAt: "desc" },
+  });
   const latestIntakeAt = latestHistory ? formatDate(latestHistory.createdAt) : null;
 
-  // The patient explicitly reported absence when a completed intake exists but
-  // the list is empty — that is different from "not recorded yet".
-  const hasCompletedIntake = Boolean(latestHistory);
-  const absenceLabel = hasCompletedIntake ? "None reported" : "Not recorded yet";
+  // The intake form does not record an explicit "confirmed absence" answer,
+  // so an empty list can only ever mean "no information recorded" — never
+  // "the patient reported none".
+  const absenceLabel = "Not recorded yet";
 
   type AllergyItem = { type: string; allergen: string; reactionType?: string; severity?: string };
   type MedicationItem = { name: string; dose?: string; frequency?: string; duration?: string; status?: string };
@@ -98,12 +102,17 @@ export default async function PatientCaseFilePage() {
     Boolean(user.phone),
     hasData(patient.addressLine1),
     hasData(patient.ecName) && hasData(patient.ecPhone),
-    hasCompletedIntake,
+    Boolean(latestHistory),
     hasData(patient.bloodGroup),
   ];
   const completion = Math.round((completionFields.filter(Boolean).length / completionFields.length) * 100);
 
+  const activeCaseCount = await prisma.careCase.count({
+    where: { patientId: patient.id, status: { notIn: ["CLOSED", "ARCHIVED"] } },
+  });
+
   const statusChips = [
+    { label: "Active cases", value: activeCaseCount, href: "/patient/cases", icon: FolderOpen },
     { label: "Upcoming appointments", value: patient.appointments.length, href: "/patient/appointments", icon: Stethoscope },
     { label: "Results pending", value: patient.labResults.length, href: "/patient/results", icon: FlaskConical },
     { label: "Unread messages", value: patient.conversations.reduce((n, c) => n + c.messages.length, 0), href: "/patient/consult", icon: MessageSquare },
@@ -160,14 +169,14 @@ export default async function PatientCaseFilePage() {
                 <Link href="/dashboard?tab=records" className={buttonVariants({ size: "sm", variant: "outline" })}><Upload className="mr-1 h-3.5 w-3.5" />Upload document</Link>
                 <Link href="/doctors" className={buttonVariants({ size: "sm", variant: "outline" })}><Stethoscope className="mr-1 h-3.5 w-3.5" />Book consultation</Link>
                 <Link href="/facilities" className={buttonVariants({ size: "sm", variant: "outline" })}><Building2 className="mr-1 h-3.5 w-3.5" />Find diagnostic centre</Link>
-                <PrintButton label="Download health summary" />
+                <PrintButton label="Print / Save as PDF" />
                 <Link href="/dashboard?tab=records" className={buttonVariants({ size: "sm", variant: "outline" })}><ShieldCheck className="mr-1 h-3.5 w-3.5" />Manage privacy</Link>
               </div>
             </div>
           </div>
 
           {/* Status indicators */}
-          <div className="mt-6 grid grid-cols-2 gap-2 md:grid-cols-4">
+          <div className="mt-6 grid grid-cols-2 gap-2 md:grid-cols-5">
             {statusChips.map((chip) => (
               <Link
                 key={chip.label}
