@@ -60,8 +60,8 @@ export const PATCH = withAuth<{ id: string }>(["PATIENT", "LAB_SCIENTIST"], asyn
 
   // The facility only learns of a patient's cancellation if the booking had been paid (or was free).
   const facilityKnows = !booking.payment || (PAID_STATUSES as readonly string[]).includes(booking.payment.status);
-  if (user.role === "LAB_SCIENTIST") queueNotification(booking.patient.userId, { kind: "FACILITY_BOOKING_UPDATED", bookingId: id });
-  else if (facilityKnows) queueNotification(booking.service.facility.userId, { kind: "FACILITY_BOOKING_UPDATED", bookingId: id });
+  if (user.role === "LAB_SCIENTIST") await queueNotification(booking.patient.userId, { kind: "FACILITY_BOOKING_UPDATED", bookingId: id });
+  else if (facilityKnows) await queueNotification(booking.service.facility.userId, { kind: "FACILITY_BOOKING_UPDATED", bookingId: id });
 
   await writeAudit({ userId: user.id, actorRole: user.role, action: `FACILITY_BOOKING_${status}`, resourceType: "FacilityBooking", resourceId: id, req });
   return NextResponse.json({ booking: serializeFacilityBooking(updated) });

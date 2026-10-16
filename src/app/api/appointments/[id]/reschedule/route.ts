@@ -60,7 +60,7 @@ export const POST = withAuth<{ id: string }>(["DOCTOR", "PATIENT"], async (req, 
   // A patient's unpaid booking is invisible to the doctor, so there is nobody to tell yet.
   const unpaid = appointment.payment !== null && appointment.payment.status !== "SUCCESSFUL";
   const other = user.role === "DOCTOR" ? appointment.patient.userId : unpaid ? null : appointment.doctor.userId;
-  queueNotification(other, { kind: "APPOINTMENT_RESCHEDULED", appointmentId: id });
+  await queueNotification(other, { kind: "APPOINTMENT_RESCHEDULED", appointmentId: id });
 
   await writeAudit({ userId: user.id, actorRole: user.role, action: "APPOINTMENT_RESCHEDULED", resourceType: "Appointment", resourceId: id, req });
 

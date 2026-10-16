@@ -115,7 +115,7 @@ export async function applyProviderOutcome(reference: string, outcome: ProviderO
     });
     if (claimed.count > 0) {
       await recordEvent(prisma, payment.id, "FAILED", { reference });
-      queueNotification(payment.payerId, { kind: "PAYMENT_FAILED", paymentId: payment.id });
+      await queueNotification(payment.payerId, { kind: "PAYMENT_FAILED", paymentId: payment.id });
     }
     return prisma.payment.findUnique({ where: { id: payment.id } });
   }
@@ -145,10 +145,10 @@ export async function applyProviderOutcome(reference: string, outcome: ProviderO
     // The booking was released while the payment was in flight. Give the money straight back.
     await requestRefund(payment.id, "Payment completed after the booking was released");
   } else {
-    queueNotification(payment.payerId, { kind: "PAYMENT_SUCCESSFUL", paymentId: payment.id });
+    await queueNotification(payment.payerId, { kind: "PAYMENT_SUCCESSFUL", paymentId: payment.id });
     // The provider hears about the booking only once it is paid.
-    if (payment.appointmentId) queueNotification(payment.payeeId, { kind: "APPOINTMENT_REQUESTED", appointmentId: payment.appointmentId });
-    if (payment.facilityBookingId) queueNotification(payment.payeeId, { kind: "FACILITY_BOOKING_REQUESTED", bookingId: payment.facilityBookingId });
+    if (payment.appointmentId) await queueNotification(payment.payeeId, { kind: "APPOINTMENT_REQUESTED", appointmentId: payment.appointmentId });
+    if (payment.facilityBookingId) await queueNotification(payment.payeeId, { kind: "FACILITY_BOOKING_REQUESTED", bookingId: payment.facilityBookingId });
   }
   return prisma.payment.findUnique({ where: { id: payment.id } });
 }
@@ -183,7 +183,7 @@ export async function requestRefund(paymentId: string, reason: string): Promise<
   if (claimed.count === 0) return;
   const payment = await prisma.payment.findUniqueOrThrow({ where: { id: paymentId } });
   await recordEvent(prisma, paymentId, "REFUND_REQUESTED", { reason });
-  queueNotification(payment.payerId, { kind: "PAYMENT_REFUND_PENDING", paymentId });
+  await queueNotification(payment.payerId, { kind: "PAYMENT_REFUND_PENDING", paymentId });
   await submitRefund(payment);
 }
 
@@ -207,7 +207,7 @@ export async function markRefunded(paymentId: string): Promise<void> {
   if (claimed.count === 0) return;
   const payment = await prisma.payment.findUniqueOrThrow({ where: { id: paymentId }, select: { payerId: true } });
   await recordEvent(prisma, paymentId, "REFUNDED");
-  queueNotification(payment.payerId, { kind: "PAYMENT_REFUNDED", paymentId });
+  await queueNotification(payment.payerId, { kind: "PAYMENT_REFUNDED", paymentId });
 }
 
 /**

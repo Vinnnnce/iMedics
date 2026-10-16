@@ -16,6 +16,10 @@ export const GET = withAuth<{ id: string }>(["DOCTOR", "PATIENT"], async (req, {
   const id = parseId((await params).id);
   await findConversation(user, id);
   const { after, limit } = parseQuery(req, listSchema);
+  await prisma.auditLog.create({ data: {
+    userId: user.id, actorRole: user.role, action: "MESSAGES_READ",
+    resourceType: "Conversation", resourceId: id,
+  } });
 
   const rows = after
     ? await prisma.chatMessage.findMany({ where: { conversationId: id, createdAt: { gt: after } }, orderBy: { createdAt: "asc" }, take: limit })
@@ -57,7 +61,7 @@ export const POST = withAuth<{ id: string }>(["DOCTOR", "PATIENT"], async (req, 
     select: { patient: { select: { userId: true } }, doctor: { select: { userId: true } } },
   });
   const recipient = participants && (participants.patient.userId === user.id ? participants.doctor.userId : participants.patient.userId);
-  queueNotification(recipient, { kind: "MESSAGE_RECEIVED", conversationId: id });
+  await queueNotification(recipient, { kind: "MESSAGE_RECEIVED", conversationId: id });
 
   return NextResponse.json(
     { message: { id: message.id, mine: true, type: message.type, body: message.body, createdAt: message.createdAt, readAt: null } },

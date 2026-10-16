@@ -92,10 +92,10 @@ export const PATCH = withAuth<{ id: string }>(["DOCTOR", "PATIENT"], async (req,
 
   // Only tell the doctor about a patient's cancellation if the booking had been paid (otherwise they never saw it).
   const doctorKnows = !appointment.payment || (PAID_STATUSES as readonly string[]).includes(appointment.payment.status);
-  if (status === "CONFIRMED") queueNotification(appointment.patient.userId, { kind: "APPOINTMENT_CONFIRMED", appointmentId: id });
+  if (status === "CONFIRMED") await queueNotification(appointment.patient.userId, { kind: "APPOINTMENT_CONFIRMED", appointmentId: id });
   if (status === "CANCELLED") {
-    if (user.role === "DOCTOR") queueNotification(appointment.patient.userId, { kind: "APPOINTMENT_CANCELLED", appointmentId: id });
-    else if (doctorKnows) queueNotification(appointment.doctor.userId, { kind: "APPOINTMENT_CANCELLED", appointmentId: id });
+    if (user.role === "DOCTOR") await queueNotification(appointment.patient.userId, { kind: "APPOINTMENT_CANCELLED", appointmentId: id });
+    else if (doctorKnows) await queueNotification(appointment.doctor.userId, { kind: "APPOINTMENT_CANCELLED", appointmentId: id });
   }
 
   await writeAudit({

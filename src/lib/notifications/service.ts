@@ -4,15 +4,16 @@ import { renderNotification, type NotificationEvent } from "./events";
 import { getPreferenceMatrix, isChannelEnabled } from "./preferences";
 import { renderEmail, sendEmail } from "./email";
 import { sendPush } from "./push";
+import { deliverPendingNotifications, hasNotificationOutbox, persistQueuedNotification } from "./outbox";
 
 /** A recent unread message notification for the same conversation already covers new messages. */
 const MESSAGE_COALESCE_MS = 30 * 60_000;
 
 /**
  * Notify one user about an event: always an in-app notification, plus email and push when the user's
- * preferences allow. Never throws: a failed email must not undo the action that caused it.
+ * preferences allow. Persistence failures are surfaced; provider failures are retried by the outbox.
  */
-export async function notifyUser(userId: string, event: NotificationEvent): Promise<void> {
+export async function notifyUser(userId: string, event: NotificationEvent, deferDelivery = false): Promise<void> {
   try {
     const user = await prisma.user.findFirst({
       where: { id: userId, status: "ACTIVE", deletedAt: null },
@@ -38,7 +39,9 @@ export async function notifyUser(userId: string, event: NotificationEvent): Prom
 
     const prefs = await getPreferenceMatrix(userId);
 
-    await prisma.notification.create({
+    const queued = await hasNotificationOutbox();
+    if (queued) await persistQueuedNotification(userId, rendered, isChannelEnabled(prefs, rendered.type, "IN_APP"));
+    else await prisma.notification.create({
       data: {
         userId,
         type: rendered.type,
@@ -50,17 +53,20 @@ export async function notifyUser(userId: string, event: NotificationEvent): Prom
       },
     });
 
-    const deliveries: Promise<unknown>[] = [];
-    if (isChannelEnabled(prefs, rendered.type, "EMAIL") && user.email) {
-      deliveries.push(sendEmail({ to: user.email, ...renderEmail(rendered) }));
-    }
-    if (isChannelEnabled(prefs, rendered.type, "PUSH")) {
-      deliveries.push(sendPush(userId, rendered));
-    }
-    const results = await Promise.allSettled(deliveries);
-    for (const r of results) if (r.status === "rejected") console.error("Notification delivery failed:", r.reason);
+    const deliver = async () => {
+      if (queued) { await deliverPendingNotifications(userId); return; }
+      // Backwards compatibility only: no retry guarantees without the existing delivery table.
+      const deliveries: Promise<unknown>[] = [];
+      if (isChannelEnabled(prefs, rendered.type, "EMAIL") && user.email) deliveries.push(sendEmail({ to: user.email, ...renderEmail(rendered) }));
+      if (isChannelEnabled(prefs, rendered.type, "PUSH")) deliveries.push(sendPush(userId, rendered));
+      const results = await Promise.allSettled(deliveries);
+      if (results.some(r => r.status === "rejected")) console.error("Notification channel unavailable; delivery outbox not installed");
+    };
+    if (deferDelivery) after(deliver);
+    else await deliver();
   } catch (error) {
-    console.error("Notification failed:", error);
+    console.error("Notification persistence failed", { kind: error instanceof Error ? error.name : "UnknownError" });
+    throw error;
   }
 }
 
@@ -71,10 +77,9 @@ export async function notifyUsers(userIds: (string | null | undefined)[], event:
 }
 
 /**
- * Send after the HTTP response has been returned, so email and push never slow the request down.
- * Use this from route handlers.
+ * Persist before acknowledging the request. Only provider I/O runs after the response.
  */
-export function queueNotification(userId: string | null | undefined, event: NotificationEvent): void {
+export async function queueNotification(userId: string | null | undefined, event: NotificationEvent): Promise<void> {
   if (!userId) return;
-  after(() => notifyUser(userId, event));
+  await notifyUser(userId, event, true);
 }

@@ -101,7 +101,7 @@ export const POST = withAuth(["PATIENT"], async (req, { user }) => {
   );
 
   // Free bookings reach the doctor now; paid ones are announced when the payment succeeds.
-  if (!payment) queueNotification(doctor.userId, { kind: "APPOINTMENT_REQUESTED", appointmentId: appointment.id });
+  if (!payment) await queueNotification(doctor.userId, { kind: "APPOINTMENT_REQUESTED", appointmentId: appointment.id });
 
   await writeAudit({
     userId: user.id,

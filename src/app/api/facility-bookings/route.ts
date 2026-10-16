@@ -69,7 +69,7 @@ export const POST = withAuth(["PATIENT"], async (req, { user }) => {
     { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
   );
 
-  if (!payment) queueNotification(service.facility.userId, { kind: "FACILITY_BOOKING_REQUESTED", bookingId: booking.id });
+  if (!payment) await queueNotification(service.facility.userId, { kind: "FACILITY_BOOKING_REQUESTED", bookingId: booking.id });
 
   await writeAudit({ userId: user.id, actorRole: user.role, action: "FACILITY_BOOKING_CREATED", resourceType: "FacilityBooking", resourceId: booking.id, details: { amount, currency: service.currency }, req });
 
