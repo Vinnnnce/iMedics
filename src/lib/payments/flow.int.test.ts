@@ -62,7 +62,10 @@ describe.skipIf(!url)("fees, payments and notifications", () => {
   afterAll(async () => {
     if (!m) return;
     const p = m.prisma;
+    // Refund records reference payments (no cascade): remove them before the payments.
+    await p.refund.deleteMany({ where: { payment: { payerId: { in: [ids.patientUser, ids.doctorUser] } } } });
     await p.payment.deleteMany({ where: { payerId: ids.patientUser } });
+    await p.payment.deleteMany({ where: { payerId: ids.doctorUser } });
     await p.appointment.deleteMany({ where: { patientId: ids.patient } });
     await p.notification.deleteMany({ where: { userId: { in: [ids.patientUser, ids.doctorUser] } } });
     await p.providerSubaccount.deleteMany({ where: { userId: ids.doctorUser } });

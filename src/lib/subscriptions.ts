@@ -195,7 +195,7 @@ export async function activateSubscriptionForPayment(paymentId: string, db: Db =
   try {
     activated = await db.$transaction(async (tx) => {
       // Serialize every plan change for this doctor against every other one.
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${"doctor-sub:" + doctor.id}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"doctor-sub:" + doctor.id}))`;
 
       // Fast path inside the lock: this charge has already been applied.
       const consumed = await tx.subscriptionEvent.findFirst({ where: { paymentId }, select: { id: true } });
@@ -290,7 +290,7 @@ export async function recordConsultationUsage(payeeUserId: string, paymentId: st
   // Exactly-once: the increment and its marker event are one transaction, serialized by an
   // advisory lock on the payment, so webhook replays and the recovery path cannot double-count.
   await db.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${paymentId}))`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${paymentId}))`;
     const already = await tx.paymentEvent.findFirst({
       where: { paymentId, type: "CONSULTATION_USAGE_RECORDED" },
       select: { id: true },
