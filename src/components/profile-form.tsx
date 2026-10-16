@@ -1,15 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useClerk } from "@clerk/nextjs";
-import { LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiClient } from "@/lib/api-client";
 import { FormField } from "@/components/shared/form-field";
 import { ROLE_POLICY } from "@/lib/roles";
-import { clearDevicePush } from "@/lib/notifications/device";
+import { SignOutButton } from "@/components/shared/sign-out-button";
 import type { Role } from "@prisma/client";
 
 interface Props {
@@ -23,20 +21,9 @@ const field = "h-9 w-full rounded-lg border border-input bg-background px-2 text
 const LANGUAGES = [["en", "English"], ["fr", "Français"], ["es", "Español"], ["ru", "Русский"]] as const;
 
 export function ProfileForm({ email, role, verificationStatus, initial }: Props) {
-  const { signOut } = useClerk();
   const [form, setForm] = useState(initial);
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
-  const [signingOut, setSigningOut] = useState(false);
-
-  async function handleSignOut() {
-    setSigningOut(true);
-    try { await clearDevicePush(); }
-    catch { /* Session revocation must still be attempted if browser push APIs fail. */ }
-    try { await signOut({ redirectUrl: "/auth/login" }); }
-    catch { setMessage({ type: "error", text: "Could not sign out. Please reconnect and try again." }); }
-    finally { setSigningOut(false); }
-  }
 
   const save = () =>
     startTransition(async () => {
@@ -82,9 +69,7 @@ export function ProfileForm({ email, role, verificationStatus, initial }: Props)
         </CardContent>
       </Card>
 
-      <Button variant="outline" className="rounded-lg" disabled={signingOut} onClick={handleSignOut}>
-        <LogOut className="mr-2 h-4 w-4" /> {signingOut ? "Signing out…" : "Sign out"}
-      </Button>
+      <SignOutButton />
     </div>
   );
 }
