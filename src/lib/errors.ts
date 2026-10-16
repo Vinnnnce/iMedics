@@ -54,6 +54,7 @@ export function toErrorResponse(error: unknown): NextResponse {
     }
   }
 
-  console.error("Unhandled API error:", error);
+  // Error objects can contain SQL parameters, provider payloads, or health data.
+  console.error("Unhandled API error", { kind: error instanceof Error ? error.name : "UnknownError" });
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }

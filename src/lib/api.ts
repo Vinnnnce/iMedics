@@ -2,7 +2,9 @@ import type { NextRequest } from "next/server";
 import type { Role, User } from "@prisma/client";
 import { z } from "zod";
 import { requireRole, requireUser } from "./auth";
-import { badRequest, toErrorResponse } from "./errors";
+import { badRequest, forbidden, toErrorResponse } from "./errors";
+import { assertSameOriginWrite } from "./request-security";
+import { isAccountReady } from "./roles";
 
 export type RouteParams<P> = { params: Promise<P> };
 
@@ -12,9 +14,13 @@ export function apiHandler<P = Record<string, never>>(
 ) {
   return async (req: NextRequest, ctx: RouteParams<P>): Promise<Response> => {
     try {
-      return await handler(req, ctx);
+      const response = await handler(req, ctx);
+      response.headers.set("Cache-Control", "private, no-store");
+      return response;
     } catch (error) {
-      return toErrorResponse(error);
+      const response = toErrorResponse(error);
+      response.headers.set("Cache-Control", "private, no-store");
+      return response;
     }
   };
 }
@@ -26,9 +32,14 @@ export function apiHandler<P = Record<string, never>>(
 export function withAuth<P = Record<string, never>>(
   roles: readonly Role[] | null,
   handler: (req: NextRequest, ctx: RouteParams<P> & { user: User }) => Promise<Response>,
+  options: { allowOnboarding?: boolean } = {},
 ) {
   return apiHandler<P>(async (req, ctx) => {
+    assertSameOriginWrite(req);
     const user = roles ? await requireRole(...roles) : await requireUser();
+    if (!options.allowOnboarding && !isAccountReady(user)) {
+      throw forbidden("Complete registration and verification before continuing");
+    }
     return handler(req, { ...ctx, user });
   });
 }

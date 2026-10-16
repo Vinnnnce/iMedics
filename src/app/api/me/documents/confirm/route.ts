@@ -38,4 +38,4 @@ export const POST = withAuth(null, async (req, { user }) => {
   });
 
   return NextResponse.json({ success: true }, { status: 201 });
-});
+}, { allowOnboarding: true });

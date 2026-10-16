@@ -1,80 +1,20 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMe } from "@/lib/use-me";
 import { useUser } from "@clerk/nextjs";
 import { useTheme } from "@/components/theme-provider";
 import { NotificationCenter } from "@/components/shared/notification-center";
+import { getRoleNavigation, getBottomNavigation } from "@/lib/navigation";
+import { ROLE_POLICY } from "@/lib/roles";
+import { Drawer } from "@/components/shared/drawer";
 import {
-  Search, Sun, Moon, Menu, X, Home, Stethoscope, Users,
-  FlaskConical, Heart, Sparkles, User, Shield,
-  Calendar, FileText, Video, MessageSquare, Building2,
-  ClipboardList, Upload, LayoutDashboard, ArrowRight, Receipt, Wallet, Tags,
-  type LucideIcon,
+  Search, Sun, Moon, Menu, X, Stethoscope, Users,
+  FlaskConical, Sparkles, Calendar, FileText, Video,
+  ClipboardList, ArrowRight, type LucideIcon,
 } from "lucide-react";
-
-type NavItem = {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  roles: string[];
-};
-
-const PATIENT_NAV: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["PATIENT"] },
-  { href: "/doctors", label: "Find Doctors", icon: Stethoscope, roles: ["PATIENT"] },
-  { href: "/patient/appointments", label: "Appointments", icon: Calendar, roles: ["PATIENT"] },
-  { href: "/facilities", label: "Labs & Services", icon: Building2, roles: ["PATIENT"] },
-  { href: "/payments", label: "Payments", icon: Receipt, roles: ["PATIENT"] },
-  { href: "/patient/results", label: "Lab Results", icon: FlaskConical, roles: ["PATIENT"] },
-  { href: "/patient/case-file", label: "Case File", icon: FileText, roles: ["PATIENT"] },
-  { href: "/patient/history", label: "Case History", icon: ClipboardList, roles: ["PATIENT"] },
-  { href: "/patient/prescriptions", label: "Prescriptions", icon: FileText, roles: ["PATIENT"] },
-  { href: "/patient/consult", label: "Consultation", icon: Video, roles: ["PATIENT"] },
-  { href: "/profile", label: "Profile", icon: User, roles: ["PATIENT"] },
-];
-
-const DOCTOR_NAV: NavItem[] = [
-  { href: "/doctor/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["DOCTOR"] },
-  { href: "/doctor/patients", label: "My Patients", icon: Users, roles: ["DOCTOR"] },
-  { href: "/doctor/booking-requests", label: "Booking Requests", icon: Calendar, roles: ["DOCTOR"] },
-  { href: "/doctor/consultations", label: "Consultations", icon: ClipboardList, roles: ["DOCTOR"] },
-  { href: "/doctor/chat", label: "Chat", icon: MessageSquare, roles: ["DOCTOR"] },
-  { href: "/doctor/lab-requests", label: "Lab Requests", icon: FlaskConical, roles: ["DOCTOR"] },
-  { href: "/doctor/diagnostics", label: "Clinical Notes", icon: Heart, roles: ["DOCTOR"] },
-  { href: "/doctor/ai-tools", label: "AI Review", icon: Sparkles, roles: ["DOCTOR"] },
-  { href: "/doctor/schedule", label: "Schedule", icon: Calendar, roles: ["DOCTOR"] },
-  { href: "/doctor/fees", label: "Fees", icon: Tags, roles: ["DOCTOR"] },
-  { href: "/payments", label: "Payments", icon: Wallet, roles: ["DOCTOR"] },
-  { href: "/doctor/admit", label: "Care Roster", icon: Building2, roles: ["DOCTOR"] },
-  { href: "/profile", label: "Profile", icon: User, roles: ["DOCTOR"] },
-];
-
-const LAB_NAV: NavItem[] = [
-  { href: "/lab/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["LAB_SCIENTIST"] },
-  { href: "/lab/orders", label: "Lab Orders", icon: ClipboardList, roles: ["LAB_SCIENTIST"] },
-  { href: "/lab/users", label: "Patient Lookup", icon: Users, roles: ["LAB_SCIENTIST"] },
-  { href: "/lab/upload", label: "Upload Results", icon: Upload, roles: ["LAB_SCIENTIST"] },
-  { href: "/lab/services", label: "Services & Prices", icon: Tags, roles: ["LAB_SCIENTIST"] },
-  { href: "/lab/bookings", label: "Bookings", icon: Calendar, roles: ["LAB_SCIENTIST"] },
-  { href: "/payments", label: "Payments", icon: Wallet, roles: ["LAB_SCIENTIST"] },
-  { href: "/profile", label: "Profile", icon: User, roles: ["LAB_SCIENTIST"] },
-];
-
-const BOTTOM_NAV_ITEMS = [
-  { href: "/dashboard", label: "Home", icon: Home, roles: ["PATIENT"] },
-  { href: "/doctor/dashboard", label: "Home", icon: Home, roles: ["DOCTOR"] },
-  { href: "/lab/dashboard", label: "Home", icon: Home, roles: ["LAB_SCIENTIST"] },
-  { href: "/doctors", label: "Doctors", icon: Stethoscope, roles: ["PATIENT"] },
-  { href: "/doctor/patients", label: "Patients", icon: Users, roles: ["DOCTOR"] },
-  { href: "/lab/orders", label: "Orders", icon: ClipboardList, roles: ["LAB_SCIENTIST"] },
-  { href: "/patient/results", label: "Labs", icon: FlaskConical, roles: ["PATIENT"] },
-  { href: "/doctor/diagnostics", label: "Diag", icon: Heart, roles: ["DOCTOR"] },
-  { href: "/lab/users", label: "Users", icon: Users, roles: ["LAB_SCIENTIST"] },
-  { href: "/patient/case-file", label: "Diag", icon: Heart, roles: ["PATIENT"] },
-];
 
 const AI_SUGGESTIONS = [
   { text: "Find a cardiologist near me", icon: Stethoscope, category: "doctor" },
@@ -94,6 +34,7 @@ const DOCTOR_AI_SUGGESTIONS = [
   { text: "AI case history analysis", icon: FileText, category: "ai" },
 ];
 
+const NO_SUGGESTIONS: typeof AI_SUGGESTIONS = [];
 const FILTER_CHIPS = [
   { label: "All", value: "all" },
   { label: "Doctors", value: "doctors" },
@@ -114,16 +55,11 @@ export function Navbar({ children }: { children: React.ReactNode }) {
   const searchRef = useRef<HTMLInputElement>(null);
 
   const me = useMe();
-  const role = me?.role ?? "PATIENT";
-
-  const navItems = role === "DOCTOR" ? DOCTOR_NAV : role === "LAB_SCIENTIST" ? LAB_NAV : PATIENT_NAV;
-  // The admin panel link is shown only to accounts the server has granted the ADMIN role.
-  const visibleNavItems = useMemo(
-    () => (role === "ADMIN" ? [...navItems, { href: "/admin", label: "Admin Panel", icon: Shield, roles: [role] }] : navItems),
-    [role, navItems],
-  );
-  const bottomNav = BOTTOM_NAV_ITEMS.filter((item) => item.roles.includes(role));
-  const suggestions = role === "DOCTOR" ? DOCTOR_AI_SUGGESTIONS : AI_SUGGESTIONS;
+  const role = me?.status === "ACTIVE" && me.onboardingComplete ? me.role : null;
+  const navItems = getRoleNavigation(role);
+  const visibleNavItems = navItems;
+  const bottomNav = getBottomNavigation(role);
+  const suggestions = role === "DOCTOR" ? DOCTOR_AI_SUGGESTIONS : role === "PATIENT" ? AI_SUGGESTIONS : NO_SUGGESTIONS;
 
   const filteredSuggestions = searchQuery
     ? suggestions.filter((s) => s.text.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -196,13 +132,16 @@ export function Navbar({ children }: { children: React.ReactNode }) {
           {/* Mobile menu */}
           <button
             onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+            aria-label="Open navigation"
+            aria-expanded={mobileSidebarOpen}
+            aria-controls="mobile-navigation"
             className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg hover:bg-muted"
           >
             {mobileSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
 
           {/* Logo */}
-          <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
+          <Link href={role ? ROLE_POLICY[role].dashboard : "/"} aria-label="Medic1905 home" className="flex items-center gap-2 shrink-0">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-foreground">
               <svg viewBox="0 0 24 24" className="h-5 w-5 text-background" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M12 2v20M2 12h20" strokeLinecap="round" />
@@ -218,6 +157,8 @@ export function Navbar({ children }: { children: React.ReactNode }) {
               <input
                 ref={searchRef}
                 type="text"
+                aria-label="Search navigation"
+                aria-controls={searchOpen ? "navigation-search-results" : undefined}
                 placeholder={role === "DOCTOR" ? "Search patients, labs, AI tools..." : "Search doctors, labs, appointments..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -225,7 +166,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
                 className="flex-1 min-w-0 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
               />
               {searchQuery && (
-                <button onClick={() => { setSearchQuery(""); setSearchOpen(false); }} className="text-muted-foreground hover:text-foreground">
+                <button aria-label="Clear search" onClick={() => { setSearchQuery(""); setSearchOpen(false); }} className="text-muted-foreground hover:text-foreground">
                   <X className="h-4 w-4" />
                 </button>
               )}
@@ -234,7 +175,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
 
             {/* AI Search Results Dropdown */}
             {searchOpen && (searchQuery || !searchQuery) && (
-              <div className="absolute top-full left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-xl mt-1 ai-suggestions overflow-hidden z-50">
+              <div id="navigation-search-results" className="absolute top-full left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-xl mt-1 ai-suggestions overflow-hidden z-50">
                 {/* Filter chips */}
                 <div className="flex gap-2 p-3 overflow-x-auto border-b border-border">
                   {FILTER_CHIPS.map((chip) => (
@@ -303,7 +244,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
 
           {/* Right side actions */}
           <div className="flex items-center gap-3 shrink-0">
-            <NotificationCenter enabled={Boolean(me)} />
+            <NotificationCenter key={me?.id ?? "signed-out"} enabled={Boolean(role)} />
             {/* Theme switch toggle */}
             <button
               onClick={toggleTheme}
@@ -319,7 +260,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
 
             {/* User avatar or sign in */}
             {user ? (
-              <Link href="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <Link href="/profile" aria-label="Your profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                 <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center text-sm font-bold text-foreground">
                   {user.firstName?.[0] || user.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() || "U"}
                 </div>
@@ -345,7 +286,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 min-h-[calc(100vh-4rem)]">
       {/* Desktop Sidebar */}
       <aside className="desktop-sidebar w-64 shrink-0 border-r border-border bg-sidebar flex-col sticky top-16 h-[calc(100vh-4rem)]">
-        <nav className="flex-1 space-y-1 p-3 overflow-y-auto pt-5">
+        <nav aria-label="Main navigation" className="flex-1 space-y-1 p-3 overflow-y-auto pt-5">
           {visibleNavItems.map((item, index) => {
             const Icon = item.icon;
             const active = isActive(item.href);
@@ -353,6 +294,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
               <Link
                 key={`${item.label}-${index}`}
                 href={item.href}
+                aria-current={active ? "page" : undefined}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   active
                     ? "bg-foreground/10 text-foreground"
@@ -378,10 +320,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Mobile sidebar overlay */}
-      {mobileSidebarOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileSidebarOpen(false)} />
-          <div className="absolute left-0 top-0 bottom-0 w-72 bg-sidebar border-r border-border overflow-y-auto">
+      <Drawer open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen} title="Navigation" id="mobile-navigation" className="md:hidden">
             <div className="flex h-16 items-center gap-2 border-b border-border px-6">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-foreground">
                 <svg viewBox="0 0 24 24" className="h-5 w-5 text-background" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -390,7 +329,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
               </div>
               <span className="text-base font-bold text-foreground">Medic1905</span>
             </div>
-            <nav className="p-3 space-y-1">
+            <nav aria-label="Mobile navigation" className="p-3 space-y-1">
               {visibleNavItems.map((item, index) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
@@ -398,6 +337,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
                   <Link
                     key={`${item.label}-${index}`}
                     href={item.href}
+                    aria-current={active ? "page" : undefined}
                     onClick={() => setMobileSidebarOpen(false)}
                     className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                       active
@@ -411,12 +351,10 @@ export function Navbar({ children }: { children: React.ReactNode }) {
                 );
               })}
             </nav>
-          </div>
-        </div>
-      )}
+      </Drawer>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="bottom-nav md:hidden">
+      <nav aria-label="Quick navigation" className="bottom-nav md:hidden">
         {bottomNav.map((item, index) => {
           const Icon = item.icon;
           const active = isActive(item.href);
@@ -424,6 +362,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
             <Link
               key={`${item.label}-${index}`}
               href={item.href}
+              aria-current={active ? "page" : undefined}
               className={`bottom-nav-item ${active ? "active" : ""}`}
             >
               <Icon className="h-5 w-5" />

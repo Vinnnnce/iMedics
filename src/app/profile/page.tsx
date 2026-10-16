@@ -1,12 +1,10 @@
-import { redirect } from "next/navigation";
 import { ProfileForm } from "@/components/profile-form";
 import { NotificationPreferences } from "@/components/shared/notification-preferences";
-import { getCurrentUser } from "@/lib/auth";
+import { requirePageRole } from "@/lib/guards";
 import { prisma } from "@/lib/prisma";
 
 export default async function ProfilePage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/auth/login");
+  const user = await requirePageRole("PATIENT", "DOCTOR", "LAB_SCIENTIST", "ADMIN");
 
   const [doctor, lab] = await Promise.all([
     prisma.doctorProfile.findUnique({ where: { userId: user.id }, select: { verificationStatus: true } }),

@@ -27,7 +27,7 @@ export const GET = withAuth(null, async (_req, { user }) => {
     onboardingComplete: user.onboardingComplete,
     verificationStatus: doctor?.verificationStatus ?? lab?.verificationStatus ?? null,
   });
-});
+}, { allowOnboarding: true });
 
 const updateSchema = z
   .object({

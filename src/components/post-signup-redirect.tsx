@@ -137,31 +137,19 @@ export default function PostSignupRedirect() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [, setDirection] = useState<"forward" | "backward">("forward");
 
-  // Restore in-progress answers from sessionStorage (this tab only). Done in the initialiser,
-  // not an effect: the first render is a spinner, so there is no hydration mismatch.
-  const [regData, setRegData] = useState<RegistrationData>(() => {
-    if (typeof window === "undefined") return DEFAULT_REG_DATA;
-    try {
-      const saved = sessionStorage.getItem(STORAGE_KEY);
-      return saved ? { ...DEFAULT_REG_DATA, ...JSON.parse(saved) } : DEFAULT_REG_DATA;
-    } catch {
-      return DEFAULT_REG_DATA;
-    }
-  });
+  // Health and identity answers stay in memory, never in browser persistence.
+  const [regData, setRegData] = useState<RegistrationData>(DEFAULT_REG_DATA);
+
+  useEffect(() => {
+    // Remove drafts written by previous versions, including on shared devices.
+    try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* Storage may be unavailable. */ }
+  }, []);
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-
-  // Save form data to sessionStorage whenever it changes
-  const persistData = useCallback((data: RegistrationData) => {
-    try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch {}
-  }, []);
 
   const updateField = useCallback((field: keyof RegistrationData, value: string) => {
     setRegData((prev) => {
       const next = { ...prev, [field]: value };
-      persistData(next);
       return next;
     });
     // Clear field error when user types
@@ -172,7 +160,7 @@ export default function PostSignupRedirect() {
         return next;
       });
     }
-  }, [fieldErrors, persistData]);
+  }, [fieldErrors]);
 
   // Handle document upload
   const handleFileUpload = (docKey: string, file: File) => {
@@ -190,7 +178,6 @@ export default function PostSignupRedirect() {
     const doc: UploadedDoc = { name: file.name, url, size: file.size };
     setRegData((prev) => {
       const next = { ...prev, documents: [...prev.documents, doc] };
-      persistData(next);
       return next;
     });
     setError("");
@@ -202,7 +189,6 @@ export default function PostSignupRedirect() {
       URL.revokeObjectURL(docs[idx].url);
       docs.splice(idx, 1);
       const next = { ...prev, documents: docs };
-      persistData(next);
       return next;
     });
   };
@@ -265,7 +251,6 @@ export default function PostSignupRedirect() {
         setRegData((prev) => {
           if (prev.email === clerkEmail) return prev;
           const next = { ...prev, email: clerkEmail, firstName: clerkFirstName, lastName: clerkLastName };
-          persistData(next);
           return next;
         });
       }
@@ -281,7 +266,7 @@ export default function PostSignupRedirect() {
     return () => {
       cancelled = true;
     };
-  }, [user, isLoaded, router, persistData]);
+  }, [user, isLoaded, router]);
 
   // Go back to previous step
   const goBack = () => {
@@ -419,9 +404,6 @@ export default function PostSignupRedirect() {
         return;
       }
       const result: { requiresVerification: boolean } = await res.json();
-
-      // Clear sessionStorage
-      sessionStorage.removeItem(STORAGE_KEY);
 
       if (!result.requiresVerification) {
         router.push("/dashboard");

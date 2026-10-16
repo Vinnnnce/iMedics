@@ -29,4 +29,4 @@ export const POST = withAuth(null, async (req, { user }) => {
     headers: { "Content-Type": mimeType },
     expiresInSeconds: UPLOAD_URL_TTL_SECONDS,
   });
-});
+}, { allowOnboarding: true });

@@ -30,6 +30,6 @@ export async function writeAudit(input: AuditInput): Promise<void> {
       },
     });
   } catch (error) {
-    console.error("Audit log write failed:", error);
+    console.error("Audit log write failed", { kind: error instanceof Error ? error.name : "UnknownError" });
   }
 }

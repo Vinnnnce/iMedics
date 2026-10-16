@@ -3,6 +3,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { Prisma, type Role, type User } from "@prisma/client";
 import { prisma } from "./prisma";
 import { ApiError, forbidden, unauthorized } from "./errors";
+import { isAccountBlocked, isAccountReady } from "./roles";
 
 /**
  * Authorization model
@@ -17,8 +18,6 @@ import { ApiError, forbidden, unauthorized } from "./errors";
  * The very first admins are bootstrapped from the ADMIN_EMAILS env var, and
  * only when Clerk reports the email address as verified.
  */
-
-const BLOCKED_STATUSES: ReadonlySet<string> = new Set(["SUSPENDED", "BANNED"]);
 
 function bootstrapAdminEmails(): Set<string> {
   return new Set(
@@ -77,14 +76,14 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
 export async function requireUser(): Promise<User> {
   const user = await getCurrentUser();
   if (!user) throw unauthorized();
-  if (user.deletedAt) throw forbidden("This account has been removed");
-  if (BLOCKED_STATUSES.has(user.status)) throw forbidden("This account is suspended");
+  if (isAccountBlocked(user)) throw forbidden("This account is unavailable");
   return user;
 }
 
 /** Require a signed-in, active user holding one of the given roles. */
 export async function requireRole(...roles: Role[]): Promise<User> {
   const user = await requireUser();
+  if (!isAccountReady(user)) throw forbidden("Complete registration and verification before continuing");
   if (!roles.includes(user.role)) throw forbidden();
   return user;
 }

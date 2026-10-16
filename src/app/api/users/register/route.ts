@@ -4,7 +4,7 @@ import type { AccountType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
 import { conflict } from "@/lib/errors";
-import { writeAudit } from "@/lib/audit";
+import { queueNotification } from "@/lib/notifications/service";
 import { generateCaseNumber } from "@/lib/case-number";
 
 const TERMS_VERSION = "2026-10";
@@ -158,20 +158,16 @@ export const POST = withAuth(null, async (req, { user }) => {
         },
       });
     }
+    await tx.auditLog.create({ data: {
+      userId: user.id, actorRole: user.role, action: "REGISTRATION_SUBMITTED",
+      resourceType: "User", resourceId: user.id,
+      details: { accountType, requiresVerification: !isPatient },
+    } });
   });
-
-  await writeAudit({
-    userId: user.id,
-    actorRole: user.role,
-    action: "REGISTRATION_SUBMITTED",
-    resourceType: "User",
-    resourceId: user.id,
-    details: { accountType, requiresVerification: !isPatient },
-    req,
-  });
+  if (isPatient) await queueNotification(user.id, { kind: "ACCOUNT_REGISTERED" });
 
   return NextResponse.json(
     { success: true, role: user.role, status: isPatient ? "ACTIVE" : "PENDING", requiresVerification: !isPatient },
     { status: 201 },
   );
-});
+}, { allowOnboarding: true });

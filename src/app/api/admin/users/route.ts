@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
 import { badRequest } from "@/lib/errors";
-import { writeAudit } from "@/lib/audit";
+import { queueNotification } from "@/lib/notifications/service";
 import type { AccountType, Role } from "@prisma/client";
 
 const userSelect = {
@@ -69,8 +69,11 @@ export const PATCH = withAuth(["ADMIN"], async (req, { user: admin }) => {
 
   const updated = await prisma.$transaction(async (tx) => {
     const target = await tx.user.findUniqueOrThrow({
-      where: { id },
-      select: { status: true, accountType: true },
+      where: { id, deletedAt: null },
+      select: {
+        role: true, status: true, accountType: true,
+        doctorProfile: { select: { id: true } }, labStaffProfile: { select: { id: true } },
+      },
     });
 
     // Activating a pending professional account is the approval step: it grants
@@ -81,6 +84,8 @@ export const PATCH = withAuth(["ADMIN"], async (req, { user: admin }) => {
         : null;
     const newRole = role ?? approvedRole ?? undefined;
     const isProfessional = newRole === "DOCTOR" || newRole === "LAB_SCIENTIST";
+    if (newRole === "DOCTOR" && !target.doctorProfile) throw badRequest("A doctor profile is required before granting this role");
+    if (newRole === "LAB_SCIENTIST" && !target.labStaffProfile) throw badRequest("A facility profile is required before granting this role");
 
     const user = await tx.user.update({
       where: { id },
@@ -101,18 +106,16 @@ export const PATCH = withAuth(["ADMIN"], async (req, { user: admin }) => {
     } else if (newRole === "LAB_SCIENTIST") {
       await tx.labStaffProfile.updateMany({ where: { userId: id }, data: verification });
     }
+    // A role/status change must roll back if its audit record cannot be persisted.
+    await tx.auditLog.create({ data: {
+      userId: admin.id, actorRole: admin.role, action: "ADMIN_UPDATE_USER",
+      resourceType: "User", resourceId: id,
+      details: { previousRole: target.role, previousStatus: target.status, role: user.role, status: user.status },
+    } });
     return user;
   });
 
-  await writeAudit({
-    userId: admin.id,
-    actorRole: admin.role,
-    action: "ADMIN_UPDATE_USER",
-    resourceType: "User",
-    resourceId: id,
-    details: { status: status ?? null, role: role ?? null },
-    req,
-  });
+  if (updated.status === "ACTIVE") await queueNotification(id, { kind: "ACCOUNT_UPDATED" });
 
   const { doctorProfile, labStaffProfile, ...rest } = updated;
   return NextResponse.json({

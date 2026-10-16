@@ -1,4 +1,5 @@
 import type { NotificationType, Role } from "@prisma/client";
+import { ROLE_POLICY } from "@/lib/roles";
 
 /**
  * Every notification is described by one of these events. Templates below are the ONLY place notification text
@@ -18,7 +19,11 @@ export type NotificationEvent =
   | { kind: "PAYMENT_REFUNDED"; paymentId: string }
   | { kind: "FACILITY_BOOKING_REQUESTED"; bookingId: string }
   | { kind: "FACILITY_BOOKING_UPDATED"; bookingId: string }
-  | { kind: "RESULTS_AVAILABLE"; analysisId: string };
+  | { kind: "RESULTS_AVAILABLE"; analysisId: string }
+  | { kind: "TASK_CREATED"; taskId: string }
+  | { kind: "TASK_COMPLETED"; taskId: string }
+  | { kind: "ACCOUNT_REGISTERED" }
+  | { kind: "ACCOUNT_UPDATED" };
 
 export interface RenderedNotification {
   type: NotificationType;
@@ -37,6 +42,16 @@ const bookingsHref = (role: Role) => (role === "LAB_SCIENTIST" ? "/lab/bookings"
 
 export function renderNotification(event: NotificationEvent, role: Role): RenderedNotification {
   switch (event.kind) {
+    case "ACCOUNT_REGISTERED":
+    case "ACCOUNT_UPDATED":
+      return { type: "SYSTEM", title: event.kind === "ACCOUNT_REGISTERED" ? "Your account is ready" : "Account updated",
+        body: "There is an update to your account. Sign in securely to review it.",
+        href: ROLE_POLICY[role].dashboard, data: {} };
+    case "TASK_CREATED":
+    case "TASK_COMPLETED":
+      return { type: "SYSTEM", title: event.kind === "TASK_CREATED" ? "New care task" : "Task completed",
+        body: "Your task list has been updated. Sign in securely to review it.",
+        href: "/workspace", data: { taskId: event.taskId } };
     case "APPOINTMENT_REQUESTED":
       return {
         type: "APPOINTMENT",

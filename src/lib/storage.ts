@@ -79,7 +79,7 @@ export async function deleteObject(key: string): Promise<void> {
   const { client, bucket } = storage();
   try {
     await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
-  } catch (error) {
-    console.error("Failed to delete object:", key, error);
+  } catch {
+    console.error("Private object deletion failed");
   }
 }
