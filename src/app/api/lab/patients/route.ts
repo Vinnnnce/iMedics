@@ -6,6 +6,7 @@ import { getVerifiedLabProfile } from "@/lib/access";
 import { notFound } from "@/lib/errors";
 import { ageFromDob } from "@/lib/format";
 import { writeAudit } from "@/lib/audit";
+import { facilityPatientWhere } from "@/lib/facility-access";
 
 const querySchema = z.object({ caseNumber: z.string().trim().min(6).max(30) });
 
@@ -16,7 +17,7 @@ export const GET = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
   const { caseNumber } = parseQuery(req, querySchema);
 
   const patient = await prisma.patient.findFirst({
-    where: { caseNumber: caseNumber.toUpperCase(), deletedAt: null },
+    where: { AND: [await facilityPatientWhere(user), { caseNumber: caseNumber.toUpperCase() }] },
     select: { id: true, caseNumber: true, firstName: true, lastName: true, gender: true, dateOfBirth: true },
   });
 

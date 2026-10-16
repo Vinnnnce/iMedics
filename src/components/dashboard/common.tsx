@@ -31,6 +31,13 @@ export function useDashboardMutation() {
   }
   return { busy, error, run, errorUI: error ? <ErrorState title="Action not completed" detail={error} /> : null };
 }
+export async function downloadCsv(endpoint: string, fileName: string) {
+  const response = await fetch(endpoint, { cache: "no-store" });
+  if (!response.ok) throw new Error("Export failed. Please retry.");
+  const url = URL.createObjectURL(await response.blob());
+  const anchor = document.createElement("a"); anchor.href = url; anchor.download = fileName; anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 export function ItemTable({ items, title, actions, exportSection }: {
   items: readonly WorkspaceItem[]; title: string; actions?: (item: WorkspaceItem) => ReactNode;
   exportSection?: "appointments" | "results" | "payments" | "timeline" | "operations";
@@ -54,11 +61,7 @@ export function ItemTable({ items, title, actions, exportSection }: {
         if (!window.confirm("Export these authorized records to this device? The file may contain sensitive information. Keep it secure.")) return;
         void mutation.run(async () => {
           const query = new URLSearchParams({ section: exportSection, search, status, ...range });
-          const response = await fetch(`/api/workspace/report?${query}`, { cache: "no-store" });
-          if (!response.ok) throw new Error("Export failed. Please retry.");
-          const url = URL.createObjectURL(await response.blob());
-          const anchor = document.createElement("a"); anchor.href = url; anchor.download = `imedics-${exportSection}.csv`; anchor.click();
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          await downloadCsv(`/api/workspace/report?${query}`, `imedics-${exportSection}.csv`);
         }, "Export downloaded");
       }}>Export CSV</Button>}
     </FilterBar>

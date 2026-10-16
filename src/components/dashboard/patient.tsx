@@ -44,7 +44,7 @@ export function PrevisitIntake({ data }: { data: WorkspaceData }) {
   </Panel>;
 }
 export function PatientCareSections({ data }: { data: WorkspaceData }) {
-  return <section aria-label="Manage your care" className="space-y-6">
+  return <section id="care-workspace" aria-label="Manage your care" className="space-y-6">
     {data.alerts.length > 0 && <div role="alert" className="space-y-2 rounded-xl border border-destructive/40 bg-card p-4"><h2 className="font-semibold">A result requires prompt attention</h2>
       <p className="text-sm">Contact your care team promptly to review the verified result. No automated treatment decision has been made.</p><Link className="text-sm underline" href="/patient/results">Review results</Link></div>}
     <div className="grid gap-4 min-[390px]:grid-cols-2">

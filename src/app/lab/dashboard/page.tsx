@@ -4,14 +4,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import { requirePageRole } from "@/lib/guards";
 import { clinicInstant, clinicToday } from "@/lib/clinic-time";
+import { facilityPatientWhere } from "@/lib/facility-access";
+import { loadWorkspace } from "@/lib/workspace/data";
+import { FacilitySections } from "@/components/dashboard/facility";
 
 export default async function LabDashboardPage() {
   const user = await requirePageRole("LAB_SCIENTIST");
+  const patient = await facilityPatientWhere(user);
+  const workspace = await loadWorkspace(user);
   const today = clinicToday();
 
   const [newOrders, inProgress, submittedToday] = await Promise.all([
-    prisma.labOrder.count({ where: { status: "ORDERED" } }),
-    prisma.labOrder.count({ where: { status: "IN_PROGRESS" } }),
+    prisma.labOrder.count({ where: { patient, status: "ORDERED" } }),
+    prisma.labOrder.count({ where: { patient, status: "IN_PROGRESS" } }),
     prisma.labResult.count({ where: { uploadedById: user.id, createdAt: { gte: clinicInstant(today, 0), lt: clinicInstant(today, 24 * 60) } } }),
   ]);
 
@@ -27,7 +32,7 @@ export default async function LabDashboardPage() {
         <h1 className="text-2xl font-bold">Lab Dashboard</h1>
         <p className="mt-1 text-sm text-muted-foreground">Orders and results at a glance</p>
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-3">
         {stats.map((s) => (
           <Link key={s.label} href={s.href}>
             <Card className="beeline-card h-full transition-colors hover:bg-muted/50">
@@ -40,6 +45,7 @@ export default async function LabDashboardPage() {
           </Link>
         ))}
       </div>
+      <FacilitySections data={workspace} />
     </div>
   );
 }

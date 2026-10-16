@@ -24,7 +24,7 @@ export function DoctorCareSections({ data }: { data: WorkspaceData }) {
     event.preventDefault(); const fields = new FormData(event.currentTarget);
     await mutation.run(async () => { await apiClient.post("/workspace/followups", { consultationId: fields.get("consultation"), dueAt: new Date(String(fields.get("due"))).toISOString() }); }, "Follow-up reminder scheduled");
   }
-  return <section aria-label="Clinical workspace" className="space-y-6">
+  return <section id="care-workspace" aria-label="Clinical workspace" className="space-y-6">
     {mutation.errorUI}
     <div className="grid gap-4 lg:grid-cols-2"><Panel title="Next patient">
       {next ? <><h3 className="font-semibold">{next.title}</h3><p className="text-sm text-muted-foreground">{next.subtitle} · Case {next.caseNumber}</p>

@@ -2,15 +2,16 @@ import { z } from "zod";
 import { ResultEntryForm, type OrderPrefill } from "@/components/lab/result-entry-form";
 import { prisma } from "@/lib/prisma";
 import { requirePageRole } from "@/lib/guards";
+import { facilityPatientWhere } from "@/lib/facility-access";
 
 export default async function LabUploadPage({ searchParams }: { searchParams: Promise<{ orderId?: string }> }) {
-  await requirePageRole("LAB_SCIENTIST");
+  const user = await requirePageRole("LAB_SCIENTIST");
 
   let prefill: OrderPrefill | null = null;
   const orderId = z.string().uuid().safeParse((await searchParams).orderId);
   if (orderId.success) {
     const order = await prisma.labOrder.findFirst({
-      where: { id: orderId.data, status: { in: ["ORDERED", "IN_PROGRESS"] } },
+      where: { id: orderId.data, patient: await facilityPatientWhere(user), status: { in: ["ORDERED", "IN_PROGRESS"] } },
       include: {
         patient: { select: { id: true, firstName: true, lastName: true, caseNumber: true } },
         items: { include: { labTest: { select: { code: true, name: true, unit: true, refLow: true, refHigh: true } } } },

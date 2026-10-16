@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { AdminOperations } from "@/components/dashboard/admin";
 import { useRouter } from "next/navigation";
 import {
   Users, Shield, Ban, CheckCircle, AlertTriangle, Bell,
@@ -276,6 +277,7 @@ export default function AdminDashboardPage() {
         <div className="stat-card p-5 text-sm text-muted-foreground" data-testid="text-admin-loading">Loading dashboard data…</div>
       )}
 
+      <AdminOperations users={users} />
       {/* Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {tabs.map((tab) => {

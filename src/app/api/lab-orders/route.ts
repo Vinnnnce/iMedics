@@ -6,6 +6,7 @@ import { withAuth, parseBody, parseQuery } from "@/lib/api";
 import { findAccessiblePatient, getVerifiedLabProfile } from "@/lib/access";
 import { badRequest } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
+import { facilityPatientWhere } from "@/lib/facility-access";
 
 const createSchema = z.object({
   patientId: z.string().uuid(),
@@ -66,7 +67,7 @@ export const GET = withAuth(["DOCTOR", "LAB_SCIENTIST", "PATIENT"], async (req, 
     where = { orderedById: user.id, ...(status ? { status } : {}), ...(patientId ? { patientId } : {}) };
   } else if (user.role === "LAB_SCIENTIST") {
     await getVerifiedLabProfile(user);
-    where = { status: status ?? { in: ["ORDERED", "IN_PROGRESS"] }, ...(patientId ? { patientId } : {}) };
+    where = { patient: await facilityPatientWhere(user), status: status ?? { in: ["ORDERED", "IN_PROGRESS"] }, ...(patientId ? { patientId } : {}) };
   } else {
     where = { patient: { userId: user.id }, ...(status ? { status } : {}) };
   }
