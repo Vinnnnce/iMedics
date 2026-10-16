@@ -71,7 +71,7 @@ export default async function DoctorProfilePage({ params }: { params: Promise<{ 
     },
     {
       question: "Is my information confidential?",
-      answer: "Only the doctor you book with can see your consultation. Reviews never show your clinical details, and doctors are asked not to include patient information in public replies.",
+      answer: "Your consultation is visible to the doctors involved in your care. Reviews show your first name only, and doctors are asked not to include patient information in public replies.",
     },
     {
       question: "Can this doctor refer me to someone else?",
@@ -83,7 +83,7 @@ export default async function DoctorProfilePage({ params }: { params: Promise<{ 
     },
     {
       question: "How do I join a video consultation?",
-      answer: "At the appointment time, open the consultation from your dashboard: video visits open the doctor's consultation room, chat visits open a secure message thread.",
+      answer: "At the appointment time, open the consultation from your dashboard.",
     },
   ];
 
@@ -131,7 +131,7 @@ export default async function DoctorProfilePage({ params }: { params: Promise<{ 
                   : `${startingFee > 0 ? formatMoney(startingFee, doctor.currency) : "Free"} per consultation`}
               </span>
             </div>
-            <NextAvailable iso={nextAvailableAt} timezoneLabel="clinic time" />
+            <NextAvailable iso={nextAvailableAt} />
             <div className="flex flex-wrap items-center gap-2 pt-1">
               {user.role === "PATIENT" && <LikeButton doctorId={doctor.id} initialLiked={viewer.liked} initialCount={doctor.likeCount} />}
               <ShareProfileButton />
@@ -229,18 +229,20 @@ export default async function DoctorProfilePage({ params }: { params: Promise<{ 
             )}
             {(doctor.identityVerification || doctor.licenseVerification || doctor.qualificationVerification) && (
               <div className="grid gap-2 sm:grid-cols-3">
-                {([["Identity", doctor.identityVerification], ["Licence", doctor.licenseVerification], ["Qualifications", doctor.qualificationVerification]] as const).map(([label, status]) =>
+                {([["Identity", doctor.identityVerification, doctor.identityVerifiedAt], ["Licence", licenseExpired && doctor.licenseVerification !== null ? "EXPIRED" : doctor.licenseVerification, doctor.licenseVerifiedAt], ["Qualifications", doctor.qualificationVerification, doctor.qualificationVerifiedAt]] as const).map(([label, status, verifiedAt]) =>
                   status ? (
                     <div key={label} className="rounded-lg border border-input p-2">
                       <p className="text-xs text-muted-foreground">{label}</p>
                       <Badge variant={status === "VERIFIED" ? "default" : "outline"} className="mt-1 rounded-lg">
                         {VERIFICATION_LABELS[status] ?? status}
                       </Badge>
+                      {verifiedAt && <p className="mt-1 text-xs text-muted-foreground">Checked {formatDate(verifiedAt)}</p>}
                     </div>
                   ) : null,
                 )}
               </div>
             )}
+            {doctor.licenseNumber && <p className="text-muted-foreground">Licence number: {doctor.licenseNumber}</p>}
             <ChipRow label="Professional memberships" values={doctor.professionalMemberships} />
             <ChipRow label="Hospital affiliations" values={doctor.hospitalAffiliations} />
             <ChipRow label="Awards and recognition" values={doctor.awards} />

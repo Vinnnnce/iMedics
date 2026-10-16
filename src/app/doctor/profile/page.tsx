@@ -35,6 +35,7 @@ export default async function DoctorProfilePage() {
           cvFileId: doctor.cvFileId,
           licensingAuthority: doctor.licensingAuthority,
           licenseExpiry: doctor.licenseExpiry ? doctor.licenseExpiry.toISOString().slice(0, 10) : null,
+          licensePublic: doctor.licensePublic,
           professionalMemberships: doctor.professionalMemberships,
           awards: doctor.awards,
           hospitalAffiliations: doctor.hospitalAffiliations,

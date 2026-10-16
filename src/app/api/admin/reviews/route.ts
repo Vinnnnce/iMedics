@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
 import { notFound } from "@/lib/errors";
@@ -44,7 +45,7 @@ export const PATCH = withAuth(["ADMIN"], async (req, { user }) => {
     const ratingAvg = Math.round((stats._avg.rating ?? 0) * 100) / 100;
     await tx.doctorProfile.update({ where: { id: review.doctorId }, data: { ratingAvg, ratingCount: stats._count._all } });
     return { ratingAvg, ratingCount: stats._count._all };
-  });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
   await writeAudit({
     userId: user.id,

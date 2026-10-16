@@ -37,18 +37,10 @@ export const POST = withAuth<{ id: string }>(["DOCTOR", "PATIENT"], async (req, 
   if (appointment.scheduledAt <= new Date()) throw conflict("This appointment has already started");
   if (start.getTime() === appointment.scheduledAt.getTime()) throw conflict("Choose a different time");
 
-  // A service appointment keeps its own duration; plain bookings use the doctor's slot length.
-  let duration: number;
-  if (appointment.serviceId) {
-    const service = await prisma.doctorService.findUnique({
-      where: { id: appointment.serviceId },
-      select: { durationMinutes: true },
-    });
-    if (!service) throw notFound("The booked service is no longer available");
-    duration = await findServiceSlotMinutes(appointment.doctorId, start, service.durationMinutes);
-  } else {
-    duration = await findSlotMinutes(appointment.doctorId, start);
-  }
+  // A service appointment keeps the duration it was booked with, not the service's current one.
+  const duration = appointment.serviceId ? appointment.durationMinutes : await findSlotMinutes(appointment.doctorId, start);
+  // The whole visit (service bookings included) must fit inside a published window.
+  await findServiceSlotMinutes(appointment.doctorId, start, duration);
 
   const updated = await prisma.$transaction(
     async (tx) => {

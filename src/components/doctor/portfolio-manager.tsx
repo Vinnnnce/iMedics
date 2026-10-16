@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -32,6 +32,7 @@ export function PortfolioManager() {
   const [items, setItems] = useState<PortfolioItem[] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [type, setType] = useState<string>("PUBLICATION");
   const [title, setTitle] = useState("");
@@ -44,17 +45,23 @@ export function PortfolioManager() {
   const [consentStatus, setConsentStatus] = useState("PENDING");
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  if (items === null && !busy) {
-    setBusy(true);
+  useEffect(() => {
+    let cancelled = false;
     apiClient
       .get<{ items: PortfolioItem[] }>("/doctors/me/portfolio")
-      .then((data) => setItems(data.items))
-      .catch(() => {
-        setError("Could not load your portfolio");
-        setItems([]);
+      .then((data) => {
+        if (!cancelled) setItems(data.items);
       })
-      .finally(() => setBusy(false));
-  }
+      .catch(() => {
+        if (!cancelled) {
+          setError("Could not load your portfolio");
+          setItems([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const uploadAttachment = async (file: File) => {
     setError("");
@@ -78,33 +85,59 @@ export function PortfolioManager() {
     }
   };
 
-  const create = async () => {
+  const resetForm = () => {
+    setEditingId(null);
+    setType("PUBLICATION");
+    setTitle("");
+    setDescription("");
+    setExternalUrl("");
+    setPublishedAt("");
+    setAttachmentFileId(null);
+    setAttachmentName(null);
+    setVisibility("PRIVATE");
+    setConsentStatus("PENDING");
+  };
+
+  const startEdit = (item: PortfolioItem) => {
+    setEditingId(item.id);
+    setType(item.type);
+    setTitle(item.title);
+    setDescription(item.description ?? "");
+    setExternalUrl(item.externalUrl ?? "");
+    setPublishedAt(item.publishedAt ? item.publishedAt.slice(0, 10) : "");
+    setAttachmentFileId(item.attachmentFileId);
+    setVisibility(item.visibility);
+    setConsentStatus(item.consentStatus);
+    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+  };
+
+  const save = async () => {
     setError("");
     setBusy(true);
+    const body = {
+      type,
+      title,
+      description: description || null,
+      externalUrl: externalUrl || null,
+      publishedAt: publishedAt || null,
+      attachmentFileId,
+      visibility,
+      consentStatus,
+    };
     try {
-      await apiClient.post("/doctors/me/portfolio", {
-        type,
-        title,
-        description: description || null,
-        externalUrl: externalUrl || null,
-        publishedAt: publishedAt || null,
-        attachmentFileId,
-        visibility,
-        consentStatus,
-      });
-      toast.success("Portfolio item added");
-      setTitle("");
-      setDescription("");
-      setExternalUrl("");
-      setPublishedAt("");
-      setAttachmentFileId(null);
-      setAttachmentName(null);
-      setVisibility("PRIVATE");
-      setConsentStatus("PENDING");
-      setItems(null);
+      if (editingId) {
+        await apiClient.put(`/doctors/me/portfolio/${editingId}`, body);
+        toast.success("Item updated");
+      } else {
+        await apiClient.post("/doctors/me/portfolio", body);
+        toast.success("Item added");
+      }
+      resetForm();
+      const refreshed = await apiClient.get<{ items: PortfolioItem[] }>("/doctors/me/portfolio");
+      setItems(refreshed.items);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not add the item");
+      setError(e instanceof Error ? e.message : "Could not save the item");
     } finally {
       setBusy(false);
     }
@@ -129,6 +162,7 @@ export function PortfolioManager() {
     try {
       const updated = await apiClient.put<{ item: PortfolioItem }>(`/doctors/me/portfolio/${item.id}`, {
         ...item,
+        publishedAt: item.publishedAt,
         visibility: nextVisibility,
       });
       setItems((prev) => (prev ? prev.map((i) => (i.id === item.id ? updated.item : i)) : prev));
@@ -163,6 +197,9 @@ export function PortfolioManager() {
                     Consent {item.consentStatus.toLowerCase()}
                   </Badge>
                 )}
+                <Button type="button" variant="outline" size="sm" className="rounded-lg" disabled={busy} onClick={() => startEdit(item)}>
+                  Edit
+                </Button>
                 <Button type="button" variant="outline" size="sm" className="rounded-lg" disabled={busy} onClick={() => toggleVisibility(item)}>
                   {item.visibility === "PUBLIC" ? "Unpublish" : "Publish"}
                 </Button>
@@ -179,7 +216,7 @@ export function PortfolioManager() {
 
       <Card className="beeline-card">
         <CardContent className="space-y-4 p-4">
-          <p className="font-medium">Add a portfolio item</p>
+          <p className="font-medium">{editingId ? "Edit portfolio item" : "Add a portfolio item"}</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-1 text-xs text-muted-foreground">
               Type
@@ -246,9 +283,16 @@ export function PortfolioManager() {
             the switch off until consent is recorded.
           </p>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="button" className="bg-foreground text-background rounded-lg" disabled={busy || title.length < 3} onClick={create}>
-            <Plus className="mr-1 h-4 w-4" /> Add item
-          </Button>
+          <div className="flex gap-2">
+            <Button type="button" className="bg-foreground text-background rounded-lg" disabled={busy || title.length < 3} onClick={save}>
+              <Plus className="mr-1 h-4 w-4" /> {editingId ? "Save changes" : "Add item"}
+            </Button>
+            {editingId && (
+              <Button type="button" variant="outline" className="rounded-lg" onClick={resetForm}>
+                Cancel edit
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

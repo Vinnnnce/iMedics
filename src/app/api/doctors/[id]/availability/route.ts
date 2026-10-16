@@ -2,23 +2,38 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseId, parseQuery } from "@/lib/api";
-import { notFound } from "@/lib/errors";
+import { badRequest, notFound } from "@/lib/errors";
 import { clinicInstant, hhmmToMinutes } from "@/lib/clinic-time";
 import { expireStalePayments } from "@/lib/payments/service";
 import { ACTIVE_APPOINTMENT_STATUSES, MAX_APPOINTMENT_MINUTES, addMinutes, overlaps } from "@/lib/appointments";
 
-const querySchema = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD") });
+const querySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
+  // Optional service from the doctor's catalogue: slots must fit that service's duration.
+  serviceId: z.string().uuid().optional(),
+});
 
-// GET /api/doctors/[id]/availability?date=YYYY-MM-DD — free booking slots on a clinic-local date.
+// GET /api/doctors/[id]/availability?date=YYYY-MM-DD&serviceId=uuid — free booking slots on a clinic-local date.
 export const GET = withAuth<{ id: string }>(null, async (req, { params }) => {
   const doctorId = parseId((await params).id);
-  const { date } = parseQuery(req, querySchema);
+  const { date, serviceId } = parseQuery(req, querySchema);
 
   const doctor = await prisma.doctorProfile.findFirst({
     where: { id: doctorId, verificationStatus: "VERIFIED", acceptingPatients: true, user: { status: "ACTIVE", deletedAt: null } },
     select: { id: true },
   });
   if (!doctor) throw notFound("Doctor not found");
+
+  // A service booking lasts the service's duration, so only slots that fit it are offered.
+  let durationMinutes: number | null = null;
+  if (serviceId) {
+    const service = await prisma.doctorService.findUnique({
+      where: { id: serviceId },
+      select: { doctorId: true, isActive: true, durationMinutes: true },
+    });
+    if (!service || service.doctorId !== doctorId || !service.isActive) throw badRequest("That service is not available");
+    durationMinutes = service.durationMinutes;
+  }
 
   // Slots held by abandoned payments become free again.
   await expireStalePayments();
@@ -45,11 +60,13 @@ export const GET = withAuth<{ id: string }>(null, async (req, { params }) => {
   const slots: { startsAt: string; durationMinutes: number }[] = [];
   for (const window of windows) {
     const end = hhmmToMinutes(window.endTime);
-    for (let m = hhmmToMinutes(window.startTime); m + window.slotMinutes <= end; m += window.slotMinutes) {
+    // A service slot must fit the service's whole duration inside the window; a plain booking uses the slot grid.
+    const visit = durationMinutes ?? window.slotMinutes;
+    for (let m = hhmmToMinutes(window.startTime); m + visit <= end; m += window.slotMinutes) {
       const startsAt = clinicInstant(date, m);
       const free =
-        startsAt > now && !booked.some((b) => overlaps(startsAt, window.slotMinutes, b.scheduledAt, b.durationMinutes));
-      if (free) slots.push({ startsAt: startsAt.toISOString(), durationMinutes: window.slotMinutes });
+        startsAt > now && !booked.some((b) => overlaps(startsAt, visit, b.scheduledAt, b.durationMinutes));
+      if (free) slots.push({ startsAt: startsAt.toISOString(), durationMinutes: visit });
     }
   }
 

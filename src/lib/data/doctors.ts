@@ -44,13 +44,21 @@ const publicSelect = {
   awards: true,
   hospitalAffiliations: true,
   identityVerification: true,
+  identityVerifiedAt: true,
   licenseVerification: true,
+  licenseVerifiedAt: true,
   qualificationVerification: true,
+  qualificationVerifiedAt: true,
+  licenseNumber: true,
 } satisfies Prisma.DoctorProfileSelect;
 
 type PublicRow = Prisma.DoctorProfileGetPayload<{ select: typeof publicSelect }>;
 
-/** Public shape of a doctor: no licence or registration numbers, flat name. */
+/**
+ * Public shape of a doctor: flat name, JSON-safe fees, and nothing the doctor has not
+ * published — the LinkedIn URL disappears unless it is public, and the licence number
+ * is only included when the doctor opted into public display.
+ */
 function toPublic({ user, consultationFee, followUpFee, ...profile }: PublicRow) {
   return {
     ...profile,
@@ -58,6 +66,8 @@ function toPublic({ user, consultationFee, followUpFee, ...profile }: PublicRow)
     avatarUrl: user.avatarUrl,
     consultationFee: consultationFee === null ? null : Number(consultationFee),
     followUpFee: followUpFee === null ? null : Number(followUpFee),
+    linkedinUrl: profile.linkedinPublic ? profile.linkedinUrl : null,
+    licenseNumber: profile.licensePublic ? profile.licenseNumber : null,
   };
 }
 

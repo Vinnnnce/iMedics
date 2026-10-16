@@ -1,15 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { apiClient } from "@/lib/api-client";
 import { SERVICE_KINDS, SERVICE_KIND_LABELS, type ServiceKind } from "@/lib/doctor-profile";
-import { SUPPORTED_CURRENCIES } from "@/lib/money";
 
 interface Service {
   id: string;
@@ -34,77 +33,218 @@ const field = "w-full rounded-lg border border-input bg-background px-3 py-2 tex
 const textarea = "min-h-16 w-full rounded-lg border border-input bg-background p-2 text-sm";
 const MODES = ["CHAT", "VIDEO", "IN_PERSON"] as const;
 
+/** Search-as-you-type picker for ICD-10 codes, validated against the platform's code set. */
+function Icd10Picker({ codes, onChange }: { codes: string[]; onChange: (codes: string[]) => void }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<{ code: string; display: string }[]>([]);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (query.trim().length < 2) {
+        if (!cancelled) {
+          setResults([]);
+          setOpen(false);
+        }
+        return;
+      }
+      apiClient
+        .get<{ codes: { code: string; display: string }[] }>(`/icd10?search=${encodeURIComponent(query.trim())}`)
+        .then((data) => {
+          if (!cancelled) {
+            setResults(data.codes.slice(0, 8));
+            setOpen(true);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setResults([]);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query]);
+
+  const add = (code: string) => {
+    if (!codes.includes(code)) onChange([...codes, code]);
+    setQuery("");
+    setOpen(false);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="relative">
+        <div className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <input
+            className="w-full bg-transparent text-sm outline-none"
+            placeholder="Search ICD-10 codes by code or condition"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Search ICD-10 codes"
+          />
+        </div>
+        {open && results.length > 0 && (
+          <ul className="absolute z-10 mt-1 w-full rounded-lg border border-input bg-background shadow-sm">
+            {results.map((result) => (
+              <li key={result.code}>
+                <button
+                  type="button"
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-accent"
+                  onClick={() => add(result.code)}
+                >
+                  <span className="font-medium">{result.code}</span> · {result.display}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {codes.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {codes.map((code) => (
+            <Badge key={code} variant="outline" className="rounded-lg text-xs">
+              {code}
+              <button type="button" aria-label={`Remove ${code}`} className="ml-1" onClick={() => onChange(codes.filter((c) => c !== code))}>
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const emptyDraft = {
+  kind: "NEW_PATIENT",
+  name: "",
+  description: "",
+  modes: [] as string[],
+  duration: "30",
+  price: "",
+  followUpPrice: "",
+  followUpWindow: "14",
+  icd10Codes: [] as string[],
+  cancellation: "",
+  refund: "",
+  includes: "",
+  addOns: "",
+};
+
 /** The doctor's bookable service catalogue: prices, duration, ICD-10 links, terms. */
 export function ServiceManager({ currency }: { currency?: string }) {
   const router = useRouter();
   const [services, setServices] = useState<Service[] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  // New-service draft
-  const [kind, setKind] = useState<string>("NEW_PATIENT");
+  const [kind, setKind] = useState(emptyDraft.kind);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [modes, setModes] = useState<string[]>([]);
-  const [duration, setDuration] = useState("30");
+  const [duration, setDuration] = useState(emptyDraft.duration);
   const [price, setPrice] = useState("");
   const [followUpPrice, setFollowUpPrice] = useState("");
-  const [followUpWindow, setFollowUpWindow] = useState("14");
-  const [icd10, setIcd10] = useState("");
+  const [followUpWindow, setFollowUpWindow] = useState(emptyDraft.followUpWindow);
+  const [icd10, setIcd10] = useState<string[]>([]);
   const [cancellation, setCancellation] = useState("");
   const [refund, setRefund] = useState("");
   const [includes, setIncludes] = useState("");
   const [addOns, setAddOns] = useState("");
 
-  if (services === null && !busy) {
-    setBusy(true);
+  useEffect(() => {
+    let cancelled = false;
     apiClient
       .get<{ services: Service[] }>("/doctors/me/services")
-      .then((data) => setServices(data.services))
-      .catch(() => {
-        setError("Could not load your services");
-        setServices([]);
+      .then((data) => {
+        if (!cancelled) setServices(data.services);
       })
-      .finally(() => setBusy(false));
-  }
+      .catch(() => {
+        if (!cancelled) {
+          setError("Could not load your services");
+          setServices([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const split = (value: string) => value.split(",").map((v) => v.trim()).filter(Boolean);
 
-  const create = async () => {
+  const startEdit = (service: Service) => {
+    setEditingId(service.id);
+    setKind(service.kind);
+    setName(service.name);
+    setDescription(service.description ?? "");
+    setModes(service.modes);
+    setDuration(String(service.durationMinutes));
+    setPrice(String(service.price));
+    setFollowUpPrice(service.followUpPrice === null ? "" : String(service.followUpPrice));
+    setFollowUpWindow(String(service.followUpWindowDays ?? 14));
+    setIcd10(service.icd10Codes);
+    setCancellation(service.cancellationTerms ?? "");
+    setRefund(service.refundTerms ?? "");
+    setIncludes(service.includes.join(", "));
+    setAddOns(service.addOns.join(", "));
+    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setKind(emptyDraft.kind);
+    setName("");
+    setDescription("");
+    setModes([]);
+    setDuration(emptyDraft.duration);
+    setPrice("");
+    setFollowUpPrice("");
+    setIcd10([]);
+    setCancellation("");
+    setRefund("");
+    setIncludes("");
+    setAddOns("");
+  };
+
+  const save = async () => {
     setError("");
     setBusy(true);
+    const body = {
+      kind,
+      name,
+      description: description || null,
+      modes,
+      durationMinutes: Number(duration) || 30,
+      currency: currency ?? "NGN",
+      price: Number(price),
+      followUpPrice: followUpPrice === "" ? null : Number(followUpPrice),
+      followUpWindowDays: followUpPrice === "" ? null : Number(followUpWindow) || 14,
+      isActive: true,
+      icd10Codes: icd10,
+      cancellationTerms: cancellation || null,
+      refundTerms: refund || null,
+      includes: split(includes),
+      addOns: split(addOns),
+    };
     try {
-      await apiClient.post("/doctors/me/services", {
-        kind,
-        name,
-        description: description || null,
-        modes,
-        durationMinutes: Number(duration) || 30,
-        currency: currency ?? "NGN",
-        price: Number(price),
-        followUpPrice: followUpPrice === "" ? null : Number(followUpPrice),
-        followUpWindowDays: followUpPrice === "" ? null : Number(followUpWindow) || 14,
-        isActive: true,
-        icd10Codes: split(icd10).map((c) => c.toUpperCase()),
-        cancellationTerms: cancellation || null,
-        refundTerms: refund || null,
-        includes: split(includes),
-        addOns: split(addOns),
-      });
-      toast.success("Service added");
-      setName("");
-      setDescription("");
-      setPrice("");
-      setFollowUpPrice("");
-      setIcd10("");
-      setCancellation("");
-      setRefund("");
-      setIncludes("");
-      setAddOns("");
+      if (editingId) {
+        await apiClient.put(`/doctors/me/services/${editingId}`, { ...body, isActive: services?.find((s) => s.id === editingId)?.isActive ?? true });
+        toast.success("Service updated");
+      } else {
+        await apiClient.post("/doctors/me/services", body);
+        toast.success("Service added");
+      }
+      resetForm();
       setServices(null);
       router.refresh();
+      const refreshed = await apiClient.get<{ services: Service[] }>("/doctors/me/services");
+      setServices(refreshed.services);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not add the service");
+      setError(e instanceof Error ? e.message : "Could not save the service");
     } finally {
       setBusy(false);
     }
@@ -158,6 +298,9 @@ export function ServiceManager({ currency }: { currency?: string }) {
                 <Badge variant={service.isActive ? "default" : "outline"} className="rounded-lg">
                   {service.isActive ? "Active" : "Inactive"}
                 </Badge>
+                <Button type="button" variant="outline" size="sm" className="rounded-lg" disabled={busy} onClick={() => startEdit(service)}>
+                  Edit
+                </Button>
                 <Button type="button" variant="outline" size="sm" className="rounded-lg" disabled={busy} onClick={() => toggleActive(service)}>
                   {service.isActive ? "Deactivate" : "Activate"}
                 </Button>
@@ -189,7 +332,7 @@ export function ServiceManager({ currency }: { currency?: string }) {
 
       <Card className="beeline-card">
         <CardContent className="space-y-4 p-4">
-          <p className="font-medium">Add a service</p>
+          <p className="font-medium">{editingId ? "Edit service" : "Add a service"}</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-1 text-xs text-muted-foreground">
               Type
@@ -236,10 +379,10 @@ export function ServiceManager({ currency }: { currency?: string }) {
               ))}
             </div>
           </label>
-          <label className="block space-y-1 text-xs text-muted-foreground">
-            ICD-10 codes (comma-separated, must exist in the platform&rsquo;s code set)
-            <input className={field} placeholder="e.g. I10, E11.9" value={icd10} onChange={(e) => setIcd10(e.target.value)} />
-          </label>
+          <div className="space-y-1 text-xs text-muted-foreground">
+            ICD-10 codes (validated against the platform&rsquo;s code set)
+            <Icd10Picker codes={icd10} onChange={setIcd10} />
+          </div>
           <label className="block space-y-1 text-xs text-muted-foreground">
             Description
             <textarea className={textarea} value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -263,11 +406,18 @@ export function ServiceManager({ currency }: { currency?: string }) {
             </label>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="button" className="bg-foreground text-background rounded-lg" disabled={busy || name.length < 3 || price === ""} onClick={create}>
-            <Plus className="mr-1 h-4 w-4" /> Add service
-          </Button>
+          <div className="flex gap-2">
+            <Button type="button" className="bg-foreground text-background rounded-lg" disabled={busy || name.length < 3 || price === ""} onClick={save}>
+              <Plus className="mr-1 h-4 w-4" /> {editingId ? "Save changes" : "Add service"}
+            </Button>
+            {editingId && (
+              <Button type="button" variant="outline" className="rounded-lg" onClick={resetForm}>
+                Cancel edit
+              </Button>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
-            Sample prices in any documentation are illustrative; you set your own. {SUPPORTED_CURRENCIES.length > 0 ? `Account currency: ${currency ?? "NGN"}.` : ""}
+            Sample prices in any documentation are illustrative; you set your own.
           </p>
         </CardContent>
       </Card>

@@ -54,7 +54,12 @@ export function BookingPanel({
   const [fee, setFee] = useState<{ slot: string; fee: Fee } | null>(null);
   const [reviewing, setReviewing] = useState(false);
   // Remember the booking once created, so a failed payment start can be retried without booking twice.
+  // A pending payment is only valid for the details it was created with; changing any of
+  // them (slot, service, mode) starts a fresh booking instead of reusing the old payment.
   const createdPaymentId = useRef<string | null>(null);
+  const resetPendingBooking = () => {
+    createdPaymentId.current = null;
+  };
 
   const service = services.find((s) => s.id === serviceId) ?? null;
   // The price for the chosen slot, as this patient would be charged (the server repeats this when booking).
@@ -118,9 +123,12 @@ export function BookingPanel({
     }
   };
 
-  // A service may restrict which modes it supports; the panel keeps the standard choice otherwise.
+  // A service may restrict which modes it supports. The panel offers the standard choice
+  // (chat or in person) unless the service names supported modes; if none of the named
+  // modes is bookable here, the service cannot be booked from this panel.
   const serviceModes = service && service.modes.length > 0 ? service.modes.filter((m) => m === "CHAT" || m === "IN_PERSON") : [];
-  const modeOptions = serviceModes.length > 0 ? serviceModes : ["CHAT", "IN_PERSON"];
+  const modeOptions = service && service.modes.length > 0 ? serviceModes : ["CHAT", "IN_PERSON"];
+  const serviceUnbookableHere = service !== null && service.modes.length > 0 && serviceModes.length === 0;
 
   if (booked) {
     return (
@@ -148,6 +156,7 @@ export function BookingPanel({
         <label className="block text-xs text-muted-foreground">
           Date
           <input type="date" min={today} value={date} onChange={(e) => {
+              resetPendingBooking();
               setDate(e.target.value);
               setSlot(null);
               setReviewing(false);
@@ -161,6 +170,7 @@ export function BookingPanel({
               className={`${field} mt-1`}
               value={serviceId}
               onChange={(e) => {
+                resetPendingBooking();
                 setServiceId(e.target.value);
                 setSlot(null);
                 setReviewing(false);
@@ -188,7 +198,10 @@ export function BookingPanel({
                 size="sm"
                 variant={slot === s.startsAt ? "default" : "outline"}
                 className={slot === s.startsAt ? "bg-foreground text-background rounded-lg" : "rounded-lg"}
-                onClick={() => setSlot(s.startsAt)}
+                onClick={() => {
+                resetPendingBooking();
+                setSlot(s.startsAt);
+              }}
               >
                 {timeOf(s.startsAt)}
               </Button>
@@ -204,6 +217,7 @@ export function BookingPanel({
                 {m === "CHAT" ? "Chat" : "In person"}
               </option>
             ))}
+            {serviceUnbookableHere && <option value="">Not bookable in this panel</option>}
           </select>
         </label>
 
@@ -232,7 +246,7 @@ export function BookingPanel({
         ) : (
           <Button
             className="w-full bg-foreground text-background rounded-lg"
-            disabled={!slot || submitting || !currentFee || !currentFee.configured}
+            disabled={!slot || submitting || !currentFee || !currentFee.configured || serviceUnbookableHere}
             onClick={() => (currentFee && currentFee.amount > 0 ? setReviewing(true) : bookFree())}
           >
             {submitting ? "Sending…" : currentFee && currentFee.amount > 0 ? `Continue to payment · ${formatMoney(currentFee.amount, currentFee.currency)}` : "Request this time"}

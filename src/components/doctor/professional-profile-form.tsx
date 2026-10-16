@@ -26,6 +26,7 @@ interface ProfileData {
   cvFileId: string | null;
   licensingAuthority: string | null;
   licenseExpiry: string | null;
+  licensePublic: boolean;
   professionalMemberships: string[];
   awards: string[];
   hospitalAffiliations: string[];
@@ -58,6 +59,7 @@ export function ProfessionalProfileForm({ initial }: { initial: ProfileData }) {
   const [cvFileName, setCvFileName] = useState<string | null>(initial.cvFileName);
   const [licensingAuthority, setLicensingAuthority] = useState(initial.licensingAuthority ?? "");
   const [licenseExpiry, setLicenseExpiry] = useState(initial.licenseExpiry ?? "");
+  const [licensePublic, setLicensePublic] = useState(initial.licensePublic);
   const [memberships, setMemberships] = useState(initial.professionalMemberships.join(", "));
   const [awards, setAwards] = useState(initial.awards.join(", "));
   const [affiliations, setAffiliations] = useState(initial.hospitalAffiliations.join(", "));
@@ -109,6 +111,7 @@ export function ProfessionalProfileForm({ initial }: { initial: ProfileData }) {
         cvFileId,
         licensingAuthority: licensingAuthority || null,
         licenseExpiry: licenseExpiry || null,
+        licensePublic,
         professionalMemberships: split(memberships),
         awards: split(awards),
         hospitalAffiliations: split(affiliations),
@@ -202,6 +205,20 @@ export function ProfessionalProfileForm({ initial }: { initial: ProfileData }) {
             <span className="text-xs text-muted-foreground">Licence expiry</span>
             <Input type="date" className={field} value={licenseExpiry ?? ""} onChange={(e) => setLicenseExpiry(e.target.value)} />
           </Label>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1 size-4 accent-foreground"
+              checked={licensePublic}
+              onChange={(e) => setLicensePublic(e.target.checked)}
+            />
+            <span>
+              Show my licence number on my public profile
+              <span className="block text-xs text-muted-foreground">
+                Your licence number is otherwise kept private. Verification of it is handled by the platform.
+              </span>
+            </span>
+          </label>
           <Label className="block space-y-1">
             <span className="text-xs text-muted-foreground">Professional memberships (comma-separated)</span>
             <Input className={field} value={memberships} onChange={(e) => setMemberships(e.target.value)} />

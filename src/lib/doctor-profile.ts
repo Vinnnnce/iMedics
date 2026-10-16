@@ -20,34 +20,39 @@ export const DOCTOR_PROFILE_LIMITS = {
 const listOf = (max: number, itemMax = 120) =>
   z.array(z.string().trim().min(1).max(itemMax)).max(max);
 
-/** Fields a doctor may edit on their own professional profile. */
-export const doctorProfileUpdateSchema = z.object({
-  professionalTitle: z.string().trim().max(DOCTOR_PROFILE_LIMITS.title).nullable(),
-  qualifications: z.string().trim().max(DOCTOR_PROFILE_LIMITS.shortText).nullable(),
-  clinicalInterests: listOf(DOCTOR_PROFILE_LIMITS.listItems),
-  conditionsTreated: listOf(DOCTOR_PROFILE_LIMITS.listItems),
-  proceduresPerformed: listOf(DOCTOR_PROFILE_LIMITS.listItems),
-  patientCarePhilosophy: z.string().trim().max(DOCTOR_PROFILE_LIMITS.text).nullable(),
-  consultationApproach: z.string().trim().max(DOCTOR_PROFILE_LIMITS.text).nullable(),
-  whenToBookGuidance: z.string().trim().max(DOCTOR_PROFILE_LIMITS.text).nullable(),
-  // Empty array = not specified; booking then offers the platform defaults.
-  consultationModes: z.array(z.enum(["VIDEO", "CHAT", "IN_PERSON"])).max(3),
-  linkedinUrl: z
-    .string()
-    .trim()
-    .url()
-    .refine((v) => /^https:\/\/([a-z]{2,3}\.)?linkedin\.com\//i.test(v), "Must be a LinkedIn profile URL")
-    .max(300)
-    .nullable(),
-  linkedinPublic: z.boolean(),
-  cvFileId: z.string().uuid().nullable(),
-  licensingAuthority: z.string().trim().max(DOCTOR_PROFILE_LIMITS.shortText).nullable(),
-  licenseExpiry: z.coerce.date().nullable(),
-  licensePublic: z.boolean(),
-  professionalMemberships: listOf(DOCTOR_PROFILE_LIMITS.listItems, 200),
-  awards: listOf(DOCTOR_PROFILE_LIMITS.listItems, 200),
-  hospitalAffiliations: listOf(DOCTOR_PROFILE_LIMITS.listItems, 200),
-});
+/**
+ * Fields a doctor may edit on their own professional profile. The PUT is a partial update:
+ * omitted fields keep their current value, so forms only need to send what they manage.
+ */
+export const doctorProfileUpdateSchema = z
+  .object({
+    professionalTitle: z.string().trim().max(DOCTOR_PROFILE_LIMITS.title).nullable(),
+    qualifications: z.string().trim().max(DOCTOR_PROFILE_LIMITS.shortText).nullable(),
+    clinicalInterests: listOf(DOCTOR_PROFILE_LIMITS.listItems),
+    conditionsTreated: listOf(DOCTOR_PROFILE_LIMITS.listItems),
+    proceduresPerformed: listOf(DOCTOR_PROFILE_LIMITS.listItems),
+    patientCarePhilosophy: z.string().trim().max(DOCTOR_PROFILE_LIMITS.text).nullable(),
+    consultationApproach: z.string().trim().max(DOCTOR_PROFILE_LIMITS.text).nullable(),
+    whenToBookGuidance: z.string().trim().max(DOCTOR_PROFILE_LIMITS.text).nullable(),
+    // Empty array = not specified; booking then offers the platform defaults.
+    consultationModes: z.array(z.enum(["VIDEO", "CHAT", "IN_PERSON"])).max(3),
+    linkedinUrl: z
+      .string()
+      .trim()
+      .url()
+      .refine((v) => /^https:\/\/([a-z]{2,3}\.)?linkedin\.com\//i.test(v), "Must be a LinkedIn profile URL")
+      .max(300)
+      .nullable(),
+    linkedinPublic: z.boolean(),
+    cvFileId: z.string().uuid().nullable(),
+    licensingAuthority: z.string().trim().max(DOCTOR_PROFILE_LIMITS.shortText).nullable(),
+    licenseExpiry: z.coerce.date().nullable(),
+    licensePublic: z.boolean(),
+    professionalMemberships: listOf(DOCTOR_PROFILE_LIMITS.listItems, 200),
+    awards: listOf(DOCTOR_PROFILE_LIMITS.listItems, 200),
+    hospitalAffiliations: listOf(DOCTOR_PROFILE_LIMITS.listItems, 200),
+  })
+  .partial();
 
 export type DoctorProfileUpdate = z.infer<typeof doctorProfileUpdateSchema>;
 

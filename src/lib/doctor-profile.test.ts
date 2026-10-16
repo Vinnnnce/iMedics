@@ -49,6 +49,12 @@ describe("doctorProfileUpdateSchema", () => {
     expect(doctorProfileUpdateSchema.parse(base)).toEqual(base);
   });
 
+  it("treats the update as partial: omitted fields are simply absent", () => {
+    const parsed = doctorProfileUpdateSchema.parse({ professionalTitle: "Consultant" });
+    expect(parsed).toEqual({ professionalTitle: "Consultant" });
+    expect(doctorProfileUpdateSchema.parse({})).toEqual({});
+  });
+
   it("rejects a non-LinkedIn URL", () => {
     expect(doctorProfileUpdateSchema.safeParse({ ...base, linkedinUrl: "https://example.com/in/someone" }).success).toBe(false);
   });

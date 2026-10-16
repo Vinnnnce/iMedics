@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { apiClient } from "@/lib/api-client";
+import { formatClinicDateTime } from "@/lib/format";
 import { PORTFOLIO_TYPE_LABELS, type PortfolioType } from "@/lib/doctor-profile";
 
 /** Copy the profile link to the clipboard; toast feedback only, nothing is transmitted. */
@@ -211,14 +212,13 @@ export function ReviewsSection({
   );
 }
 
-/** Shows the doctor's real next bookable slot (clinic time), or that none is published. */
-export function NextAvailable({ iso, timezoneLabel }: { iso: string | null; timezoneLabel: string }) {
+/** Shows the doctor's real next bookable slot in clinic time (WAT), or that none is published. */
+export function NextAvailable({ iso }: { iso: string | null }) {
   if (!iso) return <p className="text-sm text-muted-foreground">No published availability</p>;
-  const when = new Date(iso);
   return (
     <p className="flex items-center gap-1 text-sm">
       <Calendar className="h-4 w-4" />
-      Next available: {when.toLocaleString()} <span className="text-muted-foreground">({timezoneLabel})</span>
+      Next available: {formatClinicDateTime(iso)}
     </p>
   );
 }
