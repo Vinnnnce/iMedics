@@ -10,6 +10,7 @@ import { assertPaymentsAvailable, createPendingPayment, expireStalePayments } fr
 import { queueNotification } from "@/lib/notifications/service";
 import { writeAudit } from "@/lib/audit";
 import { facilityBookingInclude, serializeFacilityBooking } from "@/lib/facility-booking-shape";
+import { createCareCaseInTx, derivedStatusForFacilityBooking } from "@/lib/cases";
 
 const bookSchema = z.object({
   serviceId: z.string().uuid(),
@@ -41,10 +42,22 @@ export const POST = withAuth(["PATIENT"], async (req, { user }) => {
 
   const { booking, payment } = await prisma.$transaction(
     async (tx) => {
+      // Each facility (diagnostic) booking opens a unified care-episode case;
+      // the booking and its payment link to the same episode.
+      const careCase = await createCareCaseInTx(tx, {
+        type: "DIAGNOSTIC",
+        patientId: patient.id,
+        specialty: null,
+        presentingComplaint: service.name,
+        status: derivedStatusForFacilityBooking("REQUESTED"),
+        actorId: user.id,
+        note: `Facility service booked: ${service.name}`,
+      });
       const created = await tx.facilityBooking.create({
         data: {
           patientId: patient.id,
           serviceId: service.id,
+          caseId: careCase.id,
           serviceName: service.name,
           amount,
           currency: service.currency,
@@ -64,6 +77,9 @@ export const POST = withAuth(["PATIENT"], async (req, { user }) => {
               currency: service.currency,
             })
           : null;
+      if (charge) {
+        await tx.payment.update({ where: { id: charge.id }, data: { caseId: careCase.id } });
+      }
       return { booking: created, payment: charge };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },

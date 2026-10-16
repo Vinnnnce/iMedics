@@ -8,6 +8,7 @@ import { consultationInclude, serializeConsultation } from "@/lib/consultation";
 import { badRequest } from "@/lib/errors";
 import { buildDiagnosisRows } from "@/lib/icd10/service";
 import { queueNotification } from "@/lib/notifications/service";
+import { createCareCaseInTx, derivedStatusForConsultation } from "@/lib/cases";
 
 const listQuerySchema = z.object({
   patientId: z.string().uuid().optional(),
@@ -108,10 +109,31 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
   }
 
   const consultation = await prisma.$transaction(async tx => {
+    // Every consultation opens a unified care-episode case. The case number is
+    // allocated server-side inside this transaction; the consultation and any
+    // prescriptions link to it so related records share one episode.
+    const careCase = await createCareCaseInTx(tx, {
+      type: "CONSULTATION",
+      patientId: data.patientId,
+      primaryDoctorId: doctor.id,
+      specialty: doctor.specialty || null,
+      presentingComplaint: data.chiefComplaint || null,
+      diagnosisSummary: diagnosisRows.summary || null,
+      followUpDate: data.followUpDate ? new Date(data.followUpDate) : null,
+      status: derivedStatusForConsultation(
+        finalized ? "FINALIZED" : "DRAFT",
+        finalized ? new Date() : null,
+        data.followUpDate ? new Date(data.followUpDate) : null,
+      ),
+      actorId: user.id,
+      note: "Consultation recorded",
+    });
+
     const saved = await tx.consultation.create({
     data: {
       patientId: data.patientId,
       doctorId: doctor.id,
+      caseId: careCase.id,
       chiefComplaint: data.chiefComplaint || null,
       historyPresentIllness: data.historyPresentIllness || null,
       pastMedicalHistory: data.pastMedicalHistory || null,
@@ -136,6 +158,7 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
               create: {
                 patientId: data.patientId,
                 doctorId: doctor.id,
+                caseId: careCase.id,
                 items: {
                   create: medications.map((m) => ({
                     drugName: m.name,
@@ -159,7 +182,7 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
     action: "CONSULTATION_CREATED",
     resourceType: "Consultation",
     resourceId: saved.id,
-    details: { status: saved.status, prescribed: medications.length, diagnoses: diagnosisRows.rows.length, ...(data.assistance ? { assistanceMethod: data.assistance.method, assistanceReviewed: true } : {}) },
+    details: { status: saved.status, prescribed: medications.length, diagnoses: diagnosisRows.rows.length, caseNumber: careCase.caseNumber, ...(data.assistance ? { assistanceMethod: data.assistance.method, assistanceReviewed: true } : {}) },
   } });
     return saved;
   });

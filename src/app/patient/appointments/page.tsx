@@ -33,6 +33,7 @@ export default async function PatientAppointmentsPage() {
     include: {
       doctor: { select: { id: true, specialty: true, user: { select: { name: true } } } },
       payment: { select: { id: true, status: true, expiresAt: true } },
+      consultations: { select: { case: { select: { id: true, caseNumber: true } } }, take: 1 },
     },
   });
 
@@ -55,6 +56,11 @@ export default async function PatientAppointmentsPage() {
               </Link>
               <Badge variant="outline" className="rounded-lg text-xs">{MODE_LABEL[a.mode]}</Badge>
               <Badge variant="secondary" className="rounded-lg text-xs">{STATUS_LABEL[a.status]}</Badge>
+              {a.consultations[0]?.case && (
+                <Link href={`/patient/cases/${a.consultations[0].case.id}`}>
+                  <Badge variant="outline" className="rounded-lg text-xs">{a.consultations[0].case.caseNumber}</Badge>
+                </Link>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">{formatClinicDateTime(a.scheduledAt)}</p>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

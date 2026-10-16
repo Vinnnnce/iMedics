@@ -6,9 +6,15 @@ import { prisma } from "@/lib/prisma";
 export default async function ProfilePage() {
   const user = await requirePageRole("PATIENT", "DOCTOR", "LAB_SCIENTIST", "ADMIN");
 
-  const [doctor, lab] = await Promise.all([
+  const [doctor, lab, patientRecord] = await Promise.all([
     prisma.doctorProfile.findUnique({ where: { userId: user.id }, select: { verificationStatus: true } }),
     prisma.labStaffProfile.findUnique({ where: { userId: user.id }, select: { verificationStatus: true } }),
+    user.role === "PATIENT"
+      ? prisma.patient.findFirst({
+          where: { userId: user.id, deletedAt: null },
+          select: { preferredName: true, bloodGroup: true, organDonorStatus: true },
+        })
+      : null,
   ]);
 
   return (
@@ -22,6 +28,16 @@ export default async function ProfilePage() {
         role={user.role}
         verificationStatus={doctor?.verificationStatus ?? lab?.verificationStatus ?? null}
         initial={{ name: user.name, phone: user.phone ?? "", language: user.language }}
+        patient={
+          patientRecord
+            ? {
+                preferredName: patientRecord.preferredName ?? "",
+                bloodGroup: patientRecord.bloodGroup ?? "",
+                organDonorStatus:
+                  patientRecord.organDonorStatus === null ? "" : patientRecord.organDonorStatus ? "yes" : "no",
+              }
+            : undefined
+        }
       />
       <NotificationPreferences />
     </div>

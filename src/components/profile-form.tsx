@@ -15,13 +15,22 @@ interface Props {
   role: string;
   verificationStatus: string | null;
   initial: { name: string; phone: string; language: string };
+  /** Patient self-service profile fields; shown only for patient users. */
+  patient?: { preferredName: string; bloodGroup: string; organDonorStatus: string };
 }
 
 const field = "h-9 w-full rounded-lg border border-input bg-background px-2 text-sm";
 const LANGUAGES = [["en", "English"], ["fr", "Français"], ["es", "Español"], ["ru", "Русский"]] as const;
+const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
 
-export function ProfileForm({ email, role, verificationStatus, initial }: Props) {
+export function ProfileForm({ email, role, verificationStatus, initial, patient }: Props) {
   const [form, setForm] = useState(initial);
+  const [patientForm, setPatientForm] = useState({
+    preferredName: patient?.preferredName ?? "",
+    bloodGroup: patient?.bloodGroup ?? "",
+    organDonorStatus: patient?.organDonorStatus ?? "",
+  });
+  const isPatient = role === "PATIENT" && Boolean(patient);
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -29,7 +38,18 @@ export function ProfileForm({ email, role, verificationStatus, initial }: Props)
     startTransition(async () => {
       setMessage(null);
       try {
-        await apiClient.patch("/me", { name: form.name, phone: form.phone.trim() || null, language: form.language });
+        await apiClient.patch("/me", {
+          name: form.name,
+          phone: form.phone.trim() || null,
+          language: form.language,
+          ...(isPatient
+            ? {
+                preferredName: patientForm.preferredName.trim() || null,
+                bloodGroup: patientForm.bloodGroup || null,
+                organDonorStatus: patientForm.organDonorStatus === "" ? null : patientForm.organDonorStatus === "yes",
+              }
+            : {}),
+        });
         setMessage({ type: "ok", text: "Profile saved." });
       } catch (e) {
         setMessage({ type: "error", text: e instanceof Error ? e.message : "Could not save your profile" });
@@ -60,6 +80,26 @@ export function ProfileForm({ email, role, verificationStatus, initial }: Props)
               {LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
             </select>
           </label>
+          {isPatient && (
+            <>
+              <FormField label="Preferred name" hint="How you would like to be addressed — optional.">
+                <input className={field} value={patientForm.preferredName} maxLength={120} onChange={(e) => setPatientForm({ ...patientForm, preferredName: e.target.value })} />
+              </FormField>
+              <label className="block text-xs text-muted-foreground">Blood group
+                <select className={`${field} mt-1`} value={patientForm.bloodGroup} onChange={(e) => setPatientForm({ ...patientForm, bloodGroup: e.target.value })}>
+                  <option value="">Not recorded</option>
+                  {BLOOD_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </label>
+              <label className="block text-xs text-muted-foreground">Organ donor status
+                <select className={`${field} mt-1`} value={patientForm.organDonorStatus} onChange={(e) => setPatientForm({ ...patientForm, organDonorStatus: e.target.value })}>
+                  <option value="">Prefer not to say</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </label>
+            </>
+          )}
           <div className="flex items-center gap-3">
             <Button className="bg-foreground text-background rounded-lg" disabled={pending || !form.name.trim()} onClick={save}>
               {pending ? "Saving…" : "Save changes"}

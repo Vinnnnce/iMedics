@@ -88,6 +88,7 @@ model DoctorProfile {
   schedule               DoctorSchedule[]
   assignments            PatientAssignment[]
   prescriptions          Prescription[]
+  careCases              CareCase[]             @relation("CareCasePrimaryDoctor")
 
   // --- Medic1905 doctor profile enhancement (additive, optional) ---
   professionalTitle         String?             @map("professional_title")
@@ -300,9 +301,14 @@ model Patient {
   ecPhone          String?             @map("ec_phone")
   ecAddress        String?             @map("ec_address")
   insurance        Json?
+  // --- Patient profile header (additive, optional) ---
+  preferredName    String?            @map("preferred_name")
+  /// null means "not recorded" — never shown as "no".
+  organDonorStatus Boolean?           @map("organ_donor_status")
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
   deletedAt        DateTime?           @map("deleted_at")
+  careCases        CareCase[]
   appointments     Appointment[]
   clinicalNotes    ClinicalNote[]
   consultations    Consultation[]
@@ -336,6 +342,63 @@ model PatientAssignment {
   @@unique([patientId, doctorId])
   @@index([doctorId, status])
   @@map("patient_assignments")
+}
+
+/// One care episode (consultation, laboratory analysis, diagnostic investigation,
+/// clinical report or hospital admission) that groups related clinical records.
+/// The patient's permanent MC- record number stays on Patient; this number is
+/// per-episode and never grants access on its own — authorization is checked
+/// against the patient/doctor relationships, not the number.
+model CareCase {
+  id                  String         @id @default(uuid()) @db.Uuid
+  /// MED1905-<TYPE>-<YEAR>-<SEQUENCE>, generated server-side only.
+  caseNumber          String         @unique @map("case_number")
+  type                CareCaseType
+  status              CareCaseStatus @default(OPEN)
+  patientId           String         @map("patient_id") @db.Uuid
+  /// The doctor primarily responsible for the episode, when one exists.
+  primaryDoctorId     String?        @map("primary_doctor_id") @db.Uuid
+  specialty           String?
+  presentingComplaint String?         @map("presenting_complaint")
+  diagnosisSummary    String?        @map("diagnosis_summary")
+  followUpDate        DateTime?      @map("follow_up_date")
+  closedAt            DateTime?      @map("closed_at")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+  patient             Patient        @relation(fields: [patientId], references: [id])
+  primaryDoctor       DoctorProfile? @relation("CareCasePrimaryDoctor", fields: [primaryDoctorId], references: [id])
+  consultations       Consultation[]
+  labOrders           LabOrder[]
+  prescriptions       Prescription[]
+  payments           Payment[]
+  facilityBookings    FacilityBooking[]
+  events              CareCaseEvent[]
+
+  @@index([patientId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("care_cases")
+}
+
+/// Append-only status history; the current status is denormalised on CareCase.
+model CareCaseEvent {
+  id        String       @id @default(uuid()) @db.Uuid
+  caseId    String       @map("case_id") @db.Uuid
+  status    CareCaseStatus
+  note      String?
+  actorId   String?      @map("actor_id") @db.Uuid
+  createdAt DateTime     @default(now()) @map("created_at")
+  case      CareCase     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, createdAt])
+  @@map("care_case_events")
+}
+
+/// Per (type, year) sequence for concurrency-safe case-number generation.
+model CareCaseCounter {
+  id       String   @id // "<TYPE>-<YEAR>"
+  sequence Int      @default(0)
+
+  @@map("care_case_counters")
 }
 
 model MedicalHistory {
@@ -440,11 +503,14 @@ model Consultation {
   notes                 String?
   status                ConsultationStatus      @default(DRAFT)
   finalizedAt           DateTime?               @map("finalized_at")
+  /// The care episode this consultation belongs to, when linked.
+  caseId                String?                 @map("case_id") @db.Uuid
   createdAt             DateTime                @default(now()) @map("created_at")
   updatedAt             DateTime                @updatedAt @map("updated_at")
   aiAnalysis            AiAnalysis?
   clinicalNotes         ClinicalNote[]
   diagnoses             ConsultationDiagnosis[]
+  case                  CareCase?               @relation(fields: [caseId], references: [id])
   appointment           Appointment?            @relation(fields: [appointmentId], references: [id])
   doctor                DoctorProfile           @relation(fields: [doctorId], references: [id])
   patient               Patient                 @relation(fields: [patientId], references: [id])
@@ -460,6 +526,8 @@ model Prescription {
   patientId      String             @map("patient_id") @db.Uuid
   doctorId       String             @map("doctor_id") @db.Uuid
   consultationId String?            @map("consultation_id") @db.Uuid
+  /// The care episode this prescription belongs to, when linked.
+  caseId         String?            @map("case_id") @db.Uuid
   status         PrescriptionStatus @default(ACTIVE)
   issuedAt       DateTime           @default(now()) @map("issued_at")
   validUntil     DateTime?          @map("valid_until")
@@ -468,10 +536,12 @@ model Prescription {
   updatedAt      DateTime           @updatedAt @map("updated_at")
   items          PrescriptionItem[]
   consultation   Consultation?      @relation(fields: [consultationId], references: [id])
+  case           CareCase?          @relation(fields: [caseId], references: [id])
   doctor         DoctorProfile      @relation(fields: [doctorId], references: [id])
   patient        Patient            @relation(fields: [patientId], references: [id])
 
   @@index([patientId])
+  @@index([caseId])
   @@map("prescriptions")
 }
 
@@ -531,15 +601,19 @@ model LabOrder {
   priority      LabOrderPriority @default(ROUTINE)
   status        LabOrderStatus   @default(ORDERED)
   clinicalNotes String?          @map("clinical_notes")
+  /// The care episode this analysis belongs to, when linked.
+  caseId        String?          @map("case_id") @db.Uuid
   createdAt     DateTime         @default(now()) @map("created_at")
   updatedAt     DateTime         @updatedAt @map("updated_at")
   items         LabOrderItem[]
+  case          CareCase?        @relation(fields: [caseId], references: [id])
   orderedBy     User             @relation("LabOrderOrderedBy", fields: [orderedById], references: [id])
   patient       Patient          @relation(fields: [patientId], references: [id])
   results       LabResult[]
 
   @@index([patientId])
   @@index([status])
+  @@index([caseId])
   @@map("lab_orders")
 }
 
@@ -804,13 +878,17 @@ model FacilityBooking {
   currency    String
   preferredAt DateTime              @map("preferred_at")
   status      FacilityBookingStatus @default(REQUESTED)
+  /// The care episode this diagnostic/service booking belongs to, when linked.
+  caseId      String?                @map("case_id") @db.Uuid
   createdAt   DateTime              @default(now()) @map("created_at")
   updatedAt   DateTime              @updatedAt @map("updated_at")
   patient     Patient               @relation(fields: [patientId], references: [id])
   service     FacilityService       @relation(fields: [serviceId], references: [id])
+  case        CareCase?             @relation(fields: [caseId], references: [id])
   payment     Payment?
 
   @@index([patientId, createdAt])
+  @@index([caseId])
   @@index([serviceId, status])
   @@map("facility_bookings")
 }
@@ -838,7 +916,10 @@ model Payment {
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
   events            PaymentEvent[]
+  /// The care episode this payment relates to, when linked.
+  caseId            String?        @map("case_id") @db.Uuid
   appointment       Appointment?     @relation(fields: [appointmentId], references: [id])
+  case              CareCase?      @relation(fields: [caseId], references: [id])
   facilityBooking   FacilityBooking? @relation(fields: [facilityBookingId], references: [id])
   payee             User             @relation("PaymentPayee", fields: [payeeId], references: [id])
   payer             User             @relation("PaymentPayer", fields: [payerId], references: [id])
@@ -961,6 +1042,32 @@ enum AppointmentStatus {
 enum ConsultationStatus {
   DRAFT
   FINALIZED
+}
+
+enum CareCaseType {
+  /// Consultation.
+  CONSULTATION
+  /// Laboratory analysis.
+  LABORATORY
+  /// Diagnostic investigation.
+  DIAGNOSTIC
+  /// Clinical report.
+  REPORT
+  /// Hospital admission or procedure.
+  HOSPITAL
+}
+
+enum CareCaseStatus {
+  OPEN
+  AWAITING_CONSULTATION
+  AWAITING_INVESTIGATION
+  AWAITING_RESULT
+  RESULT_AVAILABLE
+  UNDER_REVIEW
+  TREATMENT_ONGOING
+  FOLLOW_UP_REQUIRED
+  CLOSED
+  ARCHIVED
 }
 
 enum RecordStatus {

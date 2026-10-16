@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Pill } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +13,7 @@ export default async function PatientPrescriptionsPage() {
     where: { patient: { userId: user.id, deletedAt: null } },
     orderBy: { issuedAt: "desc" },
     take: 50,
-    include: { items: true, doctor: { select: { user: { select: { name: true } } } } },
+    include: { items: true, doctor: { select: { user: { select: { name: true } } } }, case: { select: { id: true, caseNumber: true } } },
   });
 
   return (
@@ -34,6 +35,11 @@ export default async function PatientPrescriptionsPage() {
               <Badge variant={p.status === "ACTIVE" ? "secondary" : "outline"} className="rounded-lg">
                 {p.status === "ACTIVE" ? "Active" : p.status === "EXPIRED" ? "Expired" : "Stopped"}
               </Badge>
+              {p.case && (
+                <Link href={`/patient/cases/${p.case.id}`}>
+                  <Badge variant="outline" className="rounded-lg">{p.case.caseNumber}</Badge>
+                </Link>
+              )}
             </div>
             {p.items.map((item) => (
               <div key={item.id} className="flex items-start gap-3 text-sm">
