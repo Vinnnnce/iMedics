@@ -8,6 +8,7 @@ import { consultationInclude, serializeConsultation } from "@/lib/consultation";
 import { writeAudit } from "@/lib/audit";
 import { badRequest } from "@/lib/errors";
 import { buildDiagnosisRows } from "@/lib/icd10/service";
+import { queueNotification } from "@/lib/notifications/service";
 
 const listQuerySchema = z.object({
   patientId: z.string().uuid().optional(),
@@ -90,12 +91,13 @@ const createSchema = z.object({
 export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
   const doctor = await getVerifiedDoctorProfile(user);
   const data = await parseBody(req, createSchema);
-  await findAccessiblePatient(user, data.patientId, { write: true });
+  const patient = await findAccessiblePatient(user, data.patientId, { write: true });
 
   const symptoms = data.symptoms.filter((s) => s.name);
   const medications = data.medications.filter((m) => m.name);
   const finalized = data.status === "finalized";
   if (finalized && data.diagnoses.length === 0) throw badRequest("Select an ICD-10 diagnosis");
+  if (!finalized && medications.length) throw badRequest("Medications can only be issued from a finalized consultation");
 
   let diagnosisRows;
   try {
@@ -159,5 +161,6 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
     req,
   });
 
+  if (finalized) await queueNotification(patient.userId, { kind: "CONSULTATION_AVAILABLE" });
   return NextResponse.json({ success: true, consultation: serializeConsultation(consultation) }, { status: 201 });
 });

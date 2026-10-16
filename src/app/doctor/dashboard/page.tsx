@@ -11,9 +11,12 @@ import { formatClinicDateTime } from "@/lib/format";
 import { notFound } from "next/navigation";
 import { NotificationsCard } from "@/components/shared/notifications-card";
 import { listUnreadNotifications } from "@/lib/data/notifications";
+import { loadWorkspace } from "@/lib/workspace/data";
+import { DoctorCareSections } from "@/components/dashboard/doctor";
 
 export default async function DoctorDashboardPage() {
   const user = await requirePageRole("DOCTOR");
+  const workspace = await loadWorkspace(user);
   const doctor = await getDoctorProfile(user.id);
   if (!doctor) notFound();
 
@@ -78,6 +81,7 @@ export default async function DoctorDashboardPage() {
           </Link>
         ))}
       </div>
+      <DoctorCareSections data={workspace} />
 
       <Card className="beeline-card">
         <CardHeader>

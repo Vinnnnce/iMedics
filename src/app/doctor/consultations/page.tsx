@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Icd10Picker, type Icd10Selection } from "@/components/doctor/icd10-picker";
+import { ConsultationTemplatePicker } from "@/components/doctor/consultation-tools";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -228,6 +229,9 @@ export default function DoctorConsultationsPage() {
         </div>
       )}
 
+      <ConsultationTemplatePicker onApply={template => {
+        setHistoryPresentIllness(template.history); setExamination(template.examination); setNotes(template.notes);
+      }} />
       {/* Patient selector */}
       <Card className="beeline-card">
         <CardHeader>

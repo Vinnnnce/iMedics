@@ -45,7 +45,7 @@ export async function loadWorkspace(user: User): Promise<WorkspaceData> {
     const today = clinicInstant(clinicToday(), 0);
     const tomorrow = new Date(today.getTime() + 86400000);
     const [appointments, results, messages, histories, consultations, upcomingCount, pendingCount, unreadCount, overdueFollowUps] = await Promise.all([
-      prisma.appointment.findMany({ where: { ...appointmentWhere, scheduledAt: { gte: now }, status: { in: ["BOOKED", "CONFIRMED", "IN_PROGRESS"] } }, orderBy: { scheduledAt: "asc" }, take: 25,
+      prisma.appointment.findMany({ where: { ...appointmentWhere, scheduledAt: { gte: user.role === "DOCTOR" ? today : now }, status: { in: ["BOOKED", "CONFIRMED", "IN_PROGRESS"] } }, orderBy: { scheduledAt: "asc" }, take: 50,
         include: { patient: { select: { firstName: true, lastName: true, caseNumber: true } }, doctor: { select: { specialty: true, user: { select: { name: true } } } } } }),
       prisma.labResult.findMany({ where: { patient: scope.where }, orderBy: { testDate: "desc" }, take: 50, include: { values: true, patient: { select: { caseNumber: true } } } }),
       prisma.chatMessage.findMany({ where: { conversation: user.role === "DOCTOR" ? { doctorId: scope.doctorId! } : { patient: scope.where } },
@@ -62,7 +62,7 @@ export async function loadWorkspace(user: User): Promise<WorkspaceData> {
     data.unreadMessages = unreadCount;
     data.appointments = appointments.map(a => ({ id: a.id, title: clinician ? `${a.patient.firstName} ${a.patient.lastName}` : a.doctor.user.name,
       subtitle: clinician ? a.reason ?? "Consultation" : a.doctor.specialty ?? "General consultation", at: a.scheduledAt.toISOString(),
-      caseNumber: a.patient.caseNumber, status: titleCase(a.status), tone: "green", href: clinician ? "/doctor/consultations" : "/patient/appointments" }));
+      patientId: clinician ? a.patientId : undefined, caseNumber: a.patient.caseNumber, status: titleCase(a.status), tone: "green", href: clinician ? "/doctor/consultations" : "/patient/appointments" }));
     data.results = results.map(r => ({ id: r.id, title: r.panelType, subtitle: r.labName ?? "Laboratory result", status: titleCase(r.status), at: r.testDate.toISOString(), caseNumber: r.patient.caseNumber,
       tone: r.values.some(v => v.flag === "CRITICAL_HIGH" || v.flag === "CRITICAL_LOW") && (clinician || r.status === "VERIFIED") ? "red" : r.status === "VERIFIED" ? "green" : "amber",
       href: clinician ? "/doctor/lab-requests" : "/patient/results" }));

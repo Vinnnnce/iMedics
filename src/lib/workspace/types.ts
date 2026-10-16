@@ -4,7 +4,7 @@ export type Tone = "green" | "amber" | "red" | "blue" | "neutral";
 export interface Metric { label: string; value: string; detail: string; tone?: Tone }
 export interface WorkspaceItem {
   id: string; title: string; subtitle: string; status: string;
-  at?: string; href?: string; tone?: Tone; caseNumber?: string; toast?: boolean;
+  at?: string; href?: string; tone?: Tone; caseNumber?: string; toast?: boolean; patientId?: string;
 }
 export interface CareTask extends WorkspaceItem { completed: boolean; kind: string }
 export interface TrendPoint { date: string; value: number }
