@@ -29,7 +29,7 @@ export function FacilitySections({ data }: { data: WorkspaceData }) {
     await mutation.run(async () => { await apiClient.post("/workspace/operations", { action: "assign", bookingId: fields.get("booking"), resourceId: fields.get("resource"), startsAt: new Date(String(fields.get("starts"))).toISOString(), endsAt: new Date(String(fields.get("ends"))).toISOString() }); await load(); }, "Resource allocated");
   }
   return <section id="care-workspace" aria-label="Facility operations" className="space-y-6">{mutation.errorUI}
-    <Tabs defaultValue="bookings"><TabsList className="max-w-full flex-wrap"><TabsTrigger value="bookings">Bookings</TabsTrigger><TabsTrigger value="results">Result queue</TabsTrigger><TabsTrigger value="services">Services</TabsTrigger><TabsTrigger value="analytics">Workload and revenue</TabsTrigger></TabsList>
+    <Tabs defaultValue="bookings"><TabsList className="max-w-full flex-wrap group-data-[orientation=horizontal]/tabs:h-auto"><TabsTrigger value="bookings">Bookings</TabsTrigger><TabsTrigger value="results">Result queue</TabsTrigger><TabsTrigger value="services">Services</TabsTrigger><TabsTrigger value="analytics">Workload and revenue</TabsTrigger></TabsList>
       <TabsContent value="bookings"><Panel title="Booking management"><ItemTable items={data.appointments} title="Bookings" exportSection="appointments" actions={booking => <div className="flex flex-wrap gap-2">
         {["Requested", "Confirmed"].includes(booking.status) && <Button size="sm" variant="outline" disabled={mutation.busy} onClick={() => void mutation.run(async () => { await apiClient.patch(`/facility-bookings/${booking.id}`, { status: booking.status === "Requested" ? "CONFIRMED" : "COMPLETED" }); }, "Booking updated")}>{booking.status === "Requested" ? "Confirm" : "Complete"}</Button>}
         {["Requested", "Confirmed"].includes(booking.status) && <Button size="sm" variant="outline" disabled={mutation.busy} onClick={() => {
@@ -42,7 +42,7 @@ export function FacilitySections({ data }: { data: WorkspaceData }) {
         <form onSubmit={event => { event.preventDefault(); void mutation.run(load, "Facility analytics loaded"); }} className="flex flex-wrap items-end gap-3">
           <FormField label="From date (UTC)"><Input type="date" value={range.from} max={range.to || undefined} onChange={e => setRange({ ...range, from: e.target.value })} /></FormField>
           <FormField label="To date (UTC)"><Input type="date" value={range.to} min={range.from || undefined} onChange={e => setRange({ ...range, to: e.target.value })} /></FormField>
-          <Button variant="outline" disabled={!data.extensionsReady || mutation.busy}>Load analytics</Button>
+          <Button type="submit" variant="outline" disabled={!data.extensionsReady || mutation.busy}>Load analytics</Button>
         </form>
         {!analytics && <p className="text-sm text-muted-foreground">Load a date range to see real allocations. Defaults to the last 30 UTC calendar days.</p>}
         {analytics && <>
@@ -65,13 +65,13 @@ export function FacilitySections({ data }: { data: WorkspaceData }) {
         <FormField label="Resource name" required><Input name="name" required maxLength={100} /></FormField>
         <label className="block space-y-2 text-sm">Resource type<select name="kind" className="block h-10 w-full rounded-lg border border-input bg-background px-2"><option value="STAFF">Staff</option><option value="ROOM">Room</option></select></label>
         <FormField label="Concurrent capacity" required><Input type="number" name="capacity" min={1} max={100} defaultValue={1} required /></FormField>
-        <Button variant="outline" disabled={!data.extensionsReady || mutation.busy}>Create resource</Button>
+        <Button type="submit" variant="outline" disabled={!data.extensionsReady || mutation.busy}>Create resource</Button>
       </form><p className="text-xs text-muted-foreground">Staff resources are workload labels, not account invitations or access grants.</p></Panel>
       <Panel title="Allocate a booking"><form className="space-y-3" onSubmit={assign}>
         <label className="block space-y-2 text-sm">Open booking<select required name="booking" className="block h-10 w-full rounded-lg border border-input bg-background px-2"><option value="">Choose booking</option>{data.appointments.filter(booking => ["Requested", "Confirmed"].includes(booking.status)).map(booking => <option value={booking.id} key={booking.id}>{booking.title} · {booking.subtitle}</option>)}</select></label>
         <label className="block space-y-2 text-sm">Active resource<select required name="resource" className="block h-10 w-full rounded-lg border border-input bg-background px-2"><option value="">Load analytics and choose resource</option>{analytics?.resources.filter(resource => resource.active).map(resource => <option key={resource.id} value={resource.id}>{resource.name} · capacity {resource.capacity}</option>)}</select></label>
         <FormField label="Start (device time)" required><Input name="starts" type="datetime-local" required /></FormField><FormField label="End (device time)" required><Input name="ends" type="datetime-local" required /></FormField>
-        <Button variant="outline" disabled={!data.extensionsReady || mutation.busy || !analytics}>Allocate resource</Button>
+        <Button type="submit" variant="outline" disabled={!data.extensionsReady || mutation.busy || !analytics}>Allocate resource</Button>
       </form></Panel></div>
       {analytics && <Panel title="Current allocations"><DataTable rows={analytics.assignments} rowKey={row => row.id} caption="Resource allocations" columns={[
         { id: "resource", header: "Resource", cell: row => row.name }, { id: "time", header: "Time", cell: row => `${new Date(row.starts_at).toLocaleString()} – ${new Date(row.ends_at).toLocaleString()}` },

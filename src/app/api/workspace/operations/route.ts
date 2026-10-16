@@ -65,8 +65,10 @@ export const POST = withAuth(null, async (req, { user }) => {
         await tx.auditLog.create({ data: { userId: user.id, actorRole: user.role, action: "WORKSPACE_RESOURCE_UNASSIGNED", resourceType: "ResourceAllocation", resourceId: b.id } });
       });
     } else if (b.action === "resource") {
-      await extensionAudit(user, "WORKSPACE_RESOURCE_CREATED");
-      await prisma.$executeRaw`INSERT INTO workspace_resources(id, owner_id, kind, name, capacity) VALUES(${randomUUID()}::uuid, ${user.id}::uuid, ${b.kind}, ${b.name}, ${b.capacity})`;
+      await prisma.$transaction(async tx => {
+        await tx.$executeRaw`INSERT INTO workspace_resources(id, owner_id, kind, name, capacity) VALUES(${randomUUID()}::uuid, ${user.id}::uuid, ${b.kind}, ${b.name}, ${b.capacity})`;
+        await tx.auditLog.create({ data: { userId: user.id, actorRole: user.role, action: "WORKSPACE_RESOURCE_CREATED", resourceType: "WorkspaceResource" } });
+      });
     } else {
       if (Date.parse(b.endsAt) <= Date.parse(b.startsAt) || Date.parse(b.endsAt) - Date.parse(b.startsAt) > 7 * 86400000) throw badRequest("Choose an ordered allocation of up to seven days");
       const booking = await prisma.facilityBooking.findFirst({ where: { AND: [facilityBookingVisible, { id: b.bookingId, service: { facilityId: facility.id }, status: { in: ["REQUESTED", "CONFIRMED"] } }] }, select: { id: true } });

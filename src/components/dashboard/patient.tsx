@@ -11,6 +11,7 @@ import { DocumentsPanel } from "./documents";
 import { TaskPanel } from "./tasks";
 import { PatientIntelligence } from "./intelligence";
 import { EngagementPanel } from "./engagement";
+import { PatientPayments } from "./payments";
 
 function CaseSearch() {
   const [message, setMessage] = useState("");
@@ -22,7 +23,7 @@ function CaseSearch() {
       setMessage(response.patients.length ? `Your case: ${response.patients.map(patient => patient.caseNumber).join(", ")}` : "No matching case in your account.");
     }, "Case search completed");
   }}><FormField label="Case number" required hint="Search is restricted to records linked to your account."><Input name="case" required maxLength={100} /></FormField>
-    <Button variant="outline" disabled={mutation.busy}>Search my records</Button><p role="status" className="text-sm">{message}</p>{mutation.errorUI}
+    <Button type="submit" variant="outline" disabled={mutation.busy}>Search my records</Button><p role="status" className="text-sm">{message}</p>{mutation.errorUI}
   </form></Panel>;
 }
 export function PrevisitIntake({ data }: { data: WorkspaceData }) {
@@ -41,7 +42,7 @@ export function PrevisitIntake({ data }: { data: WorkspaceData }) {
         <textarea name={field} required={field === "reason"} maxLength={3000} rows={3} className="w-full rounded-lg border border-input bg-background p-3 text-sm" />
       </FormField>)}
       <label className="flex gap-2 text-sm"><input name="consent" type="checkbox" required />I consent to sharing this intake with my treating clinician.</label>
-      {mutation.errorUI}<Button variant="outline" disabled={!data.extensionsReady || !data.appointments.length || mutation.busy}>Save intake</Button>
+      {mutation.errorUI}<Button type="submit" variant="outline" disabled={!data.extensionsReady || !data.appointments.length || mutation.busy}>Save intake</Button>
     </form>
   </Panel>;
 }
@@ -53,12 +54,13 @@ export function PatientCareSections({ data }: { data: WorkspaceData }) {
       <Panel title="Messages"><p className="text-2xl font-bold">{data.unreadMessages}</p><p className="text-sm text-muted-foreground">Unread secure messages</p><Link className="text-sm underline" href="/patient/consult">Open secure conversations</Link></Panel>
       <Panel title="Payments"><p className="text-2xl font-bold">{data.metrics.find(metric => metric.label === "Pending payments")?.value ?? "0"}</p><p className="text-sm text-muted-foreground">Outstanding payment records</p><Link className="text-sm underline" href="/payments">Manage payments and receipts</Link></Panel>
     </div>
-    <Tabs defaultValue="care"><TabsList className="max-w-full flex-wrap"><TabsTrigger value="care">Care tasks</TabsTrigger><TabsTrigger value="records">Records</TabsTrigger><TabsTrigger value="results">Results</TabsTrigger><TabsTrigger value="timeline">Timeline</TabsTrigger><TabsTrigger value="intake">Pre-visit intake</TabsTrigger></TabsList>
+    <Tabs defaultValue="care"><TabsList className="max-w-full flex-wrap group-data-[orientation=horizontal]/tabs:h-auto"><TabsTrigger value="care">Care tasks</TabsTrigger><TabsTrigger value="records">Records</TabsTrigger><TabsTrigger value="results">Results</TabsTrigger><TabsTrigger value="timeline">Timeline</TabsTrigger><TabsTrigger value="intake">Pre-visit intake</TabsTrigger><TabsTrigger value="payments">Payments</TabsTrigger></TabsList>
       <TabsContent value="care"><div className="grid gap-4 lg:grid-cols-2"><TaskPanel initialTasks={data.tasks} ready={data.extensionsReady} role="PATIENT" /><CaseSearch /></div></TabsContent>
       <TabsContent value="records"><DocumentsPanel ready={data.extensionsReady} /></TabsContent>
       <TabsContent value="results"><Panel title="Result status tracking"><ItemTable items={data.results} title="Results" exportSection="results" /><p className="text-xs text-muted-foreground">Unverified numerical results and unreviewed AI interpretations are not released here.</p></Panel></TabsContent>
       <TabsContent value="timeline"><Panel title="Health timeline"><ItemTable items={data.timeline} title="Timeline" exportSection="timeline" /></Panel></TabsContent>
       <TabsContent value="intake"><PrevisitIntake data={data} /></TabsContent>
+      <TabsContent value="payments"><PatientPayments data={data} /></TabsContent>
     </Tabs>
     <Panel title="Your next steps">{data.insights.length ? <ul className="space-y-3">{data.insights.map(insight => <li key={insight.id}><p className="text-sm font-medium">{insight.title}</p><p className="text-xs text-muted-foreground">{insight.subtitle}</p>{insight.href && <Link href={insight.href} className="text-sm underline">Review</Link>}</li>)}</ul> : <p className="text-sm text-muted-foreground">No care reminders found in your latest records.</p>}</Panel>
     <PatientIntelligence data={data} />

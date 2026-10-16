@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseQuery } from "@/lib/api";
 import { findAccessiblePatient, getVerifiedDoctorProfile } from "@/lib/access";
 import { consultationInclude, serializeConsultation } from "@/lib/consultation";
-import { writeAudit } from "@/lib/audit";
 import { badRequest } from "@/lib/errors";
 import { buildDiagnosisRows } from "@/lib/icd10/service";
 import { queueNotification } from "@/lib/notifications/service";
@@ -27,6 +26,7 @@ export const GET = withAuth(["DOCTOR", "PATIENT"], async (req, { user }) => {
     where = { status: "FINALIZED", patient: { userId: user.id, deletedAt: null } };
   }
 
+  await prisma.auditLog.create({ data: { userId: user.id, actorRole: user.role, action: "CONSULTATIONS_READ", resourceType: "Consultation", ...(patientId ? { resourceId: patientId } : {}) } });
   const consultations = await prisma.consultation.findMany({
     where,
     orderBy: { createdAt: "desc" },
@@ -107,7 +107,8 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
     throw badRequest(error instanceof Error ? error.message : "Invalid diagnosis");
   }
 
-  const consultation = await prisma.consultation.create({
+  const consultation = await prisma.$transaction(async tx => {
+    const saved = await tx.consultation.create({
     data: {
       patientId: data.patientId,
       doctorId: doctor.id,
@@ -152,14 +153,15 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
     include: consultationInclude,
   });
 
-  await writeAudit({
+  await tx.auditLog.create({ data: {
     userId: user.id,
     actorRole: user.role,
     action: "CONSULTATION_CREATED",
     resourceType: "Consultation",
-    resourceId: consultation.id,
-    details: { status: consultation.status, prescribed: medications.length, diagnoses: diagnosisRows.rows.length, ...(data.assistance ? { assistanceMethod: data.assistance.method, assistanceReviewed: true } : {}) },
-    req,
+    resourceId: saved.id,
+    details: { status: saved.status, prescribed: medications.length, diagnoses: diagnosisRows.rows.length, ...(data.assistance ? { assistanceMethod: data.assistance.method, assistanceReviewed: true } : {}) },
+  } });
+    return saved;
   });
 
   if (finalized) await queueNotification(patient.userId, { kind: "CONSULTATION_AVAILABLE" });

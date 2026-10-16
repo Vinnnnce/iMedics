@@ -40,7 +40,7 @@ export function DoctorCareSections({ data }: { data: WorkspaceData }) {
           <p><strong>Current medications:</strong> {context.history?.currentDrugs ? JSON.stringify(context.history.currentDrugs) : "Not documented. Confirm with patient."}</p>
           {context.intake && <><p><strong>Patient intake:</strong> {context.intake.reason}</p><p>Patient-reported allergies: {context.intake.allergies || "Not provided"}</p><p>Patient-reported medications: {context.intake.medications || "Not provided"}</p></>}
           <p>{context.results.length} recent verified results · {context.consultations.length} recent finalized consultations.</p>
-          {buildTrends(context.results).map(trend => <LineChart key={`${trend.code}-${trend.unit}`} title={`${trend.name}: this patient only`} unit={trend.unit} points={trend.points.map(point => ({ label: point.date.slice(0, 10), value: point.value }))} />)}
+          {buildTrends(context.results.flatMap(result => result.values.map(value => ({ ...value, value: Number(value.value), date: result.testDate })))).map(trend => <LineChart key={`${trend.code}-${trend.unit}`} title={`${trend.name}: this patient only`} unit={trend.unit} points={trend.points.map(point => ({ label: point.date.slice(0, 10), value: point.value }))} />)}
         </div>}
         <Link className="block text-sm underline" href="/doctor/consultations">Open structured consultation and ICD-10 workflow</Link>
       </> : <p className="text-sm text-muted-foreground">No upcoming patients in the loaded schedule.</p>}
@@ -48,8 +48,13 @@ export function DoctorCareSections({ data }: { data: WorkspaceData }) {
       {data.operations.filter(item => item.status === "Earnings").map(item => <p key={item.id} className="text-sm"><strong>{item.title}</strong> · {item.subtitle}</p>)}
       <div className="flex flex-wrap gap-4"><Link href="/doctor/schedule" className="text-sm underline">Manage availability</Link><Link href="/payments" className="text-sm underline">Earnings and payments</Link></div>
       <p className="text-xs text-muted-foreground">Subscription records are administrator-managed; no automatic billing is initiated here.</p>
+      {data.subscription.toLowerCase().includes("active") && <div className="flex flex-wrap gap-3">{(["PAUSED", "CANCELLED"] as const).map(status => <Button variant="outline" size="sm" key={status} disabled={!data.extensionsReady || mutation.busy} onClick={() => {
+        if (window.confirm(`${status === "PAUSED" ? "Pause" : "Cancel"} your subscription entitlement record? This does not cancel external recurring billing. Contact the administrator for billing and reactivation.`)) void mutation.run(async () => {
+          await apiClient.patch("/workspace/subscription", { status, confirm: true });
+        }, "Subscription entitlement updated; external billing unchanged");
+      }}>{status === "PAUSED" ? "Pause subscription record" : "Cancel subscription record"}</Button>)}</div>}
     </Panel></div>
-    <Tabs defaultValue="schedule"><TabsList className="max-w-full flex-wrap"><TabsTrigger value="schedule">Schedule</TabsTrigger><TabsTrigger value="tasks">Clinical tasks</TabsTrigger><TabsTrigger value="alerts">Clinical alerts</TabsTrigger><TabsTrigger value="messages">Messages</TabsTrigger><TabsTrigger value="documents">Shared records</TabsTrigger><TabsTrigger value="followups">Follow-ups</TabsTrigger></TabsList>
+    <Tabs defaultValue="schedule"><TabsList className="max-w-full flex-wrap group-data-[orientation=horizontal]/tabs:h-auto"><TabsTrigger value="schedule">Schedule</TabsTrigger><TabsTrigger value="tasks">Clinical tasks</TabsTrigger><TabsTrigger value="alerts">Clinical alerts</TabsTrigger><TabsTrigger value="messages">Messages</TabsTrigger><TabsTrigger value="documents">Shared records</TabsTrigger><TabsTrigger value="followups">Follow-ups</TabsTrigger></TabsList>
       <TabsContent value="schedule"><Panel title="Today's schedule and upcoming visits"><ItemTable items={data.appointments} title="Appointments" exportSection="appointments" /></Panel></TabsContent>
       <TabsContent value="tasks"><div className="space-y-4"><TaskPanel initialTasks={data.tasks} ready={data.extensionsReady} role="DOCTOR" /><Panel title="Documentation to complete"><ItemTable items={data.operations.filter(item => item.status === "Draft")} title="Draft consultations" /></Panel></div></TabsContent>
       <TabsContent value="alerts"><Panel title="Clinical alerts"><ItemTable items={[...data.alerts, ...data.results.filter(result => result.status !== "Verified")]} title="Clinical alerts" /></Panel></TabsContent>
@@ -59,7 +64,7 @@ export function DoctorCareSections({ data }: { data: WorkspaceData }) {
         <form className="space-y-3" onSubmit={followup}>
           <label className="block space-y-2 text-sm">Finalized consultation<select name="consultation" required className="block h-10 w-full rounded-lg border border-input bg-background px-2"><option value="">Choose consultation</option>{data.timeline.filter(item => item.title === "Consultation" && item.status === "Finalized").map(item => <option key={item.id} value={item.id}>{item.at && new Date(item.at).toLocaleDateString()} · {item.id.slice(0, 8)}</option>)}</select></label>
           <FormField label="Reminder date and time (your device time)" required><Input type="datetime-local" name="due" required /></FormField>
-          <Button variant="outline" disabled={!data.extensionsReady || mutation.busy}>Schedule reminder</Button>
+          <Button type="submit" variant="outline" disabled={!data.extensionsReady || mutation.busy}>Schedule reminder</Button>
         </form><p className="text-xs text-muted-foreground">Delivery uses the configured cron worker, recipient preferences, email, and enrolled push devices.</p>
         <Button variant="outline" disabled={!data.extensionsReady || mutation.busy} onClick={() => void mutation.run(async () => setReminders(await apiClient.get("/workspace/followups")), "Follow-ups loaded")}>Load scheduled reminders</Button>
         {reminders.map(reminder => <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3" key={reminder.id}><p className="text-sm">{new Date(reminder.due_at).toLocaleString()} · {reminder.delivered_at ? "Queued for delivery" : "Scheduled"}</p>

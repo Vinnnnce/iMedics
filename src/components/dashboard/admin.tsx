@@ -46,20 +46,20 @@ export function AdminOperations({ users }: { users: { id: string; name: string }
   if (!data) return <DashboardSkeleton />;
   const disputes: WorkspaceItem[] = operations?.disputes.map(row => ({ id: row.id, title: `Payment ${row.payment_id.slice(0, 8)}`, subtitle: row.reason, status: row.status, at: row.created_at })) ?? [];
   return <section id="care-workspace" aria-label="Administrative operations" className="space-y-4">{mutation.errorUI}
-    <Tabs defaultValue="payments"><TabsList className="max-w-full flex-wrap"><TabsTrigger value="payments">Payments and refunds</TabsTrigger><TabsTrigger value="disputes">Disputes</TabsTrigger><TabsTrigger value="subscriptions">Subscriptions</TabsTrigger><TabsTrigger value="health">Compliance and health</TabsTrigger></TabsList>
+    <Tabs defaultValue="payments"><TabsList className="max-w-full flex-wrap group-data-[orientation=horizontal]/tabs:h-auto"><TabsTrigger value="payments">Payments and refunds</TabsTrigger><TabsTrigger value="disputes">Disputes</TabsTrigger><TabsTrigger value="subscriptions">Subscriptions</TabsTrigger><TabsTrigger value="health">Compliance and health</TabsTrigger></TabsList>
       <TabsContent value="payments"><Panel title="Payment management"><ItemTable items={data.payments} title="Payments" exportSection="payments" actions={payment => payment.status === "Successful" ? <Button size="sm" variant="outline" onClick={() => setSelectedPayment(payment.id)}>Select for refund</Button> : <span className="text-xs text-muted-foreground">{payment.status}</span>} />
         <form className="space-y-3 border-t border-border pt-4" onSubmit={event => void submit(event, "refund")}>
           <p className="text-sm">Selected payment: {selectedPayment || "Select a successful payment above"}</p>
           <FormField label="Refund reason" required><Input name="reason" minLength={10} maxLength={2000} required /></FormField>
           <label className="flex gap-2 text-sm"><input type="checkbox" name="confirm" required />I confirm this refund request. Gateway completion is not guaranteed until confirmed.</label>
-          <Button variant="outline" disabled={!selectedPayment || mutation.busy}>Request refund</Button>
+          <Button type="submit" variant="outline" disabled={!selectedPayment || mutation.busy}>Request refund</Button>
         </form>
       </Panel></TabsContent>
       <TabsContent value="disputes"><Panel title="Dispute management"><ItemTable items={disputes} title="Disputes" actions={dispute => <Button variant="outline" size="sm" disabled={dispute.status === "RESOLVED"} onClick={() => setSelectedDispute(dispute.id)}>Review</Button>} />
         <form className="space-y-3" onSubmit={event => void submit(event, "resolve")}><p className="text-sm">Selected dispute: {selectedDispute || "Choose a dispute above"}</p>
           <label className="block space-y-2 text-sm">Decision<select name="status" className="block h-10 w-full rounded-lg border border-input bg-background px-2"><option value="REVIEWING">Reviewing</option><option value="RESOLVED">Resolved</option></select></label>
           <FormField label="Resolution or review note" required><textarea name="resolution" minLength={5} maxLength={2000} required className="w-full rounded-lg border border-input bg-background p-3 text-sm" /></FormField>
-          <Button variant="outline" disabled={!data.extensionsReady || !selectedDispute || mutation.busy}>Record decision</Button>
+          <Button type="submit" variant="outline" disabled={!data.extensionsReady || !selectedDispute || mutation.busy}>Record decision</Button>
         </form>
       </Panel></TabsContent>
       <TabsContent value="subscriptions"><Panel title="Subscription management"><ItemTable items={operations?.subscriptions.map(row => ({ id: row.id, title: row.name, subtitle: row.plan, status: row.status, at: row.renews_at ?? undefined })) ?? []} title="Subscriptions" />
@@ -69,7 +69,7 @@ export function AdminOperations({ users }: { users: { id: string; name: string }
           <label className="block space-y-2 text-sm">Subscription status<select name="status" className="block h-10 w-full rounded-lg border border-input bg-background px-2">{["ACTIVE", "PAUSED", "CANCELLED"].map(status => <option key={status}>{status}</option>)}</select></label>
           <FormField label="Renewal date (device time)"><Input name="renews" type="datetime-local" /></FormField>
           <p className="text-xs text-muted-foreground">This manages entitlement records only. It does not charge a card, create recurring billing, or grant a clinical role.</p>
-          <Button variant="outline" disabled={!data.extensionsReady || mutation.busy}>Update subscription</Button>
+          <Button type="submit" variant="outline" disabled={!data.extensionsReady || mutation.busy}>Update subscription</Button>
         </form>
       </Panel></TabsContent>
       <TabsContent value="health"><Panel title="Compliance and platform health">
@@ -82,7 +82,7 @@ export function AdminOperations({ users }: { users: { id: string; name: string }
           if (window.confirm("Export authorized audit metadata to this device? Keep the downloaded file secure.")) void mutation.run(
             () => downloadCsv(`/api/workspace/export?${new URLSearchParams(Object.entries(range).filter(([, value]) => Boolean(value)))}`, "imedics-audit.csv"), "Audit export downloaded");
         }}><FormField label="Audit from (UTC)"><Input type="date" value={range.from} max={range.to || undefined} onChange={e => setRange({ ...range, from: e.target.value })} /></FormField>
-          <FormField label="Audit to (UTC)"><Input type="date" value={range.to} min={range.from || undefined} onChange={e => setRange({ ...range, to: e.target.value })} /></FormField><Button variant="outline">Export audit CSV</Button>
+          <FormField label="Audit to (UTC)"><Input type="date" value={range.to} min={range.from || undefined} onChange={e => setRange({ ...range, to: e.target.value })} /></FormField><Button type="submit" variant="outline">Export audit CSV</Button>
         </form><p className="text-xs text-muted-foreground">Exports omit clinical payloads, addresses, IPs, raw headers, and audit details. Verify encryption, retention, access reviews, and incident-response procedures in deployment infrastructure.</p>
       </Panel></TabsContent>
     </Tabs>

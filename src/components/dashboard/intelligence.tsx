@@ -31,7 +31,7 @@ export function PatientIntelligence({ data }: { data: WorkspaceData }) {
       <form onSubmit={importFile} className="space-y-3"><FormField label="Source or device name" required><Input name="source" required maxLength={80} /></FormField>
         <FormField label="Wearable JSON file" required><Input name="file" type="file" accept=".json,application/json" required /></FormField>
         <label className="flex gap-2 text-sm"><input name="consent" type="checkbox" required />I consent to storing this wearable export in my account.</label>
-        <Button variant="outline" disabled={!data.extensionsReady || mutation.busy}>Import readings</Button>
+        <Button type="submit" variant="outline" disabled={!data.extensionsReady || mutation.busy}>Import readings</Button>
       </form>
       <div className="flex flex-wrap gap-3"><Button variant="outline" disabled={!data.extensionsReady || mutation.busy} onClick={() => void mutation.run(async () => setReadings(await apiClient.get("/workspace/wearables")), "Wearable readings loaded")}>Load saved readings</Button>
         <Button variant="outline" disabled={!data.extensionsReady || mutation.busy} onClick={() => {
@@ -54,7 +54,7 @@ export function PatientIntelligence({ data }: { data: WorkspaceData }) {
       }}><FormField label="What would you like to discuss?"><Input name="concern" maxLength={1000} /></FormField>
         <label className="flex gap-2 text-sm"><input name="provider" type="checkbox" />Use the configured external AI provider rather than local guide questions.</label>
         <label className="flex gap-2 text-sm"><input name="consent" type="checkbox" required />I consent to processing this concern, including by the configured AI provider if selected. No name or contact details should be entered.</label>
-        <Button variant="outline" disabled={mutation.busy}>Prepare questions</Button>
+        <Button type="submit" variant="outline" disabled={mutation.busy}>Prepare questions</Button>
       </form>
       {questions.length > 0 && <div className="space-y-2"><h3 className="text-sm font-semibold">{questionLabel}</h3><ul className="list-inside list-disc space-y-2 text-sm">{questions.map(question => <li key={question}>{question}</li>)}</ul><p className="text-xs text-muted-foreground">Use the Pre-visit intake tab to submit your own answers to your clinician.</p></div>}
     </Panel>
