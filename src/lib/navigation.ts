@@ -1,6 +1,6 @@
 import {
-  Building2, Calendar, ClipboardList, FileText, FlaskConical, Heart, Home,
-  LayoutDashboard, MessageSquare, Receipt, Shield, Sparkles, Stethoscope,
+  Briefcase, Building2, Calendar, ClipboardList, FileText, FlaskConical, FolderOpen, Heart, Home,
+  IdCard, LayoutDashboard, MessageSquare, Receipt, Shield, Sparkles, Stethoscope,
   Tags, Upload, User, Users, Video, Wallet, type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@prisma/client";
@@ -32,6 +32,9 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     { href: "/doctor/ai-tools", label: "AI Review", icon: Sparkles },
     { href: "/doctor/schedule", label: "Schedule", icon: Calendar },
     { href: "/doctor/fees", label: "Fees", icon: Tags },
+    { href: "/doctor/services", label: "Services", icon: Briefcase },
+    { href: "/doctor/portfolio", label: "Portfolio", icon: FolderOpen },
+    { href: "/doctor/profile", label: "My Profile", icon: IdCard },
     { href: "/payments", label: "Payments", icon: Wallet },
     { href: "/doctor/admit", label: "Care Roster", icon: Building2 }, profile,
   ],

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseQuery } from "@/lib/api";
 import { getVerifiedDoctorProfile } from "@/lib/access";
 import { badRequest, conflict, notFound } from "@/lib/errors";
-import { assertSlotFree, findSlotMinutes, visibleToDoctor } from "@/lib/booking";
+import { assertSlotFree, findSlotMinutes, findServiceSlotMinutes, visibleToDoctor } from "@/lib/booking";
 import { resolveConsultationFee } from "@/lib/pricing";
 import { assertPaymentsAvailable, createPendingPayment, expireStalePayments } from "@/lib/payments/service";
 import { queueNotification } from "@/lib/notifications/service";
@@ -19,6 +19,8 @@ const bookSchema = z.object({
   mode: z.enum(["VIDEO", "CHAT", "IN_PERSON"]).default("VIDEO"),
   reason: z.string().trim().max(1000).optional(),
   followUpOfId: z.string().uuid().optional(),
+  // Optional service from the doctor's catalogue; the visit is priced and timed from it.
+  serviceId: z.string().uuid().optional(),
 });
 
 // POST /api/appointments — a patient books a slot from a doctor's published availability.
@@ -41,25 +43,44 @@ export const POST = withAuth(["PATIENT"], async (req, { user }) => {
       acceptingPatients: true,
       user: { status: "ACTIVE", deletedAt: null },
     },
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, consultationModes: true },
   });
   if (!doctor) throw notFound("Doctor not found");
+
+  // Only the consultation modes the doctor actually offers may be booked.
+  if (doctor.consultationModes.length > 0 && !doctor.consultationModes.includes(data.mode)) {
+    throw badRequest("That consultation mode is not offered by this doctor");
+  }
+
+  // The service, when given, must be the doctor's own, active, and support this mode.
+  let service: { id: string; name: string; durationMinutes: number; modes: string[] } | null = null;
+  if (data.serviceId) {
+    const found = await prisma.doctorService.findUnique({
+      where: { id: data.serviceId },
+      select: { id: true, doctorId: true, name: true, durationMinutes: true, modes: true, isActive: true },
+    });
+    if (!found || found.doctorId !== doctor.id || !found.isActive) throw badRequest("That service is not available");
+    if (found.modes.length > 0 && !found.modes.includes(data.mode)) throw badRequest("That service does not support this consultation mode");
+    service = found;
+  }
 
   // Release slots held by abandoned payments before checking availability.
   await expireStalePayments();
 
   const start = data.scheduledAt;
-  const duration = await findSlotMinutes(doctor.id, start);
+  const duration = await (service ? findServiceSlotMinutes(doctor.id, start, service.durationMinutes) : findSlotMinutes(doctor.id, start));
 
   if (data.followUpOfId) {
+    // A follow-up must follow this doctor's own completed appointment for this patient.
     const previous = await prisma.appointment.findFirst({
-      where: { id: data.followUpOfId, patientId: patient.id },
-      select: { id: true },
+      where: { id: data.followUpOfId, patientId: patient.id, doctorId: doctor.id },
+      select: { id: true, status: true },
     });
     if (!previous) throw badRequest("The appointment you are following up on was not found");
+    if (previous.status !== "COMPLETED") throw badRequest("A follow-up can only follow a completed consultation");
   }
 
-  const fee = await resolveConsultationFee(doctor.id, patient.id, start);
+  const fee = await resolveConsultationFee(doctor.id, patient.id, start, undefined, service?.id ?? null);
   if (!fee.configured) throw conflict("This doctor has not published a consultation fee yet");
   if (fee.amount > 0) assertPaymentsAvailable();
 
@@ -80,6 +101,8 @@ export const POST = withAuth(["PATIENT"], async (req, { user }) => {
           feeKind: fee.kind,
           feeAmount: fee.amount,
           feeCurrency: fee.currency,
+          serviceId: service?.id ?? null,
+          serviceName: service?.name ?? null,
         },
         include: appointmentInclude,
       });

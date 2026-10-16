@@ -13,6 +13,7 @@ import { NotificationsCard } from "@/components/shared/notifications-card";
 import { listUnreadNotifications } from "@/lib/data/notifications";
 import { loadWorkspace } from "@/lib/workspace/data";
 import { DoctorCareSections } from "@/components/dashboard/doctor";
+import { DoctorReviewsCard } from "@/components/doctor/reviews-card";
 
 export default async function DoctorDashboardPage() {
   const user = await requirePageRole("DOCTOR");
@@ -24,7 +25,7 @@ export default async function DoctorDashboardPage() {
   const dayStart = clinicInstant(today, 0);
   const dayEnd = clinicInstant(today, 24 * 60);
 
-  const [pendingBookings, activePatients, consultationsToday, aiToReview, upcoming, notifications] = await Promise.all([
+  const [pendingBookings, activePatients, consultationsToday, aiToReview, upcoming, notifications, reviews] = await Promise.all([
     prisma.appointment.count({ where: { AND: [{ doctorId: doctor.id, status: "BOOKED", scheduledAt: { gte: new Date() } }, visibleToDoctor] } }),
     prisma.patientAssignment.count({ where: { doctorId: doctor.id, status: "ACTIVE", patient: { deletedAt: null } } }),
     prisma.consultation.count({ where: { doctorId: doctor.id, createdAt: { gte: dayStart, lt: dayEnd } } }),
@@ -36,6 +37,12 @@ export default async function DoctorDashboardPage() {
       include: { patient: { select: { id: true, firstName: true, lastName: true } } },
     }),
     listUnreadNotifications(user.id),
+    prisma.doctorReview.findMany({
+      where: { doctorId: doctor.id, moderationStatus: "APPROVED" },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: { id: true, rating: true, comment: true, createdAt: true, doctorResponse: true, patient: { select: { firstName: true } } },
+    }),
   ]);
 
   const stats = [
@@ -67,6 +74,16 @@ export default async function DoctorDashboardPage() {
       </div>
 
       <NotificationsCard items={notifications.map((n) => ({ ...n, createdAt: n.createdAt.toISOString() }))} />
+      <DoctorReviewsCard
+        initial={reviews.map((r) => ({
+          id: r.id,
+          rating: r.rating,
+          comment: r.comment,
+          createdAt: r.createdAt.toISOString(),
+          author: r.patient.firstName,
+          doctorResponse: r.doctorResponse,
+        }))}
+      />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {stats.map((stat) => (

@@ -23,6 +23,8 @@ interface Fee {
   followUpAmount: number | null;
   followUpWindowDays: number;
   qualifiesUntil: string | null;
+  serviceName: string | null;
+  serviceDurationMinutes: number | null;
 }
 
 const timeOf = (iso: string) =>
@@ -31,10 +33,19 @@ const timeOf = (iso: string) =>
 const field = "h-9 w-full rounded-lg border border-input bg-background px-2 text-sm";
 
 /** Pick a free slot from a doctor's published availability and request a booking. */
-export function BookingPanel({ doctorId, today }: { doctorId: string; today: string }) {
+export function BookingPanel({
+  doctorId,
+  today,
+  services = [],
+}: {
+  doctorId: string;
+  today: string;
+  services?: { id: string; name: string; price: number; currency: string; durationMinutes: number; modes: string[] }[];
+}) {
   const [date, setDate] = useState(today);
   const [loaded, setLoaded] = useState<{ date: string; slots: Slot[] } | null>(null);
   const [slot, setSlot] = useState<string | null>(null);
+  const [serviceId, setServiceId] = useState("");
   const [mode, setMode] = useState<"CHAT" | "IN_PERSON">("CHAT");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
@@ -45,13 +56,14 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
   // Remember the booking once created, so a failed payment start can be retried without booking twice.
   const createdPaymentId = useRef<string | null>(null);
 
+  const service = services.find((s) => s.id === serviceId) ?? null;
   // The price for the chosen slot, as this patient would be charged (the server repeats this when booking).
   const currentFee = slot && fee?.slot === slot ? fee.fee : null;
   useEffect(() => {
     if (!slot) return;
     let cancelled = false;
     apiClient
-      .get<{ fee: Fee }>(`/doctors/${doctorId}/pricing?scheduledAt=${encodeURIComponent(slot)}`)
+      .get<{ fee: Fee }>(`/doctors/${doctorId}/pricing?scheduledAt=${encodeURIComponent(slot)}${serviceId ? `&serviceId=${serviceId}` : ""}`)
       .then((data) => {
         if (!cancelled) setFee({ slot, fee: data.fee });
       })
@@ -61,7 +73,7 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
     return () => {
       cancelled = true;
     };
-  }, [doctorId, slot]);
+  }, [doctorId, slot, serviceId]);
 
   // Slots for the chosen date. "Loading" is derived: we have not loaded this date yet.
   const loading = loaded?.date !== date;
@@ -86,7 +98,7 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
 
   const createBooking = async () => {
     if (createdPaymentId.current) return { paymentId: createdPaymentId.current };
-    const res = await apiClient.post<{ payment: { id: string } | null }>("/appointments", { doctorId, scheduledAt: slot, mode, reason: reason || undefined });
+    const res = await apiClient.post<{ payment: { id: string } | null }>("/appointments", { doctorId, scheduledAt: slot, mode, reason: reason || undefined, serviceId: serviceId || undefined });
     if (!res.payment) throw new Error("This booking does not need a payment");
     createdPaymentId.current = res.payment.id;
     return { paymentId: res.payment.id };
@@ -97,7 +109,7 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
     setSubmitting(true);
     setError("");
     try {
-      await apiClient.post("/appointments", { doctorId, scheduledAt: slot, mode, reason: reason || undefined });
+      await apiClient.post("/appointments", { doctorId, scheduledAt: slot, mode, reason: reason || undefined, serviceId: serviceId || undefined });
       setBooked(slot);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not book this slot");
@@ -105,6 +117,10 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
       setSubmitting(false);
     }
   };
+
+  // A service may restrict which modes it supports; the panel keeps the standard choice otherwise.
+  const serviceModes = service && service.modes.length > 0 ? service.modes.filter((m) => m === "CHAT" || m === "IN_PERSON") : [];
+  const modeOptions = serviceModes.length > 0 ? serviceModes : ["CHAT", "IN_PERSON"];
 
   if (booked) {
     return (
@@ -138,6 +154,28 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
             }} className={`${field} mt-1`} />
         </label>
 
+        {services.length > 0 && (
+          <label className="block text-xs text-muted-foreground">
+            Service
+            <select
+              className={`${field} mt-1`}
+              value={serviceId}
+              onChange={(e) => {
+                setServiceId(e.target.value);
+                setSlot(null);
+                setReviewing(false);
+              }}
+            >
+              <option value="">General consultation</option>
+              {services.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} · {s.price > 0 ? formatMoney(s.price, s.currency) : "Free"} · {s.durationMinutes} min
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
         <div>
           <p className="mb-2 text-xs text-muted-foreground">Available times (West Africa Time)</p>
           {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
@@ -161,8 +199,11 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
         <label className="block text-xs text-muted-foreground">
           Type of consultation
           <select className={`${field} mt-1`} value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
-            <option value="CHAT">Chat</option>
-            <option value="IN_PERSON">In person</option>
+            {modeOptions.map((m) => (
+              <option key={m} value={m}>
+                {m === "CHAT" ? "Chat" : "In person"}
+              </option>
+            ))}
           </select>
         </label>
 
@@ -180,7 +221,7 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
             <div className="text-sm">
               <p className="font-medium">{slot && formatClinicDateTime(slot)}</p>
               <p className="text-xs text-muted-foreground">
-                {currentFee.kind === "FOLLOW_UP" ? "Follow-up consultation" : "Consultation"} · {mode === "CHAT" ? "Chat" : "In person"}
+                {(currentFee && currentFee.serviceName) || (currentFee && currentFee.kind === "FOLLOW_UP" ? "Follow-up consultation" : "Consultation")} · {mode === "CHAT" ? "Chat" : "In person"}
               </p>
             </div>
             <CheckoutForm amount={currentFee.amount} currency={currentFee.currency} prepare={createBooking} label="Pay" />

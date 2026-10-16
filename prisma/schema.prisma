@@ -89,9 +89,110 @@ model DoctorProfile {
   assignments            PatientAssignment[]
   prescriptions          Prescription[]
 
+  // --- Medic1905 doctor profile enhancement (additive, optional) ---
+  professionalTitle         String?             @map("professional_title")
+  qualifications            String?
+  clinicalInterests         String[]            @default([]) @map("clinical_interests")
+  conditionsTreated         String[]            @default([]) @map("conditions_treated")
+  proceduresPerformed       String[]            @default([]) @map("procedures_performed")
+  patientCarePhilosophy     String?             @map("patient_care_philosophy")
+  consultationApproach      String?             @map("consultation_approach")
+  whenToBookGuidance        String?             @map("when_to_book_guidance")
+  // Empty array: modes not yet specified (booking falls back to the platform defaults).
+  consultationModes         AppointmentMode[]   @default([]) @map("consultation_modes")
+  linkedinUrl               String?             @map("linkedin_url")
+  linkedinPublic            Boolean             @default(false) @map("linkedin_public")
+  linkedinConsentAt         DateTime?           @map("linkedin_consent_at")
+  cvFileId                  String?             @unique @map("cv_file_id") @db.Uuid
+  cvFile                    DoctorFile?         @relation("DoctorCvFile", fields: [cvFileId], references: [id])
+  licensingAuthority        String?             @map("licensing_authority")
+  licenseExpiry             DateTime?           @map("license_expiry")
+  licensePublic             Boolean             @default(false) @map("license_public")
+  professionalMemberships   String[]            @default([]) @map("professional_memberships")
+  awards                    String[]            @default([])
+  hospitalAffiliations      String[]            @default([]) @map("hospital_affiliations")
+  // Per-dimension verification; null means "not yet assessed" (no historical translation).
+  identityVerification      VerificationStatus? @map("identity_verification")
+  identityVerifiedAt        DateTime?           @map("identity_verified_at")
+  licenseVerification       VerificationStatus? @map("license_verification")
+  licenseVerifiedAt         DateTime?           @map("license_verified_at")
+  qualificationVerification VerificationStatus? @map("qualification_verification")
+  qualificationVerifiedAt   DateTime?           @map("qualification_verified_at")
+
+  services       DoctorService[]
+  portfolioItems DoctorPortfolioItem[]
+  files          DoctorFile[]          @relation("DoctorOwnedFiles")
+
   @@index([specialty])
   @@index([verificationStatus])
   @@map("doctor_profiles")
+}
+
+model DoctorService {
+  id                 String            @id @default(uuid()) @db.Uuid
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  doctorId           String            @map("doctor_id") @db.Uuid
+  kind               DoctorServiceKind @default(NEW_PATIENT)
+  name               String
+  description        String?
+  // Empty array: not mode-specific (any mode the doctor supports).
+  modes              AppointmentMode[] @default([])
+  durationMinutes    Int               @default(30) @map("duration_minutes")
+  currency           String            @default("NGN")
+  price              Decimal           @db.Decimal(14, 2)
+  followUpPrice      Decimal?          @map("follow_up_price") @db.Decimal(14, 2)
+  followUpWindowDays Int?              @map("follow_up_window_days")
+  isActive           Boolean           @default(true) @map("is_active")
+  // ICD-10 codes, validated against the platform's code system at write time.
+  icd10Codes         String[]          @default([]) @map("icd10_codes")
+  cancellationTerms  String?           @map("cancellation_terms")
+  refundTerms        String?           @map("refund_terms")
+  includes           String[]          @default([])
+  addOns             String[]          @default([]) @map("add_ons")
+  doctor             DoctorProfile     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  appointments       Appointment[]
+
+  @@index([doctorId])
+  @@map("doctor_services")
+}
+
+model DoctorPortfolioItem {
+  id               String              @id @default(uuid()) @db.Uuid
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+  doctorId         String              @map("doctor_id") @db.Uuid
+  type             PortfolioItemType
+  title            String
+  description      String?
+  externalUrl      String?             @map("external_url")
+  publishedAt      DateTime?           @map("published_at")
+  attachmentFileId String?             @map("attachment_file_id") @db.Uuid
+  attachmentFile   DoctorFile?         @relation("PortfolioAttachment", fields: [attachmentFileId], references: [id])
+  // Only PUBLIC items appear on the public profile; case studies additionally require GRANTED consent.
+  visibility       PortfolioVisibility @default(PRIVATE)
+  consentStatus    ConsentStatus       @default(PENDING) @map("consent_status")
+  consentAt        DateTime?           @map("consent_at")
+  doctor           DoctorProfile       @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, type])
+  @@map("doctor_portfolio_items")
+}
+
+model DoctorFile {
+  id          String                @id @default(uuid()) @db.Uuid
+  createdAt   DateTime              @default(now()) @map("created_at")
+  doctorId    String                @map("doctor_id") @db.Uuid
+  storageKey  String                @unique @map("storage_key")
+  fileName    String                @map("file_name")
+  mimeType    String                @map("mime_type")
+  sizeBytes   Int                   @map("file_bytes")
+  doctor      DoctorProfile         @relation("DoctorOwnedFiles", fields: [doctorId], references: [id], onDelete: Cascade)
+  cvFor       DoctorProfile?        @relation("DoctorCvFile")
+  attachments DoctorPortfolioItem[] @relation("PortfolioAttachment")
+
+  @@index([doctorId])
+  @@map("doctor_files")
 }
 
 model LabStaffProfile {
@@ -137,15 +238,25 @@ model DoctorSchedule {
 }
 
 model DoctorReview {
-  id        String        @id @default(uuid()) @db.Uuid
-  doctorId  String        @map("doctor_id") @db.Uuid
-  patientId String        @map("patient_id") @db.Uuid
-  rating    Int
-  comment   String?
-  createdAt DateTime      @default(now()) @map("created_at")
-  updatedAt DateTime      @updatedAt @map("updated_at")
-  doctor    DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  patient   Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  id                    String           @id @default(uuid()) @db.Uuid
+  doctorId              String           @map("doctor_id") @db.Uuid
+  patientId             String           @map("patient_id") @db.Uuid
+  rating                Int
+  comment               String?
+  // Optional 1-5 category ratings collected alongside the overall rating.
+  communicationRating   Int?             @map("communication_rating")
+  professionalismRating Int?             @map("professionalism_rating")
+  punctualityRating     Int?             @map("punctuality_rating")
+  explanationRating     Int?             @map("explanation_rating")
+  // APPROVED default preserves the existing publish-instantly behaviour; admins can hide via moderation.
+  moderationStatus      ReviewModeration @default(APPROVED) @map("moderation_status")
+  moderatedAt           DateTime?        @map("moderated_at")
+  doctorResponse        String?          @map("doctor_response")
+  doctorRespondedAt     DateTime?        @map("doctor_responded_at")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
+  doctor                DoctorProfile    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient               Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   @@unique([patientId, doctorId])
   @@index([doctorId])
@@ -289,6 +400,9 @@ model Appointment {
   feeAmount         Decimal             @default(0) @map("fee_amount") @db.Decimal(12, 2)
   feeCurrency       String              @default("NGN") @map("fee_currency")
   feeKind           ConsultationFeeKind @default(STANDARD) @map("fee_kind")
+  // Service catalogue link (set when booked against a specific doctor service) + name snapshot.
+  serviceId         String?             @map("service_id") @db.Uuid
+  serviceName       String?             @map("service_name")
   reminder1hSentAt  DateTime?           @map("reminder_1h_sent_at")
   reminder24hSentAt DateTime?           @map("reminder_24h_sent_at")
   doctor            DoctorProfile       @relation(fields: [doctorId], references: [id])
@@ -298,6 +412,7 @@ model Appointment {
   messages          ChatMessage[]
   consultations     Consultation[]
   payment           Payment?
+  service           DoctorService?      @relation(fields: [serviceId], references: [id])
 
   @@index([doctorId, scheduledAt])
   @@index([patientId, scheduledAt])
@@ -946,6 +1061,44 @@ enum NotificationChannel {
   IN_APP
   EMAIL
   PUSH
+}
+
+enum DoctorServiceKind {
+  NEW_PATIENT
+  FOLLOW_UP
+  SECOND_OPINION
+  POST_OP_REVIEW
+  REPORT_REVIEW
+  OTHER
+}
+
+enum PortfolioItemType {
+  EDUCATION
+  WORK_HISTORY
+  FELLOWSHIP
+  PUBLICATION
+  PRESENTATION
+  CASE_STUDY
+  MEDIA_APPEARANCE
+  AWARD
+  OUTREACH
+}
+
+enum PortfolioVisibility {
+  PRIVATE
+  PUBLIC
+}
+
+enum ConsentStatus {
+  PENDING
+  GRANTED
+  DENIED
+}
+
+enum ReviewModeration {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum ConsultationFeeKind {

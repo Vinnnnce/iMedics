@@ -28,7 +28,9 @@ export type NotificationEvent =
   | { kind: "INTAKE_SUBMITTED" }
   | { kind: "SUBSCRIPTION_UPDATED" }
   | { kind: "DISPUTE_UPDATED"; paymentId: string }
-  | { kind: "CONSULTATION_AVAILABLE" };
+  | { kind: "CONSULTATION_AVAILABLE" }
+  | { kind: "REVIEW_SUBMITTED"; reviewId: string }
+  | { kind: "VERIFICATION_UPDATED" };
 
 export interface RenderedNotification {
   type: NotificationType;
@@ -57,6 +59,10 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
       return { type: "PAYMENT", title: "Payment dispute updated", body: "Sign in securely to review the outcome.", href: role === "ADMIN" ? "/admin/dashboard" : `/payments/${event.paymentId}`, data: {} };
     case "CONSULTATION_AVAILABLE":
       return { type: "SYSTEM", title: "Consultation record available", body: "Your clinician has finalized a consultation record. Sign in securely to review it.", href: "/patient/case-file", data: {} };
+    case "REVIEW_SUBMITTED":
+      return { type: "SYSTEM", title: "New patient review", body: "A patient reviewed a recent consultation. Sign in to read it.", href: "/doctor/dashboard", data: {} };
+    case "VERIFICATION_UPDATED":
+      return { type: "SYSTEM", title: "Verification status updated", body: "There is an update to your professional verification. Sign in to review it.", href: ROLE_POLICY[role].dashboard, data: {} };
     case "ACCOUNT_REGISTERED":
     case "ACCOUNT_UPDATED":
       return { type: "SYSTEM", title: event.kind === "ACCOUNT_REGISTERED" ? "Your account is ready" : "Account updated",

@@ -1,5 +1,7 @@
 import type { Prisma, User } from "@prisma/client";
 import { prisma } from "../prisma";
+import { nextAvailableSlot } from "../availability";
+import { portfolioItemIsPublic, serializePublicPortfolioItem, doctorServiceSelect, serializeDoctorService } from "../doctor-profile";
 
 const publicSelect = {
   id: true,
@@ -20,7 +22,30 @@ const publicSelect = {
   ratingAvg: true,
   ratingCount: true,
   likeCount: true,
+  verificationStatus: true,
   user: { select: { name: true, avatarUrl: true } },
+  // Medic1905 profile enhancement: only shown when the doctor publishes them.
+  professionalTitle: true,
+  qualifications: true,
+  clinicalInterests: true,
+  conditionsTreated: true,
+  proceduresPerformed: true,
+  patientCarePhilosophy: true,
+  consultationApproach: true,
+  whenToBookGuidance: true,
+  consultationModes: true,
+  linkedinUrl: true,
+  linkedinPublic: true,
+  cvFileId: true,
+  licensingAuthority: true,
+  licenseExpiry: true,
+  licensePublic: true,
+  professionalMemberships: true,
+  awards: true,
+  hospitalAffiliations: true,
+  identityVerification: true,
+  licenseVerification: true,
+  qualificationVerification: true,
 } satisfies Prisma.DoctorProfileSelect;
 
 type PublicRow = Prisma.DoctorProfileGetPayload<{ select: typeof publicSelect }>;
@@ -54,7 +79,7 @@ export async function listDoctors(options: { search?: string; specialty?: string
           OR: [
             { user: { name: { contains: search, mode: "insensitive" } } },
             { specialty: { contains: search, mode: "insensitive" } },
-            { location: { contains: search, mode: "insensitive" } },
+            { location: { contains: search, mode: "insensitive" } } ,
             { affiliation: { contains: search, mode: "insensitive" } },
           ],
         }
@@ -74,20 +99,51 @@ export async function listDoctors(options: { search?: string; specialty?: string
   return { doctors: rows.map(toPublic), total };
 }
 
-/** One doctor's public profile with recent reviews and, for patients, their own like / review state. */
+/** Average of one review category, across approved reviews that set it. */
+function categoryAverage(reviews: { communicationRating: number | null; professionalismRating: number | null; punctualityRating: number | null; explanationRating: number | null }[], key: "communicationRating" | "professionalismRating" | "punctualityRating" | "explanationRating") {
+  const values = reviews.map((r) => r[key]).filter((v): v is number => v !== null);
+  if (values.length === 0) return null;
+  return { avg: Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10, count: values.length };
+}
+
+/**
+ * One doctor's public profile: published services and portfolio, the real next available slot,
+ * approved reviews (with the doctor's replies), and, for patients, their own like / review state.
+ */
 export async function getDoctorProfileView(id: string, viewer: User) {
   const doctor = await prisma.doctorProfile.findFirst({
     where: { id, ...visibleDoctor },
     select: {
       ...publicSelect,
       reviews: {
+        where: { moderationStatus: "APPROVED" },
         orderBy: { createdAt: "desc" },
         take: 20,
-        select: { id: true, rating: true, comment: true, createdAt: true, patient: { select: { firstName: true } } },
+        select: {
+          id: true, rating: true, comment: true, createdAt: true,
+          communicationRating: true, professionalismRating: true, punctualityRating: true, explanationRating: true,
+          doctorResponse: true, doctorRespondedAt: true,
+          patient: { select: { firstName: true } },
+        },
       },
     },
   });
   if (!doctor) return null;
+
+  const [services, portfolio, nextSlot] = await Promise.all([
+    prisma.doctorService.findMany({
+      where: { doctorId: id, isActive: true },
+      orderBy: [{ kind: "asc" }, { price: "asc" }],
+      select: doctorServiceSelect,
+    }),
+    prisma.doctorPortfolioItem.findMany({
+      where: { doctorId: id, visibility: "PUBLIC" },
+      orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+      take: 50,
+      select: { id: true, type: true, title: true, description: true, externalUrl: true, publishedAt: true, attachmentFileId: true, consentStatus: true, visibility: true },
+    }),
+    nextAvailableSlot(id),
+  ]);
 
   let viewerState = { liked: false, canReview: false };
   if (viewer.role === "PATIENT") {
@@ -101,10 +157,26 @@ export async function getDoctorProfileView(id: string, viewer: User) {
     }
   }
 
+  // Category averages are computed over every approved review, not just the listed page.
+  const categoryRows = await prisma.doctorReview.findMany({
+    where: { doctorId: id, moderationStatus: "APPROVED" },
+    select: { communicationRating: true, professionalismRating: true, punctualityRating: true, explanationRating: true },
+  });
+
   const { reviews, ...profile } = doctor;
+  const publishedReviews = reviews.map(({ patient, ...r }) => ({ ...r, author: patient.firstName }));
   return {
     doctor: toPublic(profile),
-    reviews: reviews.map(({ patient, ...r }) => ({ ...r, author: patient.firstName })),
+    services: services.map(serializeDoctorService),
+    portfolio: portfolio.filter(portfolioItemIsPublic).map(serializePublicPortfolioItem),
+    nextAvailableAt: nextSlot?.start.toISOString() ?? null,
+    reviews: publishedReviews,
+    reviewCategories: {
+      communication: categoryAverage(categoryRows, "communicationRating"),
+      professionalism: categoryAverage(categoryRows, "professionalismRating"),
+      punctuality: categoryAverage(categoryRows, "punctualityRating"),
+      explanation: categoryAverage(categoryRows, "explanationRating"),
+    },
     viewer: viewerState,
   };
 }

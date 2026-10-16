@@ -22,6 +22,24 @@ export async function findSlotMinutes(doctorId: string, start: Date, db: Db = pr
 }
 
 /**
+ * The same slot check for a booking against a specific service: the visit lasts the service's duration,
+ * so the whole visit (not just one grid slot) must fit inside the window. Returns the duration to book.
+ */
+export async function findServiceSlotMinutes(doctorId: string, start: Date, durationMinutes: number, db: Db = prisma): Promise<number> {
+  if (start.getTime() <= Date.now()) throw badRequest("Appointments must be in the future");
+
+  const { dayOfWeek, minutes } = clinicParts(start);
+  const windows = await db.doctorSchedule.findMany({ where: { doctorId, dayOfWeek, isActive: true } });
+  const aligned = start.getUTCSeconds() === 0 && start.getUTCMilliseconds() === 0;
+  const window = windows.find((w) => {
+    const from = hhmmToMinutes(w.startTime);
+    return aligned && minutes >= from && minutes + durationMinutes <= hhmmToMinutes(w.endTime) && (minutes - from) % w.slotMinutes === 0;
+  });
+  if (!window) throw conflict("That time is not one of the doctor's available slots");
+  return durationMinutes;
+}
+
+/**
  * Neither the doctor nor the patient may already have an active appointment overlapping this slot.
  * Run inside a Serializable transaction so two people racing for a slot cannot both succeed.
  */
