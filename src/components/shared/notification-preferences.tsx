@@ -13,6 +13,7 @@ const CATEGORIES = [
   ["PAYMENT", "Payments and refunds"],
   ["LAB_RESULT", "Results"],
   ["PRESCRIPTION", "Prescriptions"],
+  ["SYSTEM", "Tasks and account updates"],
 ] as const;
 const CHANNELS = [
   ["IN_APP", "Pop-ups"],
@@ -36,6 +37,7 @@ export function NotificationPreferences() {
   const [subscribed, setSubscribed] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const supported = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window;
 
@@ -44,7 +46,7 @@ export function NotificationPreferences() {
     apiClient
       .get<{ preferences: Matrix; pushAvailable: boolean; vapidPublicKey: string | null }>("/notifications/preferences")
       .then(async (data) => {
-        const reg = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration("/sw.js") : undefined;
+        const reg = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration("/") : undefined;
         const existing = reg ? await reg.pushManager.getSubscription() : null;
         if (!active) return;
         setPrefs(data.preferences);
@@ -59,7 +61,9 @@ export function NotificationPreferences() {
   }, []);
 
   const toggle = async (category: string, channel: string, enabled: boolean) => {
-    if (!prefs) return;
+    if (!prefs || saving) return;
+    setSaving(true);
+    setError("");
     const previous = prefs;
     setPrefs({ ...prefs, [category]: { ...prefs[category], [channel]: enabled } });
     try {
@@ -67,7 +71,7 @@ export function NotificationPreferences() {
     } catch {
       setPrefs(previous);
       setError("Could not save that change.");
-    }
+    } finally { setSaving(false); }
   };
 
   const enablePush = async () => {
@@ -92,13 +96,16 @@ export function NotificationPreferences() {
   const disablePush = async () => {
     setBusy(true);
     try {
-      const reg = await navigator.serviceWorker.getRegistration("/sw.js");
+      const reg = await navigator.serviceWorker.getRegistration("/");
       const sub = await reg?.pushManager.getSubscription();
       if (sub) {
-        await fetch("/api/notifications/push-subscription", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }) });
+        const response = await fetch("/api/notifications/push-subscription", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }) });
+        if (!response.ok) throw new Error("Could not update the server. Please try again.");
         await sub.unsubscribe();
       }
       setSubscribed(false);
+    } catch {
+      setError("Could not turn off push notifications. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -135,7 +142,7 @@ export function NotificationPreferences() {
                     <td className="py-3 pr-2">{label}</td>
                     {CHANNELS.map(([channel, channelLabel]) => (
                       <td key={channel} className="py-3 text-center">
-                        <Switch size="sm" aria-label={`${label}: ${channelLabel}`} checked={prefs[category]?.[channel] ?? true} onCheckedChange={(v) => toggle(category, channel, Boolean(v))} />
+                        <Switch size="sm" disabled={saving} aria-label={`${label}: ${channelLabel}`} checked={prefs[category]?.[channel] ?? true} onCheckedChange={(v) => toggle(category, channel, Boolean(v))} />
                       </td>
                     ))}
                   </tr>
