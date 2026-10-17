@@ -14,6 +14,8 @@ import { credentialExpiryState } from "@/lib/facility-staff";
 import { ACTIVE_WORKFLOW_STAGES } from "@/lib/facility-workflow";
 import { facilityFaqs } from "@/lib/faqs";
 import { FaqSection } from "@/components/shared/faq-section";
+import { facilitySuggestions } from "@/lib/suggestions";
+import { SuggestionsCard } from "@/components/shared/suggestions-card";
 
 export default async function LabDashboardPage() {
   const user = await requireFacilityPortalPage();
@@ -263,6 +265,16 @@ export default async function LabDashboardPage() {
           </p>
         </WidgetCard>
       </div>
+
+      {/* Account-specific suggestions */}
+      <SuggestionsCard
+        items={facilitySuggestions({
+          accountType: user.accountType,
+          referralInbox,
+          credentialAlerts: expiringSoon + expired,
+          activeServices,
+        })}
+      />
 
       <FacilitySections data={workspace} />
 

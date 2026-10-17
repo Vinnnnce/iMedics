@@ -19,6 +19,8 @@ import { WidgetCard } from "@/components/dashboard/widget-card";
 import { greetingFor } from "@/lib/dashboard/greeting";
 import { FAQS } from "@/lib/faqs";
 import { FaqSection } from "@/components/shared/faq-section";
+import { doctorSuggestions } from "@/lib/suggestions";
+import { SuggestionsCard } from "@/components/shared/suggestions-card";
 
 export default async function DoctorDashboardPage() {
   const user = await requirePageRole("DOCTOR");
@@ -204,6 +206,16 @@ export default async function DoctorDashboardPage() {
           <p className="text-xs text-muted-foreground">Feature access, including AI tools, depends on your plan.</p>
         </WidgetCard>
       </div>
+
+      {/* Account-specific suggestions */}
+      <SuggestionsCard
+        items={doctorSuggestions({
+          pendingBookings,
+          aiToReview,
+          subscriptionActive: workspace.subscription.toLowerCase().includes("active"),
+          activePatients,
+        })}
+      />
 
       <DoctorCareSections data={workspace} />
 
