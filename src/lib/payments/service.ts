@@ -37,13 +37,37 @@ interface NewPayment {
   description: string;
   amount: number;
   currency: string;
+  /** Facility-service commission snapshot (see computeCommissionSplit). */
+  commission?: {
+    commissionBps: number;
+    commissionAmount: number;
+    netAmount: number;
+    settlementMode: "PLATFORM_HELD" | "SPLIT_SUBACCOUNT";
+    subaccountCode: string | null;
+  };
 }
 
 /** Create the pending charge for a booking. Call inside the booking transaction so both succeed or fail together. */
 export function createPendingPayment(tx: Tx, input: NewPayment) {
   return tx.payment.create({
     data: {
-      ...input,
+      kind: input.kind,
+      payerId: input.payerId,
+      payeeId: input.payeeId,
+      appointmentId: input.appointmentId ?? null,
+      facilityBookingId: input.facilityBookingId ?? null,
+      description: input.description,
+      amount: input.amount,
+      currency: input.currency,
+      ...(input.commission
+        ? {
+            commissionBps: input.commission.commissionBps,
+            commissionAmount: input.commission.commissionAmount,
+            netAmount: input.commission.netAmount,
+            settlementMode: input.commission.settlementMode,
+            subaccountCode: input.commission.subaccountCode,
+          }
+        : {}),
       provider: getPaymentProvider().name,
       providerReference: newReference(),
       expiresAt: holdExpiry(),
@@ -81,6 +105,15 @@ export async function startCheckout(paymentId: string, payer: { id: string; emai
     email: payer.email,
     method,
     callbackUrl: `${appUrl()}/payments/callback`,
+    // Split settlement: only when the facility subaccount is configured. Without
+    // it the full charge goes to the platform, which owes the facility its net.
+    split:
+      payment.settlementMode === "SPLIT_SUBACCOUNT" && payment.subaccountCode && payment.commissionAmount != null
+        ? {
+            subaccountCode: payment.subaccountCode,
+            commissionMinor: toMinorUnits(payment.commissionAmount.toString()),
+          }
+        : null,
   });
 
   await prisma.payment.update({
@@ -202,7 +235,14 @@ export async function submitRefund(payment: Payment): Promise<void> {
 export async function markRefunded(paymentId: string): Promise<void> {
   const claimed = await prisma.payment.updateMany({
     where: { id: paymentId, status: "REFUND_PENDING" },
-    data: { status: "REFUNDED", refundedAt: new Date() },
+    data: {
+      status: "REFUNDED",
+      refundedAt: new Date(),
+      // A refund returns both the patient's money and the commission: the split
+      // snapshot is zeroed so revenue reports never count refunded charges.
+      commissionAmount: 0,
+      netAmount: 0,
+    },
   });
   if (claimed.count === 0) return;
   const payment = await prisma.payment.findUniqueOrThrow({ where: { id: paymentId }, select: { payerId: true } });

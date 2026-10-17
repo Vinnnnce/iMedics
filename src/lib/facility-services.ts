@@ -10,6 +10,14 @@ export const serviceSchema = z.object({
   turnaroundHours: z.number().int().min(1).max(720).nullable().optional(),
   /** Free text such as "Mon–Sat 8am–4pm" or "Walk-in, no appointment needed". */
   availability: z.string().trim().max(200).transform((v) => v || null).nullable().optional(),
+  /** Patient preparation instructions, shown on the public portfolio before booking. */
+  preparationInstructions: z.string().trim().max(500).transform((v) => v || null).nullable().optional(),
+  /** True when a doctor's referral is required before this service can be delivered. */
+  referralRequired: z.boolean().default(false).optional(),
+  homeCollectionAvailable: z.boolean().default(false).optional(),
+  urgentAvailable: z.boolean().default(false).optional(),
+  branchId: z.string().uuid().nullable().optional(),
+  departmentId: z.string().uuid().nullable().optional(),
   isActive: z.boolean().default(true),
 });
 
@@ -22,6 +30,12 @@ export const serviceSelect = {
   currency: true,
   turnaroundHours: true,
   availability: true,
+  preparationInstructions: true,
+  referralRequired: true,
+  homeCollectionAvailable: true,
+  urgentAvailable: true,
+  branchId: true,
+  departmentId: true,
   isActive: true,
   updatedAt: true,
 } as const;

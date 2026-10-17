@@ -33,6 +33,7 @@ model User {
   labResultsUploaded LabResult[]              @relation("LabResultUploadedBy")
   labResultsVerified LabResult[]              @relation("LabResultVerifiedBy")
   labStaffProfile    LabStaffProfile?         @relation("LabStaffProfileUser")
+  facilityStaffMembers FacilityStaff[]        @relation("FacilityStaffUser")
   labStaffVerified   LabStaffProfile[]        @relation("LabStaffVerifiedBy")
   notificationPrefs  NotificationPreference[]
   notifications      Notification[]
@@ -89,6 +90,7 @@ model DoctorProfile {
   assignments            PatientAssignment[]
   prescriptions          Prescription[]
   careCases              CareCase[]             @relation("CareCasePrimaryDoctor")
+  sentFacilityReferrals  FacilityReferral[]     @relation("ReferralFromDoctor")
 
   // --- Medic1905 doctor profile enhancement (additive, optional) ---
   professionalTitle         String?             @map("professional_title")
@@ -216,12 +218,309 @@ model LabStaffProfile {
   city                  String?
   operatingHours        String?            @map("operating_hours")
   state                 String?
+
+  // --- Public mini-portfolio (facility website on Medic1905) ---
+  /// URL slug for the public portfolio, e.g. "medlab-diagnostics" under /laboratories/.
+  slug                  String?            @unique @db.VarChar(80)
+  /// Independent publication state: a slug alone never publishes a facility.
+  isPublished           Boolean            @default(false) @map("is_published")
+  tagline               String?            @db.VarChar(200)
+  mission               String?            @db.VarChar(500)
+  vision                String?            @db.VarChar(500)
+  ownershipType         OwnershipType?
+  establishedYear       Int?               @map("established_year")
+  bedCount              Int?               @map("bed_count")
+  theatreCount          Int?               @map("theatre_count")
+  laboratoryCount       Int?               @map("laboratory_count")
+  imagingRoomCount      Int?               @map("imaging_room_count")
+  languagesSpoken       String[]           @default([]) @map("languages_spoken")
+  /// Payment method labels shown to patients, e.g. "Card", "Bank transfer", "Cash".
+  paymentMethods        String[]           @default([]) @map("payment_methods")
+  emergencyContact      String?            @map("emergency_contact") @db.VarChar(200)
+  phone                 String?            @db.VarChar(40)
+  email                 String?            @db.VarChar(120)
+  logoUrl               String?            @map("logo_url") @db.VarChar(500)
+  galleryImageKeys      String[]           @default([]) @map("gallery_image_keys")
+
+  // --- Commission and split settlement ---
+  /// Medic1905 commission in basis points. null = platform default (server config).
+  /// Set by the platform, never editable from the public profile form.
+  commissionBps         Int?               @map("commission_bps")
+  /// Paystack subaccount code for split settlement. null = funds held by the platform.
+  subaccountCode        String?            @map("subaccount_code") @db.VarChar(60)
+  settlementBank        String?            @map("settlement_bank") @db.VarChar(100)
+  settlementAccountNumber String?           @map("settlement_account_number") @db.VarChar(40)
+
   services              FacilityService[]
+  branches              FacilityBranch[]
+  facilityDepartments   FacilityDepartment[]
+  staffMembers          FacilityStaff[]
+  referrals             FacilityReferral[]
+  accreditations        FacilityAccreditation[]
   user                  User               @relation("LabStaffProfileUser", fields: [userId], references: [id], onDelete: Cascade)
   verifiedBy            User?              @relation("LabStaffVerifiedBy", fields: [verifiedById], references: [id])
 
   @@index([verificationStatus])
+  @@index([isPublished])
   @@map("lab_staff_profiles")
+}
+
+enum OwnershipType {
+  PRIVATE
+  PUBLIC
+  FAITH_BASED
+  GROUP_PRACTICE
+}
+
+enum FacilityStaffRole {
+  OWNER
+  FACILITY_MANAGER
+  DOCTOR
+  LAB_SCIENTIST
+  LAB_TECHNICIAN
+  LAB_ASSISTANT
+  PHLEBOTOMIST
+  NURSE
+  RADIOGRAPHER
+  RECEPTIONIST
+  ACCOUNTANT
+  COMPLIANCE_OFFICER
+}
+
+enum FacilityStaffStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  ON_LEAVE
+  TERMINATED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  LOCUM
+  CONTRACT
+  VOLUNTEER
+}
+
+enum StaffCredentialType {
+  MEDICAL_LICENCE
+  NURSING_LICENCE
+  LAB_SCIENTIST_REGISTRATION
+  RADIOGRAPHER_LICENCE
+  PROFESSIONAL_CERTIFICATION
+  TRAINING_CERTIFICATE
+}
+
+enum CredentialVerificationStatus {
+  UNVERIFIED
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+}
+
+enum CredentialRenewalStatus {
+  CURRENT
+  RENEWAL_DUE
+  RENEWAL_IN_PROGRESS
+  LAPSED
+}
+
+enum ReferralStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  FULFILLED
+}
+
+enum FacilityBookingWorkflowStage {
+  BOOKED
+  CHECKED_IN
+  SAMPLE_COLLECTED
+  SAMPLE_RECEIVED
+  PROCESSING
+  RESULT_ENTERED
+  VERIFIED
+  APPROVED
+  PROCEDURE_COMPLETED
+  IMAGES_UPLOADED
+  REPORT_DRAFTED
+  REVIEWED
+  RELEASED
+  AMENDED
+  ARCHIVED
+}
+
+enum SettlementMode {
+  /// No facility subaccount is configured: the platform collects and owes the facility its net.
+  PLATFORM_HELD
+  /// Paystack splits settlement at charge time via the facility subaccount.
+  SPLIT_SUBACCOUNT
+}
+
+model FacilityBranch {
+  id            String          @id @default(uuid()) @db.Uuid
+  facilityId    String          @map("facility_id") @db.Uuid
+  name          String
+  addressLine   String?         @map("address_line")
+  city          String?
+  state         String?
+  phone         String?         @db.VarChar(40)
+  email         String?         @db.VarChar(120)
+  openingHours  String?         @map("opening_hours")
+  isPrimary     Boolean         @default(false) @map("is_primary")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  facility      LabStaffProfile @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  staff         FacilityStaff[]
+  services      FacilityService[]
+
+  @@index([facilityId])
+  @@map("facility_branches")
+}
+
+model FacilityDepartment {
+  id            String           @id @default(uuid()) @db.Uuid
+  facilityId    String           @map("facility_id") @db.Uuid
+  name          String
+  slug          String
+  description   String?
+  openingHours  String?          @map("opening_hours")
+  /// Equipment labels, e.g. "1.5T MRI", "4D ultrasound", "automated chemistry analyser".
+  equipment     String[]         @default([])
+  leadStaffId   String?          @map("lead_staff_id") @db.Uuid
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+  facility      LabStaffProfile  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  leadStaff     FacilityStaff?   @relation("DepartmentLead", fields: [leadStaffId], references: [id], onDelete: SetNull)
+  staff         FacilityStaff[]
+  services      FacilityService[]
+
+  @@unique([facilityId, slug])
+  @@index([facilityId])
+  @@map("facility_departments")
+}
+
+/// A staff member of a facility. userId stays null until the invite is redeemed by
+/// an account with a matching verified email; it is never auto-linked.
+model FacilityStaff {
+  id                    String              @id @default(uuid()) @db.Uuid
+  facilityId            String              @map("facility_id") @db.Uuid
+  userId                String?             @unique @map("user_id") @db.Uuid
+  email                 String              @db.VarChar(120)
+  fullName              String              @map("full_name") @db.VarChar(120)
+  facilityRole          FacilityStaffRole
+  departmentId          String?             @map("department_id") @db.Uuid
+  branchId              String?             @map("branch_id") @db.Uuid
+  employmentType        EmploymentType?
+  status                FacilityStaffStatus @default(INVITED)
+  /// Single-use invite token; cleared once redeemed.
+  inviteToken           String?             @unique @map("invite_token") @db.VarChar(64)
+  inviteExpiresAt       DateTime?           @map("invite_expires_at")
+  invitedById           String?             @map("invited_by_id") @db.Uuid
+  acceptedAt            DateTime?           @map("accepted_at")
+  /// Facility-controlled directory visibility. Publication also requires staff consent.
+  publicProfileVisible  Boolean             @default(false) @map("public_profile_visible")
+  /// The staff member's own affirmative, revocable consent to appear on the public portfolio.
+  profileConsent        Boolean             @default(false) @map("profile_consent")
+  profileConsentAt      DateTime?           @map("profile_consent_at")
+  bookingEligible       Boolean             @default(false) @map("booking_eligible")
+  professionalTitle     String?             @map("professional_title") @db.VarChar(120)
+  photoUrl              String?             @map("photo_url") @db.VarChar(500)
+  qualifications        String?
+  specialty             String?
+  yearsExperience       Int?                @map("years_experience")
+  bio                   String?
+  linkedinUrl           String?             @map("linkedin_url") @db.VarChar(300)
+  /// LinkedIn is only shown publicly when both this and profileConsent are true.
+  linkedinPublic        Boolean             @default(false) @map("linkedin_public")
+  languages             String[]            @default([])
+  lastLoginAt           DateTime?           @map("last_login_at")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+  facility              LabStaffProfile     @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  user                  User?               @relation("FacilityStaffUser", fields: [userId], references: [id], onDelete: SetNull)
+  department            FacilityDepartment? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  departmentLeadOf      FacilityDepartment[] @relation("DepartmentLead")
+  branch                FacilityBranch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  credentials           StaffCredential[]
+  verifiedCredentials   StaffCredential[]   @relation("CredentialVerifiedBy")
+  assignedBookings      FacilityBooking[]   @relation("BookingAssignedStaff")
+
+  @@unique([facilityId, email])
+  @@index([facilityId, status])
+  @@index([userId])
+  @@map("facility_staff")
+}
+
+model StaffCredential {
+  id                 String                     @id @default(uuid()) @db.Uuid
+  staffId            String                     @map("staff_id") @db.Uuid
+  type               StaffCredentialType
+  number             String                     @db.VarChar(80)
+  authority          String                     @db.VarChar(160)
+  issueDate          DateTime?                  @map("issue_date") @db.Date
+  expiryDate         DateTime?                  @map("expiry_date") @db.Date
+  verificationStatus CredentialVerificationStatus @default(UNVERIFIED) @map("verification_status")
+  verifiedById       String?                     @map("verified_by_id") @db.Uuid
+  verifiedAt         DateTime?                  @map("verified_at")
+  documentKey        String?                     @map("document_key")
+  restrictions       String?
+  renewalStatus      CredentialRenewalStatus    @default(CURRENT) @map("renewal_status")
+  /// Last reminder threshold (90/60/30/7 days) already sent — avoids duplicate reminders.
+  lastReminderStage  Int?                       @map("last_reminder_stage")
+  createdAt          DateTime                    @default(now()) @map("created_at")
+  updatedAt          DateTime                    @updatedAt @map("updated_at")
+  staff              FacilityStaff               @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  verifiedBy         FacilityStaff?              @relation("CredentialVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@unique([staffId, type, number])
+  @@index([staffId])
+  @@index([expiryDate])
+  @@map("staff_credentials")
+}
+
+/// A Medic1905 doctor sends a patient to a facility for a service.
+model FacilityReferral {
+  id            String           @id @default(uuid()) @db.Uuid
+  facilityId    String           @map("facility_id") @db.Uuid
+  fromDoctorId  String           @map("from_doctor_id") @db.Uuid
+  patientId     String           @map("patient_id") @db.Uuid
+  caseId        String?          @map("case_id") @db.Uuid
+  serviceId     String?          @map("service_id") @db.Uuid
+  note          String?
+  status        ReferralStatus   @default(PENDING)
+  handledAt     DateTime?         @map("handled_at")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  facility      LabStaffProfile  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  fromDoctor    DoctorProfile    @relation("ReferralFromDoctor", fields: [fromDoctorId], references: [id])
+  patient       Patient          @relation("ReferralPatient", fields: [patientId], references: [id])
+  case          CareCase?        @relation("ReferralCase", fields: [caseId], references: [id], onDelete: SetNull)
+  service       FacilityService? @relation("ReferralService", fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([facilityId, status])
+  @@index([fromDoctorId])
+  @@index([patientId])
+  @@map("facility_referrals")
+}
+
+model FacilityAccreditation {
+  id           String          @id @default(uuid()) @db.Uuid
+  facilityId   String          @map("facility_id") @db.Uuid
+  name         String
+  issuer       String
+  issuedAt     DateTime?         @map("issued_at")
+  expiresAt    DateTime?         @map("expires_at")
+  documentKey  String?          @map("document_key")
+  /// True only when the Medic1905 platform team has verified the document.
+  verified     Boolean          @default(false)
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+  facility     LabStaffProfile  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@index([facilityId])
+  @@map("facility_accreditations")
 }
 
 model DoctorSchedule {
@@ -316,6 +615,7 @@ model Patient {
   likes            DoctorLike[]
   reviews          DoctorReview[]
   facilityBookings FacilityBooking[]
+  facilityReferrals FacilityReferral[] @relation("ReferralPatient")
   labOrders        LabOrder[]
   labResults       LabResult[]
   medicalHistories MedicalHistory[]
@@ -372,6 +672,7 @@ model CareCase {
   prescriptions       Prescription[]
   payments           Payment[]
   facilityBookings    FacilityBooking[]
+  facilityReferrals  FacilityReferral[] @relation("ReferralCase")
   events              CareCaseEvent[]
 
   @@index([patientId, createdAt(sort: Desc)])
@@ -859,9 +1160,20 @@ model FacilityService {
   /// Free-text availability, e.g. "Mon–Sat 8am–4pm" or "Walk-in".
   availability    String?
   isActive        Boolean           @default(true) @map("is_active")
+  /// Patient preparation instructions, shown before booking.
+  preparationInstructions String?   @map("preparation_instructions")
+  /// True when a doctor's referral is required before this service can be delivered.
+  referralRequired Boolean            @default(false) @map("referral_required")
+  homeCollectionAvailable Boolean    @default(false) @map("home_collection_available")
+  urgentAvailable Boolean            @default(false) @map("urgent_available")
+  branchId         String?            @map("branch_id") @db.Uuid
+  departmentId     String?            @map("department_id") @db.Uuid
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @updatedAt @map("updated_at")
   bookings        FacilityBooking[]
+  referrals       FacilityReferral[] @relation("ReferralService")
+  branch          FacilityBranch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  department      FacilityDepartment? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   facility        LabStaffProfile   @relation(fields: [facilityId], references: [id], onDelete: Cascade)
 
   @@index([facilityId, isActive])
@@ -880,16 +1192,28 @@ model FacilityBooking {
   status      FacilityBookingStatus @default(REQUESTED)
   /// The care episode this diagnostic/service booking belongs to, when linked.
   caseId      String?                @map("case_id") @db.Uuid
+  /// Staff member handling this booking, when assigned.
+  assignedStaffId String?           @map("assigned_staff_id") @db.Uuid
+  /// Operational workflow (check-in, sample, result, release). Separate from status.
+  workflowStage FacilityBookingWorkflowStage @default(BOOKED) @map("workflow_stage")
+  workflowUpdatedAt DateTime?         @map("workflow_updated_at")
+  /// Referral uploaded by the patient, when the service requires one.
+  referralDocumentKey String?         @map("referral_document_key")
+  /// Released report document, when the workflow reaches RELEASED.
+  reportDocumentKey String?           @map("report_document_key")
+  releasedAt  DateTime?              @map("released_at")
   createdAt   DateTime              @default(now()) @map("created_at")
   updatedAt   DateTime              @updatedAt @map("updated_at")
   patient     Patient               @relation(fields: [patientId], references: [id])
   service     FacilityService       @relation(fields: [serviceId], references: [id])
   case        CareCase?             @relation(fields: [caseId], references: [id])
   payment     Payment?
+  assignedStaff FacilityStaff?      @relation("BookingAssignedStaff", fields: [assignedStaffId], references: [id], onDelete: SetNull)
 
   @@index([patientId, createdAt])
   @@index([caseId])
   @@index([serviceId, status])
+  @@index([workflowStage])
   @@map("facility_bookings")
 }
 
@@ -913,6 +1237,12 @@ model Payment {
   expiresAt         DateTime?        @map("expires_at")
   paidAt            DateTime?        @map("paid_at")
   refundedAt        DateTime?        @map("refunded_at")
+  // --- Facility service commission snapshot (FACILITY_SERVICE payments) ---
+  commissionBps     Int?             @map("commission_bps")
+  commissionAmount  Decimal?         @map("commission_amount") @db.Decimal(12, 2)
+  netAmount         Decimal?         @map("net_amount") @db.Decimal(12, 2)
+  settlementMode    SettlementMode?
+  subaccountCode    String?          @map("subaccount_code") @db.VarChar(60)
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
   events            PaymentEvent[]
@@ -953,6 +1283,12 @@ model AuditLog {
   details      Json     @default("{}")
   ipAddress    String?  @map("ip_address")
   userAgent    String?  @map("user_agent")
+  /// Facility the action concerned, when applicable. No FK: audit rows outlive their subjects.
+  facilityId   String?  @map("facility_id") @db.Uuid
+  /// Patient the action concerned, when applicable. No FK: audit rows outlive their subjects.
+  patientId    String?  @map("patient_id") @db.Uuid
+  /// "SUCCESS" or "FAILURE". Missing entries default to success (legacy rows).
+  outcome      String?  @db.VarChar(16)
   createdAt    DateTime @default(now()) @map("created_at")
   user         User?    @relation(fields: [userId], references: [id])
 
@@ -960,6 +1296,8 @@ model AuditLog {
   @@index([resourceType, resourceId])
   @@index([createdAt])
   @@index([userId, action, createdAt])
+  @@index([facilityId, createdAt])
+  @@index([patientId])
   @@map("audit_logs")
 }
 

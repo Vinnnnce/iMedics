@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { PaymentMethod } from "@prisma/client";
 import { GATEWAY_CHANNELS } from "./config";
 import { appUrl } from "../notifications/email";
@@ -10,6 +10,16 @@ export interface InitializeInput {
   email: string;
   method: PaymentMethod;
   callbackUrl: string;
+  /** Split settlement (facility services): the gateway sends the flat commission to the main account. */
+  split?: { subaccountCode: string; commissionMinor: number } | null;
+}
+
+export interface SubaccountInput {
+  businessName: string;
+  settlementBank: string;
+  accountNumber: string;
+  /** Default percentage charge to the main account, as a decimal fraction (e.g. 0.05 for 5%). */
+  percentageCharge?: number;
 }
 
 export interface VerifyResult {
@@ -30,6 +40,8 @@ export interface PaymentProvider {
   verify(reference: string): Promise<VerifyResult>;
   /** Starts a full refund of a successful charge. "processed" means money has already been returned. */
   refund(reference: string): Promise<{ status: "pending" | "processed" }>;
+  /** Registers a facility bank account for split settlement and returns its subaccount code. */
+  createSubaccount(input: SubaccountInput): Promise<{ subaccountCode: string }>;
   /** `valid` is false for a bad signature. A valid call can still carry an event we do not act on (event: null). */
   parseWebhook(rawBody: string, signature: string | null): { valid: boolean; event: WebhookEvent | null };
 }
@@ -59,6 +71,11 @@ function paystack(secret: string): PaymentProvider {
           reference: input.reference,
           callback_url: input.callbackUrl,
           channels: GATEWAY_CHANNELS[input.method],
+          // Split settlement: the facility subaccount receives the charge; the flat
+          // transaction_charge (Medic1905 commission, in minor units) goes to the main account.
+          ...(input.split
+            ? { subaccount: input.split.subaccountCode, transaction_charge: input.split.commissionMinor, bearer: "account" }
+            : {}),
         }),
       });
       return { checkoutUrl: data.authorization_url };
@@ -73,6 +90,18 @@ function paystack(secret: string): PaymentProvider {
     async refund(reference) {
       const data = await call<{ status?: string }>("/refund", { method: "POST", body: JSON.stringify({ transaction: reference }) });
       return { status: data.status === "processed" ? "processed" : "pending" };
+    },
+    async createSubaccount(input) {
+      const data = await call<{ subaccount_code: string }>("/subaccount", {
+        method: "POST",
+        body: JSON.stringify({
+          business_name: input.businessName,
+          settlement_bank: input.settlementBank,
+          account_number: input.accountNumber,
+          percentage_charge: input.percentageCharge ?? 0,
+        }),
+      });
+      return { subaccountCode: data.subaccount_code };
     },
     parseWebhook(rawBody, signature) {
       if (!signature) return { valid: false, event: null };
@@ -117,6 +146,9 @@ const mock: PaymentProvider = {
   },
   async refund() {
     return { status: "processed" };
+  },
+  async createSubaccount() {
+    return { subaccountCode: `ACCT_MOCK_${randomBytes(6).toString("hex")}` };
   },
   parseWebhook() {
     return { valid: false, event: null };

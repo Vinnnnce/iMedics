@@ -6,7 +6,9 @@ const COLUMNS: { heading: string; links: { href: string; label: string }[] }[] =
     heading: "For patients",
     links: [
       { href: "/doctors", label: "Find a doctor" },
-      { href: "/facilities", label: "Find a laboratory or diagnostic centre" },
+      { href: "/laboratories", label: "Find a laboratory" },
+      { href: "/diagnostic-centres", label: "Find a diagnostic centre" },
+      { href: "/hospitals", label: "Find a hospital" },
       { href: "/doctors", label: "Book a consultation" },
       { href: "/auth/signup", label: "Create a free account" },
     ],

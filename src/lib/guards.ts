@@ -18,6 +18,26 @@ export async function requirePageRole(...roles: Role[]) {
   return user;
 }
 
+/**
+ * Server-side page guard for the facility portal. Access is role-based for the
+ * legacy owner role (LAB_SCIENTIST) or membership-based: any user with an
+ * active FacilityStaff membership may enter. Suspended, on-leave or terminated
+ * memberships are rejected on every request, and the facility APIs check the
+ * caller's per-role permissions independently.
+ */
+export async function requireFacilityPortalPage() {
+  const user = await requirePageRole("PATIENT", "LAB_SCIENTIST");
+  if (user.role === "LAB_SCIENTIST") return user;
+  const membership = await prisma.facilityStaff.findFirst({
+    where: { userId: user.id, status: "ACTIVE" },
+    select: { id: true },
+  });
+  if (!membership) {
+    redirect(pageAccessRedirect(user, ["LAB_SCIENTIST"]) ?? "/");
+  }
+  return user;
+}
+
 /** The doctor profile for a user id (one query per request). */
 export const getDoctorProfile = cache((userId: string) => prisma.doctorProfile.findUnique({ where: { userId } }));
 
