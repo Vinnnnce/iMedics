@@ -78,15 +78,19 @@ Registration writes an audit-log row, and Prisma's create operations reference t
 
 The `20261016234824_facility_portfolio_staff_split` migration originally failed mid-run on this (it re-added `payments.commission_amount`, which `payments_platform` had already created). That failure state has been reproduced from the migration history: the statements before the failing `payments` ALTER were applied, but `audit_logs.facility_id`, the facility tables, indexes, foreign keys and the audit-log trigger were not. A failed migration record also blocks `npm run db:deploy` ("migrations found in failed state"), so fixing the migration file alone does not repair such a database.
 
-If your database is in that state, recover it with:
+If registration fails this way, first check which state your database is in — `db:recover-facility` inspects the migration record and schema, and refuses to run against anything but the known partial state. Follow its output:
 
-```bash
-npm run db:recover-facility   # completes the missing DDL (does not touch migration bookkeeping)
-npx prisma migrate resolve --applied 20261016234824_facility_portfolio_staff_split
-npm run db:deploy             # should report no pending migrations
-```
+- **"was never attempted"** — just run `npm run db:deploy`; the fixed migration file applies cleanly. Do **not** run `prisma migrate resolve --applied` here: it would mark the migration applied without ever executing its DDL.
+- **"Recovery complete"** — the script applied the missing DDL. Now repair the bookkeeping and finish:
 
-`db:recover-facility` only handles the reproduced partial state and refuses to run against anything else. After deploying, verify registration end-to-end for each account type (`npm test` covers it in CI: `TEST_DATABASE_URL` must point at a fully migrated database).
+  ```bash
+  npx prisma migrate resolve --applied 20261016234824_facility_portfolio_staff_split
+  npm run db:deploy             # should report no pending migrations
+  ```
+
+- **"Refusing to continue"** — stop. The database is not in the known partial state; marking the migration applied would hide a real schema gap. Inspect the failed migration record and the schema manually.
+
+After deploying, verify registration end-to-end for each account type (`npm test` covers it in CI: `TEST_DATABASE_URL` must point at a fully migrated database).
 
 ## How access control works
 
