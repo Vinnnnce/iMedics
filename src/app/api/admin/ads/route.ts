@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
+import { writeAudit } from "@/lib/audit";
 
 // GET /api/admin/ads — list all advertisements (admin only)
 export const GET = withAuth(["ADMIN"], async () => {
@@ -22,11 +23,22 @@ export const POST = withAuth(["ADMIN"], async (req) => {
   return NextResponse.json({ success: true, ad }, { status: 201 });
 });
 
-const toggleAdSchema = z.object({ id: z.string().uuid(), active: z.boolean() });
+const updateSchema = z.object({ id: z.string().uuid(), active: z.boolean().optional(), title: z.string().trim().min(1).max(120).optional(), content: z.string().trim().min(1).max(1000).optional(), placement: z.enum(["SIDEBAR", "DASHBOARD", "LOGIN"]).optional() });
 
-// PATCH /api/admin/ads — toggle an ad on or off
-export const PATCH = withAuth(["ADMIN"], async (req) => {
-  const { id, active } = await parseBody(req, toggleAdSchema);
-  const ad = await prisma.ad.update({ where: { id }, data: { active } });
-  return NextResponse.json({ success: true, ad });
+// PATCH /api/admin/ads — toggle on or off, or edit
+export const PATCH = withAuth(["ADMIN"], async (req, { user }) => {
+  const { id, ...data } = await parseBody(req, updateSchema);
+  const item = await prisma.ad.update({ where: { id }, data });
+  await writeAudit({ userId: user.id, actorRole: user.role, action: "ADMIN_CONTENT_CHANGED", resourceType: "Ad", resourceId: id, details: { changed: Object.keys(data) }, req });
+  return NextResponse.json({ success: true, ad: item });
+});
+
+const deleteSchema = z.object({ id: z.string().uuid() });
+
+// DELETE /api/admin/ads — remove permanently
+export const DELETE = withAuth(["ADMIN"], async (req, { user }) => {
+  const { id } = await parseBody(req, deleteSchema);
+  await prisma.ad.delete({ where: { id } });
+  await writeAudit({ userId: user.id, actorRole: user.role, action: "ADMIN_CONTENT_CHANGED", resourceType: "Ad", resourceId: id, details: { removed: true }, req });
+  return NextResponse.json({ success: true });
 });

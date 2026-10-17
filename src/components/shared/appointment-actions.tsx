@@ -12,13 +12,11 @@ interface Props {
   appointmentId: string;
   /** API collection to PATCH. Facility bookings use "/facility-bookings". */
   basePath?: string;
-  /** Extra query string for staff scope, e.g. "?scope=facility". */
-  query?: string;
   actions: { label: string; status: Status; primary?: boolean }[];
 }
 
 /** Buttons that change an appointment's status, then refresh the server-rendered page. */
-export function AppointmentActions({ appointmentId, actions, basePath = "/appointments", query = "" }: Props) {
+export function AppointmentActions({ appointmentId, actions, basePath = "/appointments" }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
@@ -27,7 +25,7 @@ export function AppointmentActions({ appointmentId, actions, basePath = "/appoin
     setError("");
     startTransition(async () => {
       try {
-        await apiClient.patch(`${basePath}/${appointmentId}${query}`, { status });
+        await apiClient.patch(`${basePath}/${appointmentId}`, { status });
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Something went wrong");

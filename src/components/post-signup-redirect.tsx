@@ -10,8 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { uploadVerificationDocument } from "@/lib/verification-upload";
+import { VerificationStatusPanel } from "@/components/shared/verification-status-panel";
 import {
   Shield, FileText, Cookie, CheckCircle2, Stethoscope, Heart,
   FlaskConical, Building2, Hospital, Microscope, Upload,
@@ -24,9 +25,20 @@ type Step = "loading" | "terms" | "account-type" | "registration" | "pending";
 type AccountType = "patient" | "doctor" | "laboratory" | "diagnostic_centre" | "hospital" | null;
 
 type UploadedDoc = {
+  /** Which requirement this file satisfies, e.g. "mdcn_certificate". */
+  docKey: string;
   name: string;
+  /** Local preview URL only; the file itself is uploaded after the account is created. */
   url: string;
   size: number;
+};
+
+/** Registration form keys -> verification document kinds understood by the API. */
+const DOC_KIND: Record<string, string> = {
+  mdcn_certificate: "MDCN_CERTIFICATE",
+  practising_license: "PRACTISING_LICENSE",
+  cac_certificate: "CAC_CERTIFICATE",
+  facility_license_doc: "FACILITY_LICENSE",
 };
 
 type RegistrationData = {
@@ -137,19 +149,35 @@ export default function PostSignupRedirect() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [, setDirection] = useState<"forward" | "backward">("forward");
 
-  // Health and identity answers stay in memory, never in browser persistence.
-  const [regData, setRegData] = useState<RegistrationData>(DEFAULT_REG_DATA);
-
-  useEffect(() => {
-    // Remove drafts written by previous versions, including on shared devices.
-    try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* Storage may be unavailable. */ }
-  }, []);
+  // Restore in-progress answers from sessionStorage (this tab only). Done in the initialiser,
+  // not an effect: the first render is a spinner, so there is no hydration mismatch.
+  const [regData, setRegData] = useState<RegistrationData>(() => {
+    if (typeof window === "undefined") return DEFAULT_REG_DATA;
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      return saved ? { ...DEFAULT_REG_DATA, ...JSON.parse(saved), documents: [] } : DEFAULT_REG_DATA;
+    } catch {
+      return DEFAULT_REG_DATA;
+    }
+  });
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  // The actual files, keyed by their preview URL. Uploaded once registration succeeds.
+  const pendingFiles = useRef<Map<string, File>>(new Map());
+  const [uploadWarning, setUploadWarning] = useState("");
+
+  // Save form data to sessionStorage whenever it changes
+  const persistData = useCallback((data: RegistrationData) => {
+    try {
+      // Files cannot survive a reload, so they are never saved with the draft.
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, documents: [] }));
+    } catch {}
+  }, []);
 
   const updateField = useCallback((field: keyof RegistrationData, value: string) => {
     setRegData((prev) => {
       const next = { ...prev, [field]: value };
+      persistData(next);
       return next;
     });
     // Clear field error when user types
@@ -160,7 +188,7 @@ export default function PostSignupRedirect() {
         return next;
       });
     }
-  }, [fieldErrors]);
+  }, [fieldErrors, persistData]);
 
   // Handle document upload
   const handleFileUpload = (docKey: string, file: File) => {
@@ -175,9 +203,16 @@ export default function PostSignupRedirect() {
     }
     // Create object URL for preview
     const url = URL.createObjectURL(file);
-    const doc: UploadedDoc = { name: file.name, url, size: file.size };
+    const doc: UploadedDoc = { docKey, name: file.name, url, size: file.size };
+    pendingFiles.current.set(url, file);
     setRegData((prev) => {
-      const next = { ...prev, documents: [...prev.documents, doc] };
+      // One file per requirement: a new upload replaces the previous one.
+      for (const old of prev.documents.filter((d) => d.docKey === docKey)) {
+        URL.revokeObjectURL(old.url);
+        pendingFiles.current.delete(old.url);
+      }
+      const next = { ...prev, documents: [...prev.documents.filter((d) => d.docKey !== docKey), doc] };
+      persistData(next);
       return next;
     });
     setError("");
@@ -187,8 +222,10 @@ export default function PostSignupRedirect() {
     setRegData((prev) => {
       const docs = [...prev.documents];
       URL.revokeObjectURL(docs[idx].url);
+      pendingFiles.current.delete(docs[idx].url);
       docs.splice(idx, 1);
       const next = { ...prev, documents: docs };
+      persistData(next);
       return next;
     });
   };
@@ -232,7 +269,7 @@ export default function PostSignupRedirect() {
               router.push("/lab/dashboard");
               break;
             case "ADMIN":
-              router.push("/admin/dashboard");
+              router.push("/admin");
               break;
             default:
               router.push("/dashboard");
@@ -251,6 +288,7 @@ export default function PostSignupRedirect() {
         setRegData((prev) => {
           if (prev.email === clerkEmail) return prev;
           const next = { ...prev, email: clerkEmail, firstName: clerkFirstName, lastName: clerkLastName };
+          persistData(next);
           return next;
         });
       }
@@ -266,7 +304,7 @@ export default function PostSignupRedirect() {
     return () => {
       cancelled = true;
     };
-  }, [user, isLoaded, router]);
+  }, [user, isLoaded, router, persistData]);
 
   // Go back to previous step
   const goBack = () => {
@@ -405,6 +443,26 @@ export default function PostSignupRedirect() {
       }
       const result: { requiresVerification: boolean } = await res.json();
 
+      // Now that the account exists, send the licence and certificate scans to private storage for the reviewer.
+      if (result.requiresVerification && regData.documents.length > 0) {
+        let failed = 0;
+        for (const doc of regData.documents) {
+          const file = pendingFiles.current.get(doc.url);
+          if (!file) continue;
+          try {
+            await uploadVerificationDocument(file, DOC_KIND[doc.docKey] ?? "OTHER");
+          } catch {
+            failed += 1;
+          }
+        }
+        for (const doc of regData.documents) URL.revokeObjectURL(doc.url);
+        pendingFiles.current.clear();
+        if (failed > 0) setUploadWarning(`${failed} document${failed === 1 ? "" : "s"} could not be uploaded. Please add ${failed === 1 ? "it" : "them"} below so we can review your application.`);
+      }
+
+      // Clear sessionStorage
+      sessionStorage.removeItem(STORAGE_KEY);
+
       if (!result.requiresVerification) {
         router.push("/dashboard");
         return;
@@ -480,7 +538,7 @@ export default function PostSignupRedirect() {
 
   // Reusable document upload card
   const renderDocUpload = ({ docKey, label, description }: { docKey: string; label: string; description: string }) => {
-    const uploaded = regData.documents.filter((d) => d.name.toLowerCase().includes(docKey.toLowerCase()));
+    const uploaded = regData.documents.filter((d) => d.docKey === docKey);
     return (
       <div className="rounded-lg border-2 border-dashed border-border p-4 text-center hover:border-primary/30 transition-colors">
         <input
@@ -1281,32 +1339,8 @@ export default function PostSignupRedirect() {
             Your registration has been submitted successfully and is now pending review.
           </p>
 
-          <Card className="beeline-card text-left">
-            <CardContent className="space-y-4 p-4 sm:p-6">
-              <div className="flex items-center justify-between rounded-lg border border-border p-3">
-                <span className="text-sm text-muted-foreground">Application Status</span>
-                <Badge className="bg-foreground/10 text-foreground rounded-lg">
-                  <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Pending
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-border p-3">
-                <span className="text-sm text-muted-foreground">Account Type</span>
-                <span className="text-sm font-medium capitalize">
-                  {accountType === "diagnostic_centre" ? "Diagnostic Centre" : accountType}
-                </span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-border p-3">
-                <span className="text-sm text-muted-foreground">Submitted</span>
-                <span className="text-sm font-medium">{new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
-              </div>
-
-              <div className="rounded-lg border border-border bg-muted p-4">
-                <p className="text-xs text-muted-foreground">
-                  Our admin team will review your credentials and verify your registration. You will receive an email notification once your account is approved. This process typically takes 1-3 business days.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          {uploadWarning && <p className="mb-4 rounded-lg border border-border bg-muted p-3 text-left text-xs text-foreground">{uploadWarning}</p>}
+          <VerificationStatusPanel />
 
           <div className="flex gap-3 mt-6">
             <Button

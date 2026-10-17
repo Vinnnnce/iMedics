@@ -4,12 +4,16 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
 import { badRequest } from "@/lib/errors";
 import { isPushConfigured } from "@/lib/notifications/push";
-import { pushSubscriptionSchema } from "@/lib/notifications/push-validation";
+
+const subscribeSchema = z.object({
+  endpoint: z.string().url().max(2000).startsWith("https://"),
+  keys: z.object({ p256dh: z.string().min(1).max(500), auth: z.string().min(1).max(500) }),
+});
 
 // POST /api/notifications/push-subscription — register this browser for push notifications.
 export const POST = withAuth(null, async (req, { user }) => {
   if (!isPushConfigured()) throw badRequest("Push notifications are not enabled on this server");
-  const { endpoint, keys } = await parseBody(req, pushSubscriptionSchema);
+  const { endpoint, keys } = await parseBody(req, subscribeSchema);
   await prisma.pushSubscription.upsert({
     where: { endpoint },
     // A browser endpoint belongs to whoever is signed in on it now.

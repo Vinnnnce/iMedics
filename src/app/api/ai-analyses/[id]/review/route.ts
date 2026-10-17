@@ -48,7 +48,7 @@ export const POST = withAuth<{ id: string }>(["DOCTOR"], async (req, { user, par
     return result;
   });
 
-  if (decision === "APPROVED") await queueNotification(patient.userId, { kind: "RESULTS_AVAILABLE", analysisId: id });
+  if (decision === "APPROVED") queueNotification(patient.userId, { kind: "RESULTS_AVAILABLE", analysisId: id });
 
   await writeAudit({
     userId: user.id,

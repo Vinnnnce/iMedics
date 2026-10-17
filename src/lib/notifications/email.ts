@@ -36,17 +36,20 @@ export function renderEmail(notification: RenderedNotification) {
 }
 
 /**
- * Send a privacy-safe email. An unconfigured provider is never reported as successful.
+ * Send an email through Resend's HTTP API (no SDK needed). Without RESEND_API_KEY the message is logged instead,
+ * so development works with no email provider configured.
  */
 export async function sendEmail(input: { to: string; subject: string; text: string; html: string; idempotencyKey?: string }): Promise<void> {
   const key = process.env.RESEND_API_KEY;
-  if (!key) {
-    throw new Error("Email delivery is not configured");
-  }
+  if (!key) throw new Error("Email delivery is not configured");
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", ...(input.idempotencyKey ? { "Idempotency-Key": input.idempotencyKey } : {}) },
-    signal: AbortSignal.timeout(10000),
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      ...(input.idempotencyKey ? { "Idempotency-Key": input.idempotencyKey } : {}),
+    },
+    signal: AbortSignal.timeout(10_000),
     body: JSON.stringify({
       from: process.env.EMAIL_FROM || "Medic1905 <notifications@example.com>",
       to: [input.to],

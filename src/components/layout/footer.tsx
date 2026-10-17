@@ -19,7 +19,21 @@ export function Footer() {
           </Link>
         </div>
       </div>
-      {/* App-download links are added when published app builds exist. */}
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-3 sm:justify-end">
+        <span className="text-xs font-medium text-muted-foreground">Download App:</span>
+        <a href="#" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+          Windows
+        </a>
+        <a href="#" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+          iOS
+        </a>
+        <a href="#" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 7l5 5-5 5M14 7l5 5-5 5"/></svg>
+          Android
+        </a>
+      </div>
     </footer>
   );
 }

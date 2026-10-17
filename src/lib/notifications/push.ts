@@ -29,7 +29,11 @@ export async function sendPush(userId: string, notification: RenderedNotificatio
         return true;
       }
       try {
-        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 3600, timeout: 10000 });
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+          payload,
+          { TTL: 3600, timeout: 10_000 },
+        );
         return true;
       } catch (error) {
         const status = (error as { statusCode?: number }).statusCode;

@@ -54,22 +54,6 @@ export function toErrorResponse(error: unknown): NextResponse {
     }
   }
 
-  // Error objects can contain SQL parameters, provider payloads, or health data, so only
-  // the error kind (and, for Prisma errors, the safe machine code such as P2022) is logged.
-  // The code is what distinguishes "schema drift / missing column" (P2021/P2022) from other
-  // request failures; without it the cause of a bare 500 is undiagnosable from the logs.
-  const prismaCode = error instanceof Prisma.PrismaClientKnownRequestError ? error.code : undefined;
-  console.error(
-    "Unhandled API error",
-    { kind: error instanceof Error ? error.name : "UnknownError", prismaCode },
-  );
-  // Schema drift (missing table/column) means the deployment is misconfigured, not broken
-  // user input: answer with 503 so it is not mistaken for a code bug.
-  if (prismaCode === "P2021" || prismaCode === "P2022") {
-    return NextResponse.json(
-      { error: "The service is temporarily unavailable while it is being updated. Please try again shortly." },
-      { status: 503 },
-    );
-  }
+  console.error("Unhandled API error:", error);
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }

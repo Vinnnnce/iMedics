@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileDownloadButton } from "@/components/shared/file-download";
@@ -21,7 +20,6 @@ export default async function PatientResultsPage() {
       values: { orderBy: { name: "asc" } },
       files: { select: { id: true, fileName: true } },
       aiAnalysis: true,
-      labOrder: { select: { case: { select: { id: true, caseNumber: true } } } },
     },
   });
 
@@ -46,11 +44,6 @@ export default async function PatientResultsPage() {
                 {r.panelType}
                 <Badge variant="outline" className="rounded-lg text-xs">{formatDate(r.testDate)}</Badge>
                 {r.labName && <span className="text-xs font-normal text-muted-foreground">{r.labName}</span>}
-                {r.labOrder?.case && (
-                  <Link href={`/patient/cases/${r.labOrder.case.id}`}>
-                    <Badge variant="outline" className="rounded-lg text-xs">{r.labOrder.case.caseNumber}</Badge>
-                  </Link>
-                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">

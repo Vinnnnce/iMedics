@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
 
 export interface Me {
   id: string;
@@ -20,24 +19,22 @@ export interface Me {
  * boundary: every API route enforces access on the server.
  */
 export function useMe(): Me | null {
-  const { userId, isLoaded } = useAuth();
-  const [account, setAccount] = useState<{ clerkId: string; me: Me | null } | null>(null);
+  const [me, setMe] = useState<Me | null>(null);
 
   useEffect(() => {
     let active = true;
-    if (!isLoaded || !userId) return;
-    fetch("/api/me", { cache: "no-store" })
+    fetch("/api/me")
       .then((res) => (res.ok ? (res.json() as Promise<Me>) : null))
       .then((data) => {
-        if (active) setAccount({ clerkId: userId, me: data });
+        if (active) setMe(data);
       })
       .catch(() => {
-        if (active) setAccount({ clerkId: userId, me: null });
+        if (active) setMe(null);
       });
     return () => {
       active = false;
     };
-  }, [isLoaded, userId]);
+  }, []);
 
-  return userId && account?.clerkId === userId ? account.me : null;
+  return me;
 }

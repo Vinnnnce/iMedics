@@ -27,75 +27,24 @@ export const GET = withAuth(null, async (_req, { user }) => {
     onboardingComplete: user.onboardingComplete,
     verificationStatus: doctor?.verificationStatus ?? lab?.verificationStatus ?? null,
   });
-}, { allowOnboarding: true });
+});
 
 const updateSchema = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
     phone: z.string().trim().max(30).nullable().optional(),
     language: z.string().regex(/^[a-z]{2}$/, "Use a two-letter language code").optional(),
-    // Patient self-service profile fields (no clinical data).
-    preferredName: z.string().trim().min(1).max(120).nullable().optional(),
-    bloodGroup: z.enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]).nullable().optional(),
-    organDonorStatus: z.boolean().nullable().optional(),
-    ecName: z.string().trim().max(120).nullable().optional(),
-    ecRelationship: z.string().trim().max(120).nullable().optional(),
-    ecPhone: z.string().trim().max(30).nullable().optional(),
-    addressLine1: z.string().trim().max(200).nullable().optional(),
-    addressLine2: z.string().trim().max(200).nullable().optional(),
-    city: z.string().trim().max(120).nullable().optional(),
-    state: z.string().trim().max(120).nullable().optional(),
-    postalCode: z.string().trim().max(20).nullable().optional(),
-    country: z.string().trim().max(2).nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "Nothing to update" });
 
 // PATCH /api/me — update your own display name, phone number or language.
-// Patient users may also update self-service profile fields (preferred name,
-// blood group, organ-donor status). Role, status and email cannot be changed
-// here, and clinical records are never touched by this endpoint.
+// Role, status and email cannot be changed here.
 export const PATCH = withAuth(null, async (req, { user }) => {
   const data = await parseBody(req, updateSchema);
-  const {
-    preferredName, bloodGroup, organDonorStatus,
-    ecName, ecRelationship, ecPhone,
-    addressLine1, addressLine2, city, state, postalCode, country,
-    ...userFields
-  } = data;
-  const patientFields = {
-    preferredName, bloodGroup, organDonorStatus,
-    ecName, ecRelationship, ecPhone,
-    addressLine1, addressLine2, city, state, postalCode, country,
-  };
-  const hasPatientFields = Object.values(patientFields).some((v) => v !== undefined);
-
-  const updated = await prisma.$transaction(async (tx) => {
-    if (Object.keys(userFields).length > 0) {
-      await tx.user.update({ where: { id: user.id }, data: userFields });
-    }
-    if (user.role === "PATIENT" && hasPatientFields) {
-      await tx.patient.updateMany({
-        where: { userId: user.id, deletedAt: null },
-        data: Object.fromEntries(Object.entries(patientFields).filter(([, v]) => v !== undefined)),
-      });
-    }
-    return tx.user.findUnique({
-      where: { id: user.id },
-      select: {
-        name: true,
-        phone: true,
-        language: true,
-        patient: { select: { preferredName: true, bloodGroup: true, organDonorStatus: true } },
-      },
-    });
+  const updated = await prisma.user.update({
+    where: { id: user.id },
+    data,
+    select: { name: true, phone: true, language: true },
   });
-
-  return NextResponse.json({
-    name: updated?.name,
-    phone: updated?.phone,
-    language: updated?.language,
-    preferredName: updated?.patient?.preferredName ?? null,
-    bloodGroup: updated?.patient?.bloodGroup ?? null,
-    organDonorStatus: updated?.patient?.organDonorStatus ?? null,
-  });
+  return NextResponse.json(updated);
 });

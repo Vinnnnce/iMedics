@@ -29,22 +29,9 @@ export function clinicToday(): string {
   return new Date(Date.now() + CLINIC_UTC_OFFSET_MINUTES * MS_PER_MINUTE).toISOString().slice(0, 10);
 }
 
-/** An instant exactly the given number of days before now. */
+/** An instant exactly the given number of calendar days before now. */
 export function daysAgo(days: number): Date {
   const date = new Date();
   date.setDate(date.getDate() - days);
   return date;
-}
-
-/** An instant exactly the given number of days from now (negative for the past). */
-export function daysFromNow(days: number): Date {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date;
-}
-
-/** Start of the current calendar month in clinic time. */
-export function monthStart(): Date {
-  const date = new Date(Date.now() + CLINIC_UTC_OFFSET_MINUTES * MS_PER_MINUTE);
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 0, -CLINIC_UTC_OFFSET_MINUTES));
 }

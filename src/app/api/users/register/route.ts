@@ -4,11 +4,11 @@ import type { AccountType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
 import { conflict } from "@/lib/errors";
-import { queueNotification } from "@/lib/notifications/service";
+import { writeAudit } from "@/lib/audit";
 import { generateCaseNumber } from "@/lib/case-number";
-import { LEGAL_META } from "@/lib/legal/types";
+import { notifyAdminsOfApplication } from "@/lib/admin/notify";
 
-const TERMS_VERSION = LEGAL_META.version;
+const TERMS_VERSION = "2026-10";
 
 const text = z.string().trim().max(500).optional();
 
@@ -137,7 +137,10 @@ export const POST = withAuth(null, async (req, { user }) => {
       await tx.doctorProfile.create({
         data: {
           userId: user.id,
+          middleName: data.middleName || null,
+          dateOfBirth: new Date(data.dateOfBirth),
           gender,
+          location: [data.address, data.city, data.state].filter(Boolean).join(", ") || null,
           licenseNumber: data.mdcnLicenseNumber,
           mdcnRegistrationNumber: data.mdcnRegistrationNumber,
           yearOfRegistration: toInt(data.yearOfRegistration),
@@ -154,21 +157,31 @@ export const POST = withAuth(null, async (req, { user }) => {
           laboratoryName: data.organisationName,
           position: data.organisationType,
           licenseIdNumber: data.facilityLicenseNumber,
+          addressLine: data.address || null,
+          city: data.city || null,
+          state: data.state || null,
           cacRegistrationNumber: data.cacRegistrationNumber,
           facilityLicenseNumber: data.facilityLicenseNumber,
         },
       });
     }
-    await tx.auditLog.create({ data: {
-      userId: user.id, actorRole: user.role, action: "REGISTRATION_SUBMITTED",
-      resourceType: "User", resourceId: user.id,
-      details: { accountType, requiresVerification: !isPatient },
-    } });
   });
-  if (isPatient) await queueNotification(user.id, { kind: "ACCOUNT_REGISTERED" });
+
+  await writeAudit({
+    userId: user.id,
+    actorRole: user.role,
+    action: "REGISTRATION_SUBMITTED",
+    resourceType: "User",
+    resourceId: user.id,
+    details: { accountType, requiresVerification: !isPatient },
+    req,
+  });
+
+  // Professionals wait for an admin: let the admins know there is something to review.
+  if (!isPatient) await notifyAdminsOfApplication(user.id, false);
 
   return NextResponse.json(
     { success: true, role: user.role, status: isPatient ? "ACTIVE" : "PENDING", requiresVerification: !isPatient },
     { status: 201 },
   );
-}, { allowOnboarding: true });
+});

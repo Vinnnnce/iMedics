@@ -2,20 +2,20 @@
 
 ## What clinicians see
 
-On **Write Consultation**, the *Diagnosis (ICD-10)* field is a searchable single-select:
+On **Write Consultation**, the *Diagnosis (ICD-10)* field is a searchable picker. **Each consultation has exactly one ICD-10 code** (required to finalise a report; enforced by the API and by a unique index on `consultation_diagnoses.consultation_id`).
 
 - Search by code (`I10`, `e11.9`, `E119` all work) or by words (`hypertension`, `type 2 diabetes`).
 - Results show `code — description`, e.g. `I10 — Essential (primary) hypertension`, ranked: exact code, code prefix, then description matches.
-- Select one diagnosis; selecting another replaces the current one. A diagnosis is required to finalise a report.
+- Picking another result replaces the selected code. Other conditions considered belong in the *Differential diagnosis* field.
 - Only **assignable** (leaf-level) codes can be selected. Parent categories such as `E11` are searchable for navigation but not selectable.
 
-`consultations.diagnosis` keeps the diagnosis wording for lists and the AI pipeline; the code and its description snapshot are in `consultation_diagnoses`.
+`consultations.diagnosis` keeps the code's wording for lists and the AI pipeline; the code itself is in `consultation_diagnoses`.
 
 ## Which list is used
 
 Every imported list is a row in `code_system_releases` (system, edition, jurisdiction, label, source, code count, import time, `is_active`). Exactly one ICD-10 release is active; clinicians search only that one. The default is **WHO ICD-10, 2019 edition** (12,246 codes, 10,658 assignable), converted from the WHO classification.
 
-Each saved diagnosis stores the `release_id`, the code and the description as they were at the time, so importing a newer edition never changes existing records.
+The saved diagnosis stores the `release_id`, the code and the description as they were at the time, so importing a newer edition never changes existing records.
 
 > Licensing: ICD-10 is published by the World Health Organization. Check WHO's terms of use for your deployment (commercial use may require permission) before going live.
 

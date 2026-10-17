@@ -71,33 +71,22 @@ export async function resolveDiagnoses(codes: string[]) {
   return { release, found, missing: unique.filter((c) => !known.has(c)) };
 }
 
-export interface DiagnosisSelection {
-  code: string;
-  isPrimary?: boolean;
+/**
+ * Resolve the one ICD-10 code chosen for a consultation into a diagnosis row (code + description snapshots).
+ * Throws a message that is safe to show to the client when the code is unknown or not assignable.
+ */
+export async function buildDiagnosis(code: string | null | undefined) {
+  if (!code) return null;
+  const { release, found, missing } = await resolveDiagnoses([code]);
+  if (!release) throw new Error("No ICD-10 code set has been imported yet. Ask an administrator to run the ICD-10 import.");
+  if (missing.length > 0 || found.length === 0) throw new Error(`Unknown or non-assignable ICD-10 code: ${code.trim().toUpperCase()}`);
+  return { releaseId: release.id, code: found[0].code, description: found[0].description };
 }
 
-/**
- * Turn a clinician's selection into diagnosis rows (code + description snapshots, one primary).
- * The primary is the entry flagged `isPrimary`, otherwise the first. Throws a message safe to show to the client.
- */
-export async function buildDiagnosisRows(selection: DiagnosisSelection[]) {
+/** Compatibility adapter for callers that still submit a selection array. */
+export async function buildDiagnosisRows(selection: { code: string; isPrimary?: boolean }[]) {
   if (selection.length > 1) throw new Error("A consultation can have only one ICD-10 diagnosis.");
   if (selection.length === 0) return { rows: [], summary: null as string | null };
-  const { release, found, missing } = await resolveDiagnoses(selection.map((s) => s.code));
-  if (!release) throw new Error("No ICD-10 code set has been imported yet. Ask an administrator to run the ICD-10 import.");
-  if (missing.length > 0) throw new Error(`Unknown or non-assignable ICD-10 code: ${missing.join(", ")}`);
-
-  const byCode = new Map(found.map((f) => [f.code, f.description]));
-  const ordered = [...new Set(selection.map((s) => s.code.trim().toUpperCase()))];
-  const flagged = selection.find((s) => s.isPrimary)?.code.trim().toUpperCase();
-  const primary = flagged && byCode.has(flagged) ? flagged : ordered[0];
-
-  const rows = ordered.map((code, position) => ({
-    releaseId: release.id,
-    code,
-    description: byCode.get(code)!,
-    isPrimary: code === primary,
-    position,
-  }));
-  return { rows, summary: byCode.get(primary)! };
+  const diagnosis = await buildDiagnosis(selection[0].code);
+  return { rows: diagnosis ? [diagnosis] : [], summary: diagnosis?.description ?? null };
 }

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { badRequest } from "./errors";
 import { deleteObject, inspectObject } from "./storage";
+import { DOCUMENT_KIND_KEYS, VERIFICATION_MIME_TYPES } from "./verification";
 
 export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024; // 15 MB
 export const MAX_VERIFICATION_DOCUMENTS = 10;
@@ -59,3 +60,18 @@ export async function verifyUpload(key: string, mimeType: string): Promise<{ siz
   }
   return { sizeBytes };
 }
+
+/** Verification documents: same checks, but restricted to scans (no DICOM) and tagged with what the file is. */
+export const verificationUploadRequestSchema = z.object({
+  fileName: z.string().trim().min(1).max(200),
+  mimeType: z.enum(VERIFICATION_MIME_TYPES, { error: "Only PDF, JPG, PNG or WebP files are allowed" }),
+  sizeBytes: z.number().int().min(1).max(MAX_UPLOAD_BYTES),
+  kind: z.enum(DOCUMENT_KIND_KEYS).default("OTHER"),
+});
+
+export const verificationConfirmSchema = z.object({
+  key: z.string().min(1).max(300),
+  fileName: z.string().trim().min(1).max(200),
+  mimeType: z.enum(VERIFICATION_MIME_TYPES, { error: "Only PDF, JPG, PNG or WebP files are allowed" }),
+  kind: z.enum(DOCUMENT_KIND_KEYS).default("OTHER"),
+});

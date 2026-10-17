@@ -3,7 +3,6 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { Prisma, type Role, type User } from "@prisma/client";
 import { prisma } from "./prisma";
 import { ApiError, forbidden, unauthorized } from "./errors";
-import { isAccountBlocked, isAccountReady } from "./roles";
 
 /**
  * Authorization model
@@ -19,6 +18,9 @@ import { isAccountBlocked, isAccountReady } from "./roles";
  * only when Clerk reports the email address as verified.
  */
 
+const BLOCKED_STATUSES: ReadonlySet<string> = new Set(["SUSPENDED", "BANNED"]);
+type ClerkUser = NonNullable<Awaited<ReturnType<typeof currentUser>>>;
+
 function bootstrapAdminEmails(): Set<string> {
   return new Set(
     (process.env.ADMIN_EMAILS ?? "")
@@ -28,12 +30,12 @@ function bootstrapAdminEmails(): Set<string> {
   );
 }
 
-async function provisionUser(clerkId: string): Promise<User> {
-  const clerkUser = await currentUser();
+async function provisionUser(clerkId: string, clerkUser: ClerkUser | null): Promise<User> {
   const primary = clerkUser?.primaryEmailAddress;
   if (!clerkUser || !primary) {
     throw new ApiError(400, "Your account has no email address");
   }
+  const lastLoginAt = clerkUser.lastSignInAt === null ? null : new Date(clerkUser.lastSignInAt);
 
   const email = primary.emailAddress.toLowerCase();
   const isVerified = primary.verification?.status === "verified";
@@ -48,6 +50,7 @@ async function provisionUser(clerkId: string): Promise<User> {
         email,
         name,
         avatarUrl: clerkUser.imageUrl,
+        lastLoginAt,
         role: isAdmin ? "ADMIN" : "PATIENT",
         onboardingComplete: isAdmin,
       },
@@ -69,21 +72,21 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
   if (!userId) return null;
 
   const existing = await prisma.user.findUnique({ where: { clerkId: userId } });
-  return existing ?? provisionUser(userId);
+  return existing ?? provisionUser(userId, await currentUser());
 });
 
 /** Require a signed-in, active user. Throws 401 / 403. */
 export async function requireUser(): Promise<User> {
   const user = await getCurrentUser();
   if (!user) throw unauthorized();
-  if (isAccountBlocked(user)) throw forbidden("This account is unavailable");
+  if (user.deletedAt) throw forbidden("This account has been removed");
+  if (BLOCKED_STATUSES.has(user.status)) throw forbidden("This account is suspended");
   return user;
 }
 
 /** Require a signed-in, active user holding one of the given roles. */
 export async function requireRole(...roles: Role[]): Promise<User> {
   const user = await requireUser();
-  if (!isAccountReady(user)) throw forbidden("Complete registration and verification before continuing");
   if (!roles.includes(user.role)) throw forbidden();
   return user;
 }

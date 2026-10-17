@@ -1,5 +1,4 @@
 import type { NotificationType, Role } from "@prisma/client";
-import { ROLE_POLICY } from "@/lib/roles";
 
 /**
  * Every notification is described by one of these events. Templates below are the ONLY place notification text
@@ -45,7 +44,12 @@ export type NotificationEvent =
   | { kind: "SUBSCRIPTION_CANCELLED"; subscriptionId: string }
   | { kind: "PLAN_CHANGED"; subscriptionId: string }
   | { kind: "RECONCILIATION_ALERT"; runId: string; discrepancies: number }
-  | { kind: "REFUND_STUCK"; paymentId: string };
+  | { kind: "REFUND_STUCK"; paymentId: string }
+  | { kind: "VERIFICATION_SUBMITTED"; applicantId: string; resubmitted: boolean }
+  | { kind: "VERIFICATION_APPROVED" }
+  | { kind: "VERIFICATION_REJECTED" }
+  | { kind: "ACCOUNT_SUSPENDED" }
+  | { kind: "ACCOUNT_RESTORED" };
 
 export interface RenderedNotification {
   type: NotificationType;
@@ -69,25 +73,46 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
     case "INTAKE_SUBMITTED":
       return { type: "APPOINTMENT", title: "Pre-visit intake updated", body: "Sign in securely to review the intake before the appointment.", href: "/doctor/dashboard", data: {} };
     case "SUBSCRIPTION_UPDATED":
-      return { type: "SYSTEM", title: "Subscription updated", body: "Sign in securely to review your subscription status.", href: ROLE_POLICY[role].dashboard, data: {} };
+      return { type: "SYSTEM", title: "Subscription updated", body: "Your subscription details have changed. Sign in to review them.", href: "/doctor/subscription", data: {} };
     case "DISPUTE_UPDATED":
-      return { type: "PAYMENT", title: "Payment dispute updated", body: "Sign in securely to review the outcome.", href: role === "ADMIN" ? "/admin/dashboard" : `/payments/${event.paymentId}`, data: {} };
+      return { type: "PAYMENT", title: "Payment dispute updated", body: "There is an update about a payment dispute. Sign in to review it.", href: `/payments/${event.paymentId}`, data: { paymentId: event.paymentId } };
     case "CONSULTATION_AVAILABLE":
-      return { type: "SYSTEM", title: "Consultation record available", body: "Your clinician has finalized a consultation record. Sign in securely to review it.", href: "/patient/case-file", data: {} };
+      return { type: "APPOINTMENT", title: "Consultation available", body: "A consultation update is available in your account.", href: "/doctor/consultations", data: {} };
     case "REVIEW_SUBMITTED":
-      return { type: "SYSTEM", title: "New patient review", body: "A patient reviewed a recent consultation. Sign in to read it.", href: "/doctor/dashboard", data: {} };
+      return { type: "SYSTEM", title: "New review received", body: "A patient has left a review. Sign in to read it.", href: "/doctor/dashboard", data: { reviewId: event.reviewId } };
     case "VERIFICATION_UPDATED":
-      return { type: "SYSTEM", title: "Verification status updated", body: "There is an update to your professional verification. Sign in to review it.", href: ROLE_POLICY[role].dashboard, data: {} };
+      return { type: "SYSTEM", title: "Verification updated", body: "Your professional verification status has changed.", href: "/auth/callback", data: {} };
     case "ACCOUNT_REGISTERED":
+      return { type: "SYSTEM", title: "Welcome to Medic1905", body: "Your account is ready. Sign in to continue.", href: "/profile", data: {} };
     case "ACCOUNT_UPDATED":
-      return { type: "SYSTEM", title: event.kind === "ACCOUNT_REGISTERED" ? "Your account is ready" : "Account updated",
-        body: "There is an update to your account. Sign in securely to review it.",
-        href: ROLE_POLICY[role].dashboard, data: {} };
+      return { type: "SYSTEM", title: "Account updated", body: "Your account status has changed. Sign in to review the update.", href: "/profile", data: {} };
     case "TASK_CREATED":
     case "TASK_COMPLETED":
-      return { type: "SYSTEM", title: event.kind === "TASK_CREATED" ? "New care task" : "Task completed",
-        body: "Your task list has been updated. Sign in securely to review it.",
-        href: "/workspace", data: { taskId: event.taskId } };
+      return { type: "SYSTEM", title: event.kind === "TASK_CREATED" ? "New care task" : "Task completed", body: "There is an update to a care task in your account.", href: "/workspace", data: { taskId: event.taskId } };
+    case "REFUND_REQUESTED":
+      return { type: "PAYMENT", title: "Refund requested", body: "A refund request is waiting for review.", href: `/payments/${event.paymentId}`, data: { paymentId: event.paymentId } };
+    case "REFUND_DECIDED":
+      return { type: "PAYMENT", title: event.approved ? "Refund approved" : "Refund request declined", body: event.approved ? "Your refund is being processed." : "Your refund request was declined.", href: `/payments/${event.paymentId}`, data: { paymentId: event.paymentId } };
+    case "FACILITY_RESULT_RELEASED":
+      return { type: "LAB_RESULT", title: "Facility result released", body: "A result is available in your account.", href: "/patient/results", data: { bookingId: event.bookingId } };
+    case "FACILITY_STAFF_JOINED":
+      return { type: "SYSTEM", title: "Facility team updated", body: "A new staff member joined your facility.", href: "/lab/staff", data: { facilityId: event.facilityId } };
+    case "FACILITY_REFERRAL_RECEIVED":
+      return { type: "APPOINTMENT", title: "New facility referral", body: "A referral is waiting for review.", href: "/lab/referrals", data: { referralId: event.referralId } };
+    case "CREDENTIAL_EXPIRING":
+    case "CREDENTIAL_EXPIRED":
+      return { type: "SYSTEM", title: event.kind === "CREDENTIAL_EXPIRING" ? "Credential expiring soon" : "Credential expired", body: "A staff credential needs attention. Sign in to review it.", href: "/lab/credentials", data: { credentialId: event.credentialId } };
+    case "SUBSCRIPTION_ACTIVATED":
+    case "SUBSCRIPTION_RENEWED":
+    case "SUBSCRIPTION_RENEWAL_DUE":
+    case "SUBSCRIPTION_EXPIRED":
+    case "SUBSCRIPTION_CANCELLED":
+    case "PLAN_CHANGED":
+      return { type: "SYSTEM", title: event.kind.replaceAll("_", " ").toLowerCase(), body: "There is an update to your subscription. Sign in to review it.", href: "/doctor/subscription", data: { subscriptionId: event.subscriptionId } };
+    case "RECONCILIATION_ALERT":
+      return { type: "SYSTEM", title: "Payment reconciliation needs review", body: "An administrator should review the latest payment reconciliation.", href: "/admin/reconciliation", data: { runId: event.runId, discrepancies: String(event.discrepancies) } };
+    case "REFUND_STUCK":
+      return { type: "SYSTEM", title: "Refund needs review", body: "An administrator should review a refund that has not completed.", href: "/admin/refunds", data: { paymentId: event.paymentId } };
     case "APPOINTMENT_REQUESTED":
       return {
         type: "APPOINTMENT",
@@ -163,24 +188,6 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
         href: `/payments/${event.paymentId}`,
         data: { paymentId: event.paymentId },
       };
-    case "REFUND_REQUESTED":
-      return {
-        type: "PAYMENT",
-        title: "Refund requested",
-        body: "A refund request has been received and is awaiting review.",
-        href: `/payments/${event.paymentId}`,
-        data: { paymentId: event.paymentId },
-      };
-    case "REFUND_DECIDED":
-      return {
-        type: "PAYMENT",
-        title: event.approved ? "Refund approved" : "Refund declined",
-        body: event.approved
-          ? "Your refund has been approved and will be processed shortly."
-          : "Your refund request was not approved. Sign in for details.",
-        href: `/payments/${event.paymentId}`,
-        data: { paymentId: event.paymentId },
-      };
     case "PAYMENT_REFUNDED":
       return {
         type: "PAYMENT",
@@ -205,46 +212,6 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
         href: bookingsHref(role),
         data: { bookingId: event.bookingId },
       };
-    case "FACILITY_RESULT_RELEASED":
-      return {
-        type: "LAB_RESULT",
-        title: "Your result is ready",
-        body: "A result from your facility booking is ready. Sign in to view it.",
-        href: role === "PATIENT" ? "/patient/results" : "/lab/bookings",
-        data: { bookingId: event.bookingId },
-      };
-    case "FACILITY_STAFF_JOINED":
-      return {
-        type: "SYSTEM",
-        title: "Staff member joined",
-        body: "An invited staff member has joined your facility.",
-        href: "/lab/staff",
-        data: { facilityId: event.facilityId },
-      };
-    case "FACILITY_REFERRAL_RECEIVED":
-      return {
-        type: "SYSTEM",
-        title: "New referral received",
-        body: "A Medic1905 doctor has referred a patient to your facility. Sign in to review it.",
-        href: "/lab/referrals",
-        data: { referralId: event.referralId },
-      };
-    case "CREDENTIAL_EXPIRING":
-      return {
-        type: "SYSTEM",
-        title: "Credential expiring soon",
-        body: "A staff credential expires soon. Sign in to review the renewal.",
-        href: "/lab/credentials",
-        data: { credentialId: event.credentialId },
-      };
-    case "CREDENTIAL_EXPIRED":
-      return {
-        type: "SYSTEM",
-        title: "Credential expired",
-        body: "A staff credential has expired. Sign in to review it.",
-        href: "/lab/credentials",
-        data: { credentialId: event.credentialId },
-      };
     case "RESULTS_AVAILABLE":
       return {
         type: "LAB_RESULT",
@@ -253,69 +220,45 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
         href: role === "PATIENT" ? "/patient/results" : "/",
         data: { analysisId: event.analysisId },
       };
-    case "SUBSCRIPTION_ACTIVATED":
-      return {
-        type: "SUBSCRIPTION",
-        title: "Subscription active",
-        body: "Your plan is active. Sign in to manage your subscription.",
-        href: "/doctor/subscription",
-        data: { subscriptionId: event.subscriptionId },
-      };
-    case "SUBSCRIPTION_RENEWED":
-      return {
-        type: "SUBSCRIPTION",
-        title: "Subscription renewed",
-        body: "Your plan has been renewed for another month.",
-        href: "/doctor/subscription",
-        data: { subscriptionId: event.subscriptionId },
-      };
-    case "SUBSCRIPTION_RENEWAL_DUE":
-      return {
-        type: "SUBSCRIPTION",
-        title: "Subscription renewal due",
-        body: "Your plan renews soon. Sign in to review or change it.",
-        href: "/doctor/subscription",
-        data: { subscriptionId: event.subscriptionId },
-      };
-    case "SUBSCRIPTION_EXPIRED":
-      return {
-        type: "SUBSCRIPTION",
-        title: "Subscription expired",
-        body: "Your plan has expired. Sign in to renew and keep your features.",
-        href: "/doctor/subscription",
-        data: { subscriptionId: event.subscriptionId },
-      };
-    case "SUBSCRIPTION_CANCELLED":
-      return {
-        type: "SUBSCRIPTION",
-        title: "Subscription cancelled",
-        body: "Your plan will not renew. You keep access until the end of the period.",
-        href: "/doctor/subscription",
-        data: { subscriptionId: event.subscriptionId },
-      };
-    case "PLAN_CHANGED":
-      return {
-        type: "SUBSCRIPTION",
-        title: "Plan changed",
-        body: "Your subscription plan has changed. Sign in to see the details.",
-        href: "/doctor/subscription",
-        data: { subscriptionId: event.subscriptionId },
-      };
-    case "RECONCILIATION_ALERT":
+    case "VERIFICATION_SUBMITTED":
       return {
         type: "SYSTEM",
-        title: "Payment reconciliation alert",
-        body: `${event.discrepancies} payment difference(s) were found and need review.`,
-        href: "/admin/reconciliation",
-        data: { runId: event.runId },
+        title: event.resubmitted ? "Application resubmitted" : "New verification request",
+        body: "A professional application is waiting for review.",
+        href: `/admin/verifications/${event.applicantId}`,
+        data: { applicantId: event.applicantId },
       };
-    case "REFUND_STUCK":
+    case "VERIFICATION_APPROVED":
       return {
-        type: "PAYMENT",
-        title: "Refund needs attention",
-        body: "A refund was accepted by the gateway but has not completed. Check its status in the gateway dashboard.",
-        href: `/admin/refunds`,
-        data: { paymentId: event.paymentId },
+        type: "SYSTEM",
+        title: "Your account has been verified",
+        body: "You can now sign in and start using your professional account.",
+        href: role === "LAB_SCIENTIST" ? "/lab/dashboard" : role === "DOCTOR" ? "/doctor/dashboard" : "/",
+        data: {},
+      };
+    case "VERIFICATION_REJECTED":
+      return {
+        type: "SYSTEM",
+        title: "Your application needs attention",
+        body: "We could not verify your application yet. Sign in to see what to update.",
+        href: "/auth/callback",
+        data: {},
+      };
+    case "ACCOUNT_SUSPENDED":
+      return {
+        type: "SYSTEM",
+        title: "Your account has been restricted",
+        body: "Sign in to see more information, or contact support.",
+        href: "/",
+        data: {},
+      };
+    case "ACCOUNT_RESTORED":
+      return {
+        type: "SYSTEM",
+        title: "Your account is active again",
+        body: "Your access has been restored.",
+        href: "/",
+        data: {},
       };
   }
 }

@@ -32,7 +32,7 @@ export default async function PatientCaseDetailPage({ params }: { params: Promis
         orderBy: { createdAt: "desc" },
         include: {
           doctor: { select: { user: { select: { name: true } } } },
-          diagnoses: { orderBy: [{ isPrimary: "desc" }, { position: "asc" }] },
+          icd: true,
         },
       },
       labOrders: {
@@ -108,11 +108,9 @@ export default async function PatientCaseDetailPage({ params }: { params: Promis
                     <p className="font-medium">{formatDate(c.createdAt)} · Dr {c.doctor.user.name}</p>
                     {c.chiefComplaint ? <p className="text-muted-foreground">{c.chiefComplaint}</p> : null}
                     {c.diagnosis ? <p className="text-muted-foreground">{c.diagnosis}</p> : null}
-                    {c.diagnoses.length > 0 ? (
+                    {c.icd ? (
                       <div className="mt-1 flex flex-wrap gap-1">
-                        {c.diagnoses.map((d, i) => (
-                          <Badge key={i} variant="outline" className="rounded-lg">{d.code} {d.description}{d.isPrimary ? " (primary)" : ""}</Badge>
-                        ))}
+                        <Badge variant="outline" className="rounded-lg">{c.icd.code} {c.icd.description}</Badge>
                       </div>
                     ) : null}
                   </li>

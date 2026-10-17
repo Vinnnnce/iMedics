@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
+import { writeAudit } from "@/lib/audit";
 
 // GET /api/admin/notices — list all notices (admin only)
 export const GET = withAuth(["ADMIN"], async () => {
@@ -18,11 +19,22 @@ export const POST = withAuth(["ADMIN"], async (req) => {
   return NextResponse.json({ success: true, notice }, { status: 201 });
 });
 
-const toggleNoticeSchema = z.object({ id: z.string().uuid(), active: z.boolean() });
+const updateSchema = z.object({ id: z.string().uuid(), active: z.boolean().optional(), text: z.string().trim().min(1).max(500).optional() });
 
-// PATCH /api/admin/notices — toggle a notice on or off
-export const PATCH = withAuth(["ADMIN"], async (req) => {
-  const { id, active } = await parseBody(req, toggleNoticeSchema);
-  const notice = await prisma.notice.update({ where: { id }, data: { active } });
-  return NextResponse.json({ success: true, notice });
+// PATCH /api/admin/notices — toggle on or off, or edit
+export const PATCH = withAuth(["ADMIN"], async (req, { user }) => {
+  const { id, ...data } = await parseBody(req, updateSchema);
+  const item = await prisma.notice.update({ where: { id }, data });
+  await writeAudit({ userId: user.id, actorRole: user.role, action: "ADMIN_CONTENT_CHANGED", resourceType: "Notice", resourceId: id, details: { changed: Object.keys(data) }, req });
+  return NextResponse.json({ success: true, notice: item });
+});
+
+const deleteSchema = z.object({ id: z.string().uuid() });
+
+// DELETE /api/admin/notices — remove permanently
+export const DELETE = withAuth(["ADMIN"], async (req, { user }) => {
+  const { id } = await parseBody(req, deleteSchema);
+  await prisma.notice.delete({ where: { id } });
+  await writeAudit({ userId: user.id, actorRole: user.role, action: "ADMIN_CONTENT_CHANGED", resourceType: "Notice", resourceId: id, details: { removed: true }, req });
+  return NextResponse.json({ success: true });
 });

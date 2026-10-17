@@ -9,8 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Icd10Picker, type Icd10Selection } from "@/components/doctor/icd10-picker";
-import { ConsultationTemplatePicker } from "@/components/doctor/consultation-tools";
-import { AssistanceEditor, type ReviewedAssistance } from "@/components/doctor/assistance-editor";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -52,7 +50,7 @@ type ConsultationRecord = {
   id: string;
   chiefComplaint: string | null;
   diagnosis: string | null;
-  diagnoses: { code: string; description: string; isPrimary: boolean }[];
+  icd: { code: string; description: string } | null;
   status: string;
   createdAt: string;
   followUpDate: string | null;
@@ -85,7 +83,7 @@ export default function DoctorConsultationsPage() {
   const [symptoms, setSymptoms] = useState<Symptom[]>([{ name: "", duration: "", severity: "mild" }]);
   const [vitals, setVitals] = useState<Vitals>(emptyVitals);
   const [examination, setExamination] = useState("");
-  const [diagnoses, setDiagnoses] = useState<Icd10Selection[]>([]);
+  const [icd, setIcd] = useState<Icd10Selection | null>(null);
   const [differentialDiagnosis, setDifferentialDiagnosis] = useState("");
   const [labFindings, setLabFindings] = useState("");
   const [imagingFindings, setImagingFindings] = useState("");
@@ -94,7 +92,6 @@ export default function DoctorConsultationsPage() {
   const [recommendations, setRecommendations] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
   const [notes, setNotes] = useState("");
-  const [assistance, setAssistance] = useState<Omit<ReviewedAssistance, "text"> | null>(null);
 
   const fetchPatients = useCallback(async (): Promise<PatientOption[]> => {
     const res = await fetch("/api/patients?limit=100");
@@ -153,11 +150,10 @@ export default function DoctorConsultationsPage() {
   const resetForm = () => {
     setChiefComplaint(""); setHistoryPresentIllness(""); setPastMedicalHistory("");
     setSymptoms([{ name: "", duration: "", severity: "mild" }]);
-    setVitals(emptyVitals); setExamination(""); setDiagnoses([]);
+    setVitals(emptyVitals); setExamination(""); setIcd(null);
     setDifferentialDiagnosis(""); setLabFindings(""); setImagingFindings("");
     setMedications([{ ...emptyMedication }]); setTreatmentPlan("");
     setRecommendations(""); setFollowUpDate(""); setNotes("");
-    setAssistance(null);
   };
 
   const handleSave = async () => {
@@ -166,7 +162,7 @@ export default function DoctorConsultationsPage() {
       setError("Select a patient first.");
       return;
     }
-    if (diagnoses.length === 0) {
+    if (!icd) {
       setError("Select an ICD-10 diagnosis before saving the report.");
       return;
     }
@@ -183,7 +179,7 @@ export default function DoctorConsultationsPage() {
           symptoms: symptoms.filter((s) => s.name.trim()),
           vitals,
           examination,
-          diagnoses: diagnoses.map(({ code, isPrimary }) => ({ code, isPrimary })),
+          icdCode: icd.code,
           differentialDiagnosis,
           labFindings,
           imagingFindings,
@@ -192,7 +188,6 @@ export default function DoctorConsultationsPage() {
           recommendations,
           followUpDate: followUpDate || undefined,
           notes,
-          ...(assistance ? { assistance } : {}),
           status: "finalized",
         }),
       });
@@ -233,25 +228,13 @@ export default function DoctorConsultationsPage() {
         </div>
       )}
 
-      <ConsultationTemplatePicker onApply={template => {
-        setHistoryPresentIllness(template.history); setExamination(template.examination); setNotes(template.notes);
-        setAssistance(null);
-      }} />
-      <AssistanceEditor key={patientId} patientId={patientId} onApply={draft => {
-        setNotes(`${draft.method === "ai-assisted" ? "AI-assisted" : "Local extract"}; reviewed by clinician.\n${draft.text}`);
-        setAssistance({ method: draft.method, reviewed: true });
-      }} />
       {/* Patient selector */}
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="text-lg">Patient</CardTitle>
         </CardHeader>
         <CardContent>
-          <Select value={patientId} onValueChange={(v) => {
-            if (v === patientId) return;
-            if ((notes || chiefComplaint || historyPresentIllness || diagnoses.length) && !window.confirm("Switch patients and clear the unsaved consultation?")) return;
-            resetForm(); setPatientId(v || "");
-          }}>
+          <Select value={patientId} onValueChange={(v) => setPatientId(v || "")}>
             <SelectTrigger className="rounded-lg" data-testid="select-patient">
               <SelectValue placeholder={loadingPatients ? "Loading patients..." : "Select patient"} />
             </SelectTrigger>
@@ -430,9 +413,9 @@ export default function DoctorConsultationsPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Diagnosis (ICD-10) *</Label>
-            <Icd10Picker value={diagnoses} onChange={setDiagnoses} />
+            <Icd10Picker value={icd} onChange={setIcd} />
             <p className="text-xs text-muted-foreground">
-              Search by code or name and select one diagnosis. Selecting another code replaces it.
+              Search by code or name and pick the one code that best describes this consultation. Other conditions considered go in the differential diagnosis below.
             </p>
           </div>
           <div className="space-y-2">
@@ -651,7 +634,7 @@ export default function DoctorConsultationsPage() {
                   {r.patient.name} — {r.diagnosis || "No diagnosis recorded"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {r.diagnoses.length > 0 ? `ICD-10 ${r.diagnoses.map((d) => d.code).join(", ")} · ` : ""}
+                  {r.icd ? `ICD-10 ${r.icd.code} · ` : ""}
                   {new Date(r.createdAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
                   {r.followUpDate ? ` · Follow-up: ${new Date(r.followUpDate).toLocaleDateString()}` : ""}
                 </p>

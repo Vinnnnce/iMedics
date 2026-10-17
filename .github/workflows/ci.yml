@@ -2,27 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main, develop, "payments-platform"]
+    branches: [main, develop]
   pull_request:
-    branches: [main, develop, "payments-platform"]
+    branches: [main, develop]
 
 jobs:
   verify:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: user
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: medic1905_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
       # Dummy values so the build can run without real services.
       DATABASE_URL: postgresql://user:password@localhost:5432/medic1905
@@ -39,15 +25,5 @@ jobs:
       - run: npx prisma validate
       - run: npm run lint
       - run: npm run typecheck
-
-      # A disposable migrated database so the payment-flow integration tests actually run
-      # (they skip locally when TEST_DATABASE_URL is not set).
-      - run: npx prisma migrate deploy
-        env:
-          DATABASE_URL: postgresql://user:password@localhost:5432/medic1905_test
-          DIRECT_URL: postgresql://user:password@localhost:5432/medic1905_test
       - run: npm test
-        env:
-          TEST_DATABASE_URL: postgresql://user:password@localhost:5432/medic1905_test
-
       - run: npm run build

@@ -31,7 +31,6 @@ export const GET = withAuth(["ADMIN"], async () => {
           specialty: true,
           consultationFee: true,
           mdcnRegistrationNumber: true,
-          documentKeys: true,
           subaccount: { select: { status: true, subaccountCode: true, lastError: true, settlementBank: true, accountNumber: true, businessName: true } },
         },
       },
@@ -43,11 +42,11 @@ export const GET = withAuth(["ADMIN"], async () => {
           facilityLicenseNumber: true,
           operatingHours: true,
           addressLine: true,
-          documentKeys: true,
           subaccount: { select: { status: true, subaccountCode: true, lastError: true, settlementBank: true, accountNumber: true, businessName: true } },
           services: { where: { isActive: true }, select: { id: true } },
         },
       },
+      verificationDocuments: { select: { id: true } },
     },
   });
 
@@ -72,7 +71,7 @@ export const GET = withAuth(["ADMIN"], async () => {
         facilityLicenseNumber: facility?.facilityLicenseNumber ?? null,
         operatingHours: facility?.operatingHours ?? null,
         addressLine: facility?.addressLine ?? null,
-        documentKeys: (doctor?.documentKeys ?? facility?.documentKeys) as string[] | undefined,
+        documentKeys: user.verificationDocuments.map((document) => document.id),
         serviceCount: facility?.services.length,
       });
       const subaccount = doctor?.subaccount ?? facility?.subaccount ?? null;

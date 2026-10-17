@@ -9,17 +9,21 @@ import { writeAudit } from "@/lib/audit";
 export const GET = withAuth<{ id: string }>(["ADMIN"], async (req, { user: admin, params }) => {
   const userId = parseId((await params).id);
 
-  const [doctor, lab] = await Promise.all([
-    prisma.doctorProfile.findUnique({ where: { userId }, select: { documentKeys: true } }),
-    prisma.labStaffProfile.findUnique({ where: { userId }, select: { documentKeys: true } }),
+  const [doctor, lab, records] = await Promise.all([
+    prisma.doctorProfile.findUnique({ where: { userId }, select: { id: true } }),
+    prisma.labStaffProfile.findUnique({ where: { userId }, select: { id: true } }),
+    prisma.verificationDocument.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      select: { fileName: true, key: true },
+    }),
   ]);
-  const profile = doctor ?? lab;
-  if (!profile) throw notFound("No professional profile found for this user");
+  if (!doctor && !lab) throw notFound("No professional profile found for this user");
 
   const documents = await Promise.all(
-    profile.documentKeys.map(async (key, index) => ({
-      name: `Document ${index + 1}`,
-      url: await presignDownload(key, `verification-document-${index + 1}`),
+    records.map(async (document) => ({
+      name: document.fileName,
+      url: await presignDownload(document.key, document.fileName),
     })),
   );
 

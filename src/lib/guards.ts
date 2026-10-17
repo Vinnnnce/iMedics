@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import type { Role } from "@prisma/client";
 import { getCurrentUser } from "./auth";
 import { prisma } from "./prisma";
-import { pageAccessRedirect } from "./roles";
 
 /**
  * Server-side page guard for use in layouts and server pages.
@@ -12,29 +11,24 @@ import { pageAccessRedirect } from "./roles";
  */
 export async function requirePageRole(...roles: Role[]) {
   const user = await getCurrentUser();
-  const destination = pageAccessRedirect(user, roles);
-  if (destination) redirect(destination);
   if (!user) redirect("/auth/login");
+  if (!user.onboardingComplete || user.status === "PENDING") redirect("/auth/callback");
+  // "/" shows the account-unavailable notice for blocked users, or their own dashboard otherwise.
+  if (user.status === "SUSPENDED" || user.status === "BANNED") redirect("/");
+  if (!roles.includes(user.role)) redirect("/");
   return user;
 }
 
-/**
- * Server-side page guard for the facility portal. Access is role-based for the
- * legacy owner role (LAB_SCIENTIST) or membership-based: any user with an
- * active FacilityStaff membership may enter. Suspended, on-leave or terminated
- * memberships are rejected on every request, and the facility APIs check the
- * caller's per-role permissions independently.
- */
+/** Page guard for facility owners and users with an active facility membership. */
 export async function requireFacilityPortalPage() {
   const user = await requirePageRole("PATIENT", "LAB_SCIENTIST");
   if (user.role === "LAB_SCIENTIST") return user;
+
   const membership = await prisma.facilityStaff.findFirst({
     where: { userId: user.id, status: "ACTIVE" },
     select: { id: true },
   });
-  if (!membership) {
-    redirect(pageAccessRedirect(user, ["LAB_SCIENTIST"]) ?? "/");
-  }
+  if (!membership) redirect("/");
   return user;
 }
 

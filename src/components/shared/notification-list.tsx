@@ -9,8 +9,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { apiClient } from "@/lib/api-client";
 import { formatClinicDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { EmptyState, ErrorState } from "./async-state";
-import { safeNotificationHref } from "@/lib/notifications/safe-href";
 
 interface Item {
   id: string;
@@ -24,34 +22,24 @@ interface Item {
 export function NotificationList({ items }: { items: Item[] }) {
   const router = useRouter();
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
   const unread = items.filter((n) => !n.readAt && !readIds.has(n.id));
 
   const markRead = async (ids?: string[]) => {
-    if (busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      await apiClient.post("/notifications/read", ids ? { ids } : undefined);
-      setReadIds((prev) => new Set([...prev, ...(ids ?? items.map((n) => n.id))]));
-      window.dispatchEvent(new Event("notifications-read"));
-      router.refresh();
-    } catch { setError("We could not mark your notifications as read. Please try again."); }
-    finally { setBusy(false); }
+    await apiClient.post("/notifications/read", ids ? { ids } : undefined).catch(() => undefined);
+    setReadIds((prev) => new Set([...prev, ...(ids ?? items.map((n) => n.id))]));
+    router.refresh();
   };
 
   return (
     <div className="space-y-3">
-      {error && <ErrorState title="Notifications were not updated" detail={error} />}
       {unread.length > 0 && (
         <div className="flex justify-end">
-          <Button size="sm" variant="outline" className="rounded-lg" disabled={busy} onClick={() => markRead()}>
-            {busy ? "Updating…" : "Mark all read"}
+          <Button size="sm" variant="outline" className="rounded-lg" onClick={() => markRead()}>
+            Mark all read
           </Button>
         </div>
       )}
-      {items.length === 0 && <EmptyState title="You are all caught up" detail="Appointments, results, messages, and account updates will appear here." />}
+      {items.length === 0 && <p className="text-sm text-muted-foreground">You are all caught up.</p>}
       {items.map((n) => {
         const isUnread = !n.readAt && !readIds.has(n.id);
         const inner = (
@@ -67,7 +55,7 @@ export function NotificationList({ items }: { items: Item[] }) {
           </Card>
         );
         return n.href ? (
-          <Link key={n.id} href={safeNotificationHref(n.href)} onClick={() => isUnread && markRead([n.id])} className="block">
+          <Link key={n.id} href={n.href} onClick={() => isUnread && markRead([n.id])} className="block">
             {inner}
           </Link>
         ) : (

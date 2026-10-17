@@ -10,9 +10,7 @@ export interface InitializeInput {
   email: string;
   method: PaymentMethod;
   callbackUrl: string;
-  /** Gateway subaccount the provider's share is settled to; the gateway keeps Medic1905's commission. */
   subaccountCode?: string;
-  /** Flat platform commission for this charge (minor units), when the rule is FIXED. */
   commissionFixedMinor?: number;
 }
 
@@ -20,14 +18,11 @@ export interface CreateSubaccountInput {
   businessName: string;
   settlementBank: string;
   accountNumber: string;
-  /** Medic1905's commission in percent (0–100) deducted from each payment before settlement. Defaults to 0. */
   percentageCharge?: number;
 }
 
 export interface ListSettlementInput {
-  /** Inclusive start of the settlement window. */
   from: Date;
-  /** Inclusive end of the settlement window. */
   to: Date;
 }
 
@@ -59,13 +54,9 @@ export interface PaymentProvider {
   refund(reference: string): Promise<{ status: "pending" | "processed" }>;
   /** `valid` is false for a bad signature. A valid call can still carry an event we do not act on (event: null). */
   parseWebhook(rawBody: string, signature: string | null): { valid: boolean; event: WebhookEvent | null };
-  /** Creates a settlement subaccount for a verified provider/facility. Returns the gateway's subaccount code. */
   createSubaccount(input: CreateSubaccountInput): Promise<{ code: string }>;
-  /** Keeps a subaccount's commission percentage in step with the current commission rule. */
   updateSubaccountCharge?(code: string, percentageCharge: number): Promise<void>;
-  /** Reads a subaccount's live commission percentage from the gateway, for checkout-time verification. */
   getSubaccountCharge?(code: string): Promise<number>;
-  /** Transactions the gateway reports for a window; used by daily reconciliation. */
   listTransactions?(input: ListSettlementInput): Promise<GatewayTransaction[]>;
 }
 
@@ -94,14 +85,10 @@ function paystack(secret: string): PaymentProvider {
           reference: input.reference,
           callback_url: input.callbackUrl,
           channels: GATEWAY_CHANNELS[input.method],
-          // When a provider subaccount is passed the gateway settles the provider's share to it
-          // directly and keeps Medic1905's commission: the subaccount's percentage_charge for
-          // PERCENT rules, or transaction_charge for a flat (FIXED) commission.
           ...(input.subaccountCode
             ? {
                 subaccount: input.subaccountCode,
                 bearer: "subaccount",
-                // Zero is a valid flat commission: only an unset value is omitted.
                 ...(input.commissionFixedMinor !== undefined ? { transaction_charge: input.commissionFixedMinor } : {}),
               }
             : {}),
@@ -144,19 +131,17 @@ function paystack(secret: string): PaymentProvider {
     },
     async listTransactions(input) {
       const transactions: GatewayTransaction[] = [];
-      // Page through the gateway's transaction list for the window. The list endpoint's payload
-      // IS the transaction array (the envelope is unwrapped by the `call` helper).
       for (let page = 1; page <= 50; page += 1) {
         const rows = await call<Array<Record<string, unknown>>>(
           `/transaction?from=${input.from.toISOString().slice(0, 10)}&to=${input.to.toISOString().slice(0, 10)}&perPage=100&page=${page}`,
         );
-        for (const t of rows ?? []) {
+        for (const transaction of rows ?? []) {
           transactions.push({
-            reference: String(t.reference),
-            amountMinor: Number(t.amount),
-            currency: String(t.currency),
-            status: String(t.status),
-            paidAt: t.paid_at ? new Date(String(t.paid_at)) : undefined,
+            reference: String(transaction.reference),
+            amountMinor: Number(transaction.amount),
+            currency: String(transaction.currency),
+            status: String(transaction.status),
+            paidAt: transaction.paid_at ? new Date(String(transaction.paid_at)) : undefined,
           });
         }
         if ((rows?.length ?? 0) < 100) break;
@@ -208,11 +193,9 @@ const mock: PaymentProvider = {
     return { status: "processed" };
   },
   async createSubaccount(input) {
-    return { code: `ACCT_MOCK_${input.accountNumber.slice(-4)}` };
+    return { code: `MOCK_${input.accountNumber}` };
   },
-  async updateSubaccountCharge() {
-    /* the mock gateway has nothing to update */
-  },
+  async updateSubaccountCharge() {},
   async getSubaccountCharge() {
     return 0;
   },

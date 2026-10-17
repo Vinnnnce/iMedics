@@ -84,10 +84,9 @@ export const GET = withAuth(["ADMIN"], async (req) => {
       qualificationVerification: true,
       qualificationVerifiedAt: true,
       licenseExpiry: true,
-      documentKeys: true,
     },
   });
   if (!doctor) throw notFound("Doctor profile not found");
-  // Evidence documents are listed by key only, for the admin document viewer; contents stay private.
-  return NextResponse.json({ verification: { ...doctor, documentCount: doctor.documentKeys.length, documentKeys: undefined } });
+  const documentCount = await prisma.verificationDocument.count({ where: { userId } });
+  return NextResponse.json({ verification: { ...doctor, documentCount } });
 });

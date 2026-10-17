@@ -9,8 +9,6 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/legal/(.*)",
-  "/about",
-  "/pricing",
   // Called by the payment gateway and the scheduler; both authenticate themselves (signature / bearer secret).
   "/api/payments/webhook/(.*)",
   "/api/cron/(.*)",

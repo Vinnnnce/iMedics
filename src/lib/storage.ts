@@ -61,6 +61,20 @@ export function presignDownload(key: string, fileName: string) {
   );
 }
 
+/** A short-lived URL that displays a stored file in the browser (PDF or image) rather than downloading it. */
+export function presignView(key: string, fileName: string) {
+  const { client, bucket } = storage();
+  return getSignedUrl(
+    client,
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ResponseContentDisposition: `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+    }),
+    { expiresIn: DOWNLOAD_URL_TTL_SECONDS },
+  );
+}
+
 /** Size and first bytes of an uploaded object, or a 400 if it was never uploaded. */
 export async function inspectObject(key: string): Promise<{ sizeBytes: number; head: Uint8Array }> {
   const { client, bucket } = storage();
@@ -79,7 +93,7 @@ export async function deleteObject(key: string): Promise<void> {
   const { client, bucket } = storage();
   try {
     await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
-  } catch {
-    console.error("Private object deletion failed");
+  } catch (error) {
+    console.error("Failed to delete object:", key, error);
   }
 }
