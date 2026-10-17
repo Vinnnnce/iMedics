@@ -18,6 +18,8 @@ import { WidgetCard } from "@/components/dashboard/widget-card";
 import { PatientCareSections } from "@/components/dashboard/patient";
 import { FAQS } from "@/lib/faqs";
 import { FaqSection } from "@/components/shared/faq-section";
+import { patientSuggestions } from "@/lib/suggestions";
+import { SuggestionsCard } from "@/components/shared/suggestions-card";
 
 const primaryActions = [
   { href: "/doctors", label: "Book consultation", icon: Stethoscope },
@@ -119,6 +121,18 @@ export default async function DashboardPage() {
       </nav>
 
       <NotificationsCard items={notifications.map(n => ({ ...n, createdAt: n.createdAt.toISOString() }))} />
+
+      {/* Account-specific suggestions */}
+      <SuggestionsCard
+        items={patientSuggestions({
+          hasUpcomingAppointment: Boolean(nextAppointment),
+          unpaidPayments,
+          failedPayments,
+          pendingResults,
+          unreadMessages,
+          hasBloodGroup: Boolean(patient.bloodGroup),
+        })}
+      />
 
       {/* Widgets: urgent and time-sensitive first, one clear primary action each */}
       <div className="grid gap-3 sm:grid-cols-2">

@@ -9,6 +9,8 @@ import {
 } from "@/lib/home/content";
 import { FAQS } from "@/lib/faqs";
 import { FaqSection } from "@/components/shared/faq-section";
+import { HOMEPAGE_SUGGESTIONS } from "@/lib/suggestions";
+import { SuggestionsCard } from "@/components/shared/suggestions-card";
 import { SpecialtyGrid } from "./specialty-grid";
 import { PublicFooter } from "./public-footer";
 
@@ -185,6 +187,19 @@ export function PublicHomepage() {
                 <CreditCard aria-hidden="true" className="h-4 w-4" /> View subscription plans
               </Link>
             </div>
+          </div>
+        </section>
+
+        {/* Suggestions */}
+        <section aria-labelledby="suggestions-heading" className="mx-auto max-w-6xl px-4 md:px-6">
+          <h2 id="suggestions-heading" className="text-2xl font-bold tracking-tight md:text-3xl">
+            Get started with Medic1905
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground md:text-base">
+            A few ways to begin, whether you are seeking care or providing it.
+          </p>
+          <div className="mt-6">
+            <SuggestionsCard items={HOMEPAGE_SUGGESTIONS} title="Suggested for you" />
           </div>
         </section>
 
