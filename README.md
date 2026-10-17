@@ -68,7 +68,25 @@ Also add a scheduled job that calls `GET /api/cron/appointment-reminders` every 
 
 ## Scripts
 
-`dev` · `build` · `start` · `lint` · `typecheck` · `test` · `test:watch` · `db:migrate` · `db:deploy` · `db:seed` · `db:studio` · `icd10:import`
+`dev` · `build` · `start` · `lint` · `typecheck` · `test` · `test:watch` · `db:migrate` · `db:deploy` · `db:recover-facility` · `db:seed` · `db:studio` · `icd10:import`
+
+## Troubleshooting
+
+### "Internal server error" when completing registration
+
+Registration writes an audit-log row, and Prisma's create operations reference the columns the generated client expects. If the database is missing a column that a recent migration should have added — for example `audit_logs.facility_id` — that write fails with Prisma `P2022`, which surfaces as a bare "Internal server error" (now a 503 with a maintenance message, and the Prisma code is logged server-side).
+
+The `20261016234824_facility_portfolio_staff_split` migration originally failed mid-run on this (it re-added `payments.commission_amount`, which `payments_platform` had already created). That failure state has been reproduced from the migration history: the statements before the failing `payments` ALTER were applied, but `audit_logs.facility_id`, the facility tables, indexes, foreign keys and the audit-log trigger were not. A failed migration record also blocks `npm run db:deploy` ("migrations found in failed state"), so fixing the migration file alone does not repair such a database.
+
+If your database is in that state, recover it with:
+
+```bash
+npm run db:recover-facility   # completes the missing DDL (does not touch migration bookkeeping)
+npx prisma migrate resolve --applied 20261016234824_facility_portfolio_staff_split
+npm run db:deploy             # should report no pending migrations
+```
+
+`db:recover-facility` only handles the reproduced partial state and refuses to run against anything else. After deploying, verify registration end-to-end for each account type (`npm test` covers it in CI: `TEST_DATABASE_URL` must point at a fully migrated database).
 
 ## How access control works
 
