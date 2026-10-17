@@ -10,6 +10,8 @@ export const serviceSchema = z.object({
   turnaroundHours: z.number().int().min(1).max(720).nullable().optional(),
   /** Free text such as "Mon–Sat 8am–4pm" or "Walk-in, no appointment needed". */
   availability: z.string().trim().max(200).transform((v) => v || null).nullable().optional(),
+  /** Optional branch/location label for facilities that price per branch. */
+  branch: z.string().trim().max(80).transform((v) => v || null).nullable().optional(),
   isActive: z.boolean().default(true),
 });
 
@@ -22,6 +24,7 @@ export const serviceSelect = {
   currency: true,
   turnaroundHours: true,
   availability: true,
+  branch: true,
   isActive: true,
   updatedAt: true,
 } as const;

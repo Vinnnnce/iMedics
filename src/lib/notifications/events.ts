@@ -17,6 +17,8 @@ export type NotificationEvent =
   | { kind: "PAYMENT_FAILED"; paymentId: string }
   | { kind: "PAYMENT_REFUND_PENDING"; paymentId: string }
   | { kind: "PAYMENT_REFUNDED"; paymentId: string }
+  | { kind: "REFUND_REQUESTED"; paymentId: string }
+  | { kind: "REFUND_DECIDED"; paymentId: string; approved: boolean }
   | { kind: "FACILITY_BOOKING_REQUESTED"; bookingId: string }
   | { kind: "FACILITY_BOOKING_UPDATED"; bookingId: string }
   | { kind: "RESULTS_AVAILABLE"; analysisId: string }
@@ -30,7 +32,15 @@ export type NotificationEvent =
   | { kind: "DISPUTE_UPDATED"; paymentId: string }
   | { kind: "CONSULTATION_AVAILABLE" }
   | { kind: "REVIEW_SUBMITTED"; reviewId: string }
-  | { kind: "VERIFICATION_UPDATED" };
+  | { kind: "VERIFICATION_UPDATED" }
+  | { kind: "SUBSCRIPTION_ACTIVATED"; subscriptionId: string }
+  | { kind: "SUBSCRIPTION_RENEWED"; subscriptionId: string }
+  | { kind: "SUBSCRIPTION_RENEWAL_DUE"; subscriptionId: string }
+  | { kind: "SUBSCRIPTION_EXPIRED"; subscriptionId: string }
+  | { kind: "SUBSCRIPTION_CANCELLED"; subscriptionId: string }
+  | { kind: "PLAN_CHANGED"; subscriptionId: string }
+  | { kind: "RECONCILIATION_ALERT"; runId: string; discrepancies: number }
+  | { kind: "REFUND_STUCK"; paymentId: string };
 
 export interface RenderedNotification {
   type: NotificationType;
@@ -148,6 +158,24 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
         href: `/payments/${event.paymentId}`,
         data: { paymentId: event.paymentId },
       };
+    case "REFUND_REQUESTED":
+      return {
+        type: "PAYMENT",
+        title: "Refund requested",
+        body: "A refund request has been received and is awaiting review.",
+        href: `/payments/${event.paymentId}`,
+        data: { paymentId: event.paymentId },
+      };
+    case "REFUND_DECIDED":
+      return {
+        type: "PAYMENT",
+        title: event.approved ? "Refund approved" : "Refund declined",
+        body: event.approved
+          ? "Your refund has been approved and will be processed shortly."
+          : "Your refund request was not approved. Sign in for details.",
+        href: `/payments/${event.paymentId}`,
+        data: { paymentId: event.paymentId },
+      };
     case "PAYMENT_REFUNDED":
       return {
         type: "PAYMENT",
@@ -179,6 +207,70 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
         body: "New information is available in your account.",
         href: role === "PATIENT" ? "/patient/results" : "/",
         data: { analysisId: event.analysisId },
+      };
+    case "SUBSCRIPTION_ACTIVATED":
+      return {
+        type: "SUBSCRIPTION",
+        title: "Subscription active",
+        body: "Your plan is active. Sign in to manage your subscription.",
+        href: "/doctor/subscription",
+        data: { subscriptionId: event.subscriptionId },
+      };
+    case "SUBSCRIPTION_RENEWED":
+      return {
+        type: "SUBSCRIPTION",
+        title: "Subscription renewed",
+        body: "Your plan has been renewed for another month.",
+        href: "/doctor/subscription",
+        data: { subscriptionId: event.subscriptionId },
+      };
+    case "SUBSCRIPTION_RENEWAL_DUE":
+      return {
+        type: "SUBSCRIPTION",
+        title: "Subscription renewal due",
+        body: "Your plan renews soon. Sign in to review or change it.",
+        href: "/doctor/subscription",
+        data: { subscriptionId: event.subscriptionId },
+      };
+    case "SUBSCRIPTION_EXPIRED":
+      return {
+        type: "SUBSCRIPTION",
+        title: "Subscription expired",
+        body: "Your plan has expired. Sign in to renew and keep your features.",
+        href: "/doctor/subscription",
+        data: { subscriptionId: event.subscriptionId },
+      };
+    case "SUBSCRIPTION_CANCELLED":
+      return {
+        type: "SUBSCRIPTION",
+        title: "Subscription cancelled",
+        body: "Your plan will not renew. You keep access until the end of the period.",
+        href: "/doctor/subscription",
+        data: { subscriptionId: event.subscriptionId },
+      };
+    case "PLAN_CHANGED":
+      return {
+        type: "SUBSCRIPTION",
+        title: "Plan changed",
+        body: "Your subscription plan has changed. Sign in to see the details.",
+        href: "/doctor/subscription",
+        data: { subscriptionId: event.subscriptionId },
+      };
+    case "RECONCILIATION_ALERT":
+      return {
+        type: "SYSTEM",
+        title: "Payment reconciliation alert",
+        body: `${event.discrepancies} payment difference(s) were found and need review.`,
+        href: "/admin/reconciliation",
+        data: { runId: event.runId },
+      };
+    case "REFUND_STUCK":
+      return {
+        type: "PAYMENT",
+        title: "Refund needs attention",
+        body: "A refund was accepted by the gateway but has not completed. Check its status in the gateway dashboard.",
+        href: `/admin/refunds`,
+        data: { paymentId: event.paymentId },
       };
   }
 }

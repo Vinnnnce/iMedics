@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { BulkImportForm } from "@/components/lab/bulk-import-form";
 import { FacilityProfileForm } from "@/components/lab/facility-profile-form";
 import { ServicesManager } from "@/components/lab/services-manager";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,6 +35,7 @@ export default async function LabServicesPage() {
         <p className="mt-1 text-sm text-muted-foreground">Patients see these prices before they book. Changes apply to new bookings only.</p>
       </div>
       <FacilityProfileForm initial={profile} />
+      <BulkImportForm />
       <ServicesManager services={services.map((s) => serializeService(s))} />
     </div>
   );

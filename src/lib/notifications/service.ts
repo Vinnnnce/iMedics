@@ -70,6 +70,15 @@ export async function notifyUser(userId: string, event: NotificationEvent, defer
   }
 }
 
+/** Notify every active admin. Used for alerts (refund requests, reconciliation findings). */
+export async function notifyAdmins(event: NotificationEvent): Promise<void> {
+  const admins = await prisma.user.findMany({
+    where: { role: "ADMIN", status: "ACTIVE", deletedAt: null },
+    select: { id: true },
+  });
+  await notifyUsers(admins.map((a) => a.id), event);
+}
+
 /** Notify several users (duplicates removed). */
 export async function notifyUsers(userIds: (string | null | undefined)[], event: NotificationEvent): Promise<void> {
   const unique = [...new Set(userIds.filter((id): id is string => Boolean(id)))];
@@ -82,4 +91,9 @@ export async function notifyUsers(userIds: (string | null | undefined)[], event:
 export async function queueNotification(userId: string | null | undefined, event: NotificationEvent): Promise<void> {
   if (!userId) return;
   await notifyUser(userId, event, true);
+}
+
+/** Queue an admin alert to run after the response (see notifyAdmins). */
+export function queueAdminAlert(event: NotificationEvent): void {
+  after(() => notifyAdmins(event));
 }

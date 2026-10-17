@@ -74,6 +74,17 @@ function toPublic({ user, consultationFee, followUpFee, ...profile }: PublicRow)
 const visibleDoctor: Prisma.DoctorProfileWhereInput = {
   verificationStatus: "VERIFIED",
   user: { status: "ACTIVE", deletedAt: null },
+  // Directory listing is a subscription-gated feature: a doctor whose active plan switches
+  // listing off is hidden from the directory. Doctors without a plan keep the free listing.
+  NOT: [
+    {
+      subscription: {
+        status: "ACTIVE",
+        currentPeriodEnd: { gt: new Date() },
+        plan: { features: { path: ["listing"], equals: false } },
+      },
+    },
+  ],
 };
 
 /** Verified doctors who are accepting patients. */

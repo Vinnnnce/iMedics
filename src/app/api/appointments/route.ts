@@ -9,6 +9,7 @@ import { assertSlotFree, findSlotMinutes, findServiceSlotMinutes, visibleToDocto
 import { resolveConsultationFee } from "@/lib/pricing";
 import { assertPaymentsAvailable, createPendingPayment, expireStalePayments } from "@/lib/payments/service";
 import { queueNotification } from "@/lib/notifications/service";
+import { allowanceExhausted, requireEntitlement } from "@/lib/subscriptions";
 import { appointmentInclude, serializeAppointment } from "@/lib/appointment-shape";
 import { writeAudit } from "@/lib/audit";
 import { recordBookingConversion } from "@/lib/workspace/experiments";
@@ -48,6 +49,13 @@ export const POST = withAuth(["PATIENT"], async (req, { user }) => {
     select: { id: true, userId: true },
   });
   if (!doctor) throw notFound("Doctor not found");
+
+  // The doctor's subscription decides which consultation modes they offer and how many bookings
+  // their monthly allowance still covers.
+  if (data.mode === "VIDEO") await requireEntitlement(doctor.userId, "video");
+  if (await allowanceExhausted(doctor.userId)) {
+    throw conflict("This doctor's monthly consultation allowance is used up. Please check back next month.");
+  }
 
   // Release slots held by abandoned payments before checking availability.
   await expireStalePayments();

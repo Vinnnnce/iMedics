@@ -1,6 +1,17 @@
 # Payments & Commissions Platform Roadmap (Medic1905)
 
-> Status: planned. This document defines the phased build-out of provider onboarding, consultation payments, refunds and reconciliation, doctor subscriptions, and facility payments. It is a planning document only — existing code is unchanged.
+> Status: **work in progress (feature branch `payments-platform`).** All five phases below are implemented in code on the branch, with the payment-flow and recovery tests running in CI against a disposable database. Known open items before this can be called complete:
+>
+> - **Duplicate-charge refund claims**: a claim that exists without a recorded gateway outcome (crash or timeout between claim and result) stays durably unresolved; recovery relies on the gateway's refund webhooks and an admin-visible event trail rather than automatic resolution.
+> - **FAILED refund re-approval**: an admin can move a FAILED refund back to APPROVED, but the retry path does not yet resubmit when an earlier REFUND_ACCEPTED event exists; it alerts instead.
+> - **Checkout attempt accounting**: each checkout attempt's reference and split snapshot are recorded, but the winning attempt's accounting is not yet applied atomically from an attempt-level record.
+> - **Per-transaction commission override**: Paystack's `transaction_charge` may be able to carry a calculated (percentage-derived) commission per transaction, removing the dependence on mutable subaccount defaults — unverified against the live API.
+> - **Settlement-report verification**: reconciliation compares against the gateway's charge list, not a settlement report; a missing successful charge raises a warning to verify manually in the gateway dashboard.
+> - **Mock provider**: cannot exercise nonzero percentage checkout (its live percentage read always returns zero).
+>
+> Seeded subscription plan prices and allowances are placeholder defaults; purchases are disabled until an admin confirms them (`pricingConfirmed: true` in the plan's `features` JSON, together with real prices).
+>
+> Where things live: commission and payout configuration in `/admin/commission` and `/admin/providers` (Phase 1); the split and subaccount wiring in `lib/commissions.ts`, `lib/subaccounts.ts` and `lib/payments/service.ts` (Phase 2); the refund queue and reconciliation screens in `/admin/refunds` and `/admin/reconciliation` with the daily job at `/api/cron/reconciliation` (Phase 3); plans and gating in `lib/subscriptions.ts` with the doctor screen at `/doctor/subscription` and the lifecycle job at `/api/cron/subscriptions` (Phase 4); facility commission rules, bulk service import, branch pricing and reporting in Phase 5 (`/api/facility/services/bulk`, `/admin/reports`).
 
 ## Phase 1: Foundations
 
