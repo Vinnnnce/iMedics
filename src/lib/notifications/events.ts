@@ -21,6 +21,11 @@ export type NotificationEvent =
   | { kind: "REFUND_DECIDED"; paymentId: string; approved: boolean }
   | { kind: "FACILITY_BOOKING_REQUESTED"; bookingId: string }
   | { kind: "FACILITY_BOOKING_UPDATED"; bookingId: string }
+  | { kind: "FACILITY_RESULT_RELEASED"; bookingId: string }
+  | { kind: "FACILITY_STAFF_JOINED"; facilityId: string }
+  | { kind: "FACILITY_REFERRAL_RECEIVED"; referralId: string }
+  | { kind: "CREDENTIAL_EXPIRING"; credentialId: string }
+  | { kind: "CREDENTIAL_EXPIRED"; credentialId: string }
   | { kind: "RESULTS_AVAILABLE"; analysisId: string }
   | { kind: "TASK_CREATED"; taskId: string }
   | { kind: "TASK_COMPLETED"; taskId: string }
@@ -199,6 +204,46 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
         body: "A service booking has been updated. Sign in to see the details.",
         href: bookingsHref(role),
         data: { bookingId: event.bookingId },
+      };
+    case "FACILITY_RESULT_RELEASED":
+      return {
+        type: "LAB_RESULT",
+        title: "Your result is ready",
+        body: "A result from your facility booking is ready. Sign in to view it.",
+        href: role === "PATIENT" ? "/patient/results" : "/lab/bookings",
+        data: { bookingId: event.bookingId },
+      };
+    case "FACILITY_STAFF_JOINED":
+      return {
+        type: "SYSTEM",
+        title: "Staff member joined",
+        body: "An invited staff member has joined your facility.",
+        href: "/lab/staff",
+        data: { facilityId: event.facilityId },
+      };
+    case "FACILITY_REFERRAL_RECEIVED":
+      return {
+        type: "SYSTEM",
+        title: "New referral received",
+        body: "A Medic1905 doctor has referred a patient to your facility. Sign in to review it.",
+        href: "/lab/referrals",
+        data: { referralId: event.referralId },
+      };
+    case "CREDENTIAL_EXPIRING":
+      return {
+        type: "SYSTEM",
+        title: "Credential expiring soon",
+        body: "A staff credential expires soon. Sign in to review the renewal.",
+        href: "/lab/credentials",
+        data: { credentialId: event.credentialId },
+      };
+    case "CREDENTIAL_EXPIRED":
+      return {
+        type: "SYSTEM",
+        title: "Credential expired",
+        body: "A staff credential has expired. Sign in to review it.",
+        href: "/lab/credentials",
+        data: { credentialId: event.credentialId },
       };
     case "RESULTS_AVAILABLE":
       return {

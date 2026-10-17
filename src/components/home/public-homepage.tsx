@@ -41,7 +41,7 @@ export function PublicHomepage() {
                 <Link href="/doctors" className="pill-btn pill-btn-outline inline-flex w-full items-center justify-center gap-2 px-5 py-3 text-sm font-semibold sm:w-auto">
                   <Video aria-hidden="true" className="h-4 w-4" /> Book a consultation
                 </Link>
-                <Link href="/facilities" className="pill-btn pill-btn-outline inline-flex w-full items-center justify-center gap-2 px-5 py-3 text-sm font-semibold sm:w-auto">
+                <Link href="/laboratories" className="pill-btn pill-btn-outline inline-flex w-full items-center justify-center gap-2 px-5 py-3 text-sm font-semibold sm:w-auto">
                   <FlaskConical aria-hidden="true" className="h-4 w-4" /> Find a laboratory or diagnostic centre
                 </Link>
               </div>

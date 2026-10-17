@@ -51,7 +51,7 @@ export function BulkImportForm() {
             description: description || null,
             turnaroundHours: turnaroundHours ? Number(turnaroundHours) : null,
             availability: availability || null,
-            branch: branch || null,
+            branchLabel: branch || null,
           };
         })
         .filter((service) => service.name && !Number.isNaN(service.price));

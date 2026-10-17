@@ -14,7 +14,7 @@ const rowSchema = z.object({
   turnaroundHours: z.number().int().min(1).max(336).nullable().optional(),
   availability: z.string().max(120).nullable().optional(),
   /** Optional branch/location label for facilities that price per branch. */
-  branch: z.string().max(80).nullable().optional(),
+  branchLabel: z.string().max(80).nullable().optional(),
   isActive: z.boolean().default(true),
 });
 
@@ -32,7 +32,7 @@ export interface BulkImportRow {
 }
 
 // POST /api/facility/services/bulk — create or update many services at once (CSV-style upload
-// for large facilities). Rows are matched on (name, branch): an existing service is updated,
+// for large facilities). Rows are matched on (name, branchLabel): an existing service is updated,
 // a new one is created. Invalid rows are reported and skipped without stopping the rest.
 export const POST = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
   const facility = await getVerifiedLabProfile(user);
@@ -43,10 +43,10 @@ export const POST = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
   let updated = 0;
 
   for (const [index, service] of data.services.entries()) {
-    const branch = service.branch?.trim() || null;
+    const branchLabel = service.branchLabel?.trim() || null;
     try {
       const existing = await prisma.facilityService.findFirst({
-        where: { facilityId: facility.id, name: service.name, branch },
+        where: { facilityId: facility.id, name: service.name, branchLabel },
         select: { id: true },
       });
       const fields = {
@@ -63,7 +63,7 @@ export const POST = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
         results.push({ row: index + 1, name: service.name, action: "updated" });
         updated += 1;
       } else {
-        await prisma.facilityService.create({ data: { facilityId: facility.id, name: service.name, branch, ...fields } });
+        await prisma.facilityService.create({ data: { facilityId: facility.id, name: service.name, branchLabel, ...fields } });
         results.push({ row: index + 1, name: service.name, action: "created" });
         created += 1;
       }

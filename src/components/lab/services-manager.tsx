@@ -23,11 +23,15 @@ export interface ServiceRow {
   currency: string;
   turnaroundHours: number | null;
   availability: string | null;
-  branch: string | null;
+  branchLabel: string | null;
+  preparationInstructions: string | null;
+  referralRequired: boolean;
+  homeCollectionAvailable: boolean;
+  urgentAvailable: boolean;
   isActive: boolean;
 }
 
-const empty = { name: "", description: "", category: "LAB_TEST" as Category, price: "", currency: "NGN", turnaroundHours: "", availability: "", branch: "" };
+const empty = { name: "", description: "", category: "LAB_TEST" as Category, price: "", currency: "NGN", turnaroundHours: "", availability: "", branchLabel: "", preparationInstructions: "", referralRequired: false, homeCollectionAvailable: false, urgentAvailable: false };
 const select = "h-9 w-full rounded-lg border border-input bg-background px-2 text-sm";
 
 /** A facility's price list: add, reprice, hide and remove the services patients can book. */
@@ -39,6 +43,7 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
   const [error, setError] = useState("");
 
   const set = <K extends keyof typeof empty>(key: K, value: (typeof empty)[K]) => setForm((f) => ({ ...f, [key]: value }));
+  const setBool = <K extends "referralRequired" | "homeCollectionAvailable" | "urgentAvailable">(key: K, value: boolean) => setForm((f) => ({ ...f, [key]: value }));
 
   const reset = () => {
     setForm(empty);
@@ -48,7 +53,7 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
 
   const edit = (s: ServiceRow) => {
     setEditingId(s.id);
-    setForm({ name: s.name, description: s.description ?? "", category: s.category, price: s.price.toString(), currency: s.currency, turnaroundHours: s.turnaroundHours?.toString() ?? "", availability: s.availability ?? "", branch: s.branch ?? "" });
+    setForm({ name: s.name, description: s.description ?? "", category: s.category, price: s.price.toString(), currency: s.currency, turnaroundHours: s.turnaroundHours?.toString() ?? "", availability: s.availability ?? "", branchLabel: s.branchLabel ?? "", preparationInstructions: s.preparationInstructions ?? "", referralRequired: s.referralRequired, homeCollectionAvailable: s.homeCollectionAvailable, urgentAvailable: s.urgentAvailable });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -68,7 +73,11 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
       currency: form.currency,
       turnaroundHours: form.turnaroundHours.trim() ? Number(form.turnaroundHours) : null,
       availability: form.availability,
-      branch: form.branch,
+      branchLabel: form.branchLabel,
+      preparationInstructions: form.preparationInstructions,
+      referralRequired: form.referralRequired,
+      homeCollectionAvailable: form.homeCollectionAvailable,
+      urgentAvailable: form.urgentAvailable,
     };
     try {
       if (editingId) await apiClient.patch(`/facility/services/${editingId}`, body);
@@ -135,7 +144,7 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="svc-branch">Branch</Label>
-              <Input id="svc-branch" value={form.branch} onChange={(e) => set("branch", e.target.value)} placeholder="e.g. Ikeja branch (optional)" className="rounded-lg" />
+              <Input id="svc-branch" value={form.branchLabel} onChange={(e) => set("branchLabel", e.target.value)} placeholder="e.g. Ikeja branch (optional)" className="rounded-lg" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="svc-avail">Availability</Label>
@@ -144,6 +153,26 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
             <div className="space-y-2">
               <Label htmlFor="svc-tat">Results ready in (hours)</Label>
               <Input id="svc-tat" inputMode="numeric" value={form.turnaroundHours} onChange={(e) => set("turnaroundHours", e.target.value)} placeholder="optional" className="rounded-lg" />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="svc-prep">Preparation instructions</Label>
+              <Input id="svc-prep" value={form.preparationInstructions} onChange={(e) => set("preparationInstructions", e.target.value)} placeholder="e.g. Fast for 8 hours before this test" className="rounded-lg" />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" className="h-4 w-4" checked={form.referralRequired} onChange={(e) => setBool("referralRequired", e.target.checked)} />
+                  Referral required
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" className="h-4 w-4" checked={form.homeCollectionAvailable} onChange={(e) => setBool("homeCollectionAvailable", e.target.checked)} />
+                  Home sample collection
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" className="h-4 w-4" checked={form.urgentAvailable} onChange={(e) => setBool("urgentAvailable", e.target.checked)} />
+                  Urgent processing available
+                </label>
+              </div>
             </div>
             {error && <p className="text-sm text-destructive sm:col-span-2">{error}</p>}
             <div className="flex gap-2 sm:col-span-2">

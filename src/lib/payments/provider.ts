@@ -20,8 +20,8 @@ export interface CreateSubaccountInput {
   businessName: string;
   settlementBank: string;
   accountNumber: string;
-  /** Medic1905's commission in percent (0–100) deducted from each payment before settlement. */
-  percentageCharge: number;
+  /** Medic1905's commission in percent (0–100) deducted from each payment before settlement. Defaults to 0. */
+  percentageCharge?: number;
 }
 
 export interface ListSettlementInput {
@@ -59,8 +59,8 @@ export interface PaymentProvider {
   refund(reference: string): Promise<{ status: "pending" | "processed" }>;
   /** `valid` is false for a bad signature. A valid call can still carry an event we do not act on (event: null). */
   parseWebhook(rawBody: string, signature: string | null): { valid: boolean; event: WebhookEvent | null };
-  /** Creates a settlement subaccount for a verified provider. Returns the gateway's subaccount code. */
-  createSubaccount?(input: CreateSubaccountInput): Promise<{ code: string }>;
+  /** Creates a settlement subaccount for a verified provider/facility. Returns the gateway's subaccount code. */
+  createSubaccount(input: CreateSubaccountInput): Promise<{ code: string }>;
   /** Keeps a subaccount's commission percentage in step with the current commission rule. */
   updateSubaccountCharge?(code: string, percentageCharge: number): Promise<void>;
   /** Reads a subaccount's live commission percentage from the gateway, for checkout-time verification. */
@@ -127,7 +127,7 @@ function paystack(secret: string): PaymentProvider {
           business_name: input.businessName,
           settlement_bank: input.settlementBank,
           account_number: input.accountNumber,
-          percentage_charge: input.percentageCharge,
+          percentage_charge: input.percentageCharge ?? 0,
         }),
       });
       return { code: data.subaccount_code };
