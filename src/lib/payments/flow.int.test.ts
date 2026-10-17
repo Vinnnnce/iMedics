@@ -70,6 +70,8 @@ describe.skipIf(!url)("fees, payments and notifications", () => {
     await p.notification.deleteMany({ where: { userId: { in: [ids.patientUser, ids.doctorUser] } } });
     await p.providerSubaccount.deleteMany({ where: { userId: ids.doctorUser } });
     await p.commissionRule.deleteMany({ where: { createdById: ids.doctorUser } });
+    // The notification outbox (workspace_delivery) references users without a cascade.
+    await p.$executeRaw`DELETE FROM workspace_delivery WHERE owner_id IN (${ids.patientUser}::uuid, ${ids.doctorUser}::uuid)`;
     await p.patient.delete({ where: { id: ids.patient } });
     await p.doctorProfile.delete({ where: { id: ids.doctor } });
     await p.user.deleteMany({ where: { id: { in: [ids.patientUser, ids.doctorUser] } } });
@@ -344,7 +346,9 @@ describe.skipIf(!url)("fees, payments and notifications", () => {
       await m.prisma.appointment.update({ where: { id: appointment.id }, data: { status: "CANCELLED" } });
       await m.prisma.payment.update({
         where: { id: payment.id },
-        data: { status: "SUCCESSFUL", paidAt: new Date(), chargedReference: payment.providerReference },
+        // paidAt strictly after the cancellation: recovery compares appointment.updatedAt < paidAt
+        // with millisecond precision, so an in-the-same-millisecond Date can lose the race.
+        data: { status: "SUCCESSFUL", paidAt: new Date(Date.now() + 1000), chargedReference: payment.providerReference },
       });
 
       const recovered = await m.pay.recoverLateCancellationRefunds();
