@@ -9,6 +9,7 @@ import { useTheme } from "@/components/theme-provider";
 import { NotificationCenter } from "@/components/shared/notification-center";
 import { getRoleNavigation, getBottomNavigation } from "@/lib/navigation";
 import { ROLE_POLICY } from "@/lib/roles";
+import { LEGAL_NAV_LINKS } from "@/lib/legal/types";
 import { Drawer } from "@/components/shared/drawer";
 import {
   Search, Sun, Moon, Menu, X, Stethoscope, Users,
@@ -309,10 +310,24 @@ export function Navbar({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="border-t border-border p-4 shrink-0">
-          <p className="text-xs text-muted-foreground">
+        <div className="border-t border-border bg-card/50 p-4 shrink-0">
+          <p className="text-xs leading-relaxed text-muted-foreground">
             Medic1905 is a platform only, not a medical provider. AI content is informational.
           </p>
+          <nav
+            aria-label="Legal and about links"
+            className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1"
+          >
+            {LEGAL_NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
         </div>
       </aside>}
 
@@ -351,6 +366,22 @@ export function Navbar({ children }: { children: React.ReactNode }) {
                   </Link>
                 );
               })}
+            </nav>
+            {/* Legal and about links */}
+            <nav
+              aria-label="Legal and about links"
+              className="mt-auto border-t border-border p-4 flex flex-wrap items-center gap-x-4 gap-y-1"
+            >
+              {LEGAL_NAV_LINKS.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileSidebarOpen(false)}
+                  className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {link.label}
+                </Link>
+              ))}
             </nav>
       </Drawer>}
 

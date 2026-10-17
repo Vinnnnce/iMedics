@@ -17,6 +17,8 @@ import { DoctorCareSections } from "@/components/dashboard/doctor";
 import { DoctorReviewsCard } from "@/components/doctor/reviews-card";
 import { WidgetCard } from "@/components/dashboard/widget-card";
 import { greetingFor } from "@/lib/dashboard/greeting";
+import { FAQS } from "@/lib/faqs";
+import { FaqSection } from "@/components/shared/faq-section";
 
 export default async function DoctorDashboardPage() {
   const user = await requirePageRole("DOCTOR");
@@ -204,6 +206,9 @@ export default async function DoctorDashboardPage() {
       </div>
 
       <DoctorCareSections data={workspace} />
+
+      {/* Account-specific FAQ (shown only on the dashboard) */}
+      <FaqSection items={FAQS.DOCTOR} className="" intro="Answers to questions doctors ask most." />
     </div>
   );
 }

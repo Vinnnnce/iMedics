@@ -16,6 +16,8 @@ import { greetingFor } from "@/lib/dashboard/greeting";
 import { EmergencyButton } from "@/components/dashboard/emergency-button";
 import { WidgetCard } from "@/components/dashboard/widget-card";
 import { PatientCareSections } from "@/components/dashboard/patient";
+import { FAQS } from "@/lib/faqs";
+import { FaqSection } from "@/components/shared/faq-section";
 
 const primaryActions = [
   { href: "/doctors", label: "Book consultation", icon: Stethoscope },
@@ -239,6 +241,9 @@ export default async function DashboardPage() {
       </div>
 
       <PatientCareSections data={workspace} />
+
+      {/* Account-specific FAQ (shown only on the dashboard) */}
+      <FaqSection items={FAQS.PATIENT} className="" intro="Answers to questions patients ask most." />
     </div>
   );
 }

@@ -44,49 +44,6 @@ export default async function DoctorProfilePage({ params }: { params: Promise<{ 
   const linkedinVisible = doctor.linkedinPublic && doctor.linkedinUrl;
   const licenseExpired = doctor.licenseExpiry ? doctor.licenseExpiry.getTime() < new Date().getTime() : false;
 
-  const faqs: { question: string; answer: string }[] = [
-    {
-      question: "How do I book a consultation?",
-      answer: "Pick a service (when the doctor publishes a catalogue), choose a free slot from their published weekly availability, and pay to hold the slot. The price you see at checkout is the price you pay.",
-    },
-    {
-      question: "What is the difference between a new and a follow-up consultation?",
-      answer: "A follow-up rate can apply when you previously completed a standard consultation with the same doctor within their follow-up window. The exact rate is shown before you pay.",
-    },
-    {
-      question: "Can I upload my previous results?",
-      answer: "Yes. You can upload documents and images to your record and share them with the doctor before or during the consultation.",
-    },
-    {
-      question: "How long is a consultation?",
-      answer: "Each service lists its duration. For standard bookings, the length is the doctor's published slot length, shown when you choose a time.",
-    },
-    {
-      question: "Can I get a prescription?",
-      answer: "Prescriptions are issued after a consultation when the doctor judges one is clinically appropriate.",
-    },
-    {
-      question: "What if I need to cancel?",
-      answer: "Upcoming appointments can be cancelled from your dashboard. Refunds follow the platform's payment policy; paid consultations are refunded by the platform's payment team.",
-    },
-    {
-      question: "Is my information confidential?",
-      answer: "Your consultation is visible to the doctors involved in your care. Reviews show your first name only, and doctors are asked not to include patient information in public replies.",
-    },
-    {
-      question: "Can this doctor refer me to someone else?",
-      answer: "Doctors can admit you to their care and coordinate with other doctors on the platform where a referral is appropriate.",
-    },
-    {
-      question: "What languages does the doctor speak?",
-      answer: doctor.languages.length > 0 ? `This doctor speaks ${doctor.languages.join(", ")}.` : "The doctor's languages are listed on their profile once provided.",
-    },
-    {
-      question: "How do I join a video consultation?",
-      answer: "At the appointment time, open the consultation from your dashboard.",
-    },
-  ];
-
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 md:px-0">
       {/* Overview */}
@@ -312,21 +269,6 @@ export default async function DoctorProfilePage({ params }: { params: Promise<{ 
         }))}
         categories={reviewCategories as Record<string, { avg: number; count: number } | null>}
       />
-
-      {/* FAQ */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Frequently asked questions</h2>
-        {faqs.map((faq) => (
-          <Collapsible key={faq.question}>
-            <div className="rounded-lg border border-input px-4 py-3">
-              <CollapsibleTrigger className="text-left text-sm font-medium">{faq.question}</CollapsibleTrigger>
-              <CollapsibleContent>
-                <p className="pt-2 text-sm text-muted-foreground">{faq.answer}</p>
-              </CollapsibleContent>
-            </div>
-          </Collapsible>
-        ))}
-      </section>
     </div>
   );
 }
