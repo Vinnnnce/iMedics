@@ -123,8 +123,19 @@ async function facilityPatientItems(
   verified: boolean,
 ): Promise<RecommendationItem[]> {
   if (!verified) return [];
+  // The orders portal requires the user's own verified lab profile before it
+  // exposes other patients' orders (getVerifiedLabProfile); mirror that guard
+  // for order suggestions. Bookings follow the portal-access rule instead.
+  const ownLabProfileVerified =
+    user.role === "LAB_SCIENTIST" &&
+    (
+      await prisma.labStaffProfile.findUnique({
+        where: { userId: user.id },
+        select: { verificationStatus: true },
+      })
+    )?.verificationStatus === "VERIFIED";
   const [orders, bookings] = await Promise.all([
-    user.role === "LAB_SCIENTIST"
+    ownLabProfileVerified
       ? prisma.labOrder.findMany({
       where: {
         // Same authorized transaction scope as the facility orders portal:

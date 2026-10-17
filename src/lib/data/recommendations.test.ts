@@ -7,6 +7,7 @@ vi.mock("@/lib/prisma", () => ({
     patient: { findMany: vi.fn() },
     labOrder: { findMany: vi.fn() },
     facilityBooking: { findMany: vi.fn() },
+    labStaffProfile: { findUnique: vi.fn() },
   },
 }));
 vi.mock("@/lib/data/doctors", () => ({
@@ -108,6 +109,7 @@ describe("getRecommendations", () => {
       { id: "fac-1", userId: "owner-1", verificationStatus: "VERIFIED" } as never,
     );
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ accountType: "LABORATORY" } as never);
+    vi.mocked(prisma.labStaffProfile.findUnique).mockResolvedValue({ verificationStatus: "VERIFIED" } as never);
     vi.mocked(prisma.labOrder.findMany).mockResolvedValue([
       { patient: { id: "p-1", firstName: "Jane", lastName: "Okafor" } },
       { patient: { id: "p-2", firstName: "Ada", lastName: "Bello" } },
@@ -189,6 +191,22 @@ describe("getRecommendations", () => {
     expect(categories.find((c) => c.key === "patients")?.items).toEqual([
       { id: "p-1", name: "Jane Okafor", subtitle: "Upcoming booking", href: "/lab/bookings" },
     ]);
+  });
+
+  it("hides order suggestions from lab staff whose own lab profile is unverified", async () => {
+    // The orders portal requires the user's own verified lab profile
+    // (getVerifiedLabProfile), even when they act for a verified facility.
+    vi.mocked(resolveFacilityForPortalUser).mockResolvedValue(
+      { id: "fac-1", userId: "owner-1", verificationStatus: "VERIFIED" } as never,
+    );
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ accountType: "LABORATORY" } as never);
+    vi.mocked(prisma.labStaffProfile.findUnique).mockResolvedValue({ verificationStatus: "PENDING" } as never);
+    vi.mocked(prisma.facilityBooking.findMany).mockResolvedValue([] as never);
+
+    const categories = await getRecommendations(labUser, "facility");
+
+    expect(prisma.labOrder.findMany).not.toHaveBeenCalled();
+    expect(categories.find((c) => c.key === "patients")?.items).toEqual([]);
   });
 
   it("rejects a patient asking for the doctor perspective", async () => {
