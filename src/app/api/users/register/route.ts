@@ -6,8 +6,9 @@ import { withAuth, parseBody } from "@/lib/api";
 import { conflict } from "@/lib/errors";
 import { queueNotification } from "@/lib/notifications/service";
 import { generateCaseNumber } from "@/lib/case-number";
+import { LEGAL_META } from "@/lib/legal/types";
 
-const TERMS_VERSION = "2026-10";
+const TERMS_VERSION = LEGAL_META.version;
 
 const text = z.string().trim().max(500).optional();
 

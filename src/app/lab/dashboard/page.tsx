@@ -12,6 +12,8 @@ import { WidgetCard } from "@/components/dashboard/widget-card";
 import { FacilitySections } from "@/components/dashboard/facility";
 import { credentialExpiryState } from "@/lib/facility-staff";
 import { ACTIVE_WORKFLOW_STAGES } from "@/lib/facility-workflow";
+import { facilityFaqs } from "@/lib/faqs";
+import { FaqSection } from "@/components/shared/faq-section";
 
 export default async function LabDashboardPage() {
   const user = await requireFacilityPortalPage();
@@ -263,6 +265,13 @@ export default async function LabDashboardPage() {
       </div>
 
       <FacilitySections data={workspace} />
+
+      {/* Account-specific FAQ (shown only on the dashboard) */}
+      <FaqSection
+        items={facilityFaqs(user.accountType)}
+        className=""
+        intro="Answers to questions facilities like yours ask most."
+      />
     </div>
   );
 }

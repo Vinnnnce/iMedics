@@ -7,6 +7,8 @@ import {
 import {
   HERO_TRUST_BADGES, HOW_IT_WORKS_STEPS, PROVIDER_BENEFITS, SERVICE_CARDS, TRUST_ITEMS,
 } from "@/lib/home/content";
+import { FAQS } from "@/lib/faqs";
+import { FaqSection } from "@/components/shared/faq-section";
 import { SpecialtyGrid } from "./specialty-grid";
 import { PublicFooter } from "./public-footer";
 
@@ -185,6 +187,12 @@ export function PublicHomepage() {
             </div>
           </div>
         </section>
+
+        {/* FAQ */}
+        <FaqSection
+          items={FAQS.GENERAL}
+          intro="Common questions about Medic1905. Signed-in users can find answers tailored to their account type on their dashboard."
+        />
 
         {/* Closing CTA */}
         <section aria-labelledby="cta-heading" className="mx-auto max-w-6xl px-4 md:px-6">
