@@ -51,15 +51,27 @@ describe.skipIf(!url)("fees, payments and notifications", () => {
     const du = await p.user.create({ data: { clerkId: `t-d-${tag}`, email: `d-${tag}@t.test`, name: "Doc Tor", role: "DOCTOR", onboardingComplete: true } });
     const patient = await p.patient.create({ data: { caseNumber: `T-${tag}`, userId: pu.id, firstName: "Pat", lastName: "Ient", gender: "FEMALE", dateOfBirth: new Date("1990-01-01") } });
     const doctor = await p.doctorProfile.create({ data: { userId: du.id, verificationStatus: "VERIFIED", consultationFee: 10000, followUpFee: 4000, followUpWindowDays: 14 } });
+    // A provisioned payout subaccount with zero commission: provider charges can be split at the
+    // (mock) gateway, and checkout's live verification of the percentage passes.
+    await p.providerSubaccount.create({
+      data: { userId: du.id, provider: "DOCTOR", businessName: "Test Clinic", settlementBank: "Test Bank", accountNumber: "0123456789", percentageCharge: 0, currency: "NGN", subaccountCode: `ACCT_TEST_${tag}`, status: "ACTIVE" },
+    });
     Object.assign(ids, { patientUser: pu.id, doctorUser: du.id, patient: patient.id, doctor: doctor.id });
   });
 
   afterAll(async () => {
     if (!m) return;
     const p = m.prisma;
+    // Refund records reference payments (no cascade): remove them before the payments.
+    await p.refund.deleteMany({ where: { payment: { payerId: { in: [ids.patientUser, ids.doctorUser] } } } });
     await p.payment.deleteMany({ where: { payerId: ids.patientUser } });
+    await p.payment.deleteMany({ where: { payerId: ids.doctorUser } });
     await p.appointment.deleteMany({ where: { patientId: ids.patient } });
     await p.notification.deleteMany({ where: { userId: { in: [ids.patientUser, ids.doctorUser] } } });
+    await p.providerSubaccount.deleteMany({ where: { userId: ids.doctorUser } });
+    await p.commissionRule.deleteMany({ where: { createdById: ids.doctorUser } });
+    // The notification outbox (workspace_delivery) references users without a cascade.
+    await p.$executeRaw`DELETE FROM workspace_delivery WHERE owner_id IN (${ids.patientUser}::uuid, ${ids.doctorUser}::uuid)`;
     await p.patient.delete({ where: { id: ids.patient } });
     await p.doctorProfile.delete({ where: { id: ids.doctor } });
     await p.user.deleteMany({ where: { id: { in: [ids.patientUser, ids.doctorUser] } } });
@@ -228,6 +240,165 @@ describe.skipIf(!url)("fees, payments and notifications", () => {
       await m.reminders.sendDueAppointmentReminders();
       expect(await m.prisma.notification.count({ where: { userId: ids.patientUser, title: "Appointment starting soon" } })).toBe(before);
       await m.prisma.appointment.delete({ where: { id: soon.id } });
+    });
+  });
+
+  describe("payments platform hardening", () => {
+    // ids is populated by beforeAll, which runs after this describe is registered.
+    const payer = () => ({ id: ids.patientUser, email: `p-${tag}@t.test` });
+    const subaccount = () =>
+      m.prisma.providerSubaccount.create({
+        data: { userId: ids.doctorUser, provider: "DOCTOR", businessName: "Test Clinic", settlementBank: "Test Bank", accountNumber: "0123456789", percentageCharge: 0, currency: "NGN", subaccountCode: `ACCT_TEST_${tag}`, status: "ACTIVE" },
+      });
+
+    it("refuses checkout for a provider charge until the payout subaccount exists", async () => {
+      const { payment } = await book({ at: days(5) });
+      await m.prisma.providerSubaccount.deleteMany({ where: { userId: ids.doctorUser } });
+      await expect(m.pay.startCheckout(payment.id, payer(), "CARD")).rejects.toThrow(/payout account/);
+      await subaccount();
+    });
+
+    it("returns a duplicate charge without touching the payment's own refund state", async () => {
+      const { payment } = await book({ at: days(5) });
+      const first = await m.pay.startCheckout(payment.id, payer(), "CARD");
+      const second = await m.pay.startCheckout(payment.id, payer(), "CARD");
+
+      await pay(first.reference);
+      await pay(second.reference);
+
+      const fresh = await m.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
+      expect(fresh.status).toBe("SUCCESSFUL");
+      expect(fresh.chargedReference).toBe(first.reference);
+      expect(await m.prisma.refund.count({ where: { paymentId: payment.id } })).toBe(0);
+      expect(await m.prisma.paymentEvent.count({ where: { paymentId: payment.id, type: "DUPLICATE_CHARGE_REFUND_SUBMITTED" } })).toBe(1);
+
+      // A replay of the duplicate's success submits nothing new.
+      await pay(second.reference);
+      expect(await m.prisma.paymentEvent.count({ where: { paymentId: payment.id, type: "DUPLICATE_CHARGE_REFUND_SUBMITTED" } })).toBe(1);
+
+      // The duplicate's refund completing must not refund the payment itself.
+      await m.pay.handleWebhookEvent({ type: "refund.processed", reference: second.reference });
+      const afterWebhook = await m.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
+      expect(afterWebhook.status).toBe("SUCCESSFUL");
+      expect(await m.prisma.refund.count({ where: { paymentId: payment.id } })).toBe(0);
+    });
+
+    it("never treats a legacy payment without a charged reference as a duplicate", async () => {
+      const { payment } = await book({ at: days(5) });
+      const { reference } = await m.pay.startCheckout(payment.id, payer(), "CARD");
+      await pay(reference);
+
+      // Simulate a payment recorded before chargedReference existed, then replay its own success.
+      await m.prisma.payment.update({ where: { id: payment.id }, data: { chargedReference: null } });
+      await pay(reference);
+
+      const fresh = await m.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
+      expect(fresh.status).toBe("SUCCESSFUL");
+      expect(await m.prisma.paymentEvent.count({ where: { paymentId: payment.id, type: "DUPLICATE_CHARGE_REFUND_SUBMITTED" } })).toBe(0);
+    });
+
+    it("applies two concurrent subscription charges once each, with both periods surviving", async () => {
+      const p = m.prisma;
+      const subs = await import("../subscriptions");
+      const admin = await p.user.create({ data: { clerkId: `t-a-${tag}`, email: `a-${tag}@t.test`, name: "Admin", role: "ADMIN", onboardingComplete: true } });
+      const plan = await p.subscriptionPlan.create({ data: { code: `test-plan-${tag}`, name: "Test Plan", monthlyPrice: 5000, currency: "NGN", features: { pricingConfirmed: true }, active: true } });
+      const subscription = await p.doctorSubscription.create({
+        data: { doctorId: ids.doctor, planId: plan.id, status: "ACTIVE", currentPeriodStart: new Date(), currentPeriodEnd: new Date(Date.now() + 20 * 86_400_000) },
+      });
+      const mkCharge = () =>
+        p.payment.create({
+          data: {
+            kind: "SUBSCRIPTION", payerId: ids.doctorUser, payeeId: admin.id, description: "Subscription",
+            amount: 5000, currency: "NGN", provider: "MOCK", status: "SUCCESSFUL", paidAt: new Date(),
+            providerReference: `test-sub-${tag}-${Math.random().toString(36).slice(2)}`,
+            events: { create: { type: "CREATED", details: { planCode: plan.code } } },
+          },
+        });
+
+      try {
+        const [a, b] = await Promise.all([mkCharge(), mkCharge()]);
+        // Two renewals landing at once: serialized, each consumed exactly once, both months kept.
+        await Promise.all([subs.activateSubscriptionForPayment(a.id), subs.activateSubscriptionForPayment(b.id)]);
+
+        const events = await p.subscriptionEvent.count({ where: { subscriptionId: subscription.id, type: { in: ["STARTED", "RENEWED", "PLAN_CHANGED"] } } });
+        expect(events).toBe(2);
+        const row = await p.doctorSubscription.findUniqueOrThrow({ where: { id: subscription.id } });
+        expect(row.status).toBe("ACTIVE");
+        // 20 days left in the current period plus the two paid months.
+        expect(row.currentPeriodEnd.getTime()).toBeGreaterThan(new Date(Date.now() + 55 * 86_400_000).getTime());
+
+        // The recovery job re-runs without consuming either charge again.
+        await subs.repairSubscriptionActivations();
+        expect(await p.subscriptionEvent.count({ where: { subscriptionId: subscription.id, type: { in: ["STARTED", "RENEWED", "PLAN_CHANGED"] } } })).toBe(2);
+      } finally {
+        await p.doctorSubscription.delete({ where: { id: subscription.id } }).catch(() => {});
+        await p.payment.deleteMany({ where: { payerId: ids.doctorUser } });
+        await p.subscriptionPlan.delete({ where: { id: plan.id } }).catch(() => {});
+        await p.user.delete({ where: { id: admin.id } }).catch(() => {});
+      }
+    });
+
+    it("repairs a late-cancellation refund that a crash interrupted", async () => {
+      // The crash state, built directly: the booking was cancelled, the money arrived afterwards,
+      // and the refund that is owed never started. (Driving it through the normal flow would
+      // auto-refund in the same call, leaving nothing to recover.)
+      const { payment, appointment } = await book({ at: days(5) });
+      await m.prisma.appointment.update({ where: { id: appointment.id }, data: { status: "CANCELLED" } });
+      await m.prisma.payment.update({
+        where: { id: payment.id },
+        // paidAt strictly after the cancellation: recovery compares appointment.updatedAt < paidAt
+        // with millisecond precision, so an in-the-same-millisecond Date can lose the race.
+        data: { status: "SUCCESSFUL", paidAt: new Date(Date.now() + 1000), chargedReference: payment.providerReference },
+      });
+
+      const recovered = await m.pay.recoverLateCancellationRefunds();
+      expect(recovered).toBeGreaterThanOrEqual(1);
+      const fresh = await m.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
+      // The mock gateway completes refunds immediately; a real gateway would be REFUND_PENDING.
+      expect(["REFUND_PENDING", "REFUNDED"]).toContain(fresh.status);
+      expect(await m.prisma.refund.count({ where: { paymentId: payment.id } })).toBe(1);
+
+      // A payment that was already successful when the booking was cancelled is the policy's
+      // business (refund when eligible, kept when not) — recovery must not touch it.
+      const paid = await book({ at: days(6) });
+      const { reference } = await m.pay.startCheckout(paid.payment.id, payer(), "CARD");
+      await pay(reference);
+      await m.prisma.appointment.update({ where: { id: paid.appointment.id }, data: { status: "CANCELLED" } });
+      await m.pay.recoverLateCancellationRefunds();
+      const untouched = await m.prisma.payment.findUniqueOrThrow({ where: { id: paid.payment.id } });
+      expect(untouched.status).toBe("SUCCESSFUL");
+    });
+
+    it("sums provider earnings per currency from the full period", async () => {
+      const p = m.prisma;
+      // An isolated payee: other tests' payments for the shared doctor must not pollute totals.
+      const payee = await p.user.create({ data: { clerkId: `t-e-${tag}`, email: `e-${tag}@t.test`, name: "Earner", role: "DOCTOR", onboardingComplete: true } });
+      const mk = (amount: number, currency: string, commission: number, status: "SUCCESSFUL" | "REFUNDED" = "SUCCESSFUL") =>
+        p.payment.create({
+          data: {
+            kind: "CONSULTATION", payerId: ids.patientUser, payeeId: payee.id, description: "Consultation fee",
+            amount, currency, provider: "MOCK", status, paidAt: new Date(),
+            commissionAmount: commission, providerAmount: amount - commission,
+            providerReference: `test-earn-${tag}-${Math.random().toString(36).slice(2)}`,
+          },
+        });
+      try {
+      await mk(10000, "NGN", 1000);
+      await mk(5000, "NGN", 1000);
+      await mk(30, "USD", 3);
+      await mk(20, "USD", 2, "REFUNDED");
+
+      const reports = await import("../reports");
+      const summary = await reports.providerEarningsSummary(payee.id, new Date(Date.now() - 86_400_000));
+      const ngn = summary.totals.find((row) => row.currency === "NGN");
+      const usd = summary.totals.find((row) => row.currency === "USD");
+      expect(ngn).toMatchObject({ gross: 15000, commission: 2000, earnings: 13000, refunded: 0 });
+      // The refunded USD charge reverses only the provider's share (18), not the whole 20.
+      expect(usd).toMatchObject({ gross: 50, commission: 5, earnings: 27, refunded: 18 });
+      } finally {
+        await p.payment.deleteMany({ where: { payeeId: payee.id } });
+        await p.user.delete({ where: { id: payee.id } }).catch(() => {});
+      }
     });
   });
 });

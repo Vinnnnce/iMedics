@@ -1,15 +1,18 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { AdminOperations } from "@/components/dashboard/admin";
+import { AdminVerification } from "@/components/dashboard/verification";
+import { AdminReviewModeration } from "@/components/dashboard/review-moderation";
 import { useRouter } from "next/navigation";
 import {
   Users, Shield, Ban, CheckCircle, AlertTriangle, Bell,
   Megaphone, Sparkles, TrendingUp, Activity, Search,
-  UserCheck, UserX, FileText, BarChart3, Calendar,
+  UserCheck, UserX, FileText, BarChart3, Calendar, BadgeCheck, MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 
-type Tab = "overview" | "users" | "notices" | "ads" | "ai";
+type Tab = "overview" | "users" | "verification" | "reviews" | "notices" | "ads" | "ai";
 
 type UserRecord = {
   id: string;
@@ -249,6 +252,8 @@ export default function AdminDashboardPage() {
   const tabs: { id: Tab; label: string; icon: LucideIcon }[] = [
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "users", label: "User Management", icon: Users },
+    { id: "verification", label: "Verification", icon: BadgeCheck },
+    { id: "reviews", label: "Review Moderation", icon: MessageSquare },
     { id: "notices", label: "Notices", icon: Bell },
     { id: "ads", label: "Advertisements", icon: Megaphone },
     { id: "ai", label: "AI Insights", icon: Sparkles },
@@ -276,6 +281,7 @@ export default function AdminDashboardPage() {
         <div className="stat-card p-5 text-sm text-muted-foreground" data-testid="text-admin-loading">Loading dashboard data…</div>
       )}
 
+      <AdminOperations users={users} />
       {/* Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {tabs.map((tab) => {
@@ -295,6 +301,14 @@ export default function AdminDashboardPage() {
           );
         })}
       </div>
+
+      {/* Verification Tab */}
+      {activeTab === "verification" && (
+        <AdminVerification />
+      )}
+
+      {/* Review Moderation Tab */}
+      {activeTab === "reviews" && <AdminReviewModeration />}
 
       {/* Overview Tab */}
       {activeTab === "overview" && stats && (
@@ -318,6 +332,18 @@ export default function AdminDashboardPage() {
                 </div>
               );
             })}
+          </div>
+
+          {/* Payments and platform management */}
+          <div className="stat-card p-5">
+            <h3 className="font-semibold mb-3">Payments and platform</h3>
+            <div className="flex flex-wrap gap-2 text-sm">
+              <a className="rounded-lg bg-muted px-3 py-2 hover:text-foreground" href="/admin/providers">Providers and payouts</a>
+              <a className="rounded-lg bg-muted px-3 py-2 hover:text-foreground" href="/admin/commission">Commission configuration</a>
+              <a className="rounded-lg bg-muted px-3 py-2 hover:text-foreground" href="/admin/refunds">Refund approvals</a>
+              <a className="rounded-lg bg-muted px-3 py-2 hover:text-foreground" href="/admin/reconciliation">Reconciliation</a>
+              <a className="rounded-lg bg-muted px-3 py-2 hover:text-foreground" href="/admin/reports">Reports</a>
+            </div>
           </div>
 
           {/* Platform metrics */}

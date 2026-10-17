@@ -6,6 +6,7 @@ const serviceSelect = {
   name: true,
   description: true,
   category: true,
+  branch: true,
   price: true,
   currency: true,
   turnaroundHours: true,

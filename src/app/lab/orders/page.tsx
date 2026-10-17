@@ -7,12 +7,13 @@ import { LabOrderActions } from "@/components/shared/lab-order-actions";
 import { prisma } from "@/lib/prisma";
 import { requirePageRole } from "@/lib/guards";
 import { ageFromDob, formatClinicDateTime } from "@/lib/format";
+import { facilityPatientWhere } from "@/lib/facility-access";
 
 export default async function LabOrdersPage() {
-  await requirePageRole("LAB_SCIENTIST");
+  const user = await requirePageRole("LAB_SCIENTIST");
 
   const orders = await prisma.labOrder.findMany({
-    where: { status: { in: ["ORDERED", "IN_PROGRESS"] } },
+    where: { patient: await facilityPatientWhere(user), status: { in: ["ORDERED", "IN_PROGRESS"] } },
     orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
     take: 100,
     include: {

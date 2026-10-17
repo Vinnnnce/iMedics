@@ -1,15 +1,16 @@
-import { redirect } from "next/navigation";
+import { BulkImportForm } from "@/components/lab/bulk-import-form";
 import { FacilityProfileForm } from "@/components/lab/facility-profile-form";
 import { ServicesManager } from "@/components/lab/services-manager";
 import { Card, CardContent } from "@/components/ui/card";
-import { requirePageRole } from "@/lib/guards";
+import { requireFacilityPortalPage } from "@/lib/guards";
+import { resolveFacilityForPortalUser } from "@/lib/facility-auth";
 import { prisma } from "@/lib/prisma";
 import { serializeService, serviceSelect } from "@/lib/facility-services";
+import { directoryForAccountType } from "@/lib/public-facilities";
 
 export default async function LabServicesPage() {
-  const user = await requirePageRole("LAB_SCIENTIST");
-  const profile = await prisma.labStaffProfile.findUnique({ where: { userId: user.id } });
-  if (!profile) redirect("/");
+  const user = await requireFacilityPortalPage();
+  const profile = await resolveFacilityForPortalUser(user);
 
   if (profile.verificationStatus !== "VERIFIED") {
     return (
@@ -33,7 +34,8 @@ export default async function LabServicesPage() {
         <h1 className="text-2xl font-bold">Services and prices</h1>
         <p className="mt-1 text-sm text-muted-foreground">Patients see these prices before they book. Changes apply to new bookings only.</p>
       </div>
-      <FacilityProfileForm initial={profile} />
+      <FacilityProfileForm initial={profile} publicDirectory={directoryForAccountType(user.accountType) ?? "laboratories"} />
+      <BulkImportForm />
       <ServicesManager services={services.map((s) => serializeService(s))} />
     </div>
   );

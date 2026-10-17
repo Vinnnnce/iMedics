@@ -23,6 +23,8 @@ interface Fee {
   followUpAmount: number | null;
   followUpWindowDays: number;
   qualifiesUntil: string | null;
+  serviceName: string | null;
+  serviceDurationMinutes: number | null;
 }
 
 const timeOf = (iso: string) =>
@@ -31,10 +33,19 @@ const timeOf = (iso: string) =>
 const field = "h-9 w-full rounded-lg border border-input bg-background px-2 text-sm";
 
 /** Pick a free slot from a doctor's published availability and request a booking. */
-export function BookingPanel({ doctorId, today }: { doctorId: string; today: string }) {
+export function BookingPanel({
+  doctorId,
+  today,
+  services = [],
+}: {
+  doctorId: string;
+  today: string;
+  services?: { id: string; name: string; price: number; currency: string; durationMinutes: number; modes: string[] }[];
+}) {
   const [date, setDate] = useState(today);
   const [loaded, setLoaded] = useState<{ date: string; slots: Slot[] } | null>(null);
   const [slot, setSlot] = useState<string | null>(null);
+  const [serviceId, setServiceId] = useState("");
   const [mode, setMode] = useState<"CHAT" | "IN_PERSON">("CHAT");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
@@ -43,15 +54,21 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
   const [fee, setFee] = useState<{ slot: string; fee: Fee } | null>(null);
   const [reviewing, setReviewing] = useState(false);
   // Remember the booking once created, so a failed payment start can be retried without booking twice.
+  // A pending payment is only valid for the details it was created with; changing any of
+  // them (slot, service, mode) starts a fresh booking instead of reusing the old payment.
   const createdPaymentId = useRef<string | null>(null);
+  const resetPendingBooking = () => {
+    createdPaymentId.current = null;
+  };
 
+  const service = services.find((s) => s.id === serviceId) ?? null;
   // The price for the chosen slot, as this patient would be charged (the server repeats this when booking).
   const currentFee = slot && fee?.slot === slot ? fee.fee : null;
   useEffect(() => {
     if (!slot) return;
     let cancelled = false;
     apiClient
-      .get<{ fee: Fee }>(`/doctors/${doctorId}/pricing?scheduledAt=${encodeURIComponent(slot)}`)
+      .get<{ fee: Fee }>(`/doctors/${doctorId}/pricing?scheduledAt=${encodeURIComponent(slot)}${serviceId ? `&serviceId=${serviceId}` : ""}`)
       .then((data) => {
         if (!cancelled) setFee({ slot, fee: data.fee });
       })
@@ -61,7 +78,7 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
     return () => {
       cancelled = true;
     };
-  }, [doctorId, slot]);
+  }, [doctorId, slot, serviceId]);
 
   // Slots for the chosen date. "Loading" is derived: we have not loaded this date yet.
   const loading = loaded?.date !== date;
@@ -86,7 +103,7 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
 
   const createBooking = async () => {
     if (createdPaymentId.current) return { paymentId: createdPaymentId.current };
-    const res = await apiClient.post<{ payment: { id: string } | null }>("/appointments", { doctorId, scheduledAt: slot, mode, reason: reason || undefined });
+    const res = await apiClient.post<{ payment: { id: string } | null }>("/appointments", { doctorId, scheduledAt: slot, mode, reason: reason || undefined, serviceId: serviceId || undefined });
     if (!res.payment) throw new Error("This booking does not need a payment");
     createdPaymentId.current = res.payment.id;
     return { paymentId: res.payment.id };
@@ -97,7 +114,7 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
     setSubmitting(true);
     setError("");
     try {
-      await apiClient.post("/appointments", { doctorId, scheduledAt: slot, mode, reason: reason || undefined });
+      await apiClient.post("/appointments", { doctorId, scheduledAt: slot, mode, reason: reason || undefined, serviceId: serviceId || undefined });
       setBooked(slot);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not book this slot");
@@ -105,6 +122,13 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
       setSubmitting(false);
     }
   };
+
+  // A service may restrict which modes it supports. The panel offers the standard choice
+  // (chat or in person) unless the service names supported modes; if none of the named
+  // modes is bookable here, the service cannot be booked from this panel.
+  const serviceModes = service && service.modes.length > 0 ? service.modes.filter((m) => m === "CHAT" || m === "IN_PERSON") : [];
+  const modeOptions = service && service.modes.length > 0 ? serviceModes : ["CHAT", "IN_PERSON"];
+  const serviceUnbookableHere = service !== null && service.modes.length > 0 && serviceModes.length === 0;
 
   if (booked) {
     return (
@@ -132,11 +156,35 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
         <label className="block text-xs text-muted-foreground">
           Date
           <input type="date" min={today} value={date} onChange={(e) => {
+              resetPendingBooking();
               setDate(e.target.value);
               setSlot(null);
               setReviewing(false);
             }} className={`${field} mt-1`} />
         </label>
+
+        {services.length > 0 && (
+          <label className="block text-xs text-muted-foreground">
+            Service
+            <select
+              className={`${field} mt-1`}
+              value={serviceId}
+              onChange={(e) => {
+                resetPendingBooking();
+                setServiceId(e.target.value);
+                setSlot(null);
+                setReviewing(false);
+              }}
+            >
+              <option value="">General consultation</option>
+              {services.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} · {s.price > 0 ? formatMoney(s.price, s.currency) : "Free"} · {s.durationMinutes} min
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <div>
           <p className="mb-2 text-xs text-muted-foreground">Available times (West Africa Time)</p>
@@ -150,7 +198,10 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
                 size="sm"
                 variant={slot === s.startsAt ? "default" : "outline"}
                 className={slot === s.startsAt ? "bg-foreground text-background rounded-lg" : "rounded-lg"}
-                onClick={() => setSlot(s.startsAt)}
+                onClick={() => {
+                resetPendingBooking();
+                setSlot(s.startsAt);
+              }}
               >
                 {timeOf(s.startsAt)}
               </Button>
@@ -161,8 +212,12 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
         <label className="block text-xs text-muted-foreground">
           Type of consultation
           <select className={`${field} mt-1`} value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
-            <option value="CHAT">Chat</option>
-            <option value="IN_PERSON">In person</option>
+            {modeOptions.map((m) => (
+              <option key={m} value={m}>
+                {m === "CHAT" ? "Chat" : "In person"}
+              </option>
+            ))}
+            {serviceUnbookableHere && <option value="">Not bookable in this panel</option>}
           </select>
         </label>
 
@@ -180,7 +235,7 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
             <div className="text-sm">
               <p className="font-medium">{slot && formatClinicDateTime(slot)}</p>
               <p className="text-xs text-muted-foreground">
-                {currentFee.kind === "FOLLOW_UP" ? "Follow-up consultation" : "Consultation"} · {mode === "CHAT" ? "Chat" : "In person"}
+                {(currentFee && currentFee.serviceName) || (currentFee && currentFee.kind === "FOLLOW_UP" ? "Follow-up consultation" : "Consultation")} · {mode === "CHAT" ? "Chat" : "In person"}
               </p>
             </div>
             <CheckoutForm amount={currentFee.amount} currency={currentFee.currency} prepare={createBooking} label="Pay" />
@@ -191,7 +246,7 @@ export function BookingPanel({ doctorId, today }: { doctorId: string; today: str
         ) : (
           <Button
             className="w-full bg-foreground text-background rounded-lg"
-            disabled={!slot || submitting || !currentFee || !currentFee.configured}
+            disabled={!slot || submitting || !currentFee || !currentFee.configured || serviceUnbookableHere}
             onClick={() => (currentFee && currentFee.amount > 0 ? setReviewing(true) : bookFree())}
           >
             {submitting ? "Sending…" : currentFee && currentFee.amount > 0 ? `Continue to payment · ${formatMoney(currentFee.amount, currentFee.currency)}` : "Request this time"}

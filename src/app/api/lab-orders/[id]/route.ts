@@ -5,6 +5,7 @@ import { withAuth, parseBody, parseId } from "@/lib/api";
 import { getVerifiedLabProfile } from "@/lib/access";
 import { conflict, notFound } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
+import { facilityPatientWhere } from "@/lib/facility-access";
 
 const schema = z.object({ status: z.enum(["IN_PROGRESS", "CANCELLED"]) });
 
@@ -24,7 +25,7 @@ export const PATCH = withAuth<{ id: string }>(["DOCTOR", "LAB_SCIENTIST"], async
   }
 
   const order = await prisma.labOrder.findFirst({
-    where: user.role === "DOCTOR" ? { id, orderedById: user.id } : { id },
+    where: user.role === "DOCTOR" ? { id, orderedById: user.id } : { id, patient: await facilityPatientWhere(user) },
     select: { id: true, status: true },
   });
   if (!order) throw notFound("Lab order not found");

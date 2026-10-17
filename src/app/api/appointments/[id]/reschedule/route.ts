@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseId } from "@/lib/api";
 import { getVerifiedDoctorProfile } from "@/lib/access";
 import { conflict, notFound } from "@/lib/errors";
-import { assertSlotFree, findSlotMinutes, visibleToDoctor } from "@/lib/booking";
+import { assertSlotFree, findSlotMinutes, findServiceSlotMinutes, visibleToDoctor } from "@/lib/booking";
 import { appointmentInclude, serializeAppointment } from "@/lib/appointment-shape";
 import { queueNotification } from "@/lib/notifications/service";
 import { writeAudit } from "@/lib/audit";
@@ -37,7 +37,10 @@ export const POST = withAuth<{ id: string }>(["DOCTOR", "PATIENT"], async (req, 
   if (appointment.scheduledAt <= new Date()) throw conflict("This appointment has already started");
   if (start.getTime() === appointment.scheduledAt.getTime()) throw conflict("Choose a different time");
 
-  const duration = await findSlotMinutes(appointment.doctorId, start);
+  // A service appointment keeps the duration it was booked with, not the service's current one.
+  const duration = appointment.serviceId ? appointment.durationMinutes : await findSlotMinutes(appointment.doctorId, start);
+  // The whole visit (service bookings included) must fit inside a published window.
+  await findServiceSlotMinutes(appointment.doctorId, start, duration);
 
   const updated = await prisma.$transaction(
     async (tx) => {
@@ -60,7 +63,7 @@ export const POST = withAuth<{ id: string }>(["DOCTOR", "PATIENT"], async (req, 
   // A patient's unpaid booking is invisible to the doctor, so there is nobody to tell yet.
   const unpaid = appointment.payment !== null && appointment.payment.status !== "SUCCESSFUL";
   const other = user.role === "DOCTOR" ? appointment.patient.userId : unpaid ? null : appointment.doctor.userId;
-  queueNotification(other, { kind: "APPOINTMENT_RESCHEDULED", appointmentId: id });
+  await queueNotification(other, { kind: "APPOINTMENT_RESCHEDULED", appointmentId: id });
 
   await writeAudit({ userId: user.id, actorRole: user.role, action: "APPOINTMENT_RESCHEDULED", resourceType: "Appointment", resourceId: id, req });
 

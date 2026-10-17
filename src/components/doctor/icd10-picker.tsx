@@ -128,6 +128,8 @@ export function Icd10Picker({ value, onChange, disabled }: Props) {
           aria-expanded={showList}
           aria-controls={listId}
           aria-autocomplete="list"
+          aria-label="Search ICD-10 diagnoses"
+          aria-activedescendant={showList && hits[active] ? `${listId}-${active}` : undefined}
           value={query}
           disabled={disabled}
           onChange={(e) => {
@@ -163,6 +165,7 @@ export function Icd10Picker({ value, onChange, disabled }: Props) {
                 <li
                   key={hit.code}
                   role="option"
+                  id={`${listId}-${i}`}
                   aria-selected={isSelected}
                   onMouseEnter={() => setActive(i)}
                   onMouseDown={(e) => {

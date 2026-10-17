@@ -33,13 +33,17 @@ model User {
   labResultsUploaded LabResult[]              @relation("LabResultUploadedBy")
   labResultsVerified LabResult[]              @relation("LabResultVerifiedBy")
   labStaffProfile    LabStaffProfile?         @relation("LabStaffProfileUser")
+  facilityStaffMembers FacilityStaff[]        @relation("FacilityStaffUser")
   labStaffVerified   LabStaffProfile[]        @relation("LabStaffVerifiedBy")
   notificationPrefs  NotificationPreference[]
   notifications      Notification[]
   patient            Patient?
   paymentsReceived   Payment[]                @relation("PaymentPayee")
   paymentsMade       Payment[]                @relation("PaymentPayer")
+  providerSubaccount ProviderSubaccount?
   pushSubscriptions  PushSubscription[]
+  refundsDecided    Refund[]                 @relation("RefundDecidedBy")
+  refundsRequested  Refund[]                 @relation("RefundRequestedBy")
 
   @@index([role])
   @@index([status])
@@ -88,10 +92,115 @@ model DoctorProfile {
   schedule               DoctorSchedule[]
   assignments            PatientAssignment[]
   prescriptions          Prescription[]
+  careCases              CareCase[]             @relation("CareCasePrimaryDoctor")
+  sentFacilityReferrals  FacilityReferral[]     @relation("ReferralFromDoctor")
+
+  // --- Medic1905 doctor profile enhancement (additive, optional) ---
+  professionalTitle         String?             @map("professional_title")
+  qualifications            String?
+  clinicalInterests         String[]            @default([]) @map("clinical_interests")
+  conditionsTreated         String[]            @default([]) @map("conditions_treated")
+  proceduresPerformed       String[]            @default([]) @map("procedures_performed")
+  patientCarePhilosophy     String?             @map("patient_care_philosophy")
+  consultationApproach      String?             @map("consultation_approach")
+  whenToBookGuidance        String?             @map("when_to_book_guidance")
+  // Empty array: modes not yet specified (booking falls back to the platform defaults).
+  consultationModes         AppointmentMode[]   @default([]) @map("consultation_modes")
+  linkedinUrl               String?             @map("linkedin_url")
+  linkedinPublic            Boolean             @default(false) @map("linkedin_public")
+  linkedinConsentAt         DateTime?           @map("linkedin_consent_at")
+  cvFileId                  String?             @unique @map("cv_file_id") @db.Uuid
+  cvFile                    DoctorFile?         @relation("DoctorCvFile", fields: [cvFileId], references: [id])
+  licensingAuthority        String?             @map("licensing_authority")
+  licenseExpiry             DateTime?           @map("license_expiry")
+  licensePublic             Boolean             @default(false) @map("license_public")
+  professionalMemberships   String[]            @default([]) @map("professional_memberships")
+  awards                    String[]            @default([])
+  hospitalAffiliations      String[]            @default([]) @map("hospital_affiliations")
+  // Per-dimension verification; null means "not yet assessed" (no historical translation).
+  identityVerification      VerificationStatus? @map("identity_verification")
+  identityVerifiedAt        DateTime?           @map("identity_verified_at")
+  licenseVerification       VerificationStatus? @map("license_verification")
+  licenseVerifiedAt         DateTime?           @map("license_verified_at")
+  qualificationVerification VerificationStatus? @map("qualification_verification")
+  qualificationVerifiedAt   DateTime?           @map("qualification_verified_at")
+
+  services       DoctorService[]
+  portfolioItems DoctorPortfolioItem[]
+  files          DoctorFile[]          @relation("DoctorOwnedFiles")
+  subscription           DoctorSubscription?
+  subaccount             ProviderSubaccount?
 
   @@index([specialty])
   @@index([verificationStatus])
   @@map("doctor_profiles")
+}
+
+model DoctorService {
+  id                 String            @id @default(uuid()) @db.Uuid
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  doctorId           String            @map("doctor_id") @db.Uuid
+  kind               DoctorServiceKind @default(NEW_PATIENT)
+  name               String
+  description        String?
+  // Empty array: not mode-specific (any mode the doctor supports).
+  modes              AppointmentMode[] @default([])
+  durationMinutes    Int               @default(30) @map("duration_minutes")
+  currency           String            @default("NGN")
+  price              Decimal           @db.Decimal(14, 2)
+  followUpPrice      Decimal?          @map("follow_up_price") @db.Decimal(14, 2)
+  followUpWindowDays Int?              @map("follow_up_window_days")
+  isActive           Boolean           @default(true) @map("is_active")
+  // ICD-10 codes, validated against the platform's code system at write time.
+  icd10Codes         String[]          @default([]) @map("icd10_codes")
+  cancellationTerms  String?           @map("cancellation_terms")
+  refundTerms        String?           @map("refund_terms")
+  includes           String[]          @default([])
+  addOns             String[]          @default([]) @map("add_ons")
+  doctor             DoctorProfile     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  appointments       Appointment[]
+
+  @@index([doctorId])
+  @@map("doctor_services")
+}
+
+model DoctorPortfolioItem {
+  id               String              @id @default(uuid()) @db.Uuid
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+  doctorId         String              @map("doctor_id") @db.Uuid
+  type             PortfolioItemType
+  title            String
+  description      String?
+  externalUrl      String?             @map("external_url")
+  publishedAt      DateTime?           @map("published_at")
+  attachmentFileId String?             @map("attachment_file_id") @db.Uuid
+  attachmentFile   DoctorFile?         @relation("PortfolioAttachment", fields: [attachmentFileId], references: [id])
+  // Only PUBLIC items appear on the public profile; case studies additionally require GRANTED consent.
+  visibility       PortfolioVisibility @default(PRIVATE)
+  consentStatus    ConsentStatus       @default(PENDING) @map("consent_status")
+  consentAt        DateTime?           @map("consent_at")
+  doctor           DoctorProfile       @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, type])
+  @@map("doctor_portfolio_items")
+}
+
+model DoctorFile {
+  id          String                @id @default(uuid()) @db.Uuid
+  createdAt   DateTime              @default(now()) @map("created_at")
+  doctorId    String                @map("doctor_id") @db.Uuid
+  storageKey  String                @unique @map("storage_key")
+  fileName    String                @map("file_name")
+  mimeType    String                @map("mime_type")
+  sizeBytes   Int                   @map("file_bytes")
+  doctor      DoctorProfile         @relation("DoctorOwnedFiles", fields: [doctorId], references: [id], onDelete: Cascade)
+  cvFor       DoctorProfile?        @relation("DoctorCvFile")
+  attachments DoctorPortfolioItem[] @relation("PortfolioAttachment")
+
+  @@index([doctorId])
+  @@map("doctor_files")
 }
 
 model LabStaffProfile {
@@ -114,12 +223,311 @@ model LabStaffProfile {
   city                  String?
   operatingHours        String?            @map("operating_hours")
   state                 String?
+
+  // --- Public mini-portfolio (facility website on Medic1905) ---
+  /// URL slug for the public portfolio, e.g. "medlab-diagnostics" under /laboratories/.
+  slug                  String?            @unique @db.VarChar(80)
+  /// Independent publication state: a slug alone never publishes a facility.
+  isPublished           Boolean            @default(false) @map("is_published")
+  tagline               String?            @db.VarChar(200)
+  mission               String?            @db.VarChar(500)
+  vision                String?            @db.VarChar(500)
+  ownershipType         OwnershipType?
+  establishedYear       Int?               @map("established_year")
+  bedCount              Int?               @map("bed_count")
+  theatreCount          Int?               @map("theatre_count")
+  laboratoryCount       Int?               @map("laboratory_count")
+  imagingRoomCount      Int?               @map("imaging_room_count")
+  languagesSpoken       String[]           @default([]) @map("languages_spoken")
+  /// Payment method labels shown to patients, e.g. "Card", "Bank transfer", "Cash".
+  paymentMethods        String[]           @default([]) @map("payment_methods")
+  emergencyContact      String?            @map("emergency_contact") @db.VarChar(200)
+  phone                 String?            @db.VarChar(40)
+  email                 String?            @db.VarChar(120)
+  logoUrl               String?            @map("logo_url") @db.VarChar(500)
+  galleryImageKeys      String[]           @default([]) @map("gallery_image_keys")
+
+  // --- Commission and split settlement ---
+  /// Medic1905 commission in basis points. null = platform default (server config).
+  /// Set by the platform, never editable from the public profile form.
+  commissionBps         Int?               @map("commission_bps")
+  /// Paystack subaccount code for split settlement. null = funds held by the platform.
+  subaccountCode        String?            @map("subaccount_code") @db.VarChar(60)
+  settlementBank        String?            @map("settlement_bank") @db.VarChar(100)
+  settlementAccountNumber String?           @map("settlement_account_number") @db.VarChar(40)
+
   services              FacilityService[]
+  subaccount            ProviderSubaccount?
+  commissionRules       CommissionRule[]
+  branches              FacilityBranch[]
+  facilityDepartments   FacilityDepartment[]
+  staffMembers          FacilityStaff[]
+  referrals             FacilityReferral[]
+  accreditations        FacilityAccreditation[]
   user                  User               @relation("LabStaffProfileUser", fields: [userId], references: [id], onDelete: Cascade)
   verifiedBy            User?              @relation("LabStaffVerifiedBy", fields: [verifiedById], references: [id])
 
   @@index([verificationStatus])
+  @@index([isPublished])
   @@map("lab_staff_profiles")
+}
+
+enum OwnershipType {
+  PRIVATE
+  PUBLIC
+  FAITH_BASED
+  GROUP_PRACTICE
+}
+
+enum FacilityStaffRole {
+  OWNER
+  FACILITY_MANAGER
+  DOCTOR
+  LAB_SCIENTIST
+  LAB_TECHNICIAN
+  LAB_ASSISTANT
+  PHLEBOTOMIST
+  NURSE
+  RADIOGRAPHER
+  RECEPTIONIST
+  ACCOUNTANT
+  COMPLIANCE_OFFICER
+}
+
+enum FacilityStaffStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  ON_LEAVE
+  TERMINATED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  LOCUM
+  CONTRACT
+  VOLUNTEER
+}
+
+enum StaffCredentialType {
+  MEDICAL_LICENCE
+  NURSING_LICENCE
+  LAB_SCIENTIST_REGISTRATION
+  RADIOGRAPHER_LICENCE
+  PROFESSIONAL_CERTIFICATION
+  TRAINING_CERTIFICATE
+}
+
+enum CredentialVerificationStatus {
+  UNVERIFIED
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+}
+
+enum CredentialRenewalStatus {
+  CURRENT
+  RENEWAL_DUE
+  RENEWAL_IN_PROGRESS
+  LAPSED
+}
+
+enum ReferralStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  FULFILLED
+}
+
+enum FacilityBookingWorkflowStage {
+  BOOKED
+  CHECKED_IN
+  SAMPLE_COLLECTED
+  SAMPLE_RECEIVED
+  PROCESSING
+  RESULT_ENTERED
+  VERIFIED
+  APPROVED
+  PROCEDURE_COMPLETED
+  IMAGES_UPLOADED
+  REPORT_DRAFTED
+  REVIEWED
+  RELEASED
+  AMENDED
+  ARCHIVED
+}
+
+enum SettlementMode {
+  /// No facility subaccount is configured: the platform collects and owes the facility its net.
+  PLATFORM_HELD
+  /// Paystack splits settlement at charge time via the facility subaccount.
+  SPLIT_SUBACCOUNT
+}
+
+model FacilityBranch {
+  id            String          @id @default(uuid()) @db.Uuid
+  facilityId    String          @map("facility_id") @db.Uuid
+  name          String
+  addressLine   String?         @map("address_line")
+  city          String?
+  state         String?
+  phone         String?         @db.VarChar(40)
+  email         String?         @db.VarChar(120)
+  openingHours  String?         @map("opening_hours")
+  isPrimary     Boolean         @default(false) @map("is_primary")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  facility      LabStaffProfile @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  staff         FacilityStaff[]
+  services      FacilityService[]
+
+  @@index([facilityId])
+  @@map("facility_branches")
+}
+
+model FacilityDepartment {
+  id            String           @id @default(uuid()) @db.Uuid
+  facilityId    String           @map("facility_id") @db.Uuid
+  name          String
+  slug          String
+  description   String?
+  openingHours  String?          @map("opening_hours")
+  /// Equipment labels, e.g. "1.5T MRI", "4D ultrasound", "automated chemistry analyser".
+  equipment     String[]         @default([])
+  leadStaffId   String?          @map("lead_staff_id") @db.Uuid
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+  facility      LabStaffProfile  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  leadStaff     FacilityStaff?   @relation("DepartmentLead", fields: [leadStaffId], references: [id], onDelete: SetNull)
+  staff         FacilityStaff[]
+  services      FacilityService[]
+
+  @@unique([facilityId, slug])
+  @@index([facilityId])
+  @@map("facility_departments")
+}
+
+/// A staff member of a facility. userId stays null until the invite is redeemed by
+/// an account with a matching verified email; it is never auto-linked.
+model FacilityStaff {
+  id                    String              @id @default(uuid()) @db.Uuid
+  facilityId            String              @map("facility_id") @db.Uuid
+  userId                String?             @unique @map("user_id") @db.Uuid
+  email                 String              @db.VarChar(120)
+  fullName              String              @map("full_name") @db.VarChar(120)
+  facilityRole          FacilityStaffRole
+  departmentId          String?             @map("department_id") @db.Uuid
+  branchId              String?             @map("branch_id") @db.Uuid
+  employmentType        EmploymentType?
+  status                FacilityStaffStatus @default(INVITED)
+  /// Single-use invite token; cleared once redeemed.
+  inviteToken           String?             @unique @map("invite_token") @db.VarChar(64)
+  inviteExpiresAt       DateTime?           @map("invite_expires_at")
+  invitedById           String?             @map("invited_by_id") @db.Uuid
+  acceptedAt            DateTime?           @map("accepted_at")
+  /// Facility-controlled directory visibility. Publication also requires staff consent.
+  publicProfileVisible  Boolean             @default(false) @map("public_profile_visible")
+  /// The staff member's own affirmative, revocable consent to appear on the public portfolio.
+  profileConsent        Boolean             @default(false) @map("profile_consent")
+  profileConsentAt      DateTime?           @map("profile_consent_at")
+  bookingEligible       Boolean             @default(false) @map("booking_eligible")
+  professionalTitle     String?             @map("professional_title") @db.VarChar(120)
+  photoUrl              String?             @map("photo_url") @db.VarChar(500)
+  qualifications        String?
+  specialty             String?
+  yearsExperience       Int?                @map("years_experience")
+  bio                   String?
+  linkedinUrl           String?             @map("linkedin_url") @db.VarChar(300)
+  /// LinkedIn is only shown publicly when both this and profileConsent are true.
+  linkedinPublic        Boolean             @default(false) @map("linkedin_public")
+  languages             String[]            @default([])
+  lastLoginAt           DateTime?           @map("last_login_at")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+  facility              LabStaffProfile     @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  user                  User?               @relation("FacilityStaffUser", fields: [userId], references: [id], onDelete: SetNull)
+  department            FacilityDepartment? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  departmentLeadOf      FacilityDepartment[] @relation("DepartmentLead")
+  branch                FacilityBranch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  credentials           StaffCredential[]
+  verifiedCredentials   StaffCredential[]   @relation("CredentialVerifiedBy")
+  assignedBookings      FacilityBooking[]   @relation("BookingAssignedStaff")
+
+  @@unique([facilityId, email])
+  @@index([facilityId, status])
+  @@index([userId])
+  @@map("facility_staff")
+}
+
+model StaffCredential {
+  id                 String                     @id @default(uuid()) @db.Uuid
+  staffId            String                     @map("staff_id") @db.Uuid
+  type               StaffCredentialType
+  number             String                     @db.VarChar(80)
+  authority          String                     @db.VarChar(160)
+  issueDate          DateTime?                  @map("issue_date") @db.Date
+  expiryDate         DateTime?                  @map("expiry_date") @db.Date
+  verificationStatus CredentialVerificationStatus @default(UNVERIFIED) @map("verification_status")
+  verifiedById       String?                     @map("verified_by_id") @db.Uuid
+  verifiedAt         DateTime?                  @map("verified_at")
+  documentKey        String?                     @map("document_key")
+  restrictions       String?
+  renewalStatus      CredentialRenewalStatus    @default(CURRENT) @map("renewal_status")
+  /// Last reminder threshold (90/60/30/7 days) already sent — avoids duplicate reminders.
+  lastReminderStage  Int?                       @map("last_reminder_stage")
+  createdAt          DateTime                    @default(now()) @map("created_at")
+  updatedAt          DateTime                    @updatedAt @map("updated_at")
+  staff              FacilityStaff               @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  verifiedBy         FacilityStaff?              @relation("CredentialVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@unique([staffId, type, number])
+  @@index([staffId])
+  @@index([expiryDate])
+  @@map("staff_credentials")
+}
+
+/// A Medic1905 doctor sends a patient to a facility for a service.
+model FacilityReferral {
+  id            String           @id @default(uuid()) @db.Uuid
+  facilityId    String           @map("facility_id") @db.Uuid
+  fromDoctorId  String           @map("from_doctor_id") @db.Uuid
+  patientId     String           @map("patient_id") @db.Uuid
+  caseId        String?          @map("case_id") @db.Uuid
+  serviceId     String?          @map("service_id") @db.Uuid
+  note          String?
+  status        ReferralStatus   @default(PENDING)
+  handledAt     DateTime?         @map("handled_at")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  facility      LabStaffProfile  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  fromDoctor    DoctorProfile    @relation("ReferralFromDoctor", fields: [fromDoctorId], references: [id])
+  patient       Patient          @relation("ReferralPatient", fields: [patientId], references: [id])
+  case          CareCase?        @relation("ReferralCase", fields: [caseId], references: [id], onDelete: SetNull)
+  service       FacilityService? @relation("ReferralService", fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([facilityId, status])
+  @@index([fromDoctorId])
+  @@index([patientId])
+  @@map("facility_referrals")
+}
+
+model FacilityAccreditation {
+  id           String          @id @default(uuid()) @db.Uuid
+  facilityId   String          @map("facility_id") @db.Uuid
+  name         String
+  issuer       String
+  issuedAt     DateTime?         @map("issued_at")
+  expiresAt    DateTime?         @map("expires_at")
+  documentKey  String?          @map("document_key")
+  /// True only when the Medic1905 platform team has verified the document.
+  verified     Boolean          @default(false)
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+  facility     LabStaffProfile  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@index([facilityId])
+  @@map("facility_accreditations")
 }
 
 model DoctorSchedule {
@@ -137,15 +545,25 @@ model DoctorSchedule {
 }
 
 model DoctorReview {
-  id        String        @id @default(uuid()) @db.Uuid
-  doctorId  String        @map("doctor_id") @db.Uuid
-  patientId String        @map("patient_id") @db.Uuid
-  rating    Int
-  comment   String?
-  createdAt DateTime      @default(now()) @map("created_at")
-  updatedAt DateTime      @updatedAt @map("updated_at")
-  doctor    DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  patient   Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  id                    String           @id @default(uuid()) @db.Uuid
+  doctorId              String           @map("doctor_id") @db.Uuid
+  patientId             String           @map("patient_id") @db.Uuid
+  rating                Int
+  comment               String?
+  // Optional 1-5 category ratings collected alongside the overall rating.
+  communicationRating   Int?             @map("communication_rating")
+  professionalismRating Int?             @map("professionalism_rating")
+  punctualityRating     Int?             @map("punctuality_rating")
+  explanationRating     Int?             @map("explanation_rating")
+  // APPROVED default preserves the existing publish-instantly behaviour; admins can hide via moderation.
+  moderationStatus      ReviewModeration @default(APPROVED) @map("moderation_status")
+  moderatedAt           DateTime?        @map("moderated_at")
+  doctorResponse        String?          @map("doctor_response")
+  doctorRespondedAt     DateTime?        @map("doctor_responded_at")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
+  doctor                DoctorProfile    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient               Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   @@unique([patientId, doctorId])
   @@index([doctorId])
@@ -189,9 +607,14 @@ model Patient {
   ecPhone          String?             @map("ec_phone")
   ecAddress        String?             @map("ec_address")
   insurance        Json?
+  // --- Patient profile header (additive, optional) ---
+  preferredName    String?            @map("preferred_name")
+  /// null means "not recorded" — never shown as "no".
+  organDonorStatus Boolean?           @map("organ_donor_status")
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
   deletedAt        DateTime?           @map("deleted_at")
+  careCases        CareCase[]
   appointments     Appointment[]
   clinicalNotes    ClinicalNote[]
   consultations    Consultation[]
@@ -199,6 +622,7 @@ model Patient {
   likes            DoctorLike[]
   reviews          DoctorReview[]
   facilityBookings FacilityBooking[]
+  facilityReferrals FacilityReferral[] @relation("ReferralPatient")
   labOrders        LabOrder[]
   labResults       LabResult[]
   medicalHistories MedicalHistory[]
@@ -225,6 +649,64 @@ model PatientAssignment {
   @@unique([patientId, doctorId])
   @@index([doctorId, status])
   @@map("patient_assignments")
+}
+
+/// One care episode (consultation, laboratory analysis, diagnostic investigation,
+/// clinical report or hospital admission) that groups related clinical records.
+/// The patient's permanent MC- record number stays on Patient; this number is
+/// per-episode and never grants access on its own — authorization is checked
+/// against the patient/doctor relationships, not the number.
+model CareCase {
+  id                  String         @id @default(uuid()) @db.Uuid
+  /// MED1905-<TYPE>-<YEAR>-<SEQUENCE>, generated server-side only.
+  caseNumber          String         @unique @map("case_number")
+  type                CareCaseType
+  status              CareCaseStatus @default(OPEN)
+  patientId           String         @map("patient_id") @db.Uuid
+  /// The doctor primarily responsible for the episode, when one exists.
+  primaryDoctorId     String?        @map("primary_doctor_id") @db.Uuid
+  specialty           String?
+  presentingComplaint String?         @map("presenting_complaint")
+  diagnosisSummary    String?        @map("diagnosis_summary")
+  followUpDate        DateTime?      @map("follow_up_date")
+  closedAt            DateTime?      @map("closed_at")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+  patient             Patient        @relation(fields: [patientId], references: [id])
+  primaryDoctor       DoctorProfile? @relation("CareCasePrimaryDoctor", fields: [primaryDoctorId], references: [id])
+  consultations       Consultation[]
+  labOrders           LabOrder[]
+  prescriptions       Prescription[]
+  payments           Payment[]
+  facilityBookings    FacilityBooking[]
+  facilityReferrals  FacilityReferral[] @relation("ReferralCase")
+  events              CareCaseEvent[]
+
+  @@index([patientId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("care_cases")
+}
+
+/// Append-only status history; the current status is denormalised on CareCase.
+model CareCaseEvent {
+  id        String       @id @default(uuid()) @db.Uuid
+  caseId    String       @map("case_id") @db.Uuid
+  status    CareCaseStatus
+  note      String?
+  actorId   String?      @map("actor_id") @db.Uuid
+  createdAt DateTime     @default(now()) @map("created_at")
+  case      CareCase     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, createdAt])
+  @@map("care_case_events")
+}
+
+/// Per (type, year) sequence for concurrency-safe case-number generation.
+model CareCaseCounter {
+  id       String   @id // "<TYPE>-<YEAR>"
+  sequence Int      @default(0)
+
+  @@map("care_case_counters")
 }
 
 model MedicalHistory {
@@ -289,6 +771,9 @@ model Appointment {
   feeAmount         Decimal             @default(0) @map("fee_amount") @db.Decimal(12, 2)
   feeCurrency       String              @default("NGN") @map("fee_currency")
   feeKind           ConsultationFeeKind @default(STANDARD) @map("fee_kind")
+  // Service catalogue link (set when booked against a specific doctor service) + name snapshot.
+  serviceId         String?             @map("service_id") @db.Uuid
+  serviceName       String?             @map("service_name")
   reminder1hSentAt  DateTime?           @map("reminder_1h_sent_at")
   reminder24hSentAt DateTime?           @map("reminder_24h_sent_at")
   doctor            DoctorProfile       @relation(fields: [doctorId], references: [id])
@@ -298,6 +783,7 @@ model Appointment {
   messages          ChatMessage[]
   consultations     Consultation[]
   payment           Payment?
+  service           DoctorService?      @relation(fields: [serviceId], references: [id])
 
   @@index([doctorId, scheduledAt])
   @@index([patientId, scheduledAt])
@@ -325,11 +811,14 @@ model Consultation {
   notes                 String?
   status                ConsultationStatus      @default(DRAFT)
   finalizedAt           DateTime?               @map("finalized_at")
+  /// The care episode this consultation belongs to, when linked.
+  caseId                String?                 @map("case_id") @db.Uuid
   createdAt             DateTime                @default(now()) @map("created_at")
   updatedAt             DateTime                @updatedAt @map("updated_at")
   aiAnalysis            AiAnalysis?
   clinicalNotes         ClinicalNote[]
   diagnoses             ConsultationDiagnosis[]
+  case                  CareCase?               @relation(fields: [caseId], references: [id])
   appointment           Appointment?            @relation(fields: [appointmentId], references: [id])
   doctor                DoctorProfile           @relation(fields: [doctorId], references: [id])
   patient               Patient                 @relation(fields: [patientId], references: [id])
@@ -345,6 +834,8 @@ model Prescription {
   patientId      String             @map("patient_id") @db.Uuid
   doctorId       String             @map("doctor_id") @db.Uuid
   consultationId String?            @map("consultation_id") @db.Uuid
+  /// The care episode this prescription belongs to, when linked.
+  caseId         String?            @map("case_id") @db.Uuid
   status         PrescriptionStatus @default(ACTIVE)
   issuedAt       DateTime           @default(now()) @map("issued_at")
   validUntil     DateTime?          @map("valid_until")
@@ -353,10 +844,12 @@ model Prescription {
   updatedAt      DateTime           @updatedAt @map("updated_at")
   items          PrescriptionItem[]
   consultation   Consultation?      @relation(fields: [consultationId], references: [id])
+  case           CareCase?          @relation(fields: [caseId], references: [id])
   doctor         DoctorProfile      @relation(fields: [doctorId], references: [id])
   patient        Patient            @relation(fields: [patientId], references: [id])
 
   @@index([patientId])
+  @@index([caseId])
   @@map("prescriptions")
 }
 
@@ -416,15 +909,19 @@ model LabOrder {
   priority      LabOrderPriority @default(ROUTINE)
   status        LabOrderStatus   @default(ORDERED)
   clinicalNotes String?          @map("clinical_notes")
+  /// The care episode this analysis belongs to, when linked.
+  caseId        String?          @map("case_id") @db.Uuid
   createdAt     DateTime         @default(now()) @map("created_at")
   updatedAt     DateTime         @updatedAt @map("updated_at")
   items         LabOrderItem[]
+  case          CareCase?        @relation(fields: [caseId], references: [id])
   orderedBy     User             @relation("LabOrderOrderedBy", fields: [orderedById], references: [id])
   patient       Patient          @relation(fields: [patientId], references: [id])
   results       LabResult[]
 
   @@index([patientId])
   @@index([status])
+  @@index([caseId])
   @@map("lab_orders")
 }
 
@@ -664,15 +1161,28 @@ model FacilityService {
   name            String
   description     String?
   category        ServiceCategory   @default(LAB_TEST)
+  /// Optional branch/location label for facilities that price per branch.
+  branchLabel     String?           @map("branch_label")
   price           Decimal           @db.Decimal(12, 2)
   currency        String            @default("NGN")
   turnaroundHours Int?              @map("turnaround_hours")
   /// Free-text availability, e.g. "Mon–Sat 8am–4pm" or "Walk-in".
   availability    String?
   isActive        Boolean           @default(true) @map("is_active")
+  /// Patient preparation instructions, shown before booking.
+  preparationInstructions String?   @map("preparation_instructions")
+  /// True when a doctor's referral is required before this service can be delivered.
+  referralRequired Boolean            @default(false) @map("referral_required")
+  homeCollectionAvailable Boolean    @default(false) @map("home_collection_available")
+  urgentAvailable Boolean            @default(false) @map("urgent_available")
+  branchId         String?            @map("branch_id") @db.Uuid
+  departmentId     String?            @map("department_id") @db.Uuid
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @updatedAt @map("updated_at")
   bookings        FacilityBooking[]
+  referrals       FacilityReferral[] @relation("ReferralService")
+  branch          FacilityBranch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  department      FacilityDepartment? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   facility        LabStaffProfile   @relation(fields: [facilityId], references: [id], onDelete: Cascade)
 
   @@index([facilityId, isActive])
@@ -689,14 +1199,30 @@ model FacilityBooking {
   currency    String
   preferredAt DateTime              @map("preferred_at")
   status      FacilityBookingStatus @default(REQUESTED)
+  /// The care episode this diagnostic/service booking belongs to, when linked.
+  caseId      String?                @map("case_id") @db.Uuid
+  /// Staff member handling this booking, when assigned.
+  assignedStaffId String?           @map("assigned_staff_id") @db.Uuid
+  /// Operational workflow (check-in, sample, result, release). Separate from status.
+  workflowStage FacilityBookingWorkflowStage @default(BOOKED) @map("workflow_stage")
+  workflowUpdatedAt DateTime?         @map("workflow_updated_at")
+  /// Referral uploaded by the patient, when the service requires one.
+  referralDocumentKey String?         @map("referral_document_key")
+  /// Released report document, when the workflow reaches RELEASED.
+  reportDocumentKey String?           @map("report_document_key")
+  releasedAt  DateTime?              @map("released_at")
   createdAt   DateTime              @default(now()) @map("created_at")
   updatedAt   DateTime              @updatedAt @map("updated_at")
   patient     Patient               @relation(fields: [patientId], references: [id])
   service     FacilityService       @relation(fields: [serviceId], references: [id])
+  case        CareCase?             @relation(fields: [caseId], references: [id])
   payment     Payment?
+  assignedStaff FacilityStaff?      @relation("BookingAssignedStaff", fields: [assignedStaffId], references: [id], onDelete: SetNull)
 
   @@index([patientId, createdAt])
+  @@index([caseId])
   @@index([serviceId, status])
+  @@index([workflowStage])
   @@map("facility_bookings")
 }
 
@@ -711,22 +1237,39 @@ model Payment {
   description       String
   amount            Decimal          @db.Decimal(12, 2)
   currency          String
+  /// Snapshot of the split when the charge was created: Medic1905's commission.
+  commissionAmount  Decimal?         @map("commission_amount") @db.Decimal(12, 2)
+  /// Snapshot of the split when the charge was created: the provider's share.
+  providerAmount    Decimal?         @map("provider_amount") @db.Decimal(12, 2)
+  /// Gateway subaccount the provider's share is settled to (null for platform-owned charges).
+  subaccountCode    String?          @map("subaccount_code")
   method            PaymentMethod?
   status            PaymentStatus    @default(PENDING)
   provider          String
   providerReference String           @unique @map("provider_reference")
+  /// The gateway reference of the charge that actually succeeded (a retry uses a fresh reference).
+  chargedReference String?          @map("charged_reference")
   receiptNumber     String?          @unique @map("receipt_number")
   failureReason     String?          @map("failure_reason")
   expiresAt         DateTime?        @map("expires_at")
   paidAt            DateTime?        @map("paid_at")
   refundedAt        DateTime?        @map("refunded_at")
+  // --- Facility service commission snapshot (FACILITY_SERVICE payments) ---
+  commissionBps     Int?             @map("commission_bps")
+  netAmount         Decimal?         @map("net_amount") @db.Decimal(12, 2)
+  settlementMode    SettlementMode?
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
   events            PaymentEvent[]
+  /// The care episode this payment relates to, when linked.
+  caseId            String?        @map("case_id") @db.Uuid
   appointment       Appointment?     @relation(fields: [appointmentId], references: [id])
+  case              CareCase?      @relation(fields: [caseId], references: [id])
   facilityBooking   FacilityBooking? @relation(fields: [facilityBookingId], references: [id])
   payee             User             @relation("PaymentPayee", fields: [payeeId], references: [id])
   payer             User             @relation("PaymentPayer", fields: [payerId], references: [id])
+  refund            Refund?
+  subscription     DoctorSubscription?
 
   @@index([payerId, createdAt])
   @@index([payeeId, createdAt])
@@ -736,12 +1279,14 @@ model Payment {
 
 /// Append-only trail of everything that happened to a payment (initiation, webhooks, verification, refunds).
 model PaymentEvent {
-  id        String   @id @default(uuid()) @db.Uuid
-  paymentId String   @map("payment_id") @db.Uuid
-  type      String
-  details   Json     @default("{}")
-  createdAt DateTime @default(now()) @map("created_at")
-  payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid()) @db.Uuid
+  paymentId  String   @map("payment_id") @db.Uuid
+  type       String
+  details    Json     @default("{}")
+  /// Unique claim key for exactly-once external side effects (e.g. a duplicate-charge refund).
+  dedupeKey  String?  @unique @map("dedupe_key")
+  createdAt  DateTime @default(now()) @map("created_at")
+  payment    Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@index([paymentId, createdAt])
   @@map("payment_events")
@@ -757,6 +1302,12 @@ model AuditLog {
   details      Json     @default("{}")
   ipAddress    String?  @map("ip_address")
   userAgent    String?  @map("user_agent")
+  /// Facility the action concerned, when applicable. No FK: audit rows outlive their subjects.
+  facilityId   String?  @map("facility_id") @db.Uuid
+  /// Patient the action concerned, when applicable. No FK: audit rows outlive their subjects.
+  patientId    String?  @map("patient_id") @db.Uuid
+  /// "SUCCESS" or "FAILURE". Missing entries default to success (legacy rows).
+  outcome      String?  @db.VarChar(16)
   createdAt    DateTime @default(now()) @map("created_at")
   user         User?    @relation(fields: [userId], references: [id])
 
@@ -764,6 +1315,8 @@ model AuditLog {
   @@index([resourceType, resourceId])
   @@index([createdAt])
   @@index([userId, action, createdAt])
+  @@index([facilityId, createdAt])
+  @@index([patientId])
   @@map("audit_logs")
 }
 
@@ -846,6 +1399,32 @@ enum AppointmentStatus {
 enum ConsultationStatus {
   DRAFT
   FINALIZED
+}
+
+enum CareCaseType {
+  /// Consultation.
+  CONSULTATION
+  /// Laboratory analysis.
+  LABORATORY
+  /// Diagnostic investigation.
+  DIAGNOSTIC
+  /// Clinical report.
+  REPORT
+  /// Hospital admission or procedure.
+  HOSPITAL
+}
+
+enum CareCaseStatus {
+  OPEN
+  AWAITING_CONSULTATION
+  AWAITING_INVESTIGATION
+  AWAITING_RESULT
+  RESULT_AVAILABLE
+  UNDER_REVIEW
+  TREATMENT_ONGOING
+  FOLLOW_UP_REQUIRED
+  CLOSED
+  ARCHIVED
 }
 
 enum RecordStatus {
@@ -940,12 +1519,51 @@ enum NotificationType {
   MESSAGE
   SYSTEM
   PAYMENT
+  SUBSCRIPTION
 }
 
 enum NotificationChannel {
   IN_APP
   EMAIL
   PUSH
+}
+
+enum DoctorServiceKind {
+  NEW_PATIENT
+  FOLLOW_UP
+  SECOND_OPINION
+  POST_OP_REVIEW
+  REPORT_REVIEW
+  OTHER
+}
+
+enum PortfolioItemType {
+  EDUCATION
+  WORK_HISTORY
+  FELLOWSHIP
+  PUBLICATION
+  PRESENTATION
+  CASE_STUDY
+  MEDIA_APPEARANCE
+  AWARD
+  OUTREACH
+}
+
+enum PortfolioVisibility {
+  PRIVATE
+  PUBLIC
+}
+
+enum ConsentStatus {
+  PENDING
+  GRANTED
+  DENIED
+}
+
+enum ReviewModeration {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum ConsultationFeeKind {
@@ -971,6 +1589,7 @@ enum FacilityBookingStatus {
 enum PaymentKind {
   CONSULTATION
   FACILITY_SERVICE
+  SUBSCRIPTION
 }
 
 enum PaymentMethod {
@@ -993,4 +1612,233 @@ enum AdPlacement {
   SIDEBAR
   DASHBOARD
   LOGIN
+}
+
+enum ProviderType {
+  DOCTOR
+  HOSPITAL
+  LABORATORY
+  DIAGNOSTIC_CENTRE
+}
+
+enum SubaccountStatus {
+  PENDING
+  CREATED
+  ACTIVE
+  FAILED
+}
+
+enum CommissionKind {
+  PERCENT
+  FIXED
+}
+
+enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+enum SubscriptionStatus {
+  PENDING_PAYMENT
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+enum ReconciliationStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum DiscrepancyType {
+  MISSING_WEBHOOK
+  AMOUNT_MISMATCH
+  DUPLICATE_PAYMENT
+  FAILED_SETTLEMENT
+  ORPHANED_GATEWAY_RECORD
+}
+
+enum DiscrepancySeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+/// A gateway settlement subaccount that a verified provider's earnings are paid into.
+/// Created after admin verification; the gateway code is stored once creation succeeds.
+model ProviderSubaccount {
+  id               String           @id @default(uuid()) @db.Uuid
+  userId           String           @unique @map("user_id") @db.Uuid
+  provider         ProviderType
+  doctorId         String?          @unique @map("doctor_id") @db.Uuid
+  facilityId       String?          @unique @map("facility_id") @db.Uuid
+  businessName     String           @map("business_name")
+  settlementBank   String           @map("settlement_bank")
+  accountNumber    String           @map("account_number")
+  /// Medic1905's commission, in percent, deducted from each payment before settlement.
+  percentageCharge Decimal          @default(0) @map("percentage_charge") @db.Decimal(5, 2)
+  currency        String           @default("NGN")
+  /// The gateway's subaccount code once creation has succeeded.
+  subaccountCode   String?          @unique @map("subaccount_code")
+  status           SubaccountStatus @default(PENDING)
+  lastError       String?          @map("last_error")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  doctor           DoctorProfile?   @relation(fields: [doctorId], references: [id])
+  facility        LabStaffProfile?  @relation(fields: [facilityId], references: [id])
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("provider_subaccounts")
+}
+
+/// How Medic1905's commission on a provider's charges is computed.
+/// A facility-specific rule (facilityId set) overrides the default rule for a provider type.
+model CommissionRule {
+  id           String       @id @default(uuid()) @db.Uuid
+  providerType ProviderType
+  /// Null = the default rule for this provider type. Set = this facility's override.
+  facilityId   String?      @map("facility_id") @db.Uuid
+  kind         CommissionKind
+  /// Percent (0–100) for PERCENT rules, or a flat amount for FIXED rules.
+  value        Decimal      @db.Decimal(12, 2)
+  currency     String?
+  active       Boolean      @default(true)
+  note         String?
+  createdById  String       @map("created_by_id") @db.Uuid
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  facility     LabStaffProfile? @relation(fields: [facilityId], references: [id])
+
+  @@index([providerType, active])
+  @@index([facilityId])
+  @@map("commission_rules")
+}
+
+/// A refund lifecycle record. One per payment (this platform refunds charges in full).
+/// Patient-initiated requests wait for admin approval; policy-eligible cancellations are auto-approved.
+model Refund {
+  id              String       @id @default(uuid()) @db.Uuid
+  paymentId       String       @unique @map("payment_id") @db.Uuid
+  requestedById    String       @map("requested_by_id") @db.Uuid
+  reason          String
+  status          RefundStatus @default(PENDING)
+  amount          Decimal      @db.Decimal(12, 2)
+  currency        String
+  decidedById     String?      @map("decided_by_id") @db.Uuid
+  decidedAt       DateTime?    @map("decided_at")
+  processedAt     DateTime?    @map("processed_at")
+  failureReason   String?      @map("failure_reason")
+  autoApproved    Boolean      @default(false) @map("auto_approved")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  decidedBy       User?        @relation("RefundDecidedBy", fields: [decidedById], references: [id])
+  payment         Payment      @relation(fields: [paymentId], references: [id])
+  requestedBy    User         @relation("RefundRequestedBy", fields: [requestedById], references: [id])
+
+  @@index([status, createdAt])
+  @@map("refund_records")
+}
+
+/// A doctor subscription plan. Features is an entitlement map, e.g. {"chat": true, "video": true, ...}.
+model SubscriptionPlan {
+  id                    String    @id @default(uuid()) @db.Uuid
+  code                  String    @unique
+  name                  String
+  /// Display order, cheapest plan first.
+  sortOrder             Int       @default(0) @map("sort_order")
+  monthlyPrice          Decimal   @map("monthly_price") @db.Decimal(12, 2)
+  currency              String    @default("NGN")
+  /// Consultations included per billing period. Null = unlimited.
+  consultationAllowance Int?
+  features              Json      @default("{}")
+  active                Boolean   @default(true)
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  subscriptions         DoctorSubscription[]
+
+  @@map("subscription_plans")
+}
+
+/// A doctor's subscription. Renewal is a managed flow: near expiry an invoice payment is
+/// created; the subscription stays ACTIVE until the period ends, then lapses to EXPIRED.
+model DoctorSubscription {
+  id                 String             @id @default(uuid()) @db.Uuid
+  doctorId           String             @unique @map("doctor_id") @db.Uuid
+  planId             String            @map("plan_id") @db.Uuid
+  status             SubscriptionStatus @default(PENDING_PAYMENT)
+  currentPeriodStart DateTime           @map("current_period_start")
+  currentPeriodEnd   DateTime           @map("current_period_end")
+  cancelAtPeriodEnd  Boolean            @default(false) @map("cancel_at_period_end")
+  consultationsUsed  Int                 @default(0) @map("consultations_used")
+  paymentId          String?            @unique @map("payment_id") @db.Uuid
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  doctor             DoctorProfile       @relation(fields: [doctorId], references: [id])
+  plan               SubscriptionPlan    @relation(fields: [planId], references: [id])
+  payment            Payment?           @relation(fields: [paymentId], references: [id])
+  events             SubscriptionEvent[]
+
+  @@index([status])
+  @@map("doctor_subscriptions")
+}
+
+/// Append-only trail of subscription lifecycle transitions.
+model SubscriptionEvent {
+  id             String             @id @default(uuid()) @db.Uuid
+  subscriptionId String            @map("subscription_id") @db.Uuid
+  type           String
+  details        Json              @default("{}")
+  /// The subscription charge this event consumed. Unique: a paid charge can activate a plan
+  /// exactly once, no matter how often its webhook or the recovery job replays.
+  paymentId      String?            @unique @map("payment_id") @db.Uuid
+  createdAt      DateTime           @default(now()) @map("created_at")
+  subscription   DoctorSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, createdAt])
+  @@map("subscription_events")
+}
+
+/// One scheduled comparison between our payment records and the gateway's report for a day.
+model ReconciliationRun {
+  id                 String             @id @default(uuid()) @db.Uuid
+  /// The calendar day (in UTC) the run covers.
+  date              DateTime           @db.Date @map("date")
+  provider          String
+  status            ReconciliationStatus @default(PENDING)
+  localCount        Int                @default(0) @map("local_count")
+  localAmountMinor  BigInt              @default(0) @map("local_amount_minor")
+  gatewayCount      Int                @default(0) @map("gateway_count")
+  gatewayAmountMinor BigInt              @default(0) @map("gateway_amount_minor")
+  startedAt         DateTime           @default(now()) @map("started_at")
+  finishedAt        DateTime?           @map("finished_at")
+  discrepancies     ReconciliationDiscrepancy[]
+
+  @@unique([date, provider])
+  @@map("reconciliation_runs")
+}
+
+/// A difference found by a reconciliation run: missing webhooks, mismatched amounts,
+/// duplicate payments, failed settlements or gateway records we have no local payment for.
+model ReconciliationDiscrepancy {
+  id                 String             @id @default(uuid()) @db.Uuid
+  runId              String            @map("run_id") @db.Uuid
+  type               DiscrepancyType
+  severity           DiscrepancySeverity @default(WARNING)
+  paymentId         String?            @map("payment_id") @db.Uuid
+  providerReference String?            @map("provider_reference")
+  expected          Json              @default("{}")
+  actual            Json              @default("{}")
+  resolvedAt        DateTime?           @map("resolved_at")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  run                ReconciliationRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([type, resolvedAt])
+  @@map("reconciliation_discrepancies")
 }

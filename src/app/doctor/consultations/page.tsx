@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Icd10Picker, type Icd10Selection } from "@/components/doctor/icd10-picker";
+import { ConsultationTemplatePicker } from "@/components/doctor/consultation-tools";
+import { AssistanceEditor, type ReviewedAssistance } from "@/components/doctor/assistance-editor";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -92,6 +94,7 @@ export default function DoctorConsultationsPage() {
   const [recommendations, setRecommendations] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [assistance, setAssistance] = useState<Omit<ReviewedAssistance, "text"> | null>(null);
 
   const fetchPatients = useCallback(async (): Promise<PatientOption[]> => {
     const res = await fetch("/api/patients?limit=100");
@@ -154,6 +157,7 @@ export default function DoctorConsultationsPage() {
     setDifferentialDiagnosis(""); setLabFindings(""); setImagingFindings("");
     setMedications([{ ...emptyMedication }]); setTreatmentPlan("");
     setRecommendations(""); setFollowUpDate(""); setNotes("");
+    setAssistance(null);
   };
 
   const handleSave = async () => {
@@ -188,6 +192,7 @@ export default function DoctorConsultationsPage() {
           recommendations,
           followUpDate: followUpDate || undefined,
           notes,
+          ...(assistance ? { assistance } : {}),
           status: "finalized",
         }),
       });
@@ -228,13 +233,25 @@ export default function DoctorConsultationsPage() {
         </div>
       )}
 
+      <ConsultationTemplatePicker onApply={template => {
+        setHistoryPresentIllness(template.history); setExamination(template.examination); setNotes(template.notes);
+        setAssistance(null);
+      }} />
+      <AssistanceEditor key={patientId} patientId={patientId} onApply={draft => {
+        setNotes(`${draft.method === "ai-assisted" ? "AI-assisted" : "Local extract"}; reviewed by clinician.\n${draft.text}`);
+        setAssistance({ method: draft.method, reviewed: true });
+      }} />
       {/* Patient selector */}
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="text-lg">Patient</CardTitle>
         </CardHeader>
         <CardContent>
-          <Select value={patientId} onValueChange={(v) => setPatientId(v || "")}>
+          <Select value={patientId} onValueChange={(v) => {
+            if (v === patientId) return;
+            if ((notes || chiefComplaint || historyPresentIllness || diagnoses.length) && !window.confirm("Switch patients and clear the unsaved consultation?")) return;
+            resetForm(); setPatientId(v || "");
+          }}>
             <SelectTrigger className="rounded-lg" data-testid="select-patient">
               <SelectValue placeholder={loadingPatients ? "Loading patients..." : "Select patient"} />
             </SelectTrigger>

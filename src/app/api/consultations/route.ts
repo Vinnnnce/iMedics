@@ -5,9 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseQuery } from "@/lib/api";
 import { findAccessiblePatient, getVerifiedDoctorProfile } from "@/lib/access";
 import { consultationInclude, serializeConsultation } from "@/lib/consultation";
-import { writeAudit } from "@/lib/audit";
 import { badRequest } from "@/lib/errors";
 import { buildDiagnosisRows } from "@/lib/icd10/service";
+import { queueNotification } from "@/lib/notifications/service";
+import { createCareCaseInTx, derivedStatusForConsultation } from "@/lib/cases";
 
 const listQuerySchema = z.object({
   patientId: z.string().uuid().optional(),
@@ -26,6 +27,7 @@ export const GET = withAuth(["DOCTOR", "PATIENT"], async (req, { user }) => {
     where = { status: "FINALIZED", patient: { userId: user.id, deletedAt: null } };
   }
 
+  await prisma.auditLog.create({ data: { userId: user.id, actorRole: user.role, action: "CONSULTATIONS_READ", resourceType: "Consultation", ...(patientId ? { resourceId: patientId } : {}) } });
   const consultations = await prisma.consultation.findMany({
     where,
     orderBy: { createdAt: "desc" },
@@ -83,6 +85,7 @@ const createSchema = z.object({
     .optional(),
   notes: text,
   status: z.enum(["draft", "finalized"]).default("finalized"),
+  assistance: z.object({ method: z.enum(["local-extractive", "ai-assisted"]), reviewed: z.literal(true) }).optional(),
 });
 
 // POST /api/consultations — a doctor saves a consultation report for a patient in their care.
@@ -90,12 +93,13 @@ const createSchema = z.object({
 export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
   const doctor = await getVerifiedDoctorProfile(user);
   const data = await parseBody(req, createSchema);
-  await findAccessiblePatient(user, data.patientId, { write: true });
+  const patient = await findAccessiblePatient(user, data.patientId, { write: true });
 
   const symptoms = data.symptoms.filter((s) => s.name);
   const medications = data.medications.filter((m) => m.name);
   const finalized = data.status === "finalized";
   if (finalized && data.diagnoses.length === 0) throw badRequest("Select an ICD-10 diagnosis");
+  if (!finalized && medications.length) throw badRequest("Medications can only be issued from a finalized consultation");
 
   let diagnosisRows;
   try {
@@ -104,10 +108,37 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
     throw badRequest(error instanceof Error ? error.message : "Invalid diagnosis");
   }
 
-  const consultation = await prisma.consultation.create({
+  const consultation = await prisma.$transaction(async tx => {
+    // Every consultation opens a unified care-episode case (or joins an existing
+    // authorized one when the doctor explicitly attaches it). The case number is
+    // allocated server-side inside this transaction; the consultation and any
+    // prescriptions link to it so related records share one episode.
+    //
+    // Release policy: a DRAFT consultation's clinical text (chief complaint,
+    // diagnosis) is never copied onto the case, because the patient can see the
+    // case. Only finalized content is reflected there.
+    const careCase = await createCareCaseInTx(tx, {
+      type: "CONSULTATION",
+      patientId: data.patientId,
+      primaryDoctorId: doctor.id,
+      specialty: doctor.specialty || null,
+      presentingComplaint: finalized ? (data.chiefComplaint || null) : null,
+      diagnosisSummary: finalized ? (diagnosisRows.summary || null) : null,
+      followUpDate: finalized && data.followUpDate ? new Date(data.followUpDate) : null,
+      status: derivedStatusForConsultation(
+        finalized ? "FINALIZED" : "DRAFT",
+        finalized ? new Date() : null,
+        finalized && data.followUpDate ? new Date(data.followUpDate) : null,
+      ),
+      actorId: user.id,
+      note: finalized ? "Consultation recorded" : "Draft consultation — not yet released to the patient",
+    });
+
+    const saved = await tx.consultation.create({
     data: {
       patientId: data.patientId,
       doctorId: doctor.id,
+      caseId: careCase.id,
       chiefComplaint: data.chiefComplaint || null,
       historyPresentIllness: data.historyPresentIllness || null,
       pastMedicalHistory: data.pastMedicalHistory || null,
@@ -132,6 +163,7 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
               create: {
                 patientId: data.patientId,
                 doctorId: doctor.id,
+                caseId: careCase.id,
                 items: {
                   create: medications.map((m) => ({
                     drugName: m.name,
@@ -149,15 +181,17 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
     include: consultationInclude,
   });
 
-  await writeAudit({
+  await tx.auditLog.create({ data: {
     userId: user.id,
     actorRole: user.role,
     action: "CONSULTATION_CREATED",
     resourceType: "Consultation",
-    resourceId: consultation.id,
-    details: { status: consultation.status, prescribed: medications.length, diagnoses: diagnosisRows.rows.length },
-    req,
+    resourceId: saved.id,
+    details: { status: saved.status, prescribed: medications.length, diagnoses: diagnosisRows.rows.length, caseNumber: careCase.caseNumber, ...(data.assistance ? { assistanceMethod: data.assistance.method, assistanceReviewed: true } : {}) },
+  } });
+    return saved;
   });
 
+  if (finalized) await queueNotification(patient.userId, { kind: "CONSULTATION_AVAILABLE" });
   return NextResponse.json({ success: true, consultation: serializeConsultation(consultation) }, { status: 201 });
 });

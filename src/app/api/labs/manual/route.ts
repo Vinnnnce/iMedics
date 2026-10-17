@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseQuery } from "@/lib/api";
 import { findAccessiblePatient, getVerifiedLabProfile } from "@/lib/access";
 import { aiAnalysisForViewer } from "@/lib/ai-view";
-import { badRequest, notFound } from "@/lib/errors";
+import { badRequest, conflict, notFound } from "@/lib/errors";
+import { facilityPatientWhere } from "@/lib/facility-access";
 import { ApiError } from "@/lib/errors";
 import { runLabAnalysis } from "@/lib/ai/lab-analysis";
 import { writeAudit } from "@/lib/audit";
@@ -58,7 +59,7 @@ export const POST = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
   const data = await parseBody(req, submitSchema);
 
   const patient = await prisma.patient.findFirst({
-    where: { id: data.patientId, deletedAt: null },
+    where: { AND: [await facilityPatientWhere(user), { id: data.patientId }] },
     select: { id: true },
   });
   if (!patient) throw notFound("Patient not found");
@@ -85,6 +86,10 @@ export const POST = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
   });
 
   const labResult = await prisma.$transaction(async (tx) => {
+    if (data.labOrderId) {
+      const updated = await tx.labOrder.updateMany({ where: { id: data.labOrderId, patientId: patient.id, status: { in: ["ORDERED", "IN_PROGRESS"] } }, data: { status: "COMPLETED" } });
+      if (updated.count !== 1) throw conflict("This order is already completed or cancelled");
+    }
     const created = await tx.labResult.create({
       data: {
         patientId: patient.id,
@@ -98,9 +103,6 @@ export const POST = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
         values: { create: rows },
       },
     });
-    if (data.labOrderId) {
-      await tx.labOrder.update({ where: { id: data.labOrderId }, data: { status: "COMPLETED" } });
-    }
     return created;
   });
 
@@ -111,7 +113,7 @@ export const POST = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
     const { outcome } = await runLabAnalysis(labResult.id, user, data.patientLanguage);
     analysed = outcome === "completed";
   } catch (error) {
-    if (!(error instanceof ApiError && error.status === 429)) console.error("Lab AI analysis failed:", error);
+    if (!(error instanceof ApiError && error.status === 429)) console.error("Lab AI analysis unavailable");
   }
 
   await writeAudit({

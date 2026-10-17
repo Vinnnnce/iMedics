@@ -1,4 +1,5 @@
 import type { RenderedNotification } from "./events";
+import { safeNotificationHref } from "./safe-href";
 
 export function appUrl(): string {
   return (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
@@ -9,7 +10,7 @@ const escapeHtml = (value: string) =>
 
 /** Plain, privacy-safe email: a generic message and a link into the signed-in app. */
 export function renderEmail(notification: RenderedNotification) {
-  const link = `${appUrl()}${notification.href}`;
+  const link = `${appUrl()}${safeNotificationHref(notification.href)}`;
   const settings = `${appUrl()}/profile#notifications`;
   const subject = `${notification.title} · Medic1905`;
   const text = [
@@ -35,18 +36,17 @@ export function renderEmail(notification: RenderedNotification) {
 }
 
 /**
- * Send an email through Resend's HTTP API (no SDK needed). Without RESEND_API_KEY the message is logged instead,
- * so development works with no email provider configured.
+ * Send a privacy-safe email. An unconfigured provider is never reported as successful.
  */
-export async function sendEmail(input: { to: string; subject: string; text: string; html: string }): Promise<void> {
+export async function sendEmail(input: { to: string; subject: string; text: string; html: string; idempotencyKey?: string }): Promise<void> {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
-    console.info(`[email:not-sent] RESEND_API_KEY missing. Would send "${input.subject}"`);
-    return;
+    throw new Error("Email delivery is not configured");
   }
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", ...(input.idempotencyKey ? { "Idempotency-Key": input.idempotencyKey } : {}) },
+    signal: AbortSignal.timeout(10000),
     body: JSON.stringify({
       from: process.env.EMAIL_FROM || "Medic1905 <notifications@example.com>",
       to: [input.to],

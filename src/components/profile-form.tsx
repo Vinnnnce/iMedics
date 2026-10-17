@@ -1,27 +1,58 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useClerk } from "@clerk/nextjs";
-import { LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiClient } from "@/lib/api-client";
+import { FormField } from "@/components/shared/form-field";
+import { ROLE_POLICY } from "@/lib/roles";
+import { SignOutButton } from "@/components/shared/sign-out-button";
+import type { Role } from "@prisma/client";
 
 interface Props {
   email: string;
   role: string;
   verificationStatus: string | null;
   initial: { name: string; phone: string; language: string };
+  /** Patient self-service profile fields; shown only for patient users. */
+  patient?: {
+    preferredName: string;
+    bloodGroup: string;
+    organDonorStatus: string;
+    ecName: string;
+    ecRelationship: string;
+    ecPhone: string;
+    addressLine1: string;
+    addressLine2: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
 }
 
 const field = "h-9 w-full rounded-lg border border-input bg-background px-2 text-sm";
 const LANGUAGES = [["en", "English"], ["fr", "Français"], ["es", "Español"], ["ru", "Русский"]] as const;
-const ROLE_LABEL: Record<string, string> = { PATIENT: "Patient", DOCTOR: "Doctor", LAB_SCIENTIST: "Laboratory staff", ADMIN: "Administrator" };
+const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
 
-export function ProfileForm({ email, role, verificationStatus, initial }: Props) {
-  const { signOut } = useClerk();
+export function ProfileForm({ email, role, verificationStatus, initial, patient }: Props) {
   const [form, setForm] = useState(initial);
+  const [patientForm, setPatientForm] = useState({
+    preferredName: patient?.preferredName ?? "",
+    bloodGroup: patient?.bloodGroup ?? "",
+    organDonorStatus: patient?.organDonorStatus ?? "",
+    ecName: patient?.ecName ?? "",
+    ecRelationship: patient?.ecRelationship ?? "",
+    ecPhone: patient?.ecPhone ?? "",
+    addressLine1: patient?.addressLine1 ?? "",
+    addressLine2: patient?.addressLine2 ?? "",
+    city: patient?.city ?? "",
+    state: patient?.state ?? "",
+    postalCode: patient?.postalCode ?? "",
+    country: patient?.country ?? "",
+  });
+  const isPatient = role === "PATIENT" && Boolean(patient);
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -29,7 +60,27 @@ export function ProfileForm({ email, role, verificationStatus, initial }: Props)
     startTransition(async () => {
       setMessage(null);
       try {
-        await apiClient.patch("/me", { name: form.name, phone: form.phone.trim() || null, language: form.language });
+        await apiClient.patch("/me", {
+          name: form.name,
+          phone: form.phone.trim() || null,
+          language: form.language,
+          ...(isPatient
+            ? {
+                preferredName: patientForm.preferredName.trim() || null,
+                bloodGroup: patientForm.bloodGroup || null,
+                organDonorStatus: patientForm.organDonorStatus === "" ? null : patientForm.organDonorStatus === "yes",
+                ecName: patientForm.ecName.trim() || null,
+                ecRelationship: patientForm.ecRelationship.trim() || null,
+                ecPhone: patientForm.ecPhone.trim() || null,
+                addressLine1: patientForm.addressLine1.trim() || null,
+                addressLine2: patientForm.addressLine2.trim() || null,
+                city: patientForm.city.trim() || null,
+                state: patientForm.state.trim() || null,
+                postalCode: patientForm.postalCode.trim() || null,
+                country: patientForm.country.trim() || null,
+              }
+            : {}),
+        });
         setMessage({ type: "ok", text: "Profile saved." });
       } catch (e) {
         setMessage({ type: "error", text: e instanceof Error ? e.message : "Could not save your profile" });
@@ -41,7 +92,7 @@ export function ProfileForm({ email, role, verificationStatus, initial }: Props)
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            Account <Badge variant="secondary" className="rounded-lg">{ROLE_LABEL[role] ?? role}</Badge>
+            Account <Badge variant="secondary" className="rounded-lg">{ROLE_POLICY[role as Role]?.label ?? role}</Badge>
             {verificationStatus && <Badge variant="outline" className="rounded-lg">{verificationStatus === "VERIFIED" ? "Verified" : verificationStatus === "PENDING" ? "Verification pending" : "Verification rejected"}</Badge>}
           </CardTitle>
         </CardHeader>
@@ -49,29 +100,78 @@ export function ProfileForm({ email, role, verificationStatus, initial }: Props)
           <label className="block text-xs text-muted-foreground">Email
             <input className={`${field} mt-1 bg-muted`} value={email} disabled />
           </label>
-          <label className="block text-xs text-muted-foreground">Name
-            <input className={`${field} mt-1`} value={form.name} maxLength={120} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          </label>
-          <label className="block text-xs text-muted-foreground">Phone
-            <input className={`${field} mt-1`} value={form.phone} maxLength={30} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          </label>
+          <FormField label="Name" required error={!form.name.trim() ? "Enter your name to save changes." : undefined}>
+            <input className={field} autoComplete="name" required value={form.name} maxLength={120} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </FormField>
+          <FormField label="Phone">
+            <input className={field} type="tel" autoComplete="tel" value={form.phone} maxLength={30} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          </FormField>
           <label className="block text-xs text-muted-foreground">Language
             <select className={`${field} mt-1`} value={form.language} onChange={(e) => setForm({ ...form, language: e.target.value })}>
               {LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
             </select>
           </label>
+          {isPatient && (
+            <>
+              <FormField label="Preferred name" hint="How you would like to be addressed — optional.">
+                <input className={field} value={patientForm.preferredName} maxLength={120} onChange={(e) => setPatientForm({ ...patientForm, preferredName: e.target.value })} />
+              </FormField>
+              <label className="block text-xs text-muted-foreground">Blood group
+                <select className={`${field} mt-1`} value={patientForm.bloodGroup} onChange={(e) => setPatientForm({ ...patientForm, bloodGroup: e.target.value })}>
+                  <option value="">Not recorded</option>
+                  {BLOOD_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </label>
+              <label className="block text-xs text-muted-foreground">Organ donor status
+                <select className={`${field} mt-1`} value={patientForm.organDonorStatus} onChange={(e) => setPatientForm({ ...patientForm, organDonorStatus: e.target.value })}>
+                  <option value="">Prefer not to say</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </label>
+              <label className="block text-xs text-muted-foreground">Emergency contact name
+                <input className={field} value={patientForm.ecName} maxLength={120} onChange={(e) => setPatientForm({ ...patientForm, ecName: e.target.value })} />
+              </label>
+              <label className="block text-xs text-muted-foreground">Emergency contact relationship
+                <input className={field} value={patientForm.ecRelationship} maxLength={120} onChange={(e) => setPatientForm({ ...patientForm, ecRelationship: e.target.value })} />
+              </label>
+              <label className="block text-xs text-muted-foreground">Emergency contact phone
+                <input className={field} type="tel" value={patientForm.ecPhone} maxLength={30} onChange={(e) => setPatientForm({ ...patientForm, ecPhone: e.target.value })} />
+              </label>
+              <FormField label="Address line 1">
+                <input className={field} value={patientForm.addressLine1} maxLength={200} onChange={(e) => setPatientForm({ ...patientForm, addressLine1: e.target.value })} />
+              </FormField>
+              <FormField label="Address line 2">
+                <input className={field} value={patientForm.addressLine2} maxLength={200} onChange={(e) => setPatientForm({ ...patientForm, addressLine2: e.target.value })} />
+              </FormField>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField label="City">
+                  <input className={field} value={patientForm.city} maxLength={120} onChange={(e) => setPatientForm({ ...patientForm, city: e.target.value })} />
+                </FormField>
+                <FormField label="State">
+                  <input className={field} value={patientForm.state} maxLength={120} onChange={(e) => setPatientForm({ ...patientForm, state: e.target.value })} />
+                </FormField>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField label="Postal code">
+                  <input className={field} value={patientForm.postalCode} maxLength={20} onChange={(e) => setPatientForm({ ...patientForm, postalCode: e.target.value })} />
+                </FormField>
+                <FormField label="Country (2-letter code)">
+                  <input className={field} value={patientForm.country} maxLength={2} placeholder="NG" onChange={(e) => setPatientForm({ ...patientForm, country: e.target.value.toUpperCase() })} />
+                </FormField>
+              </div>
+            </>
+          )}
           <div className="flex items-center gap-3">
             <Button className="bg-foreground text-background rounded-lg" disabled={pending || !form.name.trim()} onClick={save}>
               {pending ? "Saving…" : "Save changes"}
             </Button>
-            {message && <p className={`text-sm ${message.type === "ok" ? "text-muted-foreground" : "text-destructive"}`}>{message.text}</p>}
+            {message && <p role={message.type === "error" ? "alert" : "status"} className="text-sm text-foreground">{message.text}</p>}
           </div>
         </CardContent>
       </Card>
 
-      <Button variant="outline" className="rounded-lg" onClick={() => signOut({ redirectUrl: "/auth/login" })}>
-        <LogOut className="mr-2 h-4 w-4" /> Sign out
-      </Button>
+      <SignOutButton />
     </div>
   );
 }

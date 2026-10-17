@@ -9,6 +9,12 @@ interface AuditInput {
   resourceId?: string | null;
   details?: Prisma.InputJsonValue;
   req?: Request;
+  /** Facility the action concerns, when applicable. */
+  facilityId?: string | null;
+  /** Patient the action concerns, when applicable. */
+  patientId?: string | null;
+  /** "SUCCESS" (default) or "FAILURE". */
+  outcome?: "SUCCESS" | "FAILURE";
 }
 
 /**
@@ -27,9 +33,12 @@ export async function writeAudit(input: AuditInput): Promise<void> {
         details: input.details ?? {},
         ipAddress: input.req?.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
         userAgent: input.req?.headers.get("user-agent") ?? null,
+        facilityId: input.facilityId ?? null,
+        patientId: input.patientId ?? null,
+        outcome: input.outcome ?? "SUCCESS",
       },
     });
   } catch (error) {
-    console.error("Audit log write failed:", error);
+    console.error("Audit log write failed", { kind: error instanceof Error ? error.name : "UnknownError" });
   }
 }

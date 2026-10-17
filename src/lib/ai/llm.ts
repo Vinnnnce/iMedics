@@ -37,8 +37,8 @@ async function callKimi(system: string, user: string, maxTokens: number): Promis
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-  } catch (error) {
-    console.error("Kimi request failed:", error);
+  } catch {
+    console.error("AI provider request failed");
     throw new AiUnavailableError("AI service is unreachable");
   }
 

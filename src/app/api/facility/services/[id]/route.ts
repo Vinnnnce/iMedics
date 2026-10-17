@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseId } from "@/lib/api";
-import { getVerifiedFacilityProfile } from "@/lib/access";
+import { requireFacilityAccess } from "@/lib/facility-auth";
 import { notFound } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
 import { serializeService, serviceSchema, serviceSelect as select } from "@/lib/facility-services";
 
 
 // PATCH /api/facility/services/[id] — change a service or its price. Existing bookings keep the price they were made at.
-export const PATCH = withAuth<{ id: string }>(["LAB_SCIENTIST"], async (req, { user, params }) => {
+export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }) => {
   const id = parseId((await params).id);
-  const facility = await getVerifiedFacilityProfile(user);
+  const { facility } = await requireFacilityAccess(user, "MANAGE_SERVICES", req);
   const data = await parseBody(req, serviceSchema.partial());
 
   const existing = await prisma.facilityService.findFirst({ where: { id, facilityId: facility.id }, select: { id: true } });
@@ -22,9 +22,9 @@ export const PATCH = withAuth<{ id: string }>(["LAB_SCIENTIST"], async (req, { u
 });
 
 // DELETE /api/facility/services/[id] — remove a service. One that has been booked is hidden instead, so records stay intact.
-export const DELETE = withAuth<{ id: string }>(["LAB_SCIENTIST"], async (req, { user, params }) => {
+export const DELETE = withAuth<{ id: string }>(null, async (req, { user, params }) => {
   const id = parseId((await params).id);
-  const facility = await getVerifiedFacilityProfile(user);
+  const { facility } = await requireFacilityAccess(user, "MANAGE_SERVICES", req);
   const existing = await prisma.facilityService.findFirst({ where: { id, facilityId: facility.id }, select: { id: true, _count: { select: { bookings: true } } } });
   if (!existing) throw notFound("Service not found");
 

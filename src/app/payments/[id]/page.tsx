@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PaymentStatusBadge } from "@/components/shared/payment-status-badge";
 import { CheckoutForm } from "@/components/shared/checkout-form";
 import { PrintButton } from "@/components/shared/print-button";
+import { RefundRequestForm } from "@/components/shared/refund-request-form";
 import { requirePageRole } from "@/lib/guards";
 import { prisma } from "@/lib/prisma";
 import { paymentSelect, serializePayment, isPayable } from "@/lib/payments/shape";
@@ -24,6 +25,12 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
   if (!row) notFound();
   const p = serializePayment(row, user.id);
   if (p.direction === "RECEIVED" && ["PENDING", "FAILED", "CANCELLED"].includes(p.status)) notFound();
+
+  // Patients with a completed payment can ask for their money back; a request waits for admin review.
+  const refund =
+    user.role === "PATIENT" && p.direction === "PAID" && p.status === "SUCCESSFUL"
+      ? await prisma.refund.findUnique({ where: { paymentId: row.id }, select: { status: true } })
+      : null;
 
   const rows: [string, string][] = [
     ["Description", p.description],
@@ -69,6 +76,17 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
           </CardContent>
         </Card>
       )}
+      {user.role === "PATIENT" && p.direction === "PAID" && p.status === "SUCCESSFUL" &&
+        (refund ? (
+          <Card className="beeline-card">
+            <CardContent className="text-sm text-muted-foreground">
+              Your refund request is {refund.status.toLowerCase().replace("_", " ")}. We will notify you once it has been
+              decided.
+            </CardContent>
+          </Card>
+        ) : (
+          <RefundRequestForm paymentId={p.id} />
+        ))}
       <Link href="/payments" className="block text-center text-sm text-muted-foreground underline">
         All payments
       </Link>

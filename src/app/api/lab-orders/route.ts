@@ -6,6 +6,8 @@ import { withAuth, parseBody, parseQuery } from "@/lib/api";
 import { findAccessiblePatient, getVerifiedLabProfile } from "@/lib/access";
 import { badRequest } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
+import { facilityPatientWhere } from "@/lib/facility-access";
+import { createCareCaseInTx, derivedStatusForLabOrder } from "@/lib/cases";
 
 const createSchema = z.object({
   patientId: z.string().uuid(),
@@ -24,15 +26,31 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
   const tests = await prisma.labTest.findMany({ where: { code: { in: codes }, isActive: true }, select: { id: true } });
   if (tests.length !== codes.length) throw badRequest("One or more of the requested tests do not exist");
 
-  const order = await prisma.labOrder.create({
-    data: {
+  const order = await prisma.$transaction(async (tx) => {
+    // Each lab order opens a unified care-episode case so results, files and
+    // payments can be grouped with the ordering episode.
+    const doctorProfile = await tx.doctorProfile.findUnique({ where: { userId: user.id }, select: { id: true, specialty: true } });
+    const careCase = await createCareCaseInTx(tx, {
+      type: "LABORATORY",
       patientId: data.patientId,
-      orderedById: user.id,
-      panelType: data.panelType || null,
-      priority: data.priority,
-      clinicalNotes: data.clinicalNotes || null,
-      items: { create: tests.map((t) => ({ labTestId: t.id })) },
-    },
+      primaryDoctorId: doctorProfile?.id ?? null,
+      specialty: doctorProfile?.specialty ?? null,
+      presentingComplaint: data.clinicalNotes || null,
+      status: derivedStatusForLabOrder("ORDERED"),
+      actorId: user.id,
+      note: `Lab order placed (${tests.length} test${tests.length === 1 ? "" : "s"})`,
+    });
+    return tx.labOrder.create({
+      data: {
+        patientId: data.patientId,
+        orderedById: user.id,
+        caseId: careCase.id,
+        panelType: data.panelType || null,
+        priority: data.priority,
+        clinicalNotes: data.clinicalNotes || null,
+        items: { create: tests.map((t) => ({ labTestId: t.id })) },
+      },
+    });
   });
 
   await writeAudit({
@@ -66,7 +84,7 @@ export const GET = withAuth(["DOCTOR", "LAB_SCIENTIST", "PATIENT"], async (req, 
     where = { orderedById: user.id, ...(status ? { status } : {}), ...(patientId ? { patientId } : {}) };
   } else if (user.role === "LAB_SCIENTIST") {
     await getVerifiedLabProfile(user);
-    where = { status: status ?? { in: ["ORDERED", "IN_PROGRESS"] }, ...(patientId ? { patientId } : {}) };
+    where = { patient: await facilityPatientWhere(user), status: status ?? { in: ["ORDERED", "IN_PROGRESS"] }, ...(patientId ? { patientId } : {}) };
   } else {
     where = { patient: { userId: user.id }, ...(status ? { status } : {}) };
   }

@@ -13,7 +13,7 @@ export default function Error({
 }) {
   const router = useRouter();
   useEffect(() => {
-    console.error("Page error:", error);
+    console.error("Page error", { digest: error.digest ?? "unavailable" });
   }, [error]);
 
   return (
@@ -37,7 +37,7 @@ export default function Error({
         <Button
           onClick={() => {
             reset();
-            router.push("/dashboard");
+            router.push("/");
           }}
           variant="outline"
         >
