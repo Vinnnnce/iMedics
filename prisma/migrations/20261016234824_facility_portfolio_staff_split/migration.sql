@@ -53,6 +53,8 @@ ADD COLUMN     "theatre_count" INTEGER,
 ADD COLUMN     "vision" VARCHAR(500);
 
 -- AlterTable
+ALTER TABLE "facility_services" RENAME COLUMN "branch" TO "branch_label";
+
 ALTER TABLE "facility_services" ADD COLUMN     "branch_id" UUID,
 ADD COLUMN     "department_id" UUID,
 ADD COLUMN     "home_collection_available" BOOLEAN NOT NULL DEFAULT false,
@@ -69,11 +71,11 @@ ADD COLUMN     "workflow_stage" "FacilityBookingWorkflowStage" NOT NULL DEFAULT 
 ADD COLUMN     "workflow_updated_at" TIMESTAMP(3);
 
 -- AlterTable
-ALTER TABLE "payments" ADD COLUMN     "commission_amount" DECIMAL(12,2),
-ADD COLUMN     "commission_bps" INTEGER,
+-- commission_amount and subaccount_code are already added by the payments_platform
+-- migration; only the facility-specific snapshot columns are added here.
+ALTER TABLE "payments" ADD COLUMN     "commission_bps" INTEGER,
 ADD COLUMN     "net_amount" DECIMAL(12,2),
-ADD COLUMN     "settlementMode" "SettlementMode",
-ADD COLUMN     "subaccount_code" VARCHAR(60);
+ADD COLUMN     "settlementMode" "SettlementMode";
 
 -- AlterTable
 ALTER TABLE "audit_logs" ADD COLUMN     "facility_id" UUID,
@@ -323,13 +325,13 @@ ALTER TABLE "facility_bookings" ADD CONSTRAINT "facility_bookings_assigned_staff
 -- Backfill: every existing facility owner becomes an OWNER staff member of their facility.
 -- No publication consent, credential verification or accreditation verification is invented here:
 -- publicProfileVisible/profileConsent default to false and stay false until set explicitly.
-INSERT INTO facility_staff (id, facility_id, user_id, email, full_name, facility_role, status, accepted_at, created_at, updated_at)
+INSERT INTO facility_staff (id, facility_id, user_id, email, full_name, "facilityRole", status, accepted_at, created_at, updated_at)
 SELECT
   gen_random_uuid(),
   p.id,
   p.user_id,
   u.email,
-  COALESCE(NULLIF(p."laboratory_name", ''), u.first_name || ' ' || u.last_name),
+  COALESCE(NULLIF(p."laboratory_name", ''), u.name),
   'OWNER',
   'ACTIVE',
   p.created_at,
