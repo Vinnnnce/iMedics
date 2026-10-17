@@ -20,6 +20,7 @@ import { FAQS } from "@/lib/faqs";
 import { FaqSection } from "@/components/shared/faq-section";
 import { patientSuggestions } from "@/lib/suggestions";
 import { SuggestionsCard } from "@/components/shared/suggestions-card";
+import { RecommendationsSection } from "@/components/shared/recommendations-section";
 
 const primaryActions = [
   { href: "/doctors", label: "Book consultation", icon: Stethoscope },
@@ -253,6 +254,9 @@ export default async function DashboardPage() {
           </div>
         </WidgetCard>
       </div>
+
+      {/* Personalized recommendations for this account type */}
+      <RecommendationsSection variant="patient" />
 
       <PatientCareSections data={workspace} />
 

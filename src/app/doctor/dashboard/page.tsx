@@ -21,6 +21,7 @@ import { FAQS } from "@/lib/faqs";
 import { FaqSection } from "@/components/shared/faq-section";
 import { doctorSuggestions } from "@/lib/suggestions";
 import { SuggestionsCard } from "@/components/shared/suggestions-card";
+import { RecommendationsSection } from "@/components/shared/recommendations-section";
 
 export default async function DoctorDashboardPage() {
   const user = await requirePageRole("DOCTOR");
@@ -216,6 +217,9 @@ export default async function DoctorDashboardPage() {
           activePatients,
         })}
       />
+
+      {/* Personalized recommendations for this account type */}
+      <RecommendationsSection variant="doctor" />
 
       <DoctorCareSections data={workspace} />
 

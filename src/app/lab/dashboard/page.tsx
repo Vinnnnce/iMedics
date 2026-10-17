@@ -16,6 +16,7 @@ import { facilityFaqs } from "@/lib/faqs";
 import { FaqSection } from "@/components/shared/faq-section";
 import { facilitySuggestions } from "@/lib/suggestions";
 import { SuggestionsCard } from "@/components/shared/suggestions-card";
+import { RecommendationsSection } from "@/components/shared/recommendations-section";
 
 export default async function LabDashboardPage() {
   const user = await requireFacilityPortalPage();
@@ -275,6 +276,9 @@ export default async function LabDashboardPage() {
           activeServices,
         })}
       />
+
+      {/* Personalized recommendations for this account type */}
+      <RecommendationsSection variant="facility" />
 
       <FacilitySections data={workspace} />
 
