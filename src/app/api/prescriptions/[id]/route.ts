@@ -12,7 +12,7 @@ const actionSchema = z.object({
 });
 
 /** Only the issuing doctor (or an admin) may cancel or renew a prescription. */
-export const PATCH = withAuth(["DOCTOR", "ADMIN"], async (req: NextRequest, { params, user }) => {
+export const PATCH = withAuth<{ id: string }>(["DOCTOR", "ADMIN"], async (req: NextRequest, { params, user }) => {
   const { id } = await params;
   const body = await parseBody(req, actionSchema);
 

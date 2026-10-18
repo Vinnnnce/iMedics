@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
 import { presignDownload, presignView, deleteObject } from "@/lib/storage";
@@ -13,7 +12,7 @@ import { inspectObject } from "@/lib/storage";
  */
 
 // GET /api/patient/documents/[id]?download=1 — presigned URL.
-export const GET = withAuth(null, async (req: NextRequest, { params, user }) => {
+export const GET = withAuth<{ id: string }>(null, async (req: NextRequest, { params, user }) => {
   const { id } = await params;
   const { document } = await findAccessibleDocument(user, id);
   await auditDocumentAccess(user, document.id, document.patientId, "DOCUMENT_DOWNLOADED");
@@ -24,7 +23,7 @@ export const GET = withAuth(null, async (req: NextRequest, { params, user }) => 
 });
 
 // PATCH /api/patient/documents/[id] — edit metadata (patients and clinicians).
-export const PATCH = withAuth(["PATIENT", "DOCTOR", "ADMIN"], async (req: NextRequest, { params, user }) => {
+export const PATCH = withAuth<{ id: string }>(["PATIENT", "DOCTOR", "ADMIN"], async (req: NextRequest, { params, user }) => {
   const { id } = await params;
   const { document, canManage } = await findAccessibleDocument(user, id);
   if (!canManage) return NextResponse.json({ error: "You cannot edit this document" }, { status: 403 });
@@ -35,7 +34,7 @@ export const PATCH = withAuth(["PATIENT", "DOCTOR", "ADMIN"], async (req: NextRe
 });
 
 // DELETE /api/patient/documents/[id] — soft delete (patients and the uploader).
-export const DELETE = withAuth(["PATIENT", "DOCTOR", "ADMIN"], async (_req: NextRequest, { params, user }) => {
+export const DELETE = withAuth<{ id: string }>(["PATIENT", "DOCTOR", "ADMIN"], async (_req: NextRequest, { params, user }) => {
   const { id } = await params;
   const { document, canManage } = await findAccessibleDocument(user, id);
   if (!canManage) return NextResponse.json({ error: "You cannot delete this document" }, { status: 403 });
@@ -49,7 +48,7 @@ export const DELETE = withAuth(["PATIENT", "DOCTOR", "ADMIN"], async (_req: Next
 
 // POST /api/patient/documents/[id]/verify — confirm the upload landed and sniff
 // the magic bytes against the declared type. (Convenience alias used by the UI.)
-export const POST = withAuth(["PATIENT", "DOCTOR", "ADMIN"], async (_req: NextRequest, { params, user }) => {
+export const POST = withAuth<{ id: string }>(["PATIENT", "DOCTOR", "ADMIN"], async (_req: NextRequest, { params, user }) => {
   const { id } = await params;
   const { document } = await findAccessibleDocument(user, id);
   const meta = await inspectObject(document.storageKey);

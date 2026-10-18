@@ -132,41 +132,5 @@ export async function matchRxNormCui(name: string): Promise<string | null> {
   }
 }
 
-/** Standard antibiotic class list offered to prescribers. */
-export const ANTIBIOTIC_CLASSES = [
-  "penicillins",
-  "cephalosporins",
-  "macrolides",
-  "tetracyclines",
-  "fluoroquinolones",
-  "aminoglycosides",
-  "glycopeptides",
-  "lincosamides",
-  "sulfonamides",
-  "nitroimidazoles",
-  "carbapenems",
-  "oxazolidinones",
-] as const;
+export { ANTIBIOTIC_CLASSES, SPECTRUM_TAGS, spectrumLabel } from "./reference-shared";
 
-/** Antimicrobial spectrum tags (display + storage). */
-export const SPECTRUM_TAGS = [
-  "GRAM_POSITIVE",
-  "GRAM_NEGATIVE",
-  "BROAD_SPECTRUM",
-  "ANAEROBES",
-  "ATYPICALS",
-  "PSEUDOMONAS",
-  "MRSA",
-] as const;
-
-export function spectrumLabel(tag: string): string {
-  return {
-    GRAM_POSITIVE: "Gram-positive",
-    GRAM_NEGATIVE: "Gram-negative",
-    BROAD_SPECTRUM: "Broad-spectrum",
-    ANAEROBES: "Anaerobes",
-    ATYPICALS: "Atypicals",
-    PSEUDOMONAS: "Pseudomonas",
-    MRSA: "MRSA coverage",
-  }[tag] ?? tag;
-}

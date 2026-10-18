@@ -34,6 +34,9 @@ npm run db:deploy            # or `npx prisma migrate reset` to wipe and rebuild
 # 4. Seed reference data: lab-test catalogue and the ICD-10 code list (idempotent)
 npm run db:seed
 
+# 4b. Seed the medication reference list for structured prescriptions (idempotent)
+npm run db:seed:medications
+
 # 5. Verify
 npm run typecheck && npm run lint && npm test && npm run build
 
@@ -54,7 +57,7 @@ Sign up with an email listed in `ADMIN_EMAILS` (and verify it in Clerk) to becom
 
 Set every variable from `.env.example`, and run `npm run db:deploy` against production before the first deploy and after each schema change.
 
-Also add a scheduled job that calls `GET /api/cron/appointment-reminders` every 15 minutes with `Authorization: Bearer $CRON_SECRET` (Vercel Cron does this when `CRON_SECRET` is set; note Vercel's free plan limits cron frequency). It sends appointment reminders, releases slots held by unpaid bookings and retries refunds the gateway has not accepted. In the Paystack dashboard, set the webhook URL to `<your-domain>/api/payments/webhook/paystack`.
+Also add a scheduled job that calls `GET /api/cron/appointment-reminders` every 15 minutes with `Authorization: Bearer $CRON_SECRET` (Vercel Cron does this when `CRON_SECRET` is set; note Vercel's free plan limits cron frequency). It sends appointment reminders, releases slots held by unpaid bookings and retries refunds the gateway has not accepted. Two more scheduled jobs use the same pattern: `GET /api/cron/medication-reminders` (materialises dose events, sends due medication nudges, marks long-past doses missed — every 10–15 minutes) and `GET /api/cron/inactivity-checks` (raises patient-welfare alerts after 48 hours of inactivity, then escalates — every 15–30 minutes). In the Paystack dashboard, set the webhook URL to `<your-domain>/api/payments/webhook/paystack`.
 
 ## Clinical coding, pricing, payments and notifications
 
@@ -65,9 +68,13 @@ Also add a scheduled job that calls `GET /api/cron/appointment-reminders` every 
 
 - **Admin console.** `/admin`: overview, a verification workspace showing everything an applicant submitted (details, documents, duplicate and plausibility checks, checklist, approve or reject with reasons), user directory and account controls, payments with refunds, audit log, and notices/ads. See [docs/ADMIN.md](docs/ADMIN.md).
 
+## Platform features
+
+Mini-websites for facilities, structured prescriptions with clinical-safety checks, patient document storage, medication reminders, inactivity-based welfare monitoring, a public emergency/CPR learning centre and the collapsible desktop sidebar are documented in [docs/PLATFORM_FEATURES.md](docs/PLATFORM_FEATURES.md), including the medication-reference policy (RxNav/RxNorm, free, no API key) and the limits of inactivity monitoring.
+
 ## Scripts
 
-`dev` · `build` · `start` · `lint` · `typecheck` · `test` · `test:watch` · `db:migrate` · `db:deploy` · `db:seed` · `db:studio` · `icd10:import`
+`dev` · `build` · `start` · `lint` · `typecheck` · `test` · `test:watch` · `db:migrate` · `db:deploy` · `db:seed` · `db:seed:medications` · `db:studio` · `icd10:import`
 
 ## How access control works
 

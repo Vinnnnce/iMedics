@@ -36,7 +36,7 @@ async function loadOwnedReminder(user: { id: string; role: string }, reminderId:
   return reminder;
 }
 
-export const PATCH = withAuth(["PATIENT", "DOCTOR", "ADMIN"], async (req: NextRequest, { params, user }) => {
+export const PATCH = withAuth<{ id: string }>(["PATIENT", "DOCTOR", "ADMIN"], async (req: NextRequest, { params, user }) => {
   const { id } = await params;
   const reminder = await loadOwnedReminder(user, id);
   const body = await parseBody(req, patchSchema);
@@ -54,7 +54,7 @@ export const PATCH = withAuth(["PATIENT", "DOCTOR", "ADMIN"], async (req: NextRe
   return NextResponse.json({ reminder: updated });
 });
 
-export const DELETE = withAuth(["PATIENT", "DOCTOR", "ADMIN"], async (_req: NextRequest, { params, user }) => {
+export const DELETE = withAuth<{ id: string }>(["PATIENT", "DOCTOR", "ADMIN"], async (_req: NextRequest, { params, user }) => {
   const { id } = await params;
   const reminder = await loadOwnedReminder(user, id);
   await prisma.medicationReminder.update({ where: { id: reminder.id }, data: { active: false } });
@@ -68,7 +68,7 @@ const doseSchema = z.object({
   status: z.enum(["ACKNOWLEDGED", "TAKEN", "SKIPPED"]),
 });
 
-export const POST = withAuth(["PATIENT", "DOCTOR", "ADMIN"], async (req: NextRequest, { params, user }) => {
+export const POST = withAuth<{ id: string }>(["PATIENT", "DOCTOR", "ADMIN"], async (req: NextRequest, { params, user }) => {
   const { id } = await params;
   const reminder = await loadOwnedReminder(user, id);
   const body = await parseBody(req, doseSchema);

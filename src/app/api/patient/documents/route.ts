@@ -3,7 +3,6 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseQuery } from "@/lib/api";
 import { findAccessiblePatient } from "@/lib/access";
-import { writeAudit } from "@/lib/audit";
 import { presignUpload } from "@/lib/storage";
 import {
   createDocumentSchema, documentStorageKey, auditDocumentAccess,

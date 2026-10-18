@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { withAuth, parseQuery, parseBody } from "@/lib/api";
 import { searchMedicationReference } from "@/lib/prescriptions/reference";
-import { createPrescriptionSchema } from "@/lib/prescriptions/validation";
+import { createPrescriptionObjectSchema } from "@/lib/prescriptions/validation";
 import { loadPatientSafetyContext, runPrescriptionSafetyChecks } from "@/lib/prescriptions/safety";
 import { findAccessiblePatient } from "@/lib/access";
 import { getMedicationReference } from "@/lib/prescriptions/reference";
@@ -17,7 +17,7 @@ export const GET = withAuth(["DOCTOR", "ADMIN"], async (req, { user }) => {
   return NextResponse.json({ medications: results });
 });
 
-const safetySchema = createPrescriptionSchema.pick({ patientId: true, items: true });
+const safetySchema = createPrescriptionObjectSchema.pick({ patientId: true, items: true });
 
 // POST /api/medications/safety — run the server-side safety checks for a draft
 // prescription (allergies, duplicates, interactions, patient considerations).

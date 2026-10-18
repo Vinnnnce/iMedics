@@ -16,7 +16,7 @@ const shareSchema = z.object({
 });
 
 // POST /api/patient/documents/[id]/shares — grant access.
-export const POST = withAuth(["PATIENT", "DOCTOR", "ADMIN"], async (req: NextRequest, { params, user }) => {
+export const POST = withAuth<{ id: string }>(["PATIENT", "DOCTOR", "ADMIN"], async (req: NextRequest, { params, user }) => {
   const { id } = await params;
   const { document, canManage } = await findAccessibleDocument(user, id);
   if (!canManage) return NextResponse.json({ error: "You cannot share this document" }, { status: 403 });
@@ -41,7 +41,7 @@ export const POST = withAuth(["PATIENT", "DOCTOR", "ADMIN"], async (req: NextReq
 });
 
 // DELETE /api/patient/documents/[id]/shares?userId=... — revoke access.
-export const DELETE = withAuth(["PATIENT", "DOCTOR", "ADMIN"], async (req: NextRequest, { params, user }) => {
+export const DELETE = withAuth<{ id: string }>(["PATIENT", "DOCTOR", "ADMIN"], async (req: NextRequest, { params, user }) => {
   const { id } = await params;
   const { document, canManage } = await findAccessibleDocument(user, id);
   if (!canManage) return NextResponse.json({ error: "You cannot manage this document's sharing" }, { status: 403 });

@@ -3,10 +3,10 @@
 import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function PrintButton() {
+export function PrintButton({ label = "Print" }: { label?: string }) {
   return (
-    <Button variant="outline" size="sm" className="rounded-lg print:hidden" onClick={() => window.print()}>
-      <Printer className="mr-1 h-4 w-4" /> Print receipt
+    <Button variant="outline" onClick={() => window.print()} aria-label="Print this page" className="print:hidden">
+      <Printer className="h-4 w-4" aria-hidden="true" /> {label}
     </Button>
   );
 }

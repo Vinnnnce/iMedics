@@ -7,6 +7,7 @@ import { writeAudit } from "@/lib/audit";
 import { createPrescriptionSchema } from "@/lib/prescriptions/validation";
 import { loadPatientSafetyContext, runPrescriptionSafetyChecks } from "@/lib/prescriptions/safety";
 import { getMedicationReference } from "@/lib/prescriptions/reference";
+import { ensureReminderForPrescriptionItem } from "@/lib/medication-reminders";
 
 /**
  * Structured prescriptions.
@@ -115,6 +116,16 @@ export const POST = withAuth(["DOCTOR"], async (req: NextRequest, { user }) => {
     details: { items: prescription.items.length, highAlerts: highAlerts.length },
     req,
   });
+
+  // Set up (or refresh) medication reminders for every item that carries a
+  // dosing schedule. Idempotent: existing reminders are updated, not duplicated.
+  for (const item of prescription.items) {
+    try {
+      await ensureReminderForPrescriptionItem(item.id, user.id);
+    } catch {
+      // A reminder failure must never block the prescription itself.
+    }
+  }
 
   return NextResponse.json({ prescription, alerts }, { status: 201 });
 });

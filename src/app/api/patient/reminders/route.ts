@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseQuery } from "@/lib/api";
 import { HHMM } from "@/lib/clinic-time";
-import { recordDoseStatus, adherenceSummary, todaysDoses, materialiseDoseEvents } from "@/lib/medication-reminders";
+import { adherenceSummary, todaysDoses, materialiseDoseEvents } from "@/lib/medication-reminders";
 
 /**
  * Medication reminders for the signed-in patient (or a clinician acting for an

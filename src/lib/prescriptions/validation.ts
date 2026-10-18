@@ -42,22 +42,26 @@ export const prescriptionItemSchema = z.object({
   instructions: z.string().trim().max(1000).optional(),
 });
 
-export const createPrescriptionSchema = z
-  .object({
-    patientId: z.string().uuid(),
-    consultationId: z.string().uuid().optional(),
-    caseId: z.string().uuid().optional(),
-    notes: z.string().trim().max(2000).optional(),
-    validUntil: z.coerce.date().optional(),
-    items: z.array(prescriptionItemSchema).min(1, "Add at least one medication").max(20),
-    // The prescriber must confirm they reviewed the safety information.
-    safetyAcknowledged: z.boolean(),
-    safetyAlerts: z.array(z.object({ code: z.string(), severity: z.enum(["HIGH", "MODERATE", "LOW", "INFO"]), message: z.string().max(500) })).default([]),
-  })
-  .refine((p) => p.items.every((i) => i.endDate === undefined || i.startDate === undefined || i.endDate >= i.startDate), {
+/** The plain object schema (before the cross-field refinement). */
+export const createPrescriptionObjectSchema = z.object({
+  patientId: z.string().uuid(),
+  consultationId: z.string().uuid().optional(),
+  caseId: z.string().uuid().optional(),
+  notes: z.string().trim().max(2000).optional(),
+  validUntil: z.coerce.date().optional(),
+  items: z.array(prescriptionItemSchema).min(1, "Add at least one medication").max(20),
+  // The prescriber must confirm they reviewed the safety information.
+  safetyAcknowledged: z.boolean(),
+  safetyAlerts: z.array(z.object({ code: z.string(), severity: z.enum(["HIGH", "MODERATE", "LOW", "INFO"]), message: z.string().max(500) })).default([]),
+});
+
+export const createPrescriptionSchema = createPrescriptionObjectSchema.refine(
+  (p) => p.items.every((i) => i.endDate === undefined || i.startDate === undefined || i.endDate >= i.startDate),
+  {
     message: "End date cannot be before the start date",
     path: ["items"],
-  });
+  },
+);
 
 export type CreatePrescriptionInput = z.infer<typeof createPrescriptionSchema>;
 export type PrescriptionItemInput = z.infer<typeof prescriptionItemSchema>;

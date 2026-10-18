@@ -9,9 +9,10 @@ import { useTheme } from "@/components/theme-provider";
 import { NotificationCenter } from "@/components/shared/notification-center";
 import {
   Search, Sun, Moon, Menu, X, Home, Stethoscope, Users,
-  FlaskConical, Heart, Sparkles, User, Shield, Globe,
+  FlaskConical, Heart, Sparkles, User, Shield, Globe, HeartPulse,
   Calendar, FileText, Video, MessageSquare, Building2,
-  ClipboardList, Upload, LayoutDashboard, ArrowRight, Receipt, Wallet, Tags,
+  ClipboardList, Upload, LayoutDashboard, ArrowRight, Receipt, Wallet, Tags, PanelLeftClose,
+  FolderOpen, BellRing, ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -32,7 +33,11 @@ const PATIENT_NAV: NavItem[] = [
   { href: "/patient/case-file", label: "Case File", icon: FileText, roles: ["PATIENT"] },
   { href: "/patient/history", label: "Case History", icon: ClipboardList, roles: ["PATIENT"] },
   { href: "/patient/prescriptions", label: "Prescriptions", icon: FileText, roles: ["PATIENT"] },
+  { href: "/patient/records", label: "My Records", icon: FolderOpen, roles: ["PATIENT"] },
+  { href: "/patient/reminders", label: "Med Reminders", icon: BellRing, roles: ["PATIENT"] },
+  { href: "/patient/safety", label: "Wellbeing", icon: ShieldCheck, roles: ["PATIENT"] },
   { href: "/patient/consult", label: "Consultation", icon: Video, roles: ["PATIENT"] },
+  { href: "/emergency", label: "Emergency", icon: HeartPulse, roles: ["PATIENT"] },
   { href: "/profile", label: "Profile", icon: User, roles: ["PATIENT"] },
 ];
 
@@ -44,11 +49,14 @@ const DOCTOR_NAV: NavItem[] = [
   { href: "/doctor/chat", label: "Chat", icon: MessageSquare, roles: ["DOCTOR"] },
   { href: "/doctor/lab-requests", label: "Lab Requests", icon: FlaskConical, roles: ["DOCTOR"] },
   { href: "/doctor/diagnostics", label: "Clinical Notes", icon: Heart, roles: ["DOCTOR"] },
+  { href: "/doctor/prescriptions", label: "Prescriptions", icon: FileText, roles: ["DOCTOR"] },
+  { href: "/doctor/records", label: "Patient Records", icon: FolderOpen, roles: ["DOCTOR"] },
   { href: "/doctor/ai-tools", label: "AI Review", icon: Sparkles, roles: ["DOCTOR"] },
   { href: "/doctor/schedule", label: "Schedule", icon: Calendar, roles: ["DOCTOR"] },
   { href: "/doctor/fees", label: "Fees", icon: Tags, roles: ["DOCTOR"] },
   { href: "/payments", label: "Payments", icon: Wallet, roles: ["DOCTOR"] },
   { href: "/doctor/admit", label: "Care Roster", icon: Building2, roles: ["DOCTOR"] },
+  { href: "/emergency", label: "Emergency", icon: HeartPulse, roles: ["DOCTOR"] },
   { href: "/profile", label: "Profile", icon: User, roles: ["DOCTOR"] },
 ];
 
@@ -60,6 +68,7 @@ const LAB_NAV: NavItem[] = [
   { href: "/lab/services", label: "Services & Prices", icon: Tags, roles: ["LAB_SCIENTIST"] },
   { href: "/lab/bookings", label: "Bookings", icon: Calendar, roles: ["LAB_SCIENTIST"] },
   { href: "/lab/website", label: "Our Website", icon: Globe, roles: ["LAB_SCIENTIST"] },
+  { href: "/emergency", label: "Emergency", icon: HeartPulse, roles: ["LAB_SCIENTIST"] },
   { href: "/payments", label: "Payments", icon: Wallet, roles: ["LAB_SCIENTIST"] },
   { href: "/profile", label: "Profile", icon: User, roles: ["LAB_SCIENTIST"] },
 ];
@@ -109,6 +118,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
   const pathname = usePathname();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
@@ -116,6 +126,19 @@ export function Navbar({ children }: { children: React.ReactNode }) {
 
   const me = useMe();
   const role = me?.role ?? "PATIENT";
+
+  // Remember the sidebar preference across sessions (desktop only).
+  useEffect(() => {
+    void Promise.resolve().then(() => {
+      setSidebarCollapsed(window.localStorage.getItem("medic1905.sidebar.collapsed") === "1");
+    });
+  }, []);
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((collapsed) => {
+      window.localStorage.setItem("medic1905.sidebar.collapsed", collapsed ? "0" : "1");
+      return !collapsed;
+    });
+  }, []);
 
   const navItems = role === "DOCTOR" ? DOCTOR_NAV : role === "LAB_SCIENTIST" ? LAB_NAV : PATIENT_NAV;
   // The admin panel link is shown only to accounts the server has granted the ADMIN role.
@@ -344,9 +367,25 @@ export function Navbar({ children }: { children: React.ReactNode }) {
 
       {/* Content row: sidebar beside main content, below the full-width header */}
       <div className="flex flex-1 min-h-[calc(100vh-4rem)]">
-      {/* Desktop Sidebar */}
-      <aside className="desktop-sidebar w-64 shrink-0 border-r border-border bg-sidebar flex-col sticky top-16 h-[calc(100vh-4rem)]">
-        <nav className="flex-1 space-y-1 p-3 overflow-y-auto pt-5">
+      {/* Desktop Sidebar (collapsible to an icon rail) */}
+      <aside
+        className={`desktop-sidebar shrink-0 border-r border-border bg-sidebar flex-col sticky top-16 h-[calc(100vh-4rem)] transition-[width] ${
+          sidebarCollapsed ? "w-16" : "w-64"
+        }`}
+        data-testid="desktop-sidebar"
+        data-collapsed={sidebarCollapsed}
+      >
+        <button
+          onClick={toggleSidebar}
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-expanded={!sidebarCollapsed}
+          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          data-testid="button-sidebar-toggle"
+          className="mx-3 mt-4 flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <PanelLeftClose className={`h-4 w-4 transition-transform ${sidebarCollapsed ? "rotate-180" : ""}`} />
+        </button>
+        <nav className="flex-1 space-y-1 p-3 overflow-y-auto pt-3" aria-label="Main navigation">
           {visibleNavItems.map((item, index) => {
             const Icon = item.icon;
             const active = isActive(item.href);
@@ -354,21 +393,25 @@ export function Navbar({ children }: { children: React.ReactNode }) {
               <Link
                 key={`${item.label}-${index}`}
                 href={item.href}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                title={sidebarCollapsed ? item.label : undefined}
+                aria-label={item.label}
+                className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
+                  sidebarCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
+                } ${
                   active
                     ? "bg-foreground/10 text-foreground"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
-                <Icon className="h-4 w-4" />
-                {item.label}
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className={sidebarCollapsed ? "sr-only" : ""}>{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
         <div className="border-t border-border p-4 shrink-0">
-          <p className="text-xs text-muted-foreground">
+          <p className={`text-xs text-muted-foreground ${sidebarCollapsed ? "sr-only" : ""}`}>
             Medic1905 is a platform only, not a medical provider. AI content is informational.
           </p>
         </div>
