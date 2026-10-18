@@ -31,10 +31,22 @@ async function loadPortfolio(directory: string, slug: string) {
     listPublicFacilityStaff(facility.id),
     listPublicFacilityServices(facility.id),
   ]);
-  const website = await prisma.facilityWebsite.findUnique({
-    where: { facilityId: facility.id },
-    select: { publishedLayout: true },
-  });
+  // The mini-website section is an enhancement: if its table is missing or the
+  // query fails (e.g. the database migration has not been applied yet), the
+  // public facility profile must still render. Failures are logged, not shown
+  // to visitors as a broken page.
+  let website: { publishedLayout: unknown } | null = null;
+  try {
+    website = await prisma.facilityWebsite.findUnique({
+      where: { facilityId: facility.id },
+      select: { publishedLayout: true },
+    });
+  } catch (error) {
+    console.error(
+      "[facility-portfolio] mini-website unavailable — has `prisma migrate deploy` been run?",
+      error instanceof Error ? error.message : error,
+    );
+  }
   return { facility, staff: staff.map(publicStaffProfile), services, website };
 }
 

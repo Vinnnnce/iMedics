@@ -27,7 +27,18 @@ export default async function PatientDashboardPage() {
       take: 3,
       include: { doctor: { select: { user: { select: { name: true } } } } },
     }),
-    prisma.prescription.count({ where: { ...owner, status: "ACTIVE" } }),
+    // Stat-card query that must never break the landing page: if the
+    // prescription table is missing (migration not applied to this environment),
+    // log loudly and show 0 instead of crashing the whole dashboard.
+    prisma.prescription
+      .count({ where: { ...owner, status: "ACTIVE" } })
+      .catch((error: unknown) => {
+        console.error(
+          "[dashboard] prescription stats unavailable — has `prisma migrate deploy` been run?",
+          error instanceof Error ? error.message : error,
+        );
+        return 0;
+      }),
     prisma.labResult.count({ where: { ...owner, status: { not: "REJECTED" } } }),
     prisma.labResult.findMany({
       where: { ...owner, status: { not: "REJECTED" } },
