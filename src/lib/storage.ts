@@ -133,7 +133,11 @@ export async function copyObject(
         CopySource: `${bucket}/${sourceKey}`,
         Key: destKey,
         ...(ifMatchEtag ? { CopySourceIfMatch: ifMatchEtag } : {}),
-        ...(contentType ? { ContentType: contentType } : {}),
+        // REPLACE (not the default COPY) so the detected content type actually
+        // replaces the browser-supplied metadata on the copied object.
+        ...(contentType
+          ? { ContentType: contentType, MetadataDirective: "REPLACE" as const }
+          : {}),
       }),
     );
   } catch (error) {
