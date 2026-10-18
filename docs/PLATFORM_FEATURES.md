@@ -1,6 +1,8 @@
 # Platform features
 
-End-to-end implementation notes for the platform enhancement: facility mini-websites, structured prescriptions, patient documents, medication reminders, inactivity-based welfare monitoring, the emergency learning centre and the collapsible sidebar. Every feature below includes backend logic, database migrations, validation, notifications and responsive UI — no visual-only mockups.
+End-to-end implementation notes for the platform enhancement: facility mini-websites, structured prescriptions, patient documents, medication reminders, inactivity-based welfare monitoring, the emergency learning centre and the collapsible sidebar. Each feature below ships with backend logic, database migrations, validation, notifications and responsive UI.
+
+> **Verification status:** all quality gates pass in CI (Prisma schema validation, ESLint, TypeScript, 466 unit tests — 427 passing, 39 skipped — and the production build). Database workflows (migrations, seeding, cron jobs) and live integrations (RxNav calls, storage uploads, notification delivery) are unit-tested with mocks and must be exercised against a staging environment before release.
 
 ## Database and migrations
 

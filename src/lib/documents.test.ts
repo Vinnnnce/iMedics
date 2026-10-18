@@ -135,4 +135,18 @@ describe("findAccessibleDocument", () => {
     mockPrisma.patientDocument.findUnique.mockResolvedValue({ ...document, deletedAt: new Date() });
     await expect(findAccessibleDocument(patientUser, "doc-1")).rejects.toMatchObject({ status: 404 });
   });
+
+  it("hides documents from admins (no patient-record access by policy)", async () => {
+    mockPrisma.patientDocument.findUnique.mockResolvedValue(document);
+    const adminUser = { id: "admin-user-1", role: "ADMIN" } as never;
+    await expect(findAccessibleDocument(adminUser, "doc-1")).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("hides a revoked share from a clinician", async () => {
+    mockPrisma.patientDocument.findUnique.mockResolvedValue(document);
+    mockPrisma.documentShare.findFirst.mockResolvedValue(null); // revoked → no live share
+    mockPrisma.doctorProfile.findUnique.mockResolvedValue({ id: "doctor-1" });
+    mockPrisma.patientAssignment.findFirst.mockResolvedValue(null);
+    await expect(findAccessibleDocument(doctorUser, "doc-1")).rejects.toMatchObject({ status: 404 });
+  });
 });

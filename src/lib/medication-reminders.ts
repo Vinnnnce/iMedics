@@ -58,6 +58,9 @@ export async function materialiseDoseEvents(reminder: ReminderLike & { patientId
       const scheduledFor = clinicInstant(dateKey, hhmmToMinutes(time));
       if (scheduledFor.getTime() < from.getTime() || scheduledFor.getTime() > to.getTime()) continue;
       if (scheduledFor < reminder.startDate) continue;
+      // Never materialise doses beyond the reminder's end date (e.g. a
+      // discontinued prescription) even when the sweep window extends past it.
+      if (reminder.endDate && scheduledFor.getTime() > reminder.endDate.getTime()) continue;
       const result = await prisma.doseEvent.createMany({
         data: { reminderId: reminder.id, patientId: reminder.patientId, scheduledFor },
         skipDuplicates: true,
@@ -126,6 +129,8 @@ export async function runMedicationReminderSweep(now = new Date()) {
 /**
  * Record a dose status change by a human (patient or clinician). Opening a
  * notification is handled separately (acknowledge) and never marks a dose taken.
+ * A recorded outcome (TAKEN/SKIPPED) is final: a later acknowledgement cannot
+ * downgrade it, so an explicit patient record is never overwritten.
  */
 export async function recordDoseStatus(
   doseEventId: string,
@@ -135,6 +140,9 @@ export async function recordDoseStatus(
 ) {
   const dose = await prisma.doseEvent.findUnique({ where: { id: doseEventId } });
   if (!dose) throw Object.assign(new Error("Dose not found"), { status: 404 });
+  if (status === "ACKNOWLEDGED" && (dose.status === "TAKEN" || dose.status === "SKIPPED")) {
+    throw Object.assign(new Error("This dose already has a recorded outcome"), { status: 409 });
+  }
   return prisma.doseEvent.update({
     where: { id: doseEventId },
     data: {

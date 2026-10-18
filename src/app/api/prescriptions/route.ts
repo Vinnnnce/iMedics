@@ -119,13 +119,17 @@ export const POST = withAuth(["DOCTOR"], async (req: NextRequest, { user }) => {
 
   // Set up (or refresh) medication reminders for every item that carries a
   // dosing schedule. Idempotent: existing reminders are updated, not duplicated.
+  // A reminder failure never blocks the prescription, but it is surfaced in the
+  // response (and logged) so it can be retried from the patient's reminders page.
+  let reminderFailures = 0;
   for (const item of prescription.items) {
     try {
       await ensureReminderForPrescriptionItem(item.id, user.id);
-    } catch {
-      // A reminder failure must never block the prescription itself.
+    } catch (error) {
+      reminderFailures += 1;
+      console.warn(`[prescriptions] reminder setup failed for item ${item.id}:`, error instanceof Error ? error.message : error);
     }
   }
 
-  return NextResponse.json({ prescription, alerts }, { status: 201 });
+  return NextResponse.json({ prescription, alerts, reminderFailures }, { status: 201 });
 });

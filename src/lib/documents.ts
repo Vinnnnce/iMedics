@@ -70,7 +70,11 @@ export async function findAccessibleDocument(user: User, documentId: string): Pr
     throw Object.assign(new Error("Document not found"), { status: 404 });
   }
 
-  if (user.role === "ADMIN") return { document, canManage: true };
+  if (user.role === "ADMIN") {
+    // Per platform policy, admins have no access to patient records — including
+    // documents. Out of scope is indistinguishable from non-existent (404).
+    throw Object.assign(new Error("Document not found"), { status: 404 });
+  }
   throw Object.assign(new Error("Document not found"), { status: 404 });
 }
 
