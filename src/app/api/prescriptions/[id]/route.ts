@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
 import { getVerifiedDoctorProfile, findAccessiblePatient } from "@/lib/access";
 import { writeAudit } from "@/lib/audit";
+import { ensureReminderForPrescriptionItem } from "@/lib/medication-reminders";
 
 const actionSchema = z.object({
   action: z.enum(["CANCEL", "RENEW"]),
@@ -32,6 +33,24 @@ export const PATCH = withAuth<{ id: string }>(["DOCTOR", "ADMIN"], async (req: N
       where: { id },
       data: { status: "DISCONTINUED" as const, notes: [prescription.notes, body.reason ? `Cancelled: ${body.reason}` : "Cancelled"].filter(Boolean).join("\n") },
     });
+    // Deactivate the medication reminders linked to this prescription's items
+    // and drop any not-yet-due dose events. Doses already recorded keep their
+    // history for adherence summaries.
+    const itemIds = prescription.items.map((item) => item.id);
+    if (itemIds.length > 0) {
+      const now = new Date();
+      await prisma.medicationReminder.updateMany({
+        where: { prescriptionItemId: { in: itemIds }, active: true },
+        data: { active: false, endDate: now },
+      });
+      await prisma.doseEvent.deleteMany({
+        where: {
+          reminder: { prescriptionItemId: { in: itemIds } },
+          status: "SCHEDULED",
+          scheduledFor: { gt: now },
+        },
+      });
+    }
     await writeAudit({
       userId: user.id, patientId: prescription.patientId, actorRole: user.role,
       action: "PRESCRIPTION_CANCELLED", resourceType: "Prescription", resourceId: id,
@@ -95,5 +114,16 @@ export const PATCH = withAuth<{ id: string }>(["DOCTOR", "ADMIN"], async (req: N
     details: { renewedFrom: prescription.id, reason: body.reason ?? null }, req,
   });
 
-  return NextResponse.json({ prescription: renewed }, { status: 201 });
+  // Recreate medication reminders for the renewed items (idempotent per item).
+  let reminderFailures = 0;
+  for (const item of renewed.items) {
+    try {
+      await ensureReminderForPrescriptionItem(item.id, user.id);
+    } catch (error) {
+      reminderFailures += 1;
+      console.warn(`[prescriptions] reminder setup failed for renewed item ${item.id}:`, error instanceof Error ? error.message : error);
+    }
+  }
+
+  return NextResponse.json({ prescription: renewed, reminderFailures }, { status: 201 });
 });

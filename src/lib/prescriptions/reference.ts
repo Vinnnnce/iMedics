@@ -6,9 +6,17 @@ import { prisma } from "@/lib/prisma";
  * Classification data comes from the platform's curated `medication_references`
  * table (seeded from public-domain drug references and reviewable by admins).
  * Drug–drug interaction checks call the U.S. National Library of Medicine's
- * RxNav interaction API (https://rxnav.nlm.nih.gov/REST/interaction/), a free,
- * publicly funded service. When either source is unavailable, callers must show
- * "information unavailable" instead of inventing clinical data.
+ * RxNav APIs (https://rxnav.nlm.nih.gov/REST/), a free, publicly funded service.
+ *
+ * IMPORTANT: NLM retired the RxNav Drug–Drug Interaction API on January 2,
+ * 2024 — its endpoints now return 404. Until an appropriately licensed
+ * interaction source is configured by the operator, `checkRxNavInteractions`
+ * therefore reports `available: false` on every call, and the prescriber sees
+ * an explicit "interaction information unavailable — review manually" alert.
+ * Name→RxCUI resolution (rxcui.json) remains live and is used for medication
+ * matching. The code never treats an unreachable interaction service as "no
+ * interactions": callers must show "information unavailable" instead of
+ * inventing clinical data.
  */
 
 export interface MedicationReferenceDTO {

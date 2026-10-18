@@ -217,14 +217,24 @@ export function DoctorPrescriptions({ patients }: { patients: PatientOption[] })
         medicationRefId: item.medicationRefId ?? undefined,
         instructions: [item.foodInstructions, item.missedDoseInstructions, item.monitoring].filter(Boolean).join(" ") || undefined,
       }));
-      await apiClient.post("/prescriptions", {
+      const created = await apiClient.post<{ reminderFailures?: number }>("/prescriptions", {
         patientId,
         notes: notes || undefined,
         items: payloadItems,
         safetyAcknowledged: acknowledged,
         safetyAlerts: alerts.map((a) => ({ code: a.code, severity: a.severity, message: a.message })),
       });
-      toast.success("Prescription issued");
+      if (created.reminderFailures && created.reminderFailures > 0) {
+        // The prescription was issued, but its medication reminders could not be
+        // set up — tell the prescriber so they can ask the patient to set them
+        // up manually on the reminders page.
+        toast.warning(
+          `Prescription issued, but medication reminders could not be set up for ${created.reminderFailures} item(s). The patient can set them up under Med Reminders.`,
+          { duration: 8000 },
+        );
+      } else {
+        toast.success("Prescription issued");
+      }
       setItems([emptyItem()]);
       setNotes("");
       setAlerts([]);

@@ -68,13 +68,16 @@ describe("recordDoseStatus", () => {
 
   it("only acknowledges (never takes) when the patient opens the reminder", async () => {
     mockPrisma.doseEvent.findUnique.mockResolvedValue(dose);
-    mockPrisma.doseEvent.update.mockResolvedValue({ ...dose, status: "ACKNOWLEDGED" });
+    mockPrisma.doseEvent.updateMany.mockResolvedValue({ count: 1 });
     const result = await recordDoseStatus("dose-1", "ACKNOWLEDGED", "user-1", "PATIENT");
     expect(result.status).toBe("ACKNOWLEDGED");
-    // recordedAt must stay untouched: acknowledgement is not a dose record.
-    expect(mockPrisma.doseEvent.update).toHaveBeenCalledWith(
+    // Acknowledgement goes through the guarded conditional update and never
+    // records a dose outcome: no recordedAt, no update() call.
+    expect(mockPrisma.doseEvent.update).not.toHaveBeenCalled();
+    expect(mockPrisma.doseEvent.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ status: "ACKNOWLEDGED", recordedAt: null }),
+        where: { id: "dose-1", status: { in: ["SCHEDULED", "ACKNOWLEDGED"] } },
+        data: expect.objectContaining({ status: "ACKNOWLEDGED" }),
       }),
     );
   });
@@ -99,6 +102,8 @@ describe("recordDoseStatus", () => {
   it("refuses to downgrade a recorded outcome back to acknowledged (409)", async () => {
     const taken = { ...dose, status: "TAKEN", recordedAt: new Date("2026-10-18T08:05:00Z") };
     mockPrisma.doseEvent.findUnique.mockResolvedValue(taken);
+    // The conditional update matches no rows (dose already has an outcome).
+    mockPrisma.doseEvent.updateMany.mockResolvedValue({ count: 0 });
     // A late acknowledgement (e.g. the patient re-opened the notification)
     // must never overwrite the explicit TAKEN record.
     await expect(recordDoseStatus("dose-1", "ACKNOWLEDGED", "user-1")).rejects.toMatchObject({ status: 409 });
@@ -124,16 +129,17 @@ describe("materialiseDoseEvents", () => {
   });
 
   it("never materialises doses beyond the reminder's end date", async () => {
-    mockPrisma.doseEvent.createMany.mockResolvedValue({ count: 0 });
-    // Reminder ended mid-window: the 20:00 dose on the final day is in range,
-    // but the next day's doses must not be created.
-    const ended = { ...reminder, endDate: new Date("2026-10-18T23:59:00Z") };
+    mockPrisma.doseEvent.createMany.mockResolvedValue({ count: 1 });
+    // Reminder ends at 10:00Z mid-window: the 08:00-clinic (07:00Z) dose is in
+    // range, but the 20:00-clinic (19:00Z) dose falls after the end date and
+    // must NOT be created even though the sweep window covers it.
+    const ended = { ...reminder, endDate: new Date("2026-10-18T10:00:00Z") };
     await materialiseDoseEvents(ended, new Date("2026-10-18T00:00:00Z"), new Date("2026-10-19T23:59:00Z"));
     const scheduled = mockPrisma.doseEvent.createMany.mock.calls.map(
       (c: Array<{ data: { scheduledFor: Date } }>) => c[0].data.scheduledFor.getTime(),
     );
-    expect(scheduled.length).toBeGreaterThan(0);
-    expect(scheduled.every((t: number) => t <= ended.endDate!.getTime())).toBe(true);
+    // Only the morning dose is materialised.
+    expect(scheduled).toEqual([new Date("2026-10-18T07:00:00Z").getTime()]);
   });
 });
 

@@ -140,15 +140,28 @@ export async function recordDoseStatus(
 ) {
   const dose = await prisma.doseEvent.findUnique({ where: { id: doseEventId } });
   if (!dose) throw Object.assign(new Error("Dose not found"), { status: 404 });
-  if (status === "ACKNOWLEDGED" && (dose.status === "TAKEN" || dose.status === "SKIPPED")) {
-    throw Object.assign(new Error("This dose already has a recorded outcome"), { status: 409 });
+
+  if (status === "ACKNOWLEDGED") {
+    // Conditional update: only while the dose still has no recorded outcome, so a
+    // concurrent "taken" record can never be downgraded by a late acknowledgement.
+    const guarded = await prisma.doseEvent.updateMany({
+      where: { id: doseEventId, status: { in: ["SCHEDULED", "ACKNOWLEDGED"] } },
+      data: { status: "ACKNOWLEDGED", acknowledgedAt: new Date() },
+    });
+    if (guarded.count === 0) {
+      throw Object.assign(new Error("This dose already has a recorded outcome"), { status: 409 });
+    }
+    return { ...dose, status: "ACKNOWLEDGED" as const, acknowledgedAt: new Date(), recordedAt: null };
   }
+
   return prisma.doseEvent.update({
     where: { id: doseEventId },
     data: {
       status,
-      acknowledgedAt: status === "ACKNOWLEDGED" ? new Date() : dose.acknowledgedAt,
-      recordedAt: status === "ACKNOWLEDGED" ? dose.recordedAt : new Date(),
+      // `status` is TAKEN/SKIPPED here (ACKNOWLEDGED returns above): an explicit
+      // dose record never overwrites a prior acknowledgement timestamp.
+      acknowledgedAt: dose.acknowledgedAt,
+      recordedAt: new Date(),
       recordedById: byUserId,
       recordedVia: via,
     },

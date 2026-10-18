@@ -9,6 +9,12 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/legal/(.*)",
+  // The emergency/CPR learning centre must be reachable without an account:
+  // a bystander in an emergency has no time to sign in.
+  "/emergency(.*)",
+  // Public facility mini-websites and directories (hospitals, labs).
+  "/hospitals(.*)",
+  "/laboratories(.*)",
   // Called by the payment gateway and the scheduler; both authenticate themselves (signature / bearer secret).
   "/api/payments/webhook/(.*)",
   "/api/cron/(.*)",
