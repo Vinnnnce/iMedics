@@ -2,17 +2,27 @@ import Link from "next/link";
 import { ClipboardList, FlaskConical, Upload } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
-import { requirePageRole } from "@/lib/guards";
-import { clinicInstant, clinicToday } from "@/lib/clinic-time";
+import { requireFacilityPortalPage } from "@/lib/guards";
+import { clinicInstant, clinicToday, daysFromNow } from "@/lib/clinic-time";
+import { resolveFacilityForPortalUser } from "@/lib/facility-auth";
+import { SuggestionsCard } from "@/components/shared/suggestions-card";
+import { facilitySuggestions } from "@/lib/suggestions";
 
 export default async function LabDashboardPage() {
-  const user = await requirePageRole("LAB_SCIENTIST");
+  const user = await requireFacilityPortalPage();
+  const profile = await resolveFacilityForPortalUser(user);
   const today = clinicToday();
+  const in90Days = daysFromNow(90);
 
-  const [newOrders, inProgress, submittedToday] = await Promise.all([
+  const [newOrders, inProgress, submittedToday, referralInbox, credentialAlerts, activeServices] = await Promise.all([
     prisma.labOrder.count({ where: { status: "ORDERED" } }),
     prisma.labOrder.count({ where: { status: "IN_PROGRESS" } }),
     prisma.labResult.count({ where: { uploadedById: user.id, createdAt: { gte: clinicInstant(today, 0), lt: clinicInstant(today, 24 * 60) } } }),
+    // Referral inbox
+    prisma.facilityReferral.count({ where: { facilityId: profile.id, status: "PENDING" } }),
+    // Credential alerts: expiring within 90 days or already expired
+    prisma.staffCredential.count({ where: { staff: { facilityId: profile.id }, expiryDate: { lte: in90Days } } }),
+    prisma.facilityService.count({ where: { facilityId: profile.id, deletedAt: null, isPublished: true } }),
   ]);
 
   const stats = [
@@ -40,6 +50,16 @@ export default async function LabDashboardPage() {
           </Link>
         ))}
       </div>
+
+      {/* Account-specific suggestions */}
+      <SuggestionsCard
+        items={facilitySuggestions({
+          accountType: user.accountType,
+          referralInbox,
+          credentialAlerts,
+          activeServices,
+        })}
+      />
     </div>
   );
 }

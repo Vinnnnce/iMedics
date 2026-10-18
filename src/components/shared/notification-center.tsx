@@ -32,15 +32,16 @@ export function NotificationCenter({ enabled }: { enabled: boolean }) {
 
   const refresh = useCallback(async () => {
     try {
-      const query = cursor.current ? `?since=${encodeURIComponent(cursor.current)}&limit=10` : "?limit=1";
-      const data = await apiClient.get<{ unreadCount: number; notifications: Item[] }>(`/notifications${query}`);
-      setUnread(data.unreadCount);
+      // First load: newest rows first, only to seed the cursor. Polls: rows after the
+      // cursor, oldest-first, so new notifications can be toasted in order.
+      const query = cursor.current ? `?after=${encodeURIComponent(cursor.current)}&limit=10` : "?limit=10";
+      const data = await apiClient.get<{ unread: number; notifications: Item[] }>(`/notifications${query}`);
+      setUnread(data.unread);
 
       if (data.notifications.length > 0) {
-        const newest = data.notifications.reduce((a, b) => (a.createdAt > b.createdAt ? a : b)).createdAt;
-        // The first load only sets the starting point, so old notifications never pop up on page load.
-        if (cursor.current) {
-          for (const n of [...data.notifications].sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
+        const firstLoad = !cursor.current;
+        if (!firstLoad) {
+          for (const n of data.notifications) {
             if (!n.toast) continue;
             toast(n.title, {
               description: n.body ?? undefined,
@@ -48,9 +49,10 @@ export function NotificationCenter({ enabled }: { enabled: boolean }) {
             });
           }
         }
-        cursor.current = newest;
-      } else if (!cursor.current) {
-        cursor.current = new Date().toISOString();
+        // First load is newest-first (cursor = newest); polls are oldest-first (cursor = newest new row).
+        cursor.current = firstLoad
+          ? data.notifications[0].id
+          : data.notifications[data.notifications.length - 1].id;
       }
     } catch {
       /* offline or signed out: try again on the next tick */

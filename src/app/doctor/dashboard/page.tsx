@@ -10,6 +10,9 @@ import { visibleToDoctor } from "@/lib/booking";
 import { formatClinicDateTime } from "@/lib/format";
 import { notFound } from "next/navigation";
 import { NotificationsCard } from "@/components/shared/notifications-card";
+import { SuggestionsCard } from "@/components/shared/suggestions-card";
+import { doctorSuggestions } from "@/lib/suggestions";
+import { loadWorkspace } from "@/lib/workspace";
 import { listUnreadNotifications } from "@/lib/data/notifications";
 
 export default async function DoctorDashboardPage() {
@@ -21,7 +24,7 @@ export default async function DoctorDashboardPage() {
   const dayStart = clinicInstant(today, 0);
   const dayEnd = clinicInstant(today, 24 * 60);
 
-  const [pendingBookings, activePatients, consultationsToday, aiToReview, upcoming, notifications] = await Promise.all([
+  const [pendingBookings, activePatients, consultationsToday, aiToReview, upcoming, notifications, workspace] = await Promise.all([
     prisma.appointment.count({ where: { AND: [{ doctorId: doctor.id, status: "BOOKED", scheduledAt: { gte: new Date() } }, visibleToDoctor] } }),
     prisma.patientAssignment.count({ where: { doctorId: doctor.id, status: "ACTIVE", patient: { deletedAt: null } } }),
     prisma.consultation.count({ where: { doctorId: doctor.id, createdAt: { gte: dayStart, lt: dayEnd } } }),
@@ -33,7 +36,16 @@ export default async function DoctorDashboardPage() {
       include: { patient: { select: { id: true, firstName: true, lastName: true } } },
     }),
     listUnreadNotifications(user.id),
+    loadWorkspace(user),
   ]);
+
+  const suggestionItems = doctorSuggestions({
+    pendingBookings,
+    activePatients,
+    aiToReview,
+    consultationsToday,
+    subscriptionActive: workspace.subscription.toLowerCase().includes("active"),
+  });
 
   const stats = [
     { label: "Booking requests", value: pendingBookings, icon: Calendar, href: "/doctor/booking-requests" },
@@ -64,6 +76,9 @@ export default async function DoctorDashboardPage() {
       </div>
 
       <NotificationsCard items={notifications.map((n) => ({ ...n, createdAt: n.createdAt.toISOString() }))} />
+
+      {/* Account-specific suggestions */}
+      <SuggestionsCard items={suggestionItems} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {stats.map((stat) => (

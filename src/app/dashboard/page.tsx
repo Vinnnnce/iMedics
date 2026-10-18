@@ -4,6 +4,8 @@ import { Calendar, FileText, FlaskConical, Stethoscope } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NotificationsCard } from "@/components/shared/notifications-card";
+import { SuggestionsCard } from "@/components/shared/suggestions-card";
+import { patientSuggestions } from "@/lib/suggestions";
 import { getCurrentUser } from "@/lib/auth";
 import { requirePageRole } from "@/lib/guards";
 import { prisma } from "@/lib/prisma";
@@ -17,7 +19,8 @@ export default async function PatientDashboardPage() {
   const user = await requirePageRole("PATIENT");
 
   const owner = { patient: { userId: user.id, deletedAt: null } };
-  const [upcoming, activePrescriptions, resultCount, recentResults, notifications] = await Promise.all([
+  const [upcoming, activePrescriptions, resultCount, recentResults, notifications, unpaidPayments, failedPayments, unreadMessages, patientProfile] =
+    await Promise.all([
     prisma.appointment.findMany({
       where: { ...owner, status: { in: ["BOOKED", "CONFIRMED"] }, scheduledAt: { gte: new Date() } },
       orderBy: { scheduledAt: "asc" },
@@ -33,7 +36,20 @@ export default async function PatientDashboardPage() {
       select: { id: true, panelType: true, testDate: true, status: true },
     }),
     listUnreadNotifications(user.id),
+    prisma.payment.count({ where: { payerId: user.id, status: { in: ["PENDING", "PROCESSING", "FAILED", "REFUNDED"] } } }),
+    prisma.payment.count({ where: { payerId: user.id, status: "FAILED" } }),
+    prisma.message.count({ where: { senderId: { not: user.id }, conversation: { patient: { userId: user.id, deletedAt: null } }, readAt: null } }),
+    prisma.patient.findUnique({ where: { userId: user.id }, select: { bloodGroup: true } }),
   ]);
+
+  const suggestionItems = patientSuggestions({
+    hasUpcomingAppointment: upcoming.length > 0,
+    unpaidPayments,
+    failedPayments,
+    pendingResults: resultCount,
+    unreadMessages,
+    hasBloodGroup: Boolean(patientProfile?.bloodGroup),
+  });
 
   const stats = [
     { label: "Upcoming appointments", value: upcoming.length, icon: Calendar, href: "/patient/appointments" },
@@ -49,6 +65,9 @@ export default async function PatientDashboardPage() {
       </div>
 
       <NotificationsCard items={notifications.map((n) => ({ ...n, createdAt: n.createdAt.toISOString() }))} />
+
+      {/* Account-specific suggestions */}
+      <SuggestionsCard items={suggestionItems} />
 
       <div className="grid grid-cols-3 gap-3">
         {stats.map((s) => (
