@@ -3,18 +3,31 @@ import { z } from "zod";
 import type { AccountType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
-import { conflict } from "@/lib/errors";
+import { badRequest, conflict } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
 import { generateCaseNumber } from "@/lib/case-number";
 import { notifyAdminsOfApplication } from "@/lib/admin/notify";
+import {
+  isFinalProfileImageKey,
+  publicProfileImageUrl,
+  verifyFinalProfileImage,
+} from "@/lib/profile-images";
 
 const TERMS_VERSION = "2026-10";
 
 const text = z.string().trim().max(500).optional();
 
 const registerSchema = z.object({
-  accountType: z.enum(["patient", "doctor", "laboratory", "diagnostic_centre", "hospital"]),
-  termsAccepted: z.literal(true, { error: "You must accept the terms to continue" }),
+  accountType: z.enum([
+    "patient",
+    "doctor",
+    "laboratory",
+    "diagnostic_centre",
+    "hospital",
+  ]),
+  termsAccepted: z.literal(true, {
+    error: "You must accept the terms to continue",
+  }),
 
   // Identity (all account types)
   firstName: z.string().trim().min(1, "First name is required").max(80),
@@ -22,7 +35,9 @@ const registerSchema = z.object({
   middleName: text,
   phone: text,
   gender: z.enum(["male", "female", "other"]),
-  dateOfBirth: z.string().refine((v) => !Number.isNaN(Date.parse(v)), "Invalid date of birth"),
+  dateOfBirth: z
+    .string()
+    .refine((v) => !Number.isNaN(Date.parse(v)), "Invalid date of birth"),
 
   // Patient
   address: text,
@@ -51,9 +66,17 @@ const registerSchema = z.object({
   organisationType: text,
   cacRegistrationNumber: text,
   facilityLicenseNumber: text,
+
+  // Profile photo (doctors) / organisation logo (laboratory, diagnostic centre,
+  // hospital). A final-prefix storage key uploaded and verified during sign-up.
+  // Nullish-tolerant: the wizard sends `null` when no image was picked.
+  profileImageKey: z.string().trim().min(1).max(300).nullish(),
 });
 
-const ACCOUNT_TYPES: Record<z.infer<typeof registerSchema>["accountType"], AccountType> = {
+const ACCOUNT_TYPES: Record<
+  z.infer<typeof registerSchema>["accountType"],
+  AccountType
+> = {
   patient: "PATIENT",
   doctor: "DOCTOR",
   laboratory: "LABORATORY",
@@ -81,107 +104,154 @@ const toList = (value?: string) =>
  *    PENDING until an admin verifies them and grants the role.
  *  - Identity (email) comes from the authenticated account, not the body.
  *  - Registration can be completed only once.
+ *  - Explicitly usable before the account is ready: this endpoint exists to
+ *    take an account from "incomplete" to "complete" (or "pending review").
  */
-export const POST = withAuth(null, async (req, { user }) => {
-  const data = await parseBody(req, registerSchema);
+export const POST = withAuth(
+  null,
+  async (req, { user }) => {
+    const data = await parseBody(req, registerSchema);
 
-  if (user.onboardingComplete) throw conflict("Registration has already been completed");
+    if (user.onboardingComplete)
+      throw conflict("Registration has already been completed");
 
-  const accountType = ACCOUNT_TYPES[data.accountType];
-  const isPatient = accountType === "PATIENT";
-  const gender = data.gender.toUpperCase() as "MALE" | "FEMALE" | "OTHER";
-  const name = [data.firstName, data.lastName].join(" ");
+    const accountType = ACCOUNT_TYPES[data.accountType];
+    const isPatient = accountType === "PATIENT";
+    const gender = data.gender.toUpperCase() as "MALE" | "FEMALE" | "OTHER";
+    const name = [data.firstName, data.lastName].join(" ");
 
-  await prisma.$transaction(async (tx) => {
-    await tx.user.update({
-      where: { id: user.id },
-      data: {
-        name,
-        phone: data.phone,
-        accountType,
-        status: isPatient ? "ACTIVE" : "PENDING",
-        onboardingComplete: true,
-        termsAcceptedAt: new Date(),
-        termsVersion: TERMS_VERSION,
-      },
+    // Doctors must upload a profile photo; organisations must upload a logo.
+    // Patients may attach one optionally (it then becomes their avatar).
+    const profileImageKey = data.profileImageKey ?? undefined;
+    const requiresProfileImage = !isPatient;
+    if (requiresProfileImage && !profileImageKey) {
+      throw badRequest(
+        accountType === "DOCTOR"
+          ? "A profile photo is required to complete your registration"
+          : "An organisation logo is required to complete your registration",
+      );
+    }
+    if (
+      profileImageKey &&
+      !isFinalProfileImageKey(profileImageKey, user.id)
+    ) {
+      throw badRequest("Invalid profile image");
+    }
+    if (profileImageKey) {
+      // Re-verify the stored object before attaching it to the account.
+      await verifyFinalProfileImage(profileImageKey);
+    }
+    const profileImageUrl = profileImageKey
+      ? publicProfileImageUrl(profileImageKey)
+      : null;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          name,
+          phone: data.phone,
+          accountType,
+          status: isPatient ? "ACTIVE" : "PENDING",
+          onboardingComplete: true,
+          termsAcceptedAt: new Date(),
+          termsVersion: TERMS_VERSION,
+          ...(profileImageUrl ? { avatarUrl: profileImageUrl } : {}),
+        },
+      });
+
+      if (isPatient) {
+        const allergies = toList(data.allergies).map((allergen) => ({
+          type: "unspecified",
+          allergen,
+        }));
+        const pastHistory = toList(data.chronicConditions).map((diagnosis) => ({
+          diagnosis,
+        }));
+
+        await tx.patient.create({
+          data: {
+            caseNumber: generateCaseNumber(),
+            userId: user.id,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            middleName: data.middleName,
+            gender,
+            dateOfBirth: new Date(data.dateOfBirth),
+            occupation: data.occupation,
+            addressLine1: data.address,
+            city: data.city,
+            state: data.state,
+            bloodGroup: data.bloodGroup,
+            genotype: data.genotype,
+            ecName: data.emergencyContactName,
+            ecRelationship: data.emergencyContactRelationship,
+            ecPhone: data.emergencyContactPhone,
+            ...(allergies.length || pastHistory.length
+              ? { medicalHistories: { create: { allergies, pastHistory } } }
+              : {}),
+          },
+        });
+      } else if (accountType === "DOCTOR") {
+        await tx.doctorProfile.create({
+          data: {
+            userId: user.id,
+            middleName: data.middleName || null,
+            dateOfBirth: new Date(data.dateOfBirth),
+            gender,
+            location:
+              [data.address, data.city, data.state]
+                .filter(Boolean)
+                .join(", ") || null,
+            licenseNumber: data.mdcnLicenseNumber,
+            mdcnRegistrationNumber: data.mdcnRegistrationNumber,
+            yearOfRegistration: toInt(data.yearOfRegistration),
+            yearsOfExperience: toInt(data.yearsOfExperience),
+            specialty: data.specialty,
+            affiliation: data.affiliation,
+            biography: data.biography,
+          },
+        });
+      } else {
+        await tx.labStaffProfile.create({
+          data: {
+            userId: user.id,
+            laboratoryName: data.organisationName,
+            position: data.organisationType,
+            licenseIdNumber: data.facilityLicenseNumber,
+            addressLine: data.address || null,
+            city: data.city || null,
+            state: data.state || null,
+            cacRegistrationNumber: data.cacRegistrationNumber,
+            facilityLicenseNumber: data.facilityLicenseNumber,
+            ...(profileImageUrl ? { logoUrl: profileImageUrl } : {}),
+          },
+        });
+      }
     });
 
-    if (isPatient) {
-      const allergies = toList(data.allergies).map((allergen) => ({ type: "unspecified", allergen }));
-      const pastHistory = toList(data.chronicConditions).map((diagnosis) => ({ diagnosis }));
+    await writeAudit({
+      userId: user.id,
+      actorRole: user.role,
+      action: "REGISTRATION_SUBMITTED",
+      resourceType: "User",
+      resourceId: user.id,
+      details: { accountType, requiresVerification: !isPatient },
+      req,
+    });
 
-      await tx.patient.create({
-        data: {
-          caseNumber: generateCaseNumber(),
-          userId: user.id,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          middleName: data.middleName,
-          gender,
-          dateOfBirth: new Date(data.dateOfBirth),
-          occupation: data.occupation,
-          addressLine1: data.address,
-          city: data.city,
-          state: data.state,
-          bloodGroup: data.bloodGroup,
-          genotype: data.genotype,
-          ecName: data.emergencyContactName,
-          ecRelationship: data.emergencyContactRelationship,
-          ecPhone: data.emergencyContactPhone,
-          ...(allergies.length || pastHistory.length
-            ? { medicalHistories: { create: { allergies, pastHistory } } }
-            : {}),
-        },
-      });
-    } else if (accountType === "DOCTOR") {
-      await tx.doctorProfile.create({
-        data: {
-          userId: user.id,
-          middleName: data.middleName || null,
-          dateOfBirth: new Date(data.dateOfBirth),
-          gender,
-          location: [data.address, data.city, data.state].filter(Boolean).join(", ") || null,
-          licenseNumber: data.mdcnLicenseNumber,
-          mdcnRegistrationNumber: data.mdcnRegistrationNumber,
-          yearOfRegistration: toInt(data.yearOfRegistration),
-          yearsOfExperience: toInt(data.yearsOfExperience),
-          specialty: data.specialty,
-          affiliation: data.affiliation,
-          biography: data.biography,
-        },
-      });
-    } else {
-      await tx.labStaffProfile.create({
-        data: {
-          userId: user.id,
-          laboratoryName: data.organisationName,
-          position: data.organisationType,
-          licenseIdNumber: data.facilityLicenseNumber,
-          addressLine: data.address || null,
-          city: data.city || null,
-          state: data.state || null,
-          cacRegistrationNumber: data.cacRegistrationNumber,
-          facilityLicenseNumber: data.facilityLicenseNumber,
-        },
-      });
-    }
-  });
+    // Professionals wait for an admin: let the admins know there is something to review.
+    if (!isPatient) await notifyAdminsOfApplication(user.id, false);
 
-  await writeAudit({
-    userId: user.id,
-    actorRole: user.role,
-    action: "REGISTRATION_SUBMITTED",
-    resourceType: "User",
-    resourceId: user.id,
-    details: { accountType, requiresVerification: !isPatient },
-    req,
-  });
-
-  // Professionals wait for an admin: let the admins know there is something to review.
-  if (!isPatient) await notifyAdminsOfApplication(user.id, false);
-
-  return NextResponse.json(
-    { success: true, role: user.role, status: isPatient ? "ACTIVE" : "PENDING", requiresVerification: !isPatient },
-    { status: 201 },
-  );
-});
+    return NextResponse.json(
+      {
+        success: true,
+        role: user.role,
+        status: isPatient ? "ACTIVE" : "PENDING",
+        requiresVerification: !isPatient,
+      },
+      { status: 201 },
+    );
+  },
+  { allowOnboarding: true },
+);

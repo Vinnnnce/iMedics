@@ -18,6 +18,9 @@ const isPublicRoute = createRouteMatcher([
   // Called by the payment gateway and the scheduler; both authenticate themselves (signature / bearer secret).
   "/api/payments/webhook/(.*)",
   "/api/cron/(.*)",
+  // Profile photos / facility logos shown on public pages. The route itself
+  // only serves image objects attached to an account (see /api/profile-images).
+  "/api/profile-images/(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
@@ -28,7 +31,10 @@ export default clerkMiddleware(async (auth, req) => {
 
   // API callers get a JSON 401; page visitors are redirected to sign in.
   if (req.nextUrl.pathname.startsWith("/api/")) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Authentication required" },
+      { status: 401 },
+    );
   }
   await auth.protect();
 });

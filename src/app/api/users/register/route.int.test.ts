@@ -8,7 +8,15 @@
  * left `audit_logs.facility_id` missing, so every audited write — registration
  * included — failed with a P2022 that surfaced as a bare "Internal server error".
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 vi.mock("next/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/server")>()),
@@ -21,6 +29,19 @@ vi.mock("@/lib/auth", () => ({
   requireRole: authMock.requireUser,
   getCurrentUser: authMock.requireUser,
 }));
+
+// The real implementation talks to S3; the route only needs the key contract.
+const profileImageMock = vi.hoisted(() => ({
+  isFinalProfileImageKey: vi.fn((key: string, userId: string) =>
+    key.startsWith(`profile-images/${userId}/`),
+  ),
+  verifyFinalProfileImage: vi.fn(() => Promise.resolve("image/png" as const)),
+  publicProfileImageUrl: vi.fn(
+    (key: string) =>
+      `/api/profile-images/${key.replace(/^profile-images\//, "")}`,
+  ),
+}));
+vi.mock("@/lib/profile-images", () => profileImageMock);
 
 const url = process.env.TEST_DATABASE_URL;
 if (url) process.env.DATABASE_URL = url;
@@ -38,7 +59,10 @@ describe.skipIf(!url)("POST /api/users/register", () => {
     POST(
       new NextRequestCtor("https://care.example/api/users/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json", origin: "https://care.example" },
+        headers: {
+          "Content-Type": "application/json",
+          origin: "https://care.example",
+        },
         body: JSON.stringify(body),
       }),
       { params: Promise.resolve({}) },
@@ -52,6 +76,12 @@ describe.skipIf(!url)("POST /api/users/register", () => {
     dateOfBirth: "1990-01-01",
     documents: [{ name: "license.pdf", url: "blob:fake", size: 1024 }],
   });
+
+  // A storage key the (mocked) profile-image lib accepts for the current user.
+  const imageKey = () =>
+    `profile-images/${user.id}/12345678-1234-1234-1234-1234567890ab`;
+  const imageUrl = (key: string) =>
+    `/api/profile-images/${key.replace(/^profile-images\//, "")}`;
 
   beforeAll(async () => {
     ({ NextRequest: NextRequestCtor } = await import("next/server"));
@@ -94,7 +124,9 @@ describe.skipIf(!url)("POST /api/users/register", () => {
       requiresVerification: false,
     });
 
-    const patient = await prisma.patient.findUnique({ where: { userId: user.id } });
+    const patient = await prisma.patient.findUnique({
+      where: { userId: user.id },
+    });
     expect(patient?.firstName).toBe("Test");
 
     const updated = await prisma.user.findUnique({ where: { id: user.id } });
@@ -102,7 +134,8 @@ describe.skipIf(!url)("POST /api/users/register", () => {
     expect(updated?.status).toBe("ACTIVE");
   });
 
-  it("registers a doctor (pending verification)", async () => {
+  it("registers a doctor (pending verification) with a mandatory profile photo", async () => {
+    const key = imageKey();
     const response = await invoke({
       ...basePayload(),
       accountType: "doctor",
@@ -111,6 +144,7 @@ describe.skipIf(!url)("POST /api/users/register", () => {
       yearOfRegistration: "2020",
       yearsOfExperience: "5",
       specialty: "Internal Medicine",
+      profileImageKey: key,
     });
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toMatchObject({
@@ -119,14 +153,52 @@ describe.skipIf(!url)("POST /api/users/register", () => {
       requiresVerification: true,
     });
 
-    const doctor = await prisma.doctorProfile.findUnique({ where: { userId: user.id } });
+    const doctor = await prisma.doctorProfile.findUnique({
+      where: { userId: user.id },
+    });
     expect(doctor?.licenseNumber).toBe("LIC-1");
     expect(doctor?.verificationStatus).toBe("PENDING");
+
+    const updated = await prisma.user.findUnique({ where: { id: user.id } });
+    expect(updated?.avatarUrl).toBe(imageUrl(key));
+  });
+
+  it("rejects a doctor registration without a profile photo", async () => {
+    const response = await invoke({
+      ...basePayload(),
+      accountType: "doctor",
+      mdcnRegistrationNumber: "MDCN-1",
+      mdcnLicenseNumber: "LIC-1",
+      yearOfRegistration: "2020",
+      specialty: "Internal Medicine",
+    });
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "A profile photo is required to complete your registration",
+    });
+  });
+
+  it("rejects a doctor registration with an image key owned by someone else", async () => {
+    const response = await invoke({
+      ...basePayload(),
+      accountType: "doctor",
+      mdcnRegistrationNumber: "MDCN-1",
+      mdcnLicenseNumber: "LIC-1",
+      yearOfRegistration: "2020",
+      specialty: "Internal Medicine",
+      profileImageKey:
+        "profile-images/someone-else/12345678-1234-1234-1234-1234567890ab",
+    });
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Invalid profile image",
+    });
   });
 
   it.each(["laboratory", "diagnostic_centre", "hospital"] as const)(
     "registers a %s without an internal server error",
     async (accountType) => {
+      const key = imageKey();
       const response = await invoke({
         ...basePayload(),
         accountType,
@@ -134,6 +206,7 @@ describe.skipIf(!url)("POST /api/users/register", () => {
         organisationType: "Laboratory",
         cacRegistrationNumber: "CAC-12345",
         facilityLicenseNumber: "FAC-67890",
+        profileImageKey: key,
       });
       expect(response.status).toBe(201);
       await expect(response.json()).resolves.toMatchObject({
@@ -142,9 +215,12 @@ describe.skipIf(!url)("POST /api/users/register", () => {
         requiresVerification: true,
       });
 
-      const profile = await prisma.labStaffProfile.findUnique({ where: { userId: user.id } });
+      const profile = await prisma.labStaffProfile.findUnique({
+        where: { userId: user.id },
+      });
       expect(profile?.laboratoryName).toBe("Test Facility Ltd");
       expect(profile?.facilityLicenseNumber).toBe("FAC-67890");
+      expect(profile?.logoUrl).toBe(imageUrl(key));
       expect(profile?.verificationStatus).toBe("PENDING");
 
       // The audit-log write is part of registration; it must succeed (see the incident note).
@@ -156,6 +232,24 @@ describe.skipIf(!url)("POST /api/users/register", () => {
       const updated = await prisma.user.findUnique({ where: { id: user.id } });
       expect(updated?.onboardingComplete).toBe(true);
       expect(updated?.status).toBe("PENDING");
+    },
+  );
+
+  it.each(["laboratory", "diagnostic_centre", "hospital"] as const)(
+    "rejects a %s registration without a logo",
+    async (accountType) => {
+      const response = await invoke({
+        ...basePayload(),
+        accountType,
+        organisationName: "Test Facility Ltd",
+        organisationType: "Laboratory",
+        cacRegistrationNumber: "CAC-12345",
+        facilityLicenseNumber: "FAC-67890",
+      });
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({
+        error: "An organisation logo is required to complete your registration",
+      });
     },
   );
 });

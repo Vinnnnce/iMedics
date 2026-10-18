@@ -3,7 +3,10 @@ import { prisma } from "./prisma";
 import { notFound } from "./errors";
 
 /** Public URL directory per facility type (the patient-facing accountType). */
-export const FACILITY_TYPE_DIRECTORY: Record<Exclude<AccountType, "PATIENT" | "DOCTOR">, string> = {
+export const FACILITY_TYPE_DIRECTORY: Record<
+  Exclude<AccountType, "PATIENT" | "DOCTOR">,
+  string
+> = {
   HOSPITAL: "hospitals",
   LABORATORY: "laboratories",
   DIAGNOSTIC_CENTRE: "diagnostic-centres",
@@ -16,8 +19,14 @@ export const DIRECTORY_TYPE_LABEL: Record<string, string> = {
 };
 
 /** The directory slug for a facility account type, or null for non-facility types. */
-export function directoryForAccountType(accountType: AccountType | null): string | null {
-  return FACILITY_TYPE_DIRECTORY[accountType as Exclude<AccountType, "PATIENT" | "DOCTOR">] ?? null;
+export function directoryForAccountType(
+  accountType: AccountType | null,
+): string | null {
+  return (
+    FACILITY_TYPE_DIRECTORY[
+      accountType as Exclude<AccountType, "PATIENT" | "DOCTOR">
+    ] ?? null
+  );
 }
 
 /**
@@ -36,7 +45,15 @@ export function slugifyFacility(name: string): string | null {
 }
 
 /** Validate a slug chosen by a facility: URL-safe, not a reserved word. */
-const RESERVED_SLUGS = new Set(["new", "search", "all", "admin", "api", "settings", "profile"]);
+const RESERVED_SLUGS = new Set([
+  "new",
+  "search",
+  "all",
+  "admin",
+  "api",
+  "settings",
+  "profile",
+]);
 
 export function validateFacilitySlug(slug: string): string | null {
   const normalized = slugifyFacility(slug);
@@ -95,17 +112,27 @@ export async function listPublicFacilities(input: {
 }) {
   const where = {
     ...PUBLIC_FACILITY_WHERE,
-    user: { ...PUBLIC_FACILITY_WHERE.user, accountType: directoryAccountType(input.directory) },
+    user: {
+      ...PUBLIC_FACILITY_WHERE.user,
+      accountType: directoryAccountType(input.directory),
+    },
     ...(input.q
       ? {
           OR: [
-            { laboratoryName: { contains: input.q, mode: "insensitive" as const } },
+            {
+              laboratoryName: {
+                contains: input.q,
+                mode: "insensitive" as const,
+              },
+            },
             { city: { contains: input.q, mode: "insensitive" as const } },
             { state: { contains: input.q, mode: "insensitive" as const } },
           ],
         }
       : {}),
-    ...(input.city ? { city: { contains: input.city, mode: "insensitive" as const } } : {}),
+    ...(input.city
+      ? { city: { contains: input.city, mode: "insensitive" as const } }
+      : {}),
   };
   return prisma.labStaffProfile.findMany({
     where,
@@ -120,24 +147,48 @@ export async function getPublicFacilityBySlug(directory: string, slug: string) {
     where: {
       ...PUBLIC_FACILITY_WHERE,
       slug,
-      user: { ...PUBLIC_FACILITY_WHERE.user, accountType: directoryAccountType(directory) },
+      user: {
+        ...PUBLIC_FACILITY_WHERE.user,
+        accountType: directoryAccountType(directory),
+      },
     },
     select: {
       ...PUBLIC_FACILITY_SELECT,
       branches: {
         where: {},
-        select: { id: true, name: true, addressLine: true, city: true, state: true, phone: true, openingHours: true, isPrimary: true },
+        select: {
+          id: true,
+          name: true,
+          addressLine: true,
+          city: true,
+          state: true,
+          phone: true,
+          openingHours: true,
+          isPrimary: true,
+        },
       },
       facilityDepartments: {
         select: {
-          id: true, name: true, slug: true, description: true, openingHours: true, equipment: true,
+          id: true,
+          name: true,
+          slug: true,
+          description: true,
+          openingHours: true,
+          equipment: true,
           leadStaff: {
             select: { fullName: true, professionalTitle: true },
           },
         },
       },
       accreditations: {
-        select: { id: true, name: true, issuer: true, issuedAt: true, expiresAt: true, verified: true },
+        select: {
+          id: true,
+          name: true,
+          issuer: true,
+          issuedAt: true,
+          expiresAt: true,
+          verified: true,
+        },
       },
     },
   });
@@ -194,7 +245,9 @@ export async function listPublicFacilityStaff(facilityId: string) {
 }
 
 /** Strip the LinkedIn URL unless the staff member opted in to showing it. */
-export function publicStaffProfile<T extends { linkedinUrl: string | null; linkedinPublic: boolean }>(
+export function publicStaffProfile<
+  T extends { linkedinUrl: string | null; linkedinPublic: boolean },
+>(
   staff: T,
 ): Omit<T, "linkedinUrl" | "linkedinPublic"> & { linkedinUrl: string | null } {
   const { linkedinUrl, linkedinPublic, ...rest } = staff;
@@ -254,8 +307,17 @@ export function facilityJsonLd(facility: {
     },
     ...(facility.phone ? { telephone: facility.phone } : {}),
     ...(facility.email ? { email: facility.email } : {}),
-    ...(facility.logoUrl ? { logo: facility.logoUrl } : {}),
-    ...(facility.operatingHours ? { openingHours: facility.operatingHours } : {}),
+    ...(facility.logoUrl ? { logo: absoluteUrl(facility.logoUrl) } : {}),
+    ...(facility.operatingHours
+      ? { openingHours: facility.operatingHours }
+      : {}),
   };
   return data;
+}
+
+/** Structured data wants absolute URLs; app-relative paths get the public site origin prefixed. */
+function absoluteUrl(url: string): string {
+  if (!url.startsWith("/")) return url;
+  const base = process.env.NEXT_PUBLIC_APP_URL;
+  return base ? `${base.replace(/\/$/, "")}${url}` : url;
 }

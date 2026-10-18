@@ -3,26 +3,56 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import Link from "next/link";
 import { uploadVerificationDocument } from "@/lib/verification-upload";
+import { uploadProfileImage } from "@/lib/profile-image-upload";
 import { VerificationStatusPanel } from "@/components/shared/verification-status-panel";
 import {
-  Shield, FileText, Cookie, CheckCircle2, Stethoscope, Heart,
-  FlaskConical, Building2, Hospital, Microscope, Upload,
-  ArrowRight, ArrowLeft, Loader2, AlertCircle, BadgeCheck,
-  User, FileCheck, X,
+  Shield,
+  FileText,
+  Cookie,
+  CheckCircle2,
+  Stethoscope,
+  Heart,
+  FlaskConical,
+  Building2,
+  Hospital,
+  Microscope,
+  Upload,
+  ArrowRight,
+  ArrowLeft,
+  Loader2,
+  AlertCircle,
+  BadgeCheck,
+  User,
+  FileCheck,
+  X,
+  ImageIcon,
 } from "lucide-react";
 
 type Step = "loading" | "terms" | "account-type" | "registration" | "pending";
 
-type AccountType = "patient" | "doctor" | "laboratory" | "diagnostic_centre" | "hospital" | null;
+type AccountType =
+  "patient" | "doctor" | "laboratory" | "diagnostic_centre" | "hospital" | null;
 
 type UploadedDoc = {
   /** Which requirement this file satisfies, e.g. "mdcn_certificate". */
@@ -82,36 +112,106 @@ type RegistrationData = {
 const STORAGE_KEY = "medic1905_registration_form";
 
 const NIGERIAN_STATES = [
-  "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue",
-  "Borno", "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu",
-  "FCT (Abuja)", "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", "Katsina",
-  "Kebbi", "Kogi", "Kwara", "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo",
-  "Osun", "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara",
+  "Abia",
+  "Adamawa",
+  "Akwa Ibom",
+  "Anambra",
+  "Bauchi",
+  "Bayelsa",
+  "Benue",
+  "Borno",
+  "Cross River",
+  "Delta",
+  "Ebonyi",
+  "Edo",
+  "Ekiti",
+  "Enugu",
+  "FCT (Abuja)",
+  "Gombe",
+  "Imo",
+  "Jigawa",
+  "Kaduna",
+  "Kano",
+  "Katsina",
+  "Kebbi",
+  "Kogi",
+  "Kwara",
+  "Lagos",
+  "Nasarawa",
+  "Niger",
+  "Ogun",
+  "Ondo",
+  "Osun",
+  "Oyo",
+  "Plateau",
+  "Rivers",
+  "Sokoto",
+  "Taraba",
+  "Yobe",
+  "Zamfara",
 ];
 
 const DOCTOR_SPECIALTIES = [
-  "General Medicine", "Internal Medicine", "Cardiology", "Dermatology",
-  "Endocrinology", "Gastroenterology", "Haematology", "Nephrology",
-  "Neurology", "Obstetrics & Gynaecology", "Oncology", "Ophthalmology",
-  "Orthopaedic Surgery", "Paediatrics", "Psychiatry", "Pulmonology",
-  "Radiology", "Surgery", "Urology", "Dental Surgery", "Family Medicine",
-  "Community Medicine", "Emergency Medicine", "Anaesthesiology",
-  "Pathology", "Microbiology",
+  "General Medicine",
+  "Internal Medicine",
+  "Cardiology",
+  "Dermatology",
+  "Endocrinology",
+  "Gastroenterology",
+  "Haematology",
+  "Nephrology",
+  "Neurology",
+  "Obstetrics & Gynaecology",
+  "Oncology",
+  "Ophthalmology",
+  "Orthopaedic Surgery",
+  "Paediatrics",
+  "Psychiatry",
+  "Pulmonology",
+  "Radiology",
+  "Surgery",
+  "Urology",
+  "Dental Surgery",
+  "Family Medicine",
+  "Community Medicine",
+  "Emergency Medicine",
+  "Anaesthesiology",
+  "Pathology",
+  "Microbiology",
 ];
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const GENOTYPES = ["AA", "AS", "SS", "AC", "SC", "CC"];
 
 const DEFAULT_REG_DATA: RegistrationData = {
-  firstName: "", lastName: "", middleName: "", email: "", phone: "",
-  gender: "", dateOfBirth: "", address: "", city: "", state: "",
-  mdcnRegistrationNumber: "", mdcnLicenseNumber: "", yearOfRegistration: "",
-  specialty: "", yearsOfExperience: "", affiliation: "", biography: "",
-  cacRegistrationNumber: "", organisationName: "", organisationType: "",
+  firstName: "",
+  lastName: "",
+  middleName: "",
+  email: "",
+  phone: "",
+  gender: "",
+  dateOfBirth: "",
+  address: "",
+  city: "",
+  state: "",
+  mdcnRegistrationNumber: "",
+  mdcnLicenseNumber: "",
+  yearOfRegistration: "",
+  specialty: "",
+  yearsOfExperience: "",
+  affiliation: "",
+  biography: "",
+  cacRegistrationNumber: "",
+  organisationName: "",
+  organisationType: "",
   facilityLicenseNumber: "",
-  bloodGroup: "", genotype: "", allergies: "", chronicConditions: "",
+  bloodGroup: "",
+  genotype: "",
+  allergies: "",
+  chronicConditions: "",
   occupation: "",
-  emergencyContactName: "", emergencyContactRelationship: "",
+  emergencyContactName: "",
+  emergencyContactRelationship: "",
   emergencyContactPhone: "",
   documents: [],
 };
@@ -155,7 +255,9 @@ export default function PostSignupRedirect() {
     if (typeof window === "undefined") return DEFAULT_REG_DATA;
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY);
-      return saved ? { ...DEFAULT_REG_DATA, ...JSON.parse(saved), documents: [] } : DEFAULT_REG_DATA;
+      return saved
+        ? { ...DEFAULT_REG_DATA, ...JSON.parse(saved), documents: [] }
+        : DEFAULT_REG_DATA;
     } catch {
       return DEFAULT_REG_DATA;
     }
@@ -166,29 +268,96 @@ export default function PostSignupRedirect() {
   const pendingFiles = useRef<Map<string, File>>(new Map());
   const [uploadWarning, setUploadWarning] = useState("");
 
+  // Profile photo (doctors) / organisation logo (laboratories, diagnostic
+  // centres, hospitals). Uploaded and verified immediately on selection.
+  const [profileImage, setProfileImage] = useState<{
+    key: string;
+    name: string;
+    previewUrl: string;
+  } | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const profileImageInputRef = useRef<HTMLInputElement | null>(null);
+  // Discards upload completions that race with a removal or account-type change.
+  const uploadSequence = useRef(0);
+
+  const handleProfileImageSelect = async (file: File) => {
+    const seq = ++uploadSequence.current;
+    const mimeType = file.type === "image/jpg" ? "image/jpeg" : file.type;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(mimeType)) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        profileImage: "Only PNG, JPG or WEBP images are allowed",
+      }));
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        profileImage: "Image is too large. Maximum size is 5MB.",
+      }));
+      return;
+    }
+    setImageUploading(true);
+    setError("");
+    try {
+      const key = await uploadProfileImage(file);
+      if (seq !== uploadSequence.current) return; // stale completion: the image was removed or the type changed
+      setProfileImage((prev) => {
+        if (prev) URL.revokeObjectURL(prev.previewUrl);
+        return { key, name: file.name, previewUrl: URL.createObjectURL(file) };
+      });
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next.profileImage;
+        return next;
+      });
+    } catch {
+      setFieldErrors((prev) => ({
+        ...prev,
+        profileImage: "Failed to upload the image. Please try again.",
+      }));
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const removeProfileImage = () => {
+    uploadSequence.current += 1;
+    setProfileImage((prev) => {
+      if (prev) URL.revokeObjectURL(prev.previewUrl);
+      return null;
+    });
+  };
+
   // Save form data to sessionStorage whenever it changes
   const persistData = useCallback((data: RegistrationData) => {
     try {
       // Files cannot survive a reload, so they are never saved with the draft.
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, documents: [] }));
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ ...data, documents: [] }),
+      );
     } catch {}
   }, []);
 
-  const updateField = useCallback((field: keyof RegistrationData, value: string) => {
-    setRegData((prev) => {
-      const next = { ...prev, [field]: value };
-      persistData(next);
-      return next;
-    });
-    // Clear field error when user types
-    if (fieldErrors[field]) {
-      setFieldErrors((prev) => {
-        const next = { ...prev };
-        delete next[field];
+  const updateField = useCallback(
+    (field: keyof RegistrationData, value: string) => {
+      setRegData((prev) => {
+        const next = { ...prev, [field]: value };
+        persistData(next);
         return next;
       });
-    }
-  }, [fieldErrors, persistData]);
+      // Clear field error when user types
+      if (fieldErrors[field]) {
+        setFieldErrors((prev) => {
+          const next = { ...prev };
+          delete next[field];
+          return next;
+        });
+      }
+    },
+    [fieldErrors, persistData],
+  );
 
   // Handle document upload
   const handleFileUpload = (docKey: string, file: File) => {
@@ -211,7 +380,10 @@ export default function PostSignupRedirect() {
         URL.revokeObjectURL(old.url);
         pendingFiles.current.delete(old.url);
       }
-      const next = { ...prev, documents: [...prev.documents.filter((d) => d.docKey !== docKey), doc] };
+      const next = {
+        ...prev,
+        documents: [...prev.documents.filter((d) => d.docKey !== docKey), doc],
+      };
       persistData(next);
       return next;
     });
@@ -245,15 +417,21 @@ export default function PostSignupRedirect() {
     const clerkLastName = user.lastName || "";
     // Wizard progress below lives in client-writable metadata. It only decides which
     // form step to show; role and registration status come from the server (/api/me).
-    const termsAccepted = (user.unsafeMetadata as Record<string, unknown>)?.termsAccepted as boolean;
-    const savedAccountType = (user.unsafeMetadata as Record<string, unknown>)?.accountType as string;
+    const termsAccepted = (user.unsafeMetadata as Record<string, unknown>)
+      ?.termsAccepted as boolean;
+    const savedAccountType = (user.unsafeMetadata as Record<string, unknown>)
+      ?.accountType as string;
 
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch("/api/me");
         if (!res.ok) throw new Error(String(res.status));
-        const me: { role: string; status: string; onboardingComplete: boolean } = await res.json();
+        const me: {
+          role: string;
+          status: string;
+          onboardingComplete: boolean;
+        } = await res.json();
         if (cancelled) return;
 
         if (me.onboardingComplete) {
@@ -287,7 +465,12 @@ export default function PostSignupRedirect() {
       if (clerkEmail) {
         setRegData((prev) => {
           if (prev.email === clerkEmail) return prev;
-          const next = { ...prev, email: clerkEmail, firstName: clerkFirstName, lastName: clerkLastName };
+          const next = {
+            ...prev,
+            email: clerkEmail,
+            firstName: clerkFirstName,
+            lastName: clerkLastName,
+          };
           persistData(next);
           return next;
         });
@@ -351,6 +534,9 @@ export default function PostSignupRedirect() {
           accountType,
         },
       });
+      // A doctor's portrait is not an organisation logo (and vice versa): the
+      // uploaded image does not carry over when the account type changes.
+      removeProfileImage();
       setDirection("forward");
       setStep("registration");
     } catch {
@@ -369,7 +555,8 @@ export default function PostSignupRedirect() {
     if (!regData.phone.trim()) {
       errors.phone = "Phone number is required";
     } else if (!isValidNigerianPhone(regData.phone)) {
-      errors.phone = "Enter a valid Nigerian phone number (e.g., +234 803 123 4567)";
+      errors.phone =
+        "Enter a valid Nigerian phone number (e.g., +234 803 123 4567)";
     }
     if (!regData.gender) errors.gender = "Gender is required";
     if (!regData.dateOfBirth) errors.dateOfBirth = "Date of birth is required";
@@ -379,6 +566,7 @@ export default function PostSignupRedirect() {
 
     // Doctor-specific validation
     if (accountType === "doctor") {
+      if (!profileImage) errors.profileImage = "A profile photo is required";
       if (!regData.mdcnRegistrationNumber.trim())
         errors.mdcnRegistrationNumber = "MDCN Registration Number is required";
       if (!regData.mdcnLicenseNumber.trim())
@@ -395,7 +583,13 @@ export default function PostSignupRedirect() {
     }
 
     // Organisation-specific validation
-    if (accountType === "laboratory" || accountType === "diagnostic_centre" || accountType === "hospital") {
+    if (
+      accountType === "laboratory" ||
+      accountType === "diagnostic_centre" ||
+      accountType === "hospital"
+    ) {
+      if (!profileImage)
+        errors.profileImage = "An organisation logo is required";
       if (!regData.organisationName.trim())
         errors.organisationName = "Organisation name is required";
       if (!regData.cacRegistrationNumber.trim())
@@ -422,6 +616,11 @@ export default function PostSignupRedirect() {
   const handleRegistrationSubmit = async () => {
     setError("");
 
+    if (imageUploading) {
+      setError("Please wait for the image upload to finish.");
+      return;
+    }
+
     if (!validateForm()) {
       setError("Please correct the errors highlighted below.");
       return;
@@ -433,12 +632,21 @@ export default function PostSignupRedirect() {
       const res = await fetch("/api/users/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...regData, accountType, termsAccepted: true }),
+        body: JSON.stringify({
+          ...regData,
+          accountType,
+          termsAccepted: true,
+          profileImageKey: profileImage?.key,
+        }),
       });
 
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        setError(body?.issues?.[0]?.message ?? body?.error ?? "Failed to submit registration. Please try again.");
+        setError(
+          body?.issues?.[0]?.message ??
+            body?.error ??
+            "Failed to submit registration. Please try again.",
+        );
         return;
       }
       const result: { requiresVerification: boolean } = await res.json();
@@ -450,14 +658,20 @@ export default function PostSignupRedirect() {
           const file = pendingFiles.current.get(doc.url);
           if (!file) continue;
           try {
-            await uploadVerificationDocument(file, DOC_KIND[doc.docKey] ?? "OTHER");
+            await uploadVerificationDocument(
+              file,
+              DOC_KIND[doc.docKey] ?? "OTHER",
+            );
           } catch {
             failed += 1;
           }
         }
         for (const doc of regData.documents) URL.revokeObjectURL(doc.url);
         pendingFiles.current.clear();
-        if (failed > 0) setUploadWarning(`${failed} document${failed === 1 ? "" : "s"} could not be uploaded. Please add ${failed === 1 ? "it" : "them"} below so we can review your application.`);
+        if (failed > 0)
+          setUploadWarning(
+            `${failed} document${failed === 1 ? "" : "s"} could not be uploaded. Please add ${failed === 1 ? "it" : "them"} below so we can review your application.`,
+          );
       }
 
       // Clear sessionStorage
@@ -476,7 +690,10 @@ export default function PostSignupRedirect() {
     }
   };
 
-  const isOrganisation = accountType === "laboratory" || accountType === "diagnostic_centre" || accountType === "hospital";
+  const isOrganisation =
+    accountType === "laboratory" ||
+    accountType === "diagnostic_centre" ||
+    accountType === "hospital";
   const requiresVerification = accountType === "doctor" || isOrganisation;
 
   // Step definitions for progress stepper
@@ -498,15 +715,18 @@ export default function PostSignupRedirect() {
             const isCompleted = idx < currentStepIndex;
             const isCurrent = idx === currentStepIndex;
             return (
-              <div key={s.key} className="flex items-center flex-1 last:flex-none">
+              <div
+                key={s.key}
+                className="flex items-center flex-1 last:flex-none"
+              >
                 <div className="flex flex-col items-center gap-1.5">
                   <div
                     className={`flex h-9 w-9 items-center justify-center rounded-full border-2 transition-all shrink-0 ${
                       isCompleted
                         ? "border-foreground bg-foreground text-background"
                         : isCurrent
-                        ? "border-foreground bg-background text-foreground"
-                        : "border-border bg-background text-muted-foreground"
+                          ? "border-foreground bg-background text-foreground"
+                          : "border-border bg-background text-muted-foreground"
                     }`}
                   >
                     {isCompleted ? (
@@ -515,12 +735,16 @@ export default function PostSignupRedirect() {
                       <span className="text-sm font-semibold">{idx + 1}</span>
                     )}
                   </div>
-                  <span className={`text-xs hidden sm:block ${isCurrent ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                  <span
+                    className={`text-xs hidden sm:block ${isCurrent ? "text-foreground font-medium" : "text-muted-foreground"}`}
+                  >
                     {s.label}
                   </span>
                 </div>
                 {idx < 2 && (
-                  <div className={`flex-1 h-0.5 mx-2 transition-colors ${isCompleted ? "bg-foreground" : "bg-border"}`} />
+                  <div
+                    className={`flex-1 h-0.5 mx-2 transition-colors ${isCompleted ? "bg-foreground" : "bg-border"}`}
+                  />
                 )}
               </div>
             );
@@ -536,13 +760,111 @@ export default function PostSignupRedirect() {
       <p className="text-xs text-destructive mt-1">{fieldErrors[name]}</p>
     ) : null;
 
+  // Profile photo (doctors) / organisation logo upload. Uploaded and verified
+  // immediately; the returned key is submitted with the registration.
+  const renderProfileImageUpload = ({
+    label,
+    description,
+    round,
+  }: {
+    label: string;
+    description: string;
+    round?: boolean;
+  }) => (
+    <div
+      className={`rounded-lg border-2 border-dashed p-4 text-center transition-colors ${
+        fieldErrors.profileImage
+          ? "border-destructive"
+          : "border-border hover:border-primary/30"
+      }`}
+    >
+      <input
+        ref={profileImageInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleProfileImageSelect(file);
+          e.target.value = "";
+        }}
+      />
+      {profileImage ? (
+        <div className="space-y-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={profileImage.previewUrl}
+            alt={label}
+            className={`mx-auto h-24 w-24 border-2 border-border object-cover ${round ? "rounded-full" : "rounded-xl"}`}
+          />
+          <p className="text-xs font-medium truncate">{profileImage.name}</p>
+          <div className="flex justify-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-lg"
+              disabled={imageUploading}
+              onClick={() => profileImageInputRef.current?.click()}
+            >
+              Replace
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-lg"
+              disabled={imageUploading}
+              onClick={removeProfileImage}
+            >
+              <X className="h-4 w-4 mr-1" /> Remove
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <ImageIcon className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+          <p className="text-sm font-medium">{label} *</p>
+          <p className="text-xs text-muted-foreground">{description}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-3 rounded-lg"
+            disabled={imageUploading}
+            onClick={() => profileImageInputRef.current?.click()}
+          >
+            {imageUploading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Uploading...
+              </>
+            ) : (
+              "Upload"
+            )}
+          </Button>
+        </>
+      )}
+      {renderFieldError("profileImage")}
+    </div>
+  );
+
   // Reusable document upload card
-  const renderDocUpload = ({ docKey, label, description }: { docKey: string; label: string; description: string }) => {
+  const renderDocUpload = ({
+    docKey,
+    label,
+    description,
+  }: {
+    docKey: string;
+    label: string;
+    description: string;
+  }) => {
     const uploaded = regData.documents.filter((d) => d.docKey === docKey);
     return (
       <div className="rounded-lg border-2 border-dashed border-border p-4 text-center hover:border-primary/30 transition-colors">
         <input
-          ref={(el) => { fileInputRefs.current[docKey] = el; }}
+          ref={(el) => {
+            fileInputRefs.current[docKey] = el;
+          }}
           type="file"
           accept=".pdf,.jpg,.jpeg,.png"
           className="hidden"
@@ -556,7 +878,10 @@ export default function PostSignupRedirect() {
           <div className="space-y-2">
             <FileCheck className="mx-auto h-8 w-8 text-foreground" />
             {uploaded.map((doc, i) => (
-              <div key={i} className="flex items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2">
+              <div
+                key={i}
+                className="flex items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2"
+              >
                 <span className="text-xs font-medium truncate">{doc.name}</span>
                 <button
                   type="button"
@@ -620,8 +945,12 @@ export default function PostSignupRedirect() {
               <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-lg bg-foreground">
                 <Shield className="h-7 w-7 text-background" />
               </div>
-              <h1 className="text-2xl font-bold text-foreground">Welcome to Medic1905</h1>
-              <p className="text-sm text-muted-foreground mt-1">Please review and accept our policies to continue</p>
+              <h1 className="text-2xl font-bold text-foreground">
+                Welcome to Medic1905
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Please review and accept our policies to continue
+              </p>
             </div>
 
             <Card className="beeline-card">
@@ -633,13 +962,25 @@ export default function PostSignupRedirect() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-foreground">Terms of Use</p>
-                      <Switch checked={acceptedTerms} onCheckedChange={setAcceptedTerms} />
+                      <p className="text-sm font-semibold text-foreground">
+                        Terms of Use
+                      </p>
+                      <Switch
+                        checked={acceptedTerms}
+                        onCheckedChange={setAcceptedTerms}
+                      />
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       I agree to the{" "}
-                      <Link href="/legal/terms" className="underline text-foreground" target="_blank">Terms of Use</Link>
-                      {" "}including the platform-only disclaimer and AI content disclaimer.
+                      <Link
+                        href="/legal/terms"
+                        className="underline text-foreground"
+                        target="_blank"
+                      >
+                        Terms of Use
+                      </Link>{" "}
+                      including the platform-only disclaimer and AI content
+                      disclaimer.
                     </p>
                   </div>
                 </div>
@@ -651,13 +992,25 @@ export default function PostSignupRedirect() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-foreground">Privacy Policy</p>
-                      <Switch checked={acceptedPrivacy} onCheckedChange={setAcceptedPrivacy} />
+                      <p className="text-sm font-semibold text-foreground">
+                        Privacy Policy
+                      </p>
+                      <Switch
+                        checked={acceptedPrivacy}
+                        onCheckedChange={setAcceptedPrivacy}
+                      />
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       I agree to the{" "}
-                      <Link href="/legal/privacy" className="underline text-foreground" target="_blank">Privacy Policy</Link>
-                      {" "}regarding how my personal and health data is collected, used, and protected.
+                      <Link
+                        href="/legal/privacy"
+                        className="underline text-foreground"
+                        target="_blank"
+                      >
+                        Privacy Policy
+                      </Link>{" "}
+                      regarding how my personal and health data is collected,
+                      used, and protected.
                     </p>
                   </div>
                 </div>
@@ -669,13 +1022,24 @@ export default function PostSignupRedirect() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-foreground">Cookies Policy</p>
-                      <Switch checked={acceptedCookies} onCheckedChange={setAcceptedCookies} />
+                      <p className="text-sm font-semibold text-foreground">
+                        Cookies Policy
+                      </p>
+                      <Switch
+                        checked={acceptedCookies}
+                        onCheckedChange={setAcceptedCookies}
+                      />
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       I agree to the{" "}
-                      <Link href="/legal/cookies" className="underline text-foreground" target="_blank">Cookies Policy</Link>
-                      {" "}regarding the use of cookies and similar technologies.
+                      <Link
+                        href="/legal/cookies"
+                        className="underline text-foreground"
+                        target="_blank"
+                      >
+                        Cookies Policy
+                      </Link>{" "}
+                      regarding the use of cookies and similar technologies.
                     </p>
                   </div>
                 </div>
@@ -688,13 +1052,23 @@ export default function PostSignupRedirect() {
 
                 <Button
                   className="w-full bg-foreground text-background hover:bg-foreground/90 rounded-lg h-12 text-base font-bold"
-                  disabled={!acceptedTerms || !acceptedPrivacy || !acceptedCookies || submitting}
+                  disabled={
+                    !acceptedTerms ||
+                    !acceptedPrivacy ||
+                    !acceptedCookies ||
+                    submitting
+                  }
                   onClick={handleAcceptTerms}
                 >
                   {submitting ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</>
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />{" "}
+                      Saving...
+                    </>
                   ) : (
-                    <>Accept & Continue <ArrowRight className="h-4 w-4 ml-2" /></>
+                    <>
+                      Accept & Continue <ArrowRight className="h-4 w-4 ml-2" />
+                    </>
                   )}
                 </Button>
               </CardContent>
@@ -711,16 +1085,51 @@ export default function PostSignupRedirect() {
       {
         category: "Personal",
         items: [
-          { value: "patient", label: "Patient", desc: "Book consults, view results, manage your health", icon: Heart, color: "text-muted-foreground", bgColor: "bg-muted" },
-          { value: "doctor", label: "Doctor", desc: "Review patients, write consultations, prescribe", icon: Stethoscope, color: "text-foreground", bgColor: "bg-foreground/10" },
+          {
+            value: "patient",
+            label: "Patient",
+            desc: "Book consults, view results, manage your health",
+            icon: Heart,
+            color: "text-muted-foreground",
+            bgColor: "bg-muted",
+          },
+          {
+            value: "doctor",
+            label: "Doctor",
+            desc: "Review patients, write consultations, prescribe",
+            icon: Stethoscope,
+            color: "text-foreground",
+            bgColor: "bg-foreground/10",
+          },
         ],
       },
       {
         category: "Organisation",
         items: [
-          { value: "laboratory", label: "Laboratory", desc: "Manage lab orders, upload results, verify tests", icon: FlaskConical, color: "text-muted-foreground", bgColor: "bg-muted" },
-          { value: "diagnostic_centre", label: "Diagnostic Centre", desc: "Diagnostic services, imaging, test management", icon: Microscope, color: "text-muted-foreground", bgColor: "bg-muted" },
-          { value: "hospital", label: "Hospital", desc: "Hospital management, admissions, departments", icon: Hospital, color: "text-muted-foreground", bgColor: "bg-muted" },
+          {
+            value: "laboratory",
+            label: "Laboratory",
+            desc: "Manage lab orders, upload results, verify tests",
+            icon: FlaskConical,
+            color: "text-muted-foreground",
+            bgColor: "bg-muted",
+          },
+          {
+            value: "diagnostic_centre",
+            label: "Diagnostic Centre",
+            desc: "Diagnostic services, imaging, test management",
+            icon: Microscope,
+            color: "text-muted-foreground",
+            bgColor: "bg-muted",
+          },
+          {
+            value: "hospital",
+            label: "Hospital",
+            desc: "Hospital management, admissions, departments",
+            icon: Hospital,
+            color: "text-muted-foreground",
+            bgColor: "bg-muted",
+          },
         ],
       },
     ];
@@ -731,14 +1140,20 @@ export default function PostSignupRedirect() {
         <div className="flex items-center justify-center">
           <div className="w-full max-w-2xl">
             <div className="mb-6 text-center">
-              <h1 className="text-2xl font-bold text-foreground">Complete Registration</h1>
-              <p className="text-sm text-muted-foreground mt-1">Select the type of account you want to create</p>
+              <h1 className="text-2xl font-bold text-foreground">
+                Complete Registration
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Select the type of account you want to create
+              </p>
             </div>
 
             <div className="space-y-6">
               {accountTypes.map((category) => (
                 <div key={category.category}>
-                  <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">{category.category}</h2>
+                  <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
+                    {category.category}
+                  </h2>
                   <div className="space-y-3">
                     {category.items.map((item) => {
                       const Icon = item.icon;
@@ -747,7 +1162,9 @@ export default function PostSignupRedirect() {
                         <button
                           key={item.value}
                           type="button"
-                          onClick={() => setAccountType(item.value as AccountType)}
+                          onClick={() =>
+                            setAccountType(item.value as AccountType)
+                          }
                           className={`w-full text-left transition-all ${
                             isSelected
                               ? "border-2 border-foreground bg-foreground/5"
@@ -755,19 +1172,39 @@ export default function PostSignupRedirect() {
                           } rounded-lg p-4`}
                         >
                           <div className="flex items-center gap-4">
-                            <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${item.bgColor} shrink-0`}>
+                            <div
+                              className={`flex h-12 w-12 items-center justify-center rounded-lg ${item.bgColor} shrink-0`}
+                            >
                               <Icon className={`h-6 w-6 ${item.color}`} />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-base font-semibold">{item.label}</p>
-                              <p className="text-sm text-muted-foreground">{item.desc}</p>
+                              <p className="text-base font-semibold">
+                                {item.label}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {item.desc}
+                              </p>
                             </div>
-                            <div className={`h-6 w-6 rounded-full border-2 shrink-0 ${
-                              isSelected ? "border-foreground bg-foreground" : "border-border"
-                            }`}>
+                            <div
+                              className={`h-6 w-6 rounded-full border-2 shrink-0 ${
+                                isSelected
+                                  ? "border-foreground bg-foreground"
+                                  : "border-border"
+                              }`}
+                            >
                               {isSelected && (
-                                <svg viewBox="0 0 24 24" className="h-full w-full p-1 text-background" fill="none" stroke="currentColor" strokeWidth="3">
-                                  <path d="M5 12l5 5L20 7" strokeLinecap="round" strokeLinejoin="round" />
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  className="h-full w-full p-1 text-background"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="3"
+                                >
+                                  <path
+                                    d="M5 12l5 5L20 7"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
                                 </svg>
                               )}
                             </div>
@@ -803,9 +1240,14 @@ export default function PostSignupRedirect() {
                 onClick={handleAccountTypeSelect}
               >
                 {submitting ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Setting up...</>
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Setting
+                    up...
+                  </>
                 ) : (
-                  <>Continue <ArrowRight className="h-4 w-4 ml-2" /></>
+                  <>
+                    Continue <ArrowRight className="h-4 w-4 ml-2" />
+                  </>
                 )}
               </Button>
             </div>
@@ -823,15 +1265,22 @@ export default function PostSignupRedirect() {
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="text-center">
             <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-lg bg-foreground/10">
-              {accountType === "doctor" && <Stethoscope className="h-7 w-7 text-foreground" />}
-              {accountType === "patient" && <Heart className="h-7 w-7 text-foreground" />}
-              {isOrganisation && <Building2 className="h-7 w-7 text-foreground" />}
+              {accountType === "doctor" && (
+                <Stethoscope className="h-7 w-7 text-foreground" />
+              )}
+              {accountType === "patient" && (
+                <Heart className="h-7 w-7 text-foreground" />
+              )}
+              {isOrganisation && (
+                <Building2 className="h-7 w-7 text-foreground" />
+              )}
             </div>
             <h1 className="text-2xl font-bold text-foreground">
               {accountType === "doctor" && "Doctor Registration"}
               {accountType === "patient" && "Patient Registration"}
               {accountType === "laboratory" && "Laboratory Registration"}
-              {accountType === "diagnostic_centre" && "Diagnostic Centre Registration"}
+              {accountType === "diagnostic_centre" &&
+                "Diagnostic Centre Registration"}
               {accountType === "hospital" && "Hospital Registration"}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
@@ -845,13 +1294,20 @@ export default function PostSignupRedirect() {
             <div className="flex items-center gap-3 rounded-lg border border-border bg-muted p-4">
               <AlertCircle className="h-5 w-5 text-warning shrink-0" />
               <p className="text-xs text-muted-foreground">
-                Your registration will be reviewed and verified by our admin team before activation. Please ensure all information is accurate and matches your credentials.
+                Your registration will be reviewed and verified by our admin
+                team before activation. Please ensure all information is
+                accurate and matches your credentials.
               </p>
             </div>
           )}
 
-          <form onSubmit={(e) => { e.preventDefault(); handleRegistrationSubmit(); }} className="space-y-6">
-
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleRegistrationSubmit();
+            }}
+            className="space-y-6"
+          >
             {/* === COMMON: Personal Information === */}
             <Card className="beeline-card">
               <CardHeader>
@@ -878,7 +1334,9 @@ export default function PostSignupRedirect() {
                     <Input
                       id="middleName"
                       value={regData.middleName}
-                      onChange={(e) => updateField("middleName", e.target.value)}
+                      onChange={(e) =>
+                        updateField("middleName", e.target.value)
+                      }
                       className="rounded-lg"
                     />
                   </div>
@@ -898,7 +1356,13 @@ export default function PostSignupRedirect() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="email">Email *</Label>
-                    <Input id="email" type="email" value={regData.email} readOnly className="rounded-lg bg-muted font-mono text-sm" />
+                    <Input
+                      id="email"
+                      type="email"
+                      value={regData.email}
+                      readOnly
+                      className="rounded-lg bg-muted font-mono text-sm"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="phone">Phone Number *</Label>
@@ -906,7 +1370,9 @@ export default function PostSignupRedirect() {
                       id="phone"
                       type="tel"
                       value={regData.phone}
-                      onChange={(e) => updateField("phone", formatPhoneInput(e.target.value))}
+                      onChange={(e) =>
+                        updateField("phone", formatPhoneInput(e.target.value))
+                      }
                       required
                       placeholder="+234 803 123 4567"
                       className={`rounded-lg ${fieldErrors.phone ? "border-destructive" : ""}`}
@@ -918,8 +1384,15 @@ export default function PostSignupRedirect() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="gender">Gender *</Label>
-                    <Select value={regData.gender} onValueChange={(v) => updateField("gender", v || "")}>
-                      <SelectTrigger className={`rounded-lg ${fieldErrors.gender ? "border-destructive" : ""}`}><SelectValue placeholder="Select gender" /></SelectTrigger>
+                    <Select
+                      value={regData.gender}
+                      onValueChange={(v) => updateField("gender", v || "")}
+                    >
+                      <SelectTrigger
+                        className={`rounded-lg ${fieldErrors.gender ? "border-destructive" : ""}`}
+                      >
+                        <SelectValue placeholder="Select gender" />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="male">Male</SelectItem>
                         <SelectItem value="female">Female</SelectItem>
@@ -934,7 +1407,9 @@ export default function PostSignupRedirect() {
                       id="dateOfBirth"
                       type="date"
                       value={regData.dateOfBirth}
-                      onChange={(e) => updateField("dateOfBirth", e.target.value)}
+                      onChange={(e) =>
+                        updateField("dateOfBirth", e.target.value)
+                      }
                       required
                       max={new Date().toISOString().split("T")[0]}
                       className={`rounded-lg ${fieldErrors.dateOfBirth ? "border-destructive" : ""}`}
@@ -971,10 +1446,21 @@ export default function PostSignupRedirect() {
 
                 <div className="space-y-2">
                   <Label htmlFor="state">State *</Label>
-                  <Select value={regData.state} onValueChange={(v) => updateField("state", v || "")}>
-                    <SelectTrigger className={`rounded-lg ${fieldErrors.state ? "border-destructive" : ""}`}><SelectValue placeholder="Select state" /></SelectTrigger>
+                  <Select
+                    value={regData.state}
+                    onValueChange={(v) => updateField("state", v || "")}
+                  >
+                    <SelectTrigger
+                      className={`rounded-lg ${fieldErrors.state ? "border-destructive" : ""}`}
+                    >
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {NIGERIAN_STATES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      {NIGERIAN_STATES.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   {renderFieldError("state")}
@@ -991,22 +1477,29 @@ export default function PostSignupRedirect() {
                     MDCN Professional Credentials
                   </CardTitle>
                   <CardDescription>
-                    Medical and Dental Council of Nigeria (MDCN) registration details
+                    Medical and Dental Council of Nigeria (MDCN) registration
+                    details
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="mdcnReg">MDCN Registration Number *</Label>
+                      <Label htmlFor="mdcnReg">
+                        MDCN Registration Number *
+                      </Label>
                       <Input
                         id="mdcnReg"
                         value={regData.mdcnRegistrationNumber}
-                        onChange={(e) => updateField("mdcnRegistrationNumber", e.target.value)}
+                        onChange={(e) =>
+                          updateField("mdcnRegistrationNumber", e.target.value)
+                        }
                         required
                         placeholder="e.g., MDCN/R/00000"
                         className={`rounded-lg ${fieldErrors.mdcnRegistrationNumber ? "border-destructive" : ""}`}
                       />
-                      <p className="text-xs text-muted-foreground">As issued by the Medical and Dental Council of Nigeria</p>
+                      <p className="text-xs text-muted-foreground">
+                        As issued by the Medical and Dental Council of Nigeria
+                      </p>
                       {renderFieldError("mdcnRegistrationNumber")}
                     </div>
                     <div className="space-y-2">
@@ -1014,24 +1507,32 @@ export default function PostSignupRedirect() {
                       <Input
                         id="mdcnLicense"
                         value={regData.mdcnLicenseNumber}
-                        onChange={(e) => updateField("mdcnLicenseNumber", e.target.value)}
+                        onChange={(e) =>
+                          updateField("mdcnLicenseNumber", e.target.value)
+                        }
                         required
                         placeholder="e.g., MDCN/L/00000"
                         className={`rounded-lg ${fieldErrors.mdcnLicenseNumber ? "border-destructive" : ""}`}
                       />
-                      <p className="text-xs text-muted-foreground">Current practising license number</p>
+                      <p className="text-xs text-muted-foreground">
+                        Current practising license number
+                      </p>
                       {renderFieldError("mdcnLicenseNumber")}
                     </div>
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="yearReg">Year of MDCN Registration *</Label>
+                      <Label htmlFor="yearReg">
+                        Year of MDCN Registration *
+                      </Label>
                       <Input
                         id="yearReg"
                         type="number"
                         value={regData.yearOfRegistration}
-                        onChange={(e) => updateField("yearOfRegistration", e.target.value)}
+                        onChange={(e) =>
+                          updateField("yearOfRegistration", e.target.value)
+                        }
                         required
                         placeholder="e.g., 2015"
                         min="1950"
@@ -1046,7 +1547,9 @@ export default function PostSignupRedirect() {
                         id="yearsExp"
                         type="number"
                         value={regData.yearsOfExperience}
-                        onChange={(e) => updateField("yearsOfExperience", e.target.value)}
+                        onChange={(e) =>
+                          updateField("yearsOfExperience", e.target.value)
+                        }
                         className="rounded-lg"
                         min="0"
                       />
@@ -1056,20 +1559,35 @@ export default function PostSignupRedirect() {
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="specialty">Specialty *</Label>
-                      <Select value={regData.specialty} onValueChange={(v) => updateField("specialty", v || "")}>
-                        <SelectTrigger className={`rounded-lg ${fieldErrors.specialty ? "border-destructive" : ""}`}><SelectValue placeholder="Select specialty" /></SelectTrigger>
+                      <Select
+                        value={regData.specialty}
+                        onValueChange={(v) => updateField("specialty", v || "")}
+                      >
+                        <SelectTrigger
+                          className={`rounded-lg ${fieldErrors.specialty ? "border-destructive" : ""}`}
+                        >
+                          <SelectValue placeholder="Select specialty" />
+                        </SelectTrigger>
                         <SelectContent>
-                          {DOCTOR_SPECIALTIES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          {DOCTOR_SPECIALTIES.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {s}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       {renderFieldError("specialty")}
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="affiliation">Hospital/Clinic Affiliation</Label>
+                      <Label htmlFor="affiliation">
+                        Hospital/Clinic Affiliation
+                      </Label>
                       <Input
                         id="affiliation"
                         value={regData.affiliation}
-                        onChange={(e) => updateField("affiliation", e.target.value)}
+                        onChange={(e) =>
+                          updateField("affiliation", e.target.value)
+                        }
                         placeholder="e.g., Lagos University Teaching Hospital"
                         className="rounded-lg"
                       />
@@ -1088,10 +1606,29 @@ export default function PostSignupRedirect() {
                     />
                   </div>
 
+                  {/* Profile photo (mandatory) */}
+                  <div className="space-y-2">
+                    <Label>Profile Photo *</Label>
+                    {renderProfileImageUpload({
+                      label: "Profile photo",
+                      description:
+                        "Shown to patients alongside your listing (PNG, JPG, WEBP — max 5MB)",
+                      round: true,
+                    })}
+                  </div>
+
                   {/* Document Upload */}
                   <div className="grid gap-4 md:grid-cols-2">
-                    {renderDocUpload({ docKey: "mdcn_certificate", label: "MDCN Registration Certificate", description: "PDF, JPG, PNG (max 5MB)" })}
-                    {renderDocUpload({ docKey: "practising_license", label: "Practising License", description: "PDF, JPG, PNG (max 5MB)" })}
+                    {renderDocUpload({
+                      docKey: "mdcn_certificate",
+                      label: "MDCN Registration Certificate",
+                      description: "PDF, JPG, PNG (max 5MB)",
+                    })}
+                    {renderDocUpload({
+                      docKey: "practising_license",
+                      label: "Practising License",
+                      description: "PDF, JPG, PNG (max 5MB)",
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -1106,7 +1643,8 @@ export default function PostSignupRedirect() {
                     Organisation Registration
                   </CardTitle>
                   <CardDescription>
-                    Corporate Affairs Commission (CAC) registration and facility details
+                    Corporate Affairs Commission (CAC) registration and facility
+                    details
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -1116,7 +1654,9 @@ export default function PostSignupRedirect() {
                       <Input
                         id="orgName"
                         value={regData.organisationName}
-                        onChange={(e) => updateField("organisationName", e.target.value)}
+                        onChange={(e) =>
+                          updateField("organisationName", e.target.value)
+                        }
                         required
                         placeholder="e.g., Lagos Medical Laboratories Ltd"
                         className={`rounded-lg ${fieldErrors.organisationName ? "border-destructive" : ""}`}
@@ -1127,7 +1667,13 @@ export default function PostSignupRedirect() {
                       <Label htmlFor="orgType">Organisation Type *</Label>
                       <Input
                         id="orgType"
-                        value={accountType === "laboratory" ? "Laboratory" : accountType === "diagnostic_centre" ? "Diagnostic Centre" : "Hospital"}
+                        value={
+                          accountType === "laboratory"
+                            ? "Laboratory"
+                            : accountType === "diagnostic_centre"
+                              ? "Diagnostic Centre"
+                              : "Hospital"
+                        }
                         readOnly
                         className="rounded-lg bg-muted"
                       />
@@ -1140,33 +1686,61 @@ export default function PostSignupRedirect() {
                       <Input
                         id="cacReg"
                         value={regData.cacRegistrationNumber}
-                        onChange={(e) => updateField("cacRegistrationNumber", e.target.value)}
+                        onChange={(e) =>
+                          updateField("cacRegistrationNumber", e.target.value)
+                        }
                         required
                         placeholder="e.g., RC1234567 or BN1234567"
                         className={`rounded-lg ${fieldErrors.cacRegistrationNumber ? "border-destructive" : ""}`}
                       />
-                      <p className="text-xs text-muted-foreground">Corporate Affairs Commission registration number</p>
+                      <p className="text-xs text-muted-foreground">
+                        Corporate Affairs Commission registration number
+                      </p>
                       {renderFieldError("cacRegistrationNumber")}
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="facilityLicense">Facility License Number *</Label>
+                      <Label htmlFor="facilityLicense">
+                        Facility License Number *
+                      </Label>
                       <Input
                         id="facilityLicense"
                         value={regData.facilityLicenseNumber}
-                        onChange={(e) => updateField("facilityLicenseNumber", e.target.value)}
+                        onChange={(e) =>
+                          updateField("facilityLicenseNumber", e.target.value)
+                        }
                         required
                         placeholder="e.g., FML/00000"
                         className={`rounded-lg ${fieldErrors.facilityLicenseNumber ? "border-destructive" : ""}`}
                       />
-                      <p className="text-xs text-muted-foreground">Ministry of Health facility license</p>
+                      <p className="text-xs text-muted-foreground">
+                        Ministry of Health facility license
+                      </p>
                       {renderFieldError("facilityLicenseNumber")}
                     </div>
                   </div>
 
+                  {/* Organisation logo (mandatory) */}
+                  <div className="space-y-2">
+                    <Label>Organisation Logo *</Label>
+                    {renderProfileImageUpload({
+                      label: "Organisation logo",
+                      description:
+                        "Shown on your public facility page (PNG, JPG, WEBP — max 5MB)",
+                    })}
+                  </div>
+
                   {/* Document Upload */}
                   <div className="grid gap-4 md:grid-cols-2">
-                    {renderDocUpload({ docKey: "cac_certificate", label: "CAC Certificate", description: "PDF, JPG, PNG (max 5MB)" })}
-                    {renderDocUpload({ docKey: "facility_license_doc", label: "Facility License", description: "PDF, JPG, PNG (max 5MB)" })}
+                    {renderDocUpload({
+                      docKey: "cac_certificate",
+                      label: "CAC Certificate",
+                      description: "PDF, JPG, PNG (max 5MB)",
+                    })}
+                    {renderDocUpload({
+                      docKey: "facility_license_doc",
+                      label: "Facility License",
+                      description: "PDF, JPG, PNG (max 5MB)",
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -1186,19 +1760,39 @@ export default function PostSignupRedirect() {
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="bloodGroup">Blood Group</Label>
-                      <Select value={regData.bloodGroup} onValueChange={(v) => updateField("bloodGroup", v || "")}>
-                        <SelectTrigger className="rounded-lg"><SelectValue placeholder="Select blood group" /></SelectTrigger>
+                      <Select
+                        value={regData.bloodGroup}
+                        onValueChange={(v) =>
+                          updateField("bloodGroup", v || "")
+                        }
+                      >
+                        <SelectTrigger className="rounded-lg">
+                          <SelectValue placeholder="Select blood group" />
+                        </SelectTrigger>
                         <SelectContent>
-                          {BLOOD_GROUPS.map((bg) => <SelectItem key={bg} value={bg}>{bg}</SelectItem>)}
+                          {BLOOD_GROUPS.map((bg) => (
+                            <SelectItem key={bg} value={bg}>
+                              {bg}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="genotype">Genotype</Label>
-                      <Select value={regData.genotype} onValueChange={(v) => updateField("genotype", v || "")}>
-                        <SelectTrigger className="rounded-lg"><SelectValue placeholder="Select genotype" /></SelectTrigger>
+                      <Select
+                        value={regData.genotype}
+                        onValueChange={(v) => updateField("genotype", v || "")}
+                      >
+                        <SelectTrigger className="rounded-lg">
+                          <SelectValue placeholder="Select genotype" />
+                        </SelectTrigger>
                         <SelectContent>
-                          {GENOTYPES.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                          {GENOTYPES.map((g) => (
+                            <SelectItem key={g} value={g}>
+                              {g}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1210,17 +1804,23 @@ export default function PostSignupRedirect() {
                       <Input
                         id="allergies"
                         value={regData.allergies}
-                        onChange={(e) => updateField("allergies", e.target.value)}
+                        onChange={(e) =>
+                          updateField("allergies", e.target.value)
+                        }
                         placeholder="Comma-separated, e.g., Penicillin, Peanuts"
                         className="rounded-lg"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="chronicConditions">Chronic Conditions</Label>
+                      <Label htmlFor="chronicConditions">
+                        Chronic Conditions
+                      </Label>
                       <Input
                         id="chronicConditions"
                         value={regData.chronicConditions}
-                        onChange={(e) => updateField("chronicConditions", e.target.value)}
+                        onChange={(e) =>
+                          updateField("chronicConditions", e.target.value)
+                        }
                         placeholder="Comma-separated, e.g., Diabetes, Hypertension"
                         className="rounded-lg"
                       />
@@ -1232,7 +1832,9 @@ export default function PostSignupRedirect() {
                     <Input
                       id="occupation"
                       value={regData.occupation}
-                      onChange={(e) => updateField("occupation", e.target.value)}
+                      onChange={(e) =>
+                        updateField("occupation", e.target.value)
+                      }
                       placeholder="e.g., Teacher, Engineer"
                       className="rounded-lg"
                     />
@@ -1240,14 +1842,18 @@ export default function PostSignupRedirect() {
 
                   {/* Emergency Contact */}
                   <div className="border-t border-border pt-4">
-                    <p className="text-sm font-semibold mb-3">Emergency Contact</p>
+                    <p className="text-sm font-semibold mb-3">
+                      Emergency Contact
+                    </p>
                     <div className="grid gap-4 md:grid-cols-3">
                       <div className="space-y-2">
                         <Label htmlFor="ecName">Contact Name *</Label>
                         <Input
                           id="ecName"
                           value={regData.emergencyContactName}
-                          onChange={(e) => updateField("emergencyContactName", e.target.value)}
+                          onChange={(e) =>
+                            updateField("emergencyContactName", e.target.value)
+                          }
                           required
                           className={`rounded-lg ${fieldErrors.emergencyContactName ? "border-destructive" : ""}`}
                         />
@@ -1258,7 +1864,12 @@ export default function PostSignupRedirect() {
                         <Input
                           id="ecRel"
                           value={regData.emergencyContactRelationship}
-                          onChange={(e) => updateField("emergencyContactRelationship", e.target.value)}
+                          onChange={(e) =>
+                            updateField(
+                              "emergencyContactRelationship",
+                              e.target.value,
+                            )
+                          }
                           placeholder="e.g., Spouse, Parent"
                           className="rounded-lg"
                         />
@@ -1269,7 +1880,12 @@ export default function PostSignupRedirect() {
                           id="ecPhone"
                           type="tel"
                           value={regData.emergencyContactPhone}
-                          onChange={(e) => updateField("emergencyContactPhone", formatPhoneInput(e.target.value))}
+                          onChange={(e) =>
+                            updateField(
+                              "emergencyContactPhone",
+                              formatPhoneInput(e.target.value),
+                            )
+                          }
                           required
                           placeholder="+234 803 123 4567"
                           className={`rounded-lg ${fieldErrors.emergencyContactPhone ? "border-destructive" : ""}`}
@@ -1287,7 +1903,10 @@ export default function PostSignupRedirect() {
               <div className="flex items-center gap-3 rounded-lg border border-border bg-muted p-4">
                 <BadgeCheck className="h-5 w-5 text-muted-foreground shrink-0" />
                 <p className="text-xs text-muted-foreground">
-                  After registration, your application will show as <strong className="text-foreground">Pending</strong> until the website admin verifies your credentials and approves your account.
+                  After registration, your application will show as{" "}
+                  <strong className="text-foreground">Pending</strong> until the
+                  website admin verifies your credentials and approves your
+                  account.
                 </p>
               </div>
             )}
@@ -1304,17 +1923,20 @@ export default function PostSignupRedirect() {
                 variant="outline"
                 className="rounded-lg px-6"
                 onClick={goBack}
-                disabled={submitting}
+                disabled={submitting || imageUploading}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" /> Back
               </Button>
               <Button
                 type="submit"
                 className="flex-1 bg-foreground text-background hover:bg-foreground/90 rounded-lg h-12 text-base font-bold"
-                disabled={submitting}
+                disabled={submitting || imageUploading}
               >
                 {submitting ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting...</>
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />{" "}
+                    Submitting...
+                  </>
                 ) : (
                   "Complete Registration"
                 )}
@@ -1334,12 +1956,19 @@ export default function PostSignupRedirect() {
           <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-foreground/10">
             <BadgeCheck className="h-10 w-10 text-foreground" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground mb-2">Registration Submitted</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-2">
+            Registration Submitted
+          </h1>
           <p className="text-sm text-muted-foreground mb-6">
-            Your registration has been submitted successfully and is now pending review.
+            Your registration has been submitted successfully and is now pending
+            review.
           </p>
 
-          {uploadWarning && <p className="mb-4 rounded-lg border border-border bg-muted p-3 text-left text-xs text-foreground">{uploadWarning}</p>}
+          {uploadWarning && (
+            <p className="mb-4 rounded-lg border border-border bg-muted p-3 text-left text-xs text-foreground">
+              {uploadWarning}
+            </p>
+          )}
           <VerificationStatusPanel />
 
           <div className="flex gap-3 mt-6">
