@@ -7,49 +7,53 @@ datasource db {
 }
 
 model User {
-  id                    String                   @id @default(uuid()) @db.Uuid
-  clerkId               String                   @unique @map("clerk_id")
-  email                 String                   @unique
-  name                  String
-  phone                 String?
-  avatarUrl             String?                  @map("avatar_url")
-  language              String                   @default("en")
-  role                  Role                     @default(PATIENT)
-  accountType           AccountType?             @map("account_type")
-  status                UserStatus               @default(ACTIVE)
-  onboardingComplete    Boolean                  @default(false) @map("onboarding_complete")
-  termsAcceptedAt       DateTime?                @map("terms_accepted_at")
-  termsVersion          String?                  @map("terms_version")
-  lastLoginAt           DateTime?                @map("last_login_at")
+  id                     String                   @id @default(uuid()) @db.Uuid
+  clerkId                String                   @unique @map("clerk_id")
+  email                  String                   @unique
+  name                   String
+  phone                  String?
+  avatarUrl              String?                  @map("avatar_url")
+  language               String                   @default("en")
+  role                   Role                     @default(PATIENT)
+  accountType            AccountType?             @map("account_type")
+  status                 UserStatus               @default(ACTIVE)
+  onboardingComplete     Boolean                  @default(false) @map("onboarding_complete")
+  termsAcceptedAt        DateTime?                @map("terms_accepted_at")
+  termsVersion           String?                  @map("terms_version")
+  lastLoginAt            DateTime?                @map("last_login_at")
   /// Why an admin suspended or banned the account; shown to the user and kept for the record.
-  statusReason          String?                  @map("status_reason")
-  statusChangedAt       DateTime?                @map("status_changed_at")
-  createdAt             DateTime                 @default(now()) @map("created_at")
-  updatedAt             DateTime                 @updatedAt @map("updated_at")
-  deletedAt             DateTime?                @map("deleted_at")
-  aiReviews             AiAnalysis[]             @relation("AiAnalysisReviewedBy")
-  auditLogs             AuditLog[]
-  messagesSent          ChatMessage[]
-  doctorProfile         DoctorProfile?           @relation("DoctorProfileUser")
-  doctorsVerified       DoctorProfile[]          @relation("DoctorVerifiedBy")
-  labOrdersOrdered      LabOrder[]               @relation("LabOrderOrderedBy")
-  labResultsUploaded    LabResult[]              @relation("LabResultUploadedBy")
-  labResultsVerified    LabResult[]              @relation("LabResultVerifiedBy")
-  labStaffProfile       LabStaffProfile?         @relation("LabStaffProfileUser")
-  labStaffVerified      LabStaffProfile[]        @relation("LabStaffVerifiedBy")
-  notifications         Notification[]
-  notificationPrefs     NotificationPreference[]
-  pushSubscriptions     PushSubscription[]
-  paymentsMade          Payment[]                @relation("PaymentPayer")
-  paymentsReceived      Payment[]                @relation("PaymentPayee")
-  patient               Patient?
-  verificationDocuments VerificationDocument[]
-  verificationReviews   VerificationReview[]     @relation("VerificationSubject")
-  verificationsDecided  VerificationReview[]     @relation("VerificationReviewer")
-  facilityStaffMembers  FacilityStaff[]          @relation("FacilityStaffUser")
-  providerSubaccount    ProviderSubaccount?
-  refundsDecided        Refund[]                 @relation("RefundDecidedBy")
-  refundsRequested      Refund[]                 @relation("RefundRequestedBy")
+  statusReason           String?                  @map("status_reason")
+  statusChangedAt        DateTime?                @map("status_changed_at")
+  createdAt              DateTime                 @default(now()) @map("created_at")
+  updatedAt              DateTime                 @updatedAt @map("updated_at")
+  deletedAt              DateTime?                @map("deleted_at")
+  aiReviews              AiAnalysis[]             @relation("AiAnalysisReviewedBy")
+  auditLogs              AuditLog[]
+  messagesSent           ChatMessage[]
+  doctorProfile          DoctorProfile?           @relation("DoctorProfileUser")
+  doctorsVerified        DoctorProfile[]          @relation("DoctorVerifiedBy")
+  labOrdersOrdered       LabOrder[]               @relation("LabOrderOrderedBy")
+  labResultsUploaded     LabResult[]              @relation("LabResultUploadedBy")
+  labResultsVerified     LabResult[]              @relation("LabResultVerifiedBy")
+  labStaffProfile        LabStaffProfile?         @relation("LabStaffProfileUser")
+  labStaffVerified       LabStaffProfile[]        @relation("LabStaffVerifiedBy")
+  notifications          Notification[]
+  notificationPrefs      NotificationPreference[]
+  pushSubscriptions      PushSubscription[]
+  documentsUploaded      PatientDocument[]        @relation("PatientDocumentUploaded")
+  documentSharesReceived DocumentShare[]          @relation("DocumentShareRecipient")
+  trustedContactAccount  TrustedContact[]         @relation("TrustedContactUser")
+  lastActiveAt           DateTime?                @map("last_active_at")
+  paymentsMade           Payment[]                @relation("PaymentPayer")
+  paymentsReceived       Payment[]                @relation("PaymentPayee")
+  patient                Patient?
+  verificationDocuments  VerificationDocument[]
+  verificationReviews    VerificationReview[]     @relation("VerificationSubject")
+  verificationsDecided   VerificationReview[]     @relation("VerificationReviewer")
+  facilityStaffMembers   FacilityStaff[]          @relation("FacilityStaffUser")
+  providerSubaccount     ProviderSubaccount?
+  refundsDecided         Refund[]                 @relation("RefundDecidedBy")
+  refundsRequested       Refund[]                 @relation("RefundRequestedBy")
 
   @@index([role])
   @@index([status])
@@ -184,6 +188,7 @@ model LabStaffProfile {
   settlementAccountNumber String?                 @map("settlement_account_number") @db.VarChar(40)
   subaccount              ProviderSubaccount?
   commissionRules         CommissionRule[]
+  website                 FacilityWebsite?
   branches                FacilityBranch[]
   facilityDepartments     FacilityDepartment[]
   staffMembers            FacilityStaff[]
@@ -245,33 +250,33 @@ model DoctorLike {
 }
 
 model Patient {
-  id                String              @id @default(uuid()) @db.Uuid
-  caseNumber        String              @unique @map("case_number")
-  userId            String?             @unique @map("user_id") @db.Uuid
-  firstName         String              @map("first_name")
-  lastName          String              @map("last_name")
-  middleName        String?             @map("middle_name")
+  id                String               @id @default(uuid()) @db.Uuid
+  caseNumber        String               @unique @map("case_number")
+  userId            String?              @unique @map("user_id") @db.Uuid
+  firstName         String               @map("first_name")
+  lastName          String               @map("last_name")
+  middleName        String?              @map("middle_name")
   gender            Gender
-  dateOfBirth       DateTime            @map("date_of_birth") @db.Date
+  dateOfBirth       DateTime             @map("date_of_birth") @db.Date
   height            Float?
   weight            Float?
-  bloodGroup        String?             @map("blood_group")
+  bloodGroup        String?              @map("blood_group")
   genotype          String?
   occupation        String?
-  addressLine1      String?             @map("address_line1")
-  addressLine2      String?             @map("address_line2")
+  addressLine1      String?              @map("address_line1")
+  addressLine2      String?              @map("address_line2")
   city              String?
   state             String?
-  postalCode        String?             @map("postal_code")
-  country           String?             @default("NG")
-  ecName            String?             @map("ec_name")
-  ecRelationship    String?             @map("ec_relationship")
-  ecPhone           String?             @map("ec_phone")
-  ecAddress         String?             @map("ec_address")
+  postalCode        String?              @map("postal_code")
+  country           String?              @default("NG")
+  ecName            String?              @map("ec_name")
+  ecRelationship    String?              @map("ec_relationship")
+  ecPhone           String?              @map("ec_phone")
+  ecAddress         String?              @map("ec_address")
   insurance         Json?
-  createdAt         DateTime            @default(now()) @map("created_at")
-  updatedAt         DateTime            @updatedAt @map("updated_at")
-  deletedAt         DateTime?           @map("deleted_at")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+  deletedAt         DateTime?            @map("deleted_at")
   appointments      Appointment[]
   clinicalNotes     ClinicalNote[]
   consultations     Consultation[]
@@ -283,12 +288,17 @@ model Patient {
   medicalHistories  MedicalHistory[]
   assignments       PatientAssignment[]
   facilityBookings  FacilityBooking[]
-  user              User?               @relation(fields: [userId], references: [id])
+  user              User?                @relation(fields: [userId], references: [id])
   prescriptions     Prescription[]
-  preferredName     String?             @map("preferred_name")
-  organDonorStatus  Boolean?            @map("organ_donor_status")
+  preferredName     String?              @map("preferred_name")
+  organDonorStatus  Boolean?             @map("organ_donor_status")
   careCases         CareCase[]
-  facilityReferrals FacilityReferral[]  @relation("ReferralPatient")
+  documents         PatientDocument[]
+  reminders         MedicationReminder[]
+  doseEvents        DoseEvent[]
+  trustedContacts   TrustedContact[]
+  inactivityRule    InactivityRule?
+  facilityReferrals FacilityReferral[]   @relation("ReferralPatient")
 
   @@index([lastName, firstName])
   @@index([deletedAt])
@@ -431,36 +441,74 @@ model Consultation {
 }
 
 model Prescription {
-  id             String             @id @default(uuid()) @db.Uuid
-  patientId      String             @map("patient_id") @db.Uuid
-  doctorId       String             @map("doctor_id") @db.Uuid
-  consultationId String?            @map("consultation_id") @db.Uuid
-  status         PrescriptionStatus @default(ACTIVE)
-  issuedAt       DateTime           @default(now()) @map("issued_at")
-  validUntil     DateTime?          @map("valid_until")
-  notes          String?
-  createdAt      DateTime           @default(now()) @map("created_at")
-  updatedAt      DateTime           @updatedAt @map("updated_at")
-  items          PrescriptionItem[]
-  consultation   Consultation?      @relation(fields: [consultationId], references: [id])
-  doctor         DoctorProfile      @relation(fields: [doctorId], references: [id])
-  patient        Patient            @relation(fields: [patientId], references: [id])
-  caseId         String?            @map("case_id") @db.Uuid
-  case           CareCase?          @relation(fields: [caseId], references: [id])
+  id                String             @id @default(uuid()) @db.Uuid
+  patientId         String             @map("patient_id") @db.Uuid
+  doctorId          String             @map("doctor_id") @db.Uuid
+  consultationId    String?            @map("consultation_id") @db.Uuid
+  status            PrescriptionStatus @default(ACTIVE)
+  issuedAt          DateTime           @default(now()) @map("issued_at")
+  validUntil        DateTime?          @map("valid_until")
+  notes             String?
+  /// Timestamp when the prescriber reviewed and confirmed clinical safety alerts.
+  safetyReviewedAt  DateTime?          @map("safety_reviewed_at")
+  /// Alerts shown at prescribing time and the prescriber's override notes.
+  safetyReviewNotes Json?              @map("safety_review_notes")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  items             PrescriptionItem[]
+  consultation      Consultation?      @relation(fields: [consultationId], references: [id])
+  doctor            DoctorProfile      @relation(fields: [doctorId], references: [id])
+  patient           Patient            @relation(fields: [patientId], references: [id])
+  caseId            String?            @map("case_id") @db.Uuid
+  case              CareCase?          @relation(fields: [caseId], references: [id])
 
   @@index([patientId])
   @@map("prescriptions")
 }
 
 model PrescriptionItem {
-  id             String       @id @default(uuid()) @db.Uuid
-  prescriptionId String       @map("prescription_id") @db.Uuid
-  drugName       String       @map("drug_name")
-  dose           String?
-  frequency      String?
-  duration       String?
-  instructions   String?
-  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  id                     String               @id @default(uuid()) @db.Uuid
+  prescriptionId         String               @map("prescription_id") @db.Uuid
+  drugName               String
+  dose                   String?
+  frequency              String?
+  duration               String?
+  instructions           String?
+  // --- Structured clinical fields (enhanced prescribing) ---
+  activeIngredient       String?
+  drugClass              String?
+  pharmacologicalClass   String?
+  /// Antibiotic class: penicillins, cephalosporins, macrolides, tetracyclines, fluoroquinolones, aminoglycosides, other.
+  antibioticClass        String?
+  /// Verified antimicrobial coverage tags, e.g. GRAM_POSITIVE, GRAM_NEGATIVE, BROAD_SPECTRUM, ANAEROBES.
+  antimicrobialSpectrum  String[]             @default([]) @map("antimicrobial_spectrum")
+  /// Free-text intended bacterial coverage, kept separate from drug class.
+  coverageNotes          String?
+  indication             String?
+  route                  String?
+  formulation            String?
+  strength               String?
+  doseValue              Float?
+  doseUnit               String?
+  /// Exact administration times, e.g. ["08:00", "20:00"].
+  schedule               String[]             @default([])
+  frequencyText          String?
+  startDate              DateTime?
+  endDate                DateTime?
+  quantity               Int?
+  refills                Int?                 @default(0)
+  foodInstructions       String?
+  missedDoseInstructions String?
+  precautions            String?
+  monitoring             String?
+  /// Curated medication-reference row used for classification, if any.
+  medicationRefId        String?              @map("medication_ref_id") @db.Uuid
+  /// Prescriber's documented clinical override of reference data, with reason.
+  clinicalOverrideNotes  String?              @map("clinical_override_notes")
+  sortOrder              Int                  @default(0)
+  medicationRef          MedicationReference? @relation(fields: [medicationRefId], references: [id])
+  prescription           Prescription         @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  reminder               MedicationReminder?
 
   @@index([prescriptionId])
   @@map("prescription_items")
@@ -1109,6 +1157,9 @@ enum NotificationType {
   PAYMENT
   SYSTEM
   SUBSCRIPTION
+  MEDICATION_REMINDER
+  WELFARE_ALERT
+  DOCUMENT_SHARE
 }
 
 enum NotificationChannel {
@@ -1816,4 +1867,286 @@ model ReconciliationDiscrepancy {
   @@index([runId])
   @@index([type, resolvedAt])
   @@map("reconciliation_discrepancies")
+}
+
+// ============================================================
+// Feature: facility mini-websites (builder, templates, add-ons)
+// ============================================================
+
+model FacilityWebsite {
+  id              String                    @id @default(uuid()) @db.Uuid
+  facilityId      String                    @unique @map("facility_id") @db.Uuid
+  /// Selected starter template key, e.g. "medical-centre".
+  template        String                    @default("medical-centre") @db.VarChar(60)
+  /// Draft layout: ordered component list with per-component settings (never public until published).
+  draftLayout     Json                      @default("{}") @map("draft_layout")
+  /// Published layout: what the public mini-website renders.
+  publishedLayout Json?                     @map("published_layout")
+  /// Enabled add-on keys (e.g. "appointment-booking", "cta-banner").
+  addOns          String[]                  @default([]) @map("add_ons")
+  publishedAt     DateTime?                 @map("published_at")
+  draftSavedAt    DateTime?                 @map("draft_saved_at")
+  createdById     String                    @map("created_by_id") @db.Uuid
+  createdAt       DateTime                  @default(now()) @map("created_at")
+  updatedAt       DateTime                  @updatedAt @map("updated_at")
+  facility        LabStaffProfile           @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  revisions       FacilityWebsiteRevision[]
+
+  @@map("facility_websites")
+}
+
+model FacilityWebsiteRevision {
+  id            String          @id @default(uuid()) @db.Uuid
+  websiteId     String          @map("website_id") @db.Uuid
+  layout        Json
+  addOns        String[]        @default([])
+  publishedById String          @map("published_by_id") @db.Uuid
+  createdAt     DateTime        @default(now()) @map("created_at")
+  website       FacilityWebsite @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+
+  @@index([websiteId, createdAt])
+  @@map("facility_website_revisions")
+}
+
+// ============================================================
+// Feature: curated medication reference (classification + spectrum)
+// ============================================================
+
+model MedicationReference {
+  id                    String             @id @default(uuid()) @db.Uuid
+  /// RxNorm CUI when the row has been matched to the U.S. NLM RxNorm database.
+  rxCui                 String?            @unique @map("rx_cui")
+  name                  String
+  activeIngredient      String?
+  drugClass             String?
+  pharmacologicalClass  String?
+  antibioticClass       String?
+  antimicrobialSpectrum String[]           @default([]) @map("antimicrobial_spectrum")
+  commonRoutes          String[]           @default([]) @map("common_routes")
+  /// Common formulations, e.g. "500 mg tablet", "125 mg/5 mL suspension".
+  formulations          String[]
+  /// Where the interaction data comes from, e.g. "rxnav". Empty when unavailable.
+  interactionSource     String?            @map("interaction_source")
+  verified              Boolean            @default(false)
+  verifiedSource        String?            @map("verified_source")
+  lastReviewedAt        DateTime?          @map("last_reviewed_at")
+  notes                 String?
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+  items                 PrescriptionItem[]
+
+  @@index([name])
+  @@map("medication_references")
+}
+
+// ============================================================
+// Feature: patient medical records and document sharing
+// ============================================================
+
+enum DocumentCategory {
+  LAB_REPORT
+  DIAGNOSTIC_REPORT
+  IMAGING_REPORT
+  PRESCRIPTION
+  DISCHARGE_SUMMARY
+  REFERRAL_LETTER
+  VACCINATION_RECORD
+  OTHER
+}
+
+model PatientDocument {
+  id              String           @id @default(uuid()) @db.Uuid
+  patientId       String           @map("patient_id") @db.Uuid
+  category        DocumentCategory
+  title           String           @db.VarChar(200)
+  fileName        String
+  /// Private S3-style key; never exposed directly. Downloads go through presigned URLs.
+  storageKey      String           @unique @map("storage_key")
+  mimeType        String           @map("mime_type")
+  sizeBytes       Int              @map("size_bytes")
+  issuingFacility String?          @map("issuing_facility") @db.VarChar(200)
+  issuedOn        DateTime?        @map("issued_on")
+  notes           String?
+  uploadedById    String           @map("uploaded_by_id") @db.Uuid
+  deletedAt       DateTime?
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  patient         Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  uploader        User             @relation("PatientDocumentUploaded", fields: [uploadedById], references: [id])
+  shares          DocumentShare[]
+
+  @@index([patientId, createdAt])
+  @@map("patient_documents")
+}
+
+model DocumentShare {
+  id               String          @id @default(uuid()) @db.Uuid
+  documentId       String          @map("document_id") @db.Uuid
+  sharedWithUserId String          @map("shared_with_user_id") @db.Uuid
+  /// Platform role the recipient acts as for this share: DOCTOR, NURSE, HOSPITAL, CAREGIVER.
+  role             String          @db.VarChar(20)
+  grantedById      String          @map("granted_by_id") @db.Uuid
+  grantedAt        DateTime        @default(now()) @map("granted_at")
+  revokedAt        DateTime?
+  document         PatientDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  sharedWithUser   User            @relation("DocumentShareRecipient", fields: [sharedWithUserId], references: [id])
+
+  @@index([sharedWithUserId])
+  @@index([documentId])
+  @@map("document_shares")
+}
+
+// ============================================================
+// Feature: medication reminders and dose tracking
+// ============================================================
+
+enum DoseStatus {
+  SCHEDULED
+  ACKNOWLEDGED
+  TAKEN
+  MISSED
+  SKIPPED
+}
+
+model MedicationReminder {
+  id                 String            @id @default(uuid()) @db.Uuid
+  patientId          String            @map("patient_id") @db.Uuid
+  /// Linked structured prescription item, when the reminder comes from a prescription.
+  prescriptionItemId String?           @unique @map("prescription_item_id") @db.Uuid
+  label              String            @db.VarChar(200)
+  /// Administration times as "HH:mm" local clinic time, e.g. ["08:00", "20:00"].
+  times              String[]          @default([])
+  startDate          DateTime          @map("start_date")
+  endDate            DateTime?
+  active             Boolean           @default(true)
+  /// Snooze window offered to the patient, in minutes.
+  snoozeMinutes      Int               @default(15) @map("snooze_minutes")
+  /// Who configured the reminder (patient or clinician user id).
+  createdById        String            @map("created_by_id") @db.Uuid
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  patient            Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  prescriptionItem   PrescriptionItem? @relation(fields: [prescriptionItemId], references: [id], onDelete: SetNull)
+  doses              DoseEvent[]
+
+  @@index([patientId, active])
+  @@map("medication_reminders")
+}
+
+model DoseEvent {
+  id             String             @id @default(uuid()) @db.Uuid
+  reminderId     String             @map("reminder_id") @db.Uuid
+  patientId      String             @map("patient_id") @db.Uuid
+  scheduledFor   DateTime           @map("scheduled_for")
+  status         DoseStatus         @default(SCHEDULED)
+  acknowledgedAt DateTime?          @map("acknowledged_at")
+  recordedAt     DateTime?          @map("recorded_at")
+  recordedById   String?            @map("recorded_by_id") @db.Uuid
+  /// How the status was recorded: PATIENT, CLINICIAN, SNOOZE, SYSTEM_MARK_MISSED.
+  recordedVia    String?            @map("recorded_via") @db.VarChar(20)
+  notifiedAt     DateTime?          @map("notified_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+  reminder       MedicationReminder @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+  patient        Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([reminderId, scheduledFor])
+  @@index([patientId, scheduledFor])
+  @@map("dose_events")
+}
+
+// ============================================================
+// Feature: trusted contacts, consent and inactivity monitoring
+// ============================================================
+
+enum WelfareAlertStatus {
+  PENDING
+  SENT
+  ACKNOWLEDGED
+  ESCALATED
+  CANCELLED
+  RESOLVED_NO_ACTION
+}
+
+model TrustedContact {
+  id           String   @id @default(uuid()) @db.Uuid
+  patientId    String   @map("patient_id") @db.Uuid
+  /// Optional link to a platform account (relative, doctor or nurse).
+  userId       String?  @map("user_id") @db.Uuid
+  name         String   @db.VarChar(120)
+  relationship String   @db.VarChar(60)
+  phone        String?  @db.VarChar(40)
+  email        String?  @db.VarChar(120)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  patient      Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  user         User?    @relation("TrustedContactUser", fields: [userId], references: [id])
+
+  @@index([patientId])
+  @@map("trusted_contacts")
+}
+
+model InactivityRule {
+  id                 String         @id @default(uuid()) @db.Uuid
+  patientId          String         @unique @map("patient_id") @db.Uuid
+  /// Hours without meaningful authenticated activity before an alert, e.g. 24 or 48.
+  thresholdHours     Int            @default(48) @map("threshold_hours")
+  /// Minutes the alert stays pending before escalation to the next contact.
+  escalationHours    Int?           @map("escalation_hours")
+  /// Whether a grace period (confirmation) is required before notifying contacts.
+  gracePeriodMinutes Int            @default(0) @map("grace_period_minutes")
+  /// Quiet window in minutes from midnight (local), e.g. 1320-420 avoids overnight SMS.
+  quietHoursStart    Int?           @map("quiet_hours_start")
+  quietHoursEnd      Int?           @map("quiet_hours_end")
+  /// Contact ids in priority order: first is primary, second receives escalation.
+  contactIds         String[]       @default([]) @map("contact_ids")
+  active             Boolean        @default(false)
+  /// Explicit, revocable consent record for third-party welfare alerts.
+  consentAt          DateTime?      @map("consent_at")
+  consentText        String?        @map("consent_text")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+  patient            Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  alerts             WelfareAlert[]
+
+  @@map("inactivity_rules")
+}
+
+model WelfareAlert {
+  id                      String                 @id @default(uuid()) @db.Uuid
+  ruleId                  String                 @map("rule_id") @db.Uuid
+  status                  WelfareAlertStatus     @default(PENDING)
+  triggeredAt             DateTime               @default(now()) @map("triggered_at")
+  /// Last activity snapshot used to decide the alert; shown to the contact as "has not checked in".
+  lastActivityAt          DateTime               @map("last_activity_at")
+  acknowledgedAt          DateTime?
+  acknowledgedByContactId String?                @map("acknowledged_by_contact_id") @db.Uuid
+  acknowledgedByUserId    String?                @map("acknowledged_by_user_id") @db.Uuid
+  resolvedAt              DateTime?
+  createdAt               DateTime               @default(now()) @map("created_at")
+  updatedAt               DateTime               @updatedAt @map("updated_at")
+  rule                    InactivityRule         @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  deliveries              WelfareAlertDelivery[]
+
+  @@index([ruleId, status])
+  @@map("welfare_alerts")
+}
+
+model WelfareAlertDelivery {
+  id        String       @id @default(uuid()) @db.Uuid
+  alertId   String       @map("alert_id") @db.Uuid
+  contactId String       @map("contact_id") @db.Uuid
+  /// EMAIL, SMS or IN_APP.
+  channel   String       @db.VarChar(10)
+  /// QUEUED, SENT, FAILED.
+  status    String       @default("QUEUED") @db.VarChar(10)
+  attempts  Int          @default(0)
+  lastError String?
+  sentAt    DateTime?
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+  alert     WelfareAlert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+  @@index([alertId])
+  @@map("welfare_alert_deliveries")
 }

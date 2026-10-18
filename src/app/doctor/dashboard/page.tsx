@@ -12,7 +12,7 @@ import { notFound } from "next/navigation";
 import { NotificationsCard } from "@/components/shared/notifications-card";
 import { SuggestionsCard } from "@/components/shared/suggestions-card";
 import { doctorSuggestions } from "@/lib/suggestions";
-import { loadWorkspace } from "@/lib/workspace";
+import { loadWorkspace } from "@/lib/workspace/data";
 import { listUnreadNotifications } from "@/lib/data/notifications";
 
 export default async function DoctorDashboardPage() {
@@ -43,7 +43,6 @@ export default async function DoctorDashboardPage() {
     pendingBookings,
     activePatients,
     aiToReview,
-    consultationsToday,
     subscriptionActive: workspace.subscription.toLowerCase().includes("active"),
   });
 

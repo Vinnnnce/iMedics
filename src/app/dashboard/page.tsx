@@ -36,9 +36,9 @@ export default async function PatientDashboardPage() {
       select: { id: true, panelType: true, testDate: true, status: true },
     }),
     listUnreadNotifications(user.id),
-    prisma.payment.count({ where: { payerId: user.id, status: { in: ["PENDING", "PROCESSING", "FAILED", "REFUNDED"] } } }),
+    prisma.payment.count({ where: { payerId: user.id, status: { in: ["PENDING", "REFUND_PENDING", "FAILED", "REFUNDED"] } } }),
     prisma.payment.count({ where: { payerId: user.id, status: "FAILED" } }),
-    prisma.message.count({ where: { senderId: { not: user.id }, conversation: { patient: { userId: user.id, deletedAt: null } }, readAt: null } }),
+    prisma.chatMessage.count({ where: { senderId: { not: user.id }, conversation: { patient: { userId: user.id, deletedAt: null } }, readAt: null } }),
     prisma.patient.findUnique({ where: { userId: user.id }, select: { bloodGroup: true } }),
   ]);
 

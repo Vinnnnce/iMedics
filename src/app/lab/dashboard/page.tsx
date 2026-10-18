@@ -3,7 +3,7 @@ import { ClipboardList, FlaskConical, Upload } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import { requireFacilityPortalPage } from "@/lib/guards";
-import { clinicInstant, clinicToday, daysFromNow } from "@/lib/clinic-time";
+import { clinicInstant, clinicToday } from "@/lib/clinic-time";
 import { resolveFacilityForPortalUser } from "@/lib/facility-auth";
 import { SuggestionsCard } from "@/components/shared/suggestions-card";
 import { facilitySuggestions } from "@/lib/suggestions";
@@ -12,7 +12,7 @@ export default async function LabDashboardPage() {
   const user = await requireFacilityPortalPage();
   const profile = await resolveFacilityForPortalUser(user);
   const today = clinicToday();
-  const in90Days = daysFromNow(90);
+  const in90Days = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
   const [newOrders, inProgress, submittedToday, referralInbox, credentialAlerts, activeServices] = await Promise.all([
     prisma.labOrder.count({ where: { status: "ORDERED" } }),
@@ -22,7 +22,7 @@ export default async function LabDashboardPage() {
     prisma.facilityReferral.count({ where: { facilityId: profile.id, status: "PENDING" } }),
     // Credential alerts: expiring within 90 days or already expired
     prisma.staffCredential.count({ where: { staff: { facilityId: profile.id }, expiryDate: { lte: in90Days } } }),
-    prisma.facilityService.count({ where: { facilityId: profile.id, deletedAt: null, isPublished: true } }),
+    prisma.facilityService.count({ where: { facilityId: profile.id, isActive: true } }),
   ]);
 
   const stats = [

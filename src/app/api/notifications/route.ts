@@ -45,7 +45,7 @@ export const GET = withAuth(null, async (req: NextRequest, { user }) => {
   const hasMore = notifications.length > limit;
   const rows = notifications.slice(0, limit);
   return NextResponse.json({
-    notifications: rows.map(({ data, ...rest }) => ({ ...rest, toast: data?.toast !== false })),
+    notifications: rows.map(({ data, ...rest }) => ({ ...rest, toast: ((data as { toast?: boolean } | null)?.toast ?? null) !== false })),
     hasMore,
     nextCursor: hasMore && rows.length > 0 ? rows[rows.length - 1].id : null,
     unread,
