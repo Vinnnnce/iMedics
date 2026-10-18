@@ -9,7 +9,7 @@ import { useTheme } from "@/components/theme-provider";
 import { NotificationCenter } from "@/components/shared/notification-center";
 import {
   Search, Sun, Moon, Menu, X, Home, Stethoscope, Users,
-  FlaskConical, Heart, Sparkles, User, Shield,
+  FlaskConical, Heart, Sparkles, User, Shield, Globe,
   Calendar, FileText, Video, MessageSquare, Building2,
   ClipboardList, Upload, LayoutDashboard, ArrowRight, Receipt, Wallet, Tags,
   type LucideIcon,
@@ -59,6 +59,7 @@ const LAB_NAV: NavItem[] = [
   { href: "/lab/upload", label: "Upload Results", icon: Upload, roles: ["LAB_SCIENTIST"] },
   { href: "/lab/services", label: "Services & Prices", icon: Tags, roles: ["LAB_SCIENTIST"] },
   { href: "/lab/bookings", label: "Bookings", icon: Calendar, roles: ["LAB_SCIENTIST"] },
+  { href: "/lab/website", label: "Our Website", icon: Globe, roles: ["LAB_SCIENTIST"] },
   { href: "/payments", label: "Payments", icon: Wallet, roles: ["LAB_SCIENTIST"] },
   { href: "/profile", label: "Profile", icon: User, roles: ["LAB_SCIENTIST"] },
 ];

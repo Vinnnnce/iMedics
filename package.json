@@ -19,6 +19,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:seed": "node --env-file-if-exists=.env --experimental-strip-types prisma/seed.ts",
+    "db:seed:medications": "node --env-file-if-exists=.env --experimental-strip-types scripts/seed-medications.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "icd10:import": "node --env-file-if-exists=.env --experimental-strip-types scripts/import-icd10.ts"

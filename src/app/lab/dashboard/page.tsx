@@ -8,11 +8,16 @@ import { resolveFacilityForPortalUser } from "@/lib/facility-auth";
 import { SuggestionsCard } from "@/components/shared/suggestions-card";
 import { facilitySuggestions } from "@/lib/suggestions";
 
+/** Credentials expiring within 90 days (or already expired) for the facility. */
+async function credentialAlertCount(facilityId: string): Promise<number> {
+  const in90Days = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+  return prisma.staffCredential.count({ where: { staff: { facilityId }, expiryDate: { lte: in90Days } } });
+}
+
 export default async function LabDashboardPage() {
   const user = await requireFacilityPortalPage();
   const profile = await resolveFacilityForPortalUser(user);
   const today = clinicToday();
-  const in90Days = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
   const [newOrders, inProgress, submittedToday, referralInbox, credentialAlerts, activeServices] = await Promise.all([
     prisma.labOrder.count({ where: { status: "ORDERED" } }),
@@ -21,7 +26,7 @@ export default async function LabDashboardPage() {
     // Referral inbox
     prisma.facilityReferral.count({ where: { facilityId: profile.id, status: "PENDING" } }),
     // Credential alerts: expiring within 90 days or already expired
-    prisma.staffCredential.count({ where: { staff: { facilityId: profile.id }, expiryDate: { lte: in90Days } } }),
+    credentialAlertCount(profile.id),
     prisma.facilityService.count({ where: { facilityId: profile.id, isActive: true } }),
   ]);
 

@@ -15,6 +15,9 @@ import {
 import { FacilityServiceCatalog } from "./facility-service-catalog";
 import { getCurrentUser } from "@/lib/auth";
 import { initials } from "@/lib/format";
+import { FacilityWebsiteRenderer } from "./facility-website-renderer";
+import { prisma } from "@/lib/prisma";
+import { parseWebsiteLayout } from "@/lib/website/blocks";
 
 interface PortfolioPageInput {
   directory: "hospitals" | "laboratories" | "diagnostic-centres";
@@ -28,7 +31,11 @@ async function loadPortfolio(directory: string, slug: string) {
     listPublicFacilityStaff(facility.id),
     listPublicFacilityServices(facility.id),
   ]);
-  return { facility, staff: staff.map(publicStaffProfile), services };
+  const website = await prisma.facilityWebsite.findUnique({
+    where: { facilityId: facility.id },
+    select: { publishedLayout: true },
+  });
+  return { facility, staff: staff.map(publicStaffProfile), services, website };
 }
 
 export async function generatePortfolioMetadata({ directory, slug }: PortfolioPageInput): Promise<Metadata> {
@@ -55,7 +62,8 @@ export async function generatePortfolioMetadata({ directory, slug }: PortfolioPa
 
 /** Public facility mini-portfolio: profile, services and prices, departments, team, accreditations. */
 export async function FacilityPortfolio({ directory, slug }: PortfolioPageInput) {
-  const { facility, staff, services } = await loadPortfolio(directory, slug);
+  const { facility, staff, services, website } = await loadPortfolio(directory, slug);
+  const publishedLayout = website?.publishedLayout ? parseWebsiteLayout(website.publishedLayout) : null;
   const user = await getCurrentUser();
   const canBook = user?.role === "PATIENT" && user.status === "ACTIVE";
   const type = DIRECTORY_TYPE_LABEL[directory] ?? "Facility";
@@ -129,8 +137,13 @@ export async function FacilityPortfolio({ directory, slug }: PortfolioPageInput)
         )}
       </header>
 
+      {/* Custom mini-website sections (published by the facility) */}
+      {publishedLayout && (
+        <FacilityWebsiteRenderer layout={publishedLayout} facility={facility} directory={directory} slug={slug} />
+      )}
+
       {/* About */}
-      {(facility.about || facility.mission || facility.vision) && (
+      {!publishedLayout && (facility.about || facility.mission || facility.vision) && (
         <section aria-labelledby="about-heading" className="space-y-3">
           <h2 id="about-heading" className="text-lg font-semibold">About the facility</h2>
           {facility.about && <p className="text-sm text-muted-foreground">{facility.about}</p>}
