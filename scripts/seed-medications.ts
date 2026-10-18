@@ -1,11 +1,20 @@
 /**
  * Seed the curated medication reference table (idempotent, safe to re-run).
  *
- * Data is a small, reviewable set of widely used medications with their
- * standard therapeutic/antibiotic class and common coverage tags, drawn from
- * public-domain pharmacology references. It is NOT a complete drug database:
- * the prescriber interface clearly marks curated rows and falls back to
- * "information unavailable" for interaction/spectrum data it cannot verify.
+ * PROVENANCE — read before clinical use. This is a small, reviewable starter
+ * set of widely used medications with their standard therapeutic/antibiotic
+ * class and coarse coverage tags, assembled by the platform team from
+ * public-domain pharmacology references (e.g. WHO Essential Medicines List
+ * annotations, published FDA labelling). It is NOT a licensed drug database
+ * and has NOT been verified against one: before clinical use, an operator
+ * (e.g. the medical director or pharmacist) must review every row against
+ * their licensed formulary and update or remove entries accordingly.
+ * Coverage tags are coarse labels, never susceptibility results.
+ *
+ * Drug–drug interaction data is NOT included: the free NLM RxNav interaction
+ * API was retired in January 2024, so the prescriber interface reports
+ * "interaction information unavailable — review manually" until an
+ * appropriately licensed interaction source is configured.
  *
  * Run with: npm run db:seed:medications
  */

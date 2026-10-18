@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
 import { getVerifiedDoctorProfile, findAccessiblePatient } from "@/lib/access";
 import { writeAudit } from "@/lib/audit";
+import { loadPatientSafetyContext, runPrescriptionSafetyChecks } from "@/lib/prescriptions/safety";
+import { getMedicationReference } from "@/lib/prescriptions/reference";
+import type { PrescriptionItemInput } from "@/lib/prescriptions/validation";
 import { ensureReminderForPrescriptionItem } from "@/lib/medication-reminders";
 
 const actionSchema = z.object({
@@ -60,6 +63,42 @@ export const PATCH = withAuth<{ id: string }>(["DOCTOR", "ADMIN"], async (req: N
   }
 
   // Renew: issue a fresh ACTIVE prescription carrying the same items.
+  // Dates restart from today (the old start/end dates are never copied over),
+  // and the safety checks are re-run server-side against the patient's CURRENT
+  // context — allergies may have changed since the original was issued.
+  const now = new Date();
+  const renewedItems = prescription.items.map((item) => ({
+    sortOrder: item.sortOrder,
+    drugName: item.drugName,
+    activeIngredient: item.activeIngredient,
+    drugClass: item.drugClass,
+    pharmacologicalClass: item.pharmacologicalClass,
+    antibioticClass: item.antibioticClass,
+    antimicrobialSpectrum: item.antimicrobialSpectrum,
+    coverageNotes: item.coverageNotes,
+    indication: item.indication,
+    route: item.route,
+    formulation: item.formulation,
+    strength: item.strength,
+    doseValue: item.doseValue,
+    doseUnit: item.doseUnit,
+    dose: item.dose,
+    frequency: item.frequency as PrescriptionItemInput["frequency"],
+    frequencyText: item.frequencyText,
+    schedule: item.schedule,
+    duration: item.duration,
+    startDate: now,
+    endDate: null,
+    quantity: item.quantity,
+    refills: item.refills,
+    foodInstructions: item.foodInstructions,
+    missedDoseInstructions: item.missedDoseInstructions,
+    precautions: item.precautions,
+    monitoring: item.monitoring,
+    instructions: item.instructions,
+    medicationRefId: item.medicationRefId,
+    clinicalOverrideNotes: item.clinicalOverrideNotes,
+  }));
   const renewed = await prisma.prescription.create({
     data: {
       patientId: prescription.patientId,
@@ -68,44 +107,57 @@ export const PATCH = withAuth<{ id: string }>(["DOCTOR", "ADMIN"], async (req: N
       caseId: prescription.caseId,
       notes: `Renewed from prescription ${prescription.id}${body.reason ? `: ${body.reason}` : ""}`,
       validUntil: body.validUntil,
-      safetyReviewedAt: prescription.safetyReviewedAt,
-      safetyReviewNotes: prescription.safetyReviewNotes as object | undefined,
-      items: {
-        create: prescription.items.map((item, index) => ({
-          sortOrder: index,
-          drugName: item.drugName,
-          activeIngredient: item.activeIngredient,
-          drugClass: item.drugClass,
-          pharmacologicalClass: item.pharmacologicalClass,
-          antibioticClass: item.antibioticClass,
-          antimicrobialSpectrum: item.antimicrobialSpectrum,
-          coverageNotes: item.coverageNotes,
-          indication: item.indication,
-          route: item.route,
-          formulation: item.formulation,
-          strength: item.strength,
-          doseValue: item.doseValue,
-          doseUnit: item.doseUnit,
-          dose: item.dose,
-          frequency: item.frequency,
-          frequencyText: item.frequencyText,
-          schedule: item.schedule,
-          duration: item.duration,
-          startDate: item.startDate,
-          endDate: item.endDate,
-          quantity: item.quantity,
-          refills: item.refills,
-          foodInstructions: item.foodInstructions,
-          missedDoseInstructions: item.missedDoseInstructions,
-          precautions: item.precautions,
-          monitoring: item.monitoring,
-          instructions: item.instructions,
-          medicationRefId: item.medicationRefId,
-          clinicalOverrideNotes: item.clinicalOverrideNotes,
-        })),
-      },
+      items: { create: renewedItems },
     },
     include: { items: true },
+  });
+
+  // Fresh safety review against the patient's current record.
+  const context = await loadPatientSafetyContext(prescription.patientId);
+  const referenceByDrug = new Map<string, { rxCui: string | null; drugClass: string | null }>();
+  for (const item of renewed.items) {
+    const ref = item.medicationRefId ? await getMedicationReference(item.medicationRefId) : null;
+    referenceByDrug.set(item.drugName, { rxCui: ref?.rxCui ?? null, drugClass: ref?.drugClass ?? item.drugClass ?? null });
+  }
+  const alerts = await runPrescriptionSafetyChecks(context, renewed.items.map((item) => ({
+    drugName: item.drugName,
+    activeIngredient: item.activeIngredient ?? undefined,
+    drugClass: item.drugClass ?? undefined,
+    antibioticClass: item.antibioticClass ?? undefined,
+    antimicrobialSpectrum: (item.antimicrobialSpectrum as string[]) ?? [],
+    indication: item.indication ?? undefined,
+    route: (item.route ?? undefined) as PrescriptionItemInput["route"],
+    formulation: item.formulation ?? undefined,
+    strength: item.strength ?? undefined,
+    dose: item.dose ?? undefined,
+    doseValue: item.doseValue ?? undefined,
+    doseUnit: (item.doseUnit ?? undefined) as PrescriptionItemInput["doseUnit"],
+    frequency: item.frequency as PrescriptionItemInput["frequency"],
+    frequencyText: item.frequencyText ?? undefined,
+    schedule: (item.schedule as string[]) ?? [],
+    duration: item.duration ?? undefined,
+    startDate: now,
+    endDate: undefined,
+    foodInstructions: item.foodInstructions ?? undefined,
+    missedDoseInstructions: item.missedDoseInstructions ?? undefined,
+    precautions: item.precautions ?? undefined,
+    monitoring: item.monitoring ?? undefined,
+    instructions: item.instructions ?? undefined,
+    medicationRefId: item.medicationRefId ?? undefined,
+    clinicalOverrideNotes: item.clinicalOverrideNotes ?? undefined,
+  })), referenceByDrug);
+  const highAlerts = alerts.filter((a) => a.severity === "HIGH");
+  if (highAlerts.length > 0) {
+    // The renewal is created but flagged: the prescriber must review the fresh
+    // alerts and can discontinue it if they no longer apply.
+    await prisma.prescription.update({
+      where: { id: renewed.id },
+      data: { safetyReviewNotes: { renewedFrom: prescription.id, freshAlerts: highAlerts } as object },
+    });
+  }
+  await prisma.prescription.update({
+    where: { id: renewed.id },
+    data: { safetyReviewedAt: now },
   });
 
   await writeAudit({
@@ -125,5 +177,5 @@ export const PATCH = withAuth<{ id: string }>(["DOCTOR", "ADMIN"], async (req: N
     }
   }
 
-  return NextResponse.json({ prescription: renewed, reminderFailures }, { status: 201 });
+  return NextResponse.json({ prescription: renewed, alerts, reminderFailures }, { status: 201 });
 });
