@@ -49,7 +49,12 @@ export type NotificationEvent =
   | { kind: "VERIFICATION_APPROVED" }
   | { kind: "VERIFICATION_REJECTED" }
   | { kind: "ACCOUNT_SUSPENDED" }
-  | { kind: "ACCOUNT_RESTORED" };
+  | { kind: "ACCOUNT_RESTORED" }
+  | { kind: "MEDICATION_REMINDER"; reminderId: string; doseEventId: string }
+  | { kind: "WELFARE_ALERT"; alertId: string }
+  | { kind: "WELFARE_ALERT_ACKNOWLEDGED"; alertId: string }
+  | { kind: "DOCUMENT_SHARE_GRANTED"; documentId: string }
+  | { kind: "PREVENTIVE_CARE_DUE"; taskId: string };
 
 export interface RenderedNotification {
   type: NotificationType;
@@ -68,6 +73,18 @@ const bookingsHref = (role: Role) => (role === "LAB_SCIENTIST" ? "/lab/bookings"
 
 export function renderNotification(event: NotificationEvent, role: Role): RenderedNotification {
   switch (event.kind) {
+    case "MEDICATION_REMINDER":
+      // Deliberately generic: no medication names on lock screens or in email.
+      return { type: "MEDICATION_REMINDER", title: "Medication reminder", body: "You have a medication reminder due. Open the app to confirm your dose.", href: "/patient/reminders", data: { reminderId: event.reminderId, doseEventId: event.doseEventId } };
+    case "WELFARE_ALERT":
+      // Sent to trusted contacts: states the patient has not checked in, nothing clinical.
+      return { type: "WELFARE_ALERT", title: "Welfare check alert", body: "A patient you look after has not checked in on the platform within the period they configured. Please follow the agreed welfare-check procedure.", href: `/welfare/${event.alertId}`, data: { alertId: event.alertId } };
+    case "WELFARE_ALERT_ACKNOWLEDGED":
+      return { type: "WELFARE_ALERT", title: "Welfare alert acknowledged", body: "The welfare alert has been acknowledged. No further action is needed unless you agreed otherwise.", href: `/welfare/${event.alertId}`, data: { alertId: event.alertId } };
+    case "DOCUMENT_SHARE_GRANTED":
+      return { type: "DOCUMENT_SHARE", title: "A document was shared with you", body: "A patient shared a medical document with you. Sign in to view it.", href: "/doctor/records", data: { documentId: event.documentId } };
+    case "PREVENTIVE_CARE_DUE":
+      return { type: "SYSTEM", title: "Preventive care reminder", body: "A preventive-care check is due. Sign in to review it.", href: "/dashboard", data: { taskId: event.taskId } };
     case "DOCUMENT_SHARED":
       return { type: "SYSTEM", title: "A document was shared with you", body: "Sign in securely to review the time-limited access.", href: "/doctor/dashboard", data: {} };
     case "INTAKE_SUBMITTED":

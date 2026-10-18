@@ -72,8 +72,46 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
   if (!userId) return null;
 
   const existing = await prisma.user.findUnique({ where: { clerkId: userId } });
-  return existing ?? provisionUser(userId, await currentUser());
+  const user = existing ?? (await provisionUser(userId, await currentUser()));
+  if (user) void touchLastActive(user.id);
+  return user;
 });
+
+/**
+ * Privacy-conscious inactivity signal: record that an authenticated user was
+ * meaningfully active (a signed-in page view or API call). Throttled to one
+ * write per user per 5 minutes; failures are ignored — monitoring must never
+ * break requests.
+ */
+const LAST_ACTIVE_THROTTLE_MS = 5 * 60_000;
+const lastActiveSeen = new Map<string, number>();
+async function touchLastActive(userId: string): Promise<void> {
+  const now = Date.now();
+  const seen = lastActiveSeen.get(userId);
+  if (seen && now - seen < LAST_ACTIVE_THROTTLE_MS) return;
+  lastActiveSeen.set(userId, now);
+  if (lastActiveSeen.size > 5000) lastActiveSeen.clear();
+  try {
+    await prisma.user.update({ where: { id: userId }, data: { lastActiveAt: new Date(now) } });
+    recordPatientActivityIfAny(userId, new Date(now));
+  } catch {
+    /* non-critical */
+  }
+}
+
+/** Resolve any open welfare alert for the patient behind a now-active user. */
+async function recordPatientActivityIfAny(userId: string, at: Date): Promise<void> {
+  try {
+    const patient = await prisma.patient.findUnique({ where: { userId }, select: { id: true } });
+    if (!patient) return;
+    await prisma.welfareAlert.updateMany({
+      where: { status: { in: ["PENDING", "SENT", "ESCALATED"] }, rule: { patientId: patient.id } },
+      data: { status: "RESOLVED_NO_ACTION", resolvedAt: at },
+    });
+  } catch {
+    /* non-critical */
+  }
+}
 
 /** Require a signed-in, active user. Throws 401 / 403. */
 export async function requireUser(): Promise<User> {
