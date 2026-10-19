@@ -10,6 +10,7 @@ import {
 import type { WorkspaceData, WorkspaceDocument, WorkspaceItem, WorkspaceRole, WorkspaceShare } from "@/lib/workspace/types";
 import { consultationTemplates, csvCell } from "@/lib/workspace/intelligence";
 import { wearableImportSchema } from "@/lib/workspace/validation";
+import { subscribeWithVapidKey } from "@/lib/notifications/browser-push";
 import { Card, DataTable, EmptyState, ItemList, Modal, StatusChip, Toast, TrendChart } from "./ui";
 import "./workspace.css";
 
@@ -336,22 +337,13 @@ function DashboardSurface({ initialData, onDemoRole }: { initialData: WorkspaceD
       {modal === "push" && <><p className="ws-modal-description">Receive generic account updates on this device. Clinical details will stay inside your secure account.</p><button className="ws-button ws-primary" disabled={busy} onClick={() => perform(async () => {
         if (demo) throw new Error("Push is available only on the authenticated app's own HTTPS origin.");
         if (!("serviceWorker" in navigator) || !("PushManager" in window)) throw new Error("This browser does not support web push.");
-        const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-        if (!key) throw new Error("Push notifications are not configured by the operator.");
+        const { vapidPublicKey } = await api<{ vapidPublicKey: string | null }>("/notifications/preferences");
+        if (!vapidPublicKey) throw new Error("Push notifications are not configured by the operator.");
         const permission = await Notification.requestPermission();
         if (permission !== "granted") throw new Error("Notification permission was not granted.");
-        const registration = await navigator.serviceWorker.register("/workspace-push.js", { scope: "/workspace" });
-        if (!registration.active) await new Promise<void>((resolve, reject) => {
-          const worker = registration.installing || registration.waiting;
-          if (!worker) return reject(new Error("The push service worker could not start."));
-          worker.addEventListener("statechange", () => {
-            if (worker.state === "activated") resolve();
-            if (worker.state === "redundant") reject(new Error("The push service worker could not activate."));
-          });
-        });
-        const normalized = key.replace(/-/g, "+").replace(/_/g, "/");
-        const bytes = Uint8Array.from(atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=")), c => c.charCodeAt(0));
-        const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
+        await navigator.serviceWorker.register("/workspace-push.js", { scope: "/workspace" });
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await subscribeWithVapidKey(registration, vapidPublicKey);
         await api("/notifications/push-subscription", subscription.toJSON());
         setModal(null);
       }, "Push notifications enabled")}>Enable on this device</button></>}

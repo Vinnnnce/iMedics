@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { apiClient } from "@/lib/api-client";
+import { subscribeWithVapidKey } from "@/lib/notifications/browser-push";
 
 const CATEGORIES = [
   ["APPOINTMENT", "Appointments and bookings"],
@@ -21,12 +22,6 @@ const CHANNELS = [
 ] as const;
 
 type Matrix = Record<string, Record<string, boolean>>;
-
-function urlBase64ToUint8Array(base64: string) {
-  const padded = (base64 + "=".repeat((4 - (base64.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/");
-  const raw = atob(padded);
-  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
-}
 
 /** Choose how to be notified for each kind of update, and turn push on or off for this browser. */
 export function NotificationPreferences() {
@@ -77,9 +72,9 @@ export function NotificationPreferences() {
       if (!vapidKey) throw new Error("Push is not set up on this server.");
       const permission = await Notification.requestPermission();
       if (permission !== "granted") throw new Error("Notifications are blocked in this browser. Allow them in the site settings and try again.");
-      const reg = await navigator.serviceWorker.register("/sw.js");
-      await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapidKey) });
+      await navigator.serviceWorker.register("/sw.js");
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await subscribeWithVapidKey(reg, vapidKey);
       await apiClient.post("/notifications/push-subscription", sub.toJSON());
       setSubscribed(true);
     } catch (e) {
