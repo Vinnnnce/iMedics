@@ -13,6 +13,13 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Next 16 blocks cross-origin dev resources (HMR) unless the origin is allowed.
   allowedDevOrigins: ["127.0.0.1", "localhost"],
+  
+  // Forces the application bundle to bake in the correct S3 storage regions
+  env: {
+    S3_REGION: "eu-north-1",
+    AWS_REGION: "eu-north-1",
+  },
+
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
