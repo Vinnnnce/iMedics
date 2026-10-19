@@ -8,6 +8,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ApiError, badRequest } from "./errors";
+import { getStorageEndpoint, getStorageRegion } from "./storage-config";
 
 /**
  * Private object storage (any S3-compatible service). Files are never public:
@@ -17,7 +18,7 @@ import { ApiError, badRequest } from "./errors";
 
 let cached: { client: S3Client; bucket: string } | null = null;
 
-function storage() {
+export function getStorage() {
   if (cached) return cached;
   const {
     S3_BUCKET,
@@ -29,12 +30,14 @@ function storage() {
   if (!S3_BUCKET || !S3_ACCESS_KEY_ID || !S3_SECRET_ACCESS_KEY) {
     throw new ApiError(503, "File storage is not configured");
   }
+  const endpoint = getStorageEndpoint(S3_ENDPOINT);
+  const region = getStorageRegion(S3_REGION, endpoint);
   cached = {
     bucket: S3_BUCKET,
     client: new S3Client({
-      region: S3_REGION || "auto",
-      endpoint: S3_ENDPOINT || undefined,
-      forcePathStyle: Boolean(S3_ENDPOINT),
+      region,
+      endpoint,
+      forcePathStyle: Boolean(endpoint),
       credentials: {
         accessKeyId: S3_ACCESS_KEY_ID,
         secretAccessKey: S3_SECRET_ACCESS_KEY,
@@ -53,7 +56,7 @@ export function presignUpload(
   contentType: string,
   sizeBytes: number,
 ) {
-  const { client, bucket } = storage();
+  const { client, bucket } = getStorage();
   return getSignedUrl(
     client,
     new PutObjectCommand({
@@ -68,7 +71,7 @@ export function presignUpload(
 
 /** A short-lived URL for downloading a stored file under its original name. */
 export function presignDownload(key: string, fileName: string) {
-  const { client, bucket } = storage();
+  const { client, bucket } = getStorage();
   return getSignedUrl(
     client,
     new GetObjectCommand({
@@ -82,7 +85,7 @@ export function presignDownload(key: string, fileName: string) {
 
 /** A short-lived URL that displays a stored file in the browser (PDF or image) rather than downloading it. */
 export function presignView(key: string, fileName: string) {
-  const { client, bucket } = storage();
+  const { client, bucket } = getStorage();
   return getSignedUrl(
     client,
     new GetObjectCommand({
@@ -98,7 +101,7 @@ export function presignView(key: string, fileName: string) {
 export async function inspectObject(
   key: string,
 ): Promise<{ sizeBytes: number; head: Uint8Array; etag: string | undefined }> {
-  const { client, bucket } = storage();
+  const { client, bucket } = getStorage();
   try {
     const meta = await client.send(
       new HeadObjectCommand({ Bucket: bucket, Key: key }),
@@ -125,7 +128,7 @@ export async function copyObject(
   ifMatchEtag?: string,
   contentType?: string,
 ): Promise<void> {
-  const { client, bucket } = storage();
+  const { client, bucket } = getStorage();
   try {
     await client.send(
       new CopyObjectCommand({
@@ -150,7 +153,7 @@ export async function copyObject(
 export async function getObjectStream(
   key: string,
 ): Promise<{ stream: ReadableStream | null; contentType: string | undefined }> {
-  const { client, bucket } = storage();
+  const { client, bucket } = getStorage();
   const result = await client.send(
     new GetObjectCommand({ Bucket: bucket, Key: key }),
   );
@@ -161,7 +164,7 @@ export async function getObjectStream(
 }
 
 export async function deleteObject(key: string): Promise<void> {
-  const { client, bucket } = storage();
+  const { client, bucket } = getStorage();
   try {
     await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
   } catch (error) {

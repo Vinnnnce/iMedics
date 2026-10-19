@@ -32,7 +32,7 @@ vi.mock("@aws-sdk/client-s3", () => {
 });
 
 process.env.S3_BUCKET = "test-bucket";
-process.env.S3_REGION = "auto";
+process.env.S3_REGION = "us-east-1";
 process.env.S3_ACCESS_KEY_ID = "test-key";
 process.env.S3_SECRET_ACCESS_KEY = "test-secret";
 
