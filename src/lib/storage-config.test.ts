@@ -30,12 +30,20 @@ describe("getStorageEndpoint", () => {
       .toThrow("Set S3_REGION to the AWS region containing S3_BUCKET");
   });
 
-  it("rejects the Cloudflare-style auto region when no custom endpoint is set", () => {
+  it("rejects the Cloudflare-style auto region for AWS endpoints", () => {
+    expect(() => getStorageRegion("auto", "https://s3.eu-north-1.amazonaws.com"))
+      .toThrow("S3_REGION cannot be auto when using AWS S3");
     expect(() => getStorageRegion("auto", undefined))
       .toThrow("S3_REGION cannot be auto when using AWS S3");
   });
 
   it("retains auto region support for custom S3-compatible endpoints", () => {
     expect(getStorageRegion("", "https://storage.example.com")).toBe("auto");
+    expect(getStorageRegion("auto", "https://storage.example.com")).toBe("auto");
+  });
+
+  it("requires an explicit region for AWS endpoints", () => {
+    expect(() => getStorageRegion("", "https://s3.eu-north-1.amazonaws.com"))
+      .toThrow("Set S3_REGION to the AWS region containing S3_BUCKET");
   });
 });
