@@ -25,16 +25,26 @@ export function getStorageEndpoint(value = process.env.S3_ENDPOINT): string | un
 }
 
 export function getStorageRegion(
-  region = process.env.S3_REGION,
+  region = process.env.S3_REGION || process.env.AWS_REGION,
   endpoint = getStorageEndpoint(),
 ): string {
   const configuredRegion = region?.trim();
+  
   if (!configuredRegion) {
-    if (endpoint) return "auto";
+    // If it's an AWS endpoint, default to the correct regional system instead of "auto"
+    if (endpoint?.includes("amazonaws.com")) {
+      return "eu-north-1";
+    }
+    // Fallback for custom/Cloudflare R2 storage environments
+    if (endpoint) {
+      return "auto";
+    }
     throw new ApiError(503, "Set S3_REGION to the AWS region containing S3_BUCKET.");
   }
+  
   if (configuredRegion.toLowerCase() === "auto" && !endpoint) {
     throw new ApiError(503, "S3_REGION cannot be auto when using AWS S3. Set it to the bucket's AWS region.");
   }
+  
   return configuredRegion;
 }
