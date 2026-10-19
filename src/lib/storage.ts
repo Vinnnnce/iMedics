@@ -37,7 +37,7 @@ export function getStorage() {
     client: new S3Client({
       region,
       endpoint,
-      forcePathStyle: Boolean(endpoint),
+      forcePathStyle: Boolean(endpoint && !endpoint.includes("amazonaws.com")),
       credentials: {
         accessKeyId: S3_ACCESS_KEY_ID,
         secretAccessKey: S3_SECRET_ACCESS_KEY,
