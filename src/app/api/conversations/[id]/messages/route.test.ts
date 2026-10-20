@@ -17,14 +17,14 @@ vi.mock("@/lib/chat", async (importOriginal) => ({
   findConversation: vi.fn(),
   assertCanSend: vi.fn(),
 }));
-vi.mock("@/lib/uploads", () => ({ verifyUpload: vi.fn() }));
+vi.mock("@/lib/uploads", () => ({ finalizeChatImage: vi.fn() }));
 vi.mock("@/lib/notifications/service", () => ({ queueNotification: vi.fn() }));
 
 import { NextRequest } from "next/server";
 import { POST } from "./route";
 import { requireRole } from "@/lib/auth";
 import { findConversation, assertCanSend } from "@/lib/chat";
-import { verifyUpload } from "@/lib/uploads";
+import { finalizeChatImage } from "@/lib/uploads";
 import { prisma } from "@/lib/prisma";
 import { queueNotification } from "@/lib/notifications/service";
 
@@ -32,7 +32,8 @@ const USER_ID = "11111111-2222-4333-8444-555555555555";
 const CONVERSATION_ID = "0f0e0d0c-0b0a-4009-8008-700600500400";
 const USER = { id: USER_ID, role: "PATIENT", status: "ACTIVE", onboardingComplete: true, deletedAt: null } as never;
 const CONVERSATION = { id: CONVERSATION_ID, patientId: "p1", doctorId: "d1" };
-const MY_KEY = `chat-attachments/${CONVERSATION_ID}/${USER_ID}/abc`;
+const MY_KEY = `chat-attachments/staging/${CONVERSATION_ID}/${USER_ID}/abc`;
+const FINAL_KEY = `chat-attachments/final/${CONVERSATION_ID}/${USER_ID}/abc`;
 
 const invoke = (body: unknown) =>
   POST(
@@ -58,7 +59,7 @@ beforeEach(() => {
   vi.mocked(requireRole).mockResolvedValue(USER);
   vi.mocked(findConversation).mockResolvedValue(CONVERSATION as never);
   vi.mocked(assertCanSend).mockResolvedValue(undefined);
-  vi.mocked(verifyUpload).mockResolvedValue({ sizeBytes: 1024 });
+  vi.mocked(finalizeChatImage).mockResolvedValue(FINAL_KEY);
   vi.mocked(prisma.chatMessage.create).mockResolvedValue(created() as never);
   vi.mocked(prisma.conversation.findUnique).mockResolvedValue({
     patient: { userId: "patient-user" },
@@ -70,22 +71,22 @@ describe("POST /api/conversations/[id]/messages", () => {
   it("still sends a plain text message without an image", async () => {
     const response = await invoke({ body: "Hello doctor" });
     expect(response.status).toBe(201);
-    expect(verifyUpload).not.toHaveBeenCalled();
+    expect(finalizeChatImage).not.toHaveBeenCalled();
     expect(prisma.chatMessage.create).toHaveBeenCalledWith({
       data: { conversationId: CONVERSATION_ID, senderId: USER_ID, body: "Hello doctor", type: "TEXT", attachmentKey: null },
     });
   });
 
   it("creates an IMAGE message with the attachment key and caption", async () => {
-    vi.mocked(prisma.chatMessage.create).mockResolvedValue(created({ type: "IMAGE", attachmentKey: MY_KEY, body: "Wound photo" }) as never);
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue(created({ type: "IMAGE", attachmentKey: FINAL_KEY, body: "Wound photo" }) as never);
     const response = await invoke({ body: "Wound photo", image: { key: MY_KEY, fileName: "wound.png", mimeType: "image/png" } });
     expect(response.status).toBe(201);
     const body = await response.json();
     expect(body.message.type).toBe("IMAGE");
-    expect(body.message.attachmentKey).toBe(MY_KEY);
-    expect(verifyUpload).toHaveBeenCalledWith(MY_KEY, "image/png");
+    expect(body.message.attachmentKey).toBe(FINAL_KEY);
+    expect(finalizeChatImage).toHaveBeenCalledWith(MY_KEY, "image/png");
     expect(prisma.chatMessage.create).toHaveBeenCalledWith({
-      data: { conversationId: CONVERSATION_ID, senderId: USER_ID, body: "Wound photo", type: "IMAGE", attachmentKey: MY_KEY },
+      data: { conversationId: CONVERSATION_ID, senderId: USER_ID, body: "Wound photo", type: "IMAGE", attachmentKey: FINAL_KEY },
     });
   });
 
@@ -107,12 +108,12 @@ describe("POST /api/conversations/[id]/messages", () => {
       const response = await invoke({ body: "", image: { key, fileName: "x.png", mimeType: "image/png" } });
       expect(response.status).toBe(403);
     }
-    expect(verifyUpload).not.toHaveBeenCalled();
+    expect(finalizeChatImage).not.toHaveBeenCalled();
     expect(prisma.chatMessage.create).not.toHaveBeenCalled();
   });
 
   it("does not create the message when the upload fails server-side verification", async () => {
-    vi.mocked(verifyUpload).mockRejectedValue(new Error("signature mismatch"));
+    vi.mocked(finalizeChatImage).mockRejectedValue(new Error("signature mismatch"));
     const response = await invoke({ body: "", image: { key: MY_KEY, fileName: "x.png", mimeType: "image/png" } });
     expect(response.status).toBe(500);
     expect(prisma.chatMessage.create).not.toHaveBeenCalled();

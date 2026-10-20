@@ -226,8 +226,14 @@ export function Navbar({ children }: { children: React.ReactNode }) {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setSearchOpen(true);
-        searchRef.current?.focus();
+        if (window.matchMedia("(max-width: 639px)").matches) {
+          // On phones the inline search input is hidden; open the search row.
+          setMobileSearchOpen(true);
+          setSearchOpen(true);
+        } else {
+          setSearchOpen(true);
+          searchRef.current?.focus();
+        }
       }
       if (event.key === "Escape") {
         setSearchOpen(false);
@@ -243,13 +249,23 @@ export function Navbar({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Lock the page scroll while the mobile drawer is open so the content
-  // underneath cannot be scrolled past the overlay.
+  // underneath cannot be scrolled past the overlay. Closing the drawer when the
+  // viewport grows past the mobile breakpoint also releases the lock.
   useEffect(() => {
     document.body.style.overflow = mobileSidebarOpen ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
   }, [mobileSidebarOpen]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 768px)");
+    const onChange = (event: MediaQueryListEvent) => {
+      if (event.matches) setMobileSidebarOpen(false);
+    };
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
 
   const isActive = (href: string) => {
     return pathname === href || (pathname.startsWith(href + "/") && href !== "/");
@@ -505,9 +521,9 @@ export function Navbar({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col min-w-0">{children}</div>
       </div>
 
-      {/* Mobile sidebar overlay */}
+      {/* Mobile sidebar overlay — above the bottom navigation so the backdrop covers it and the last links stay reachable */}
       {mobileSidebarOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
+        <div className="fixed inset-0 z-[60] md:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setMobileSidebarOpen(false)} />
           <div className="absolute left-0 top-0 bottom-0 w-72 bg-sidebar border-r border-border overflow-y-auto">
             <div className="flex h-16 items-center gap-2 border-b border-border px-6">
@@ -518,7 +534,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
               </div>
               <span className="text-base font-bold text-foreground">Medic1905</span>
             </div>
-            <nav className="p-3 space-y-1">
+            <nav className="space-y-1 p-3 pb-20">
               {visibleNavItems.map((item, index) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);

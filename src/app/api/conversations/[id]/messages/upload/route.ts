@@ -19,7 +19,10 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
   await assertCanSend(conversation);
 
   const { mimeType, sizeBytes } = await parseBody(req, requestSchema);
-  const key = newObjectKey(`chat-attachments/${conversation.id}/${user.id}`);
+  // Staging key: browser-writable via the presigned PUT for a few minutes. When
+  // the message is sent, the verified content is copied to a server-only final
+  // key so it can never be replaced afterwards.
+  const key = newObjectKey(`chat-attachments/staging/${conversation.id}/${user.id}`);
   const uploadUrl = await presignUpload(key, mimeType, sizeBytes);
 
   return NextResponse.json({ key, uploadUrl, expiresInSeconds: UPLOAD_URL_TTL_SECONDS });

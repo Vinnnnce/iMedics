@@ -21,7 +21,7 @@ vi.mock("@/lib/storage", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/storage")>()),
   presignUpload: vi.fn().mockResolvedValue("https://s3.example/signed-put"),
 }));
-vi.mock("@/lib/uploads", () => ({ newObjectKey: vi.fn().mockReturnValue("chat-attachments/conv-1/user-1/abc") }));
+vi.mock("@/lib/uploads", () => ({ newObjectKey: vi.fn().mockReturnValue("chat-attachments/staging/conv-1/user-1/abc") }));
 
 import { NextRequest } from "next/server";
 import { POST } from "./route";
@@ -55,9 +55,9 @@ describe("POST /api/conversations/[id]/messages/upload", () => {
     const response = await invoke({ mimeType: "image/png", sizeBytes: 1024 });
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.key).toBe("chat-attachments/conv-1/user-1/abc");
+    expect(body.key).toBe("chat-attachments/staging/conv-1/user-1/abc");
     expect(body.uploadUrl).toBe("https://s3.example/signed-put");
-    expect(newObjectKey).toHaveBeenCalledWith("chat-attachments/0f0e0d0c-0b0a-4009-8008-700600500400/11111111-2222-4333-8444-555555555555");
+    expect(newObjectKey).toHaveBeenCalledWith("chat-attachments/staging/0f0e0d0c-0b0a-4009-8008-700600500400/11111111-2222-4333-8444-555555555555");
     expect(presignUpload).toHaveBeenCalledWith(expect.any(String), "image/png", 1024);
   });
 

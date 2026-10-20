@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseId, parseQuery } from "@/lib/api";
 import { assertCanSend, findConversation, CHAT_IMAGE_MIME_TYPES } from "@/lib/chat";
-import { verifyUpload } from "@/lib/uploads";
+import { finalizeChatImage } from "@/lib/uploads";
 import { queueNotification } from "@/lib/notifications/service";
 
 const listSchema = z.object({
@@ -66,15 +66,15 @@ export const POST = withAuth<{ id: string }>(["DOCTOR", "PATIENT"], async (req, 
   let attachmentKey: string | null = null;
   if (data.image) {
     // Only images uploaded for this conversation by this sender can be attached.
-    const expectedPrefix = `chat-attachments/${conversation.id}/${user.id}/`;
+    const expectedPrefix = `chat-attachments/staging/${conversation.id}/${user.id}/`;
     if (!data.image.key.startsWith(expectedPrefix)) {
       return NextResponse.json({ error: "This image cannot be attached to this conversation" }, { status: 403 });
     }
-    // Re-verify the upload server-side: the object exists, is within limits and
-    // its content matches the declared image type (magic bytes check).
-    await verifyUpload(data.image.key, data.image.mimeType);
+    // Verify the upload server-side (magic bytes, size) and copy it to a
+    // server-only final key, so the still-writable staging URL cannot replace
+    // the verified content after the message is stored.
+    attachmentKey = await finalizeChatImage(data.image.key, data.image.mimeType);
     type = "IMAGE";
-    attachmentKey = data.image.key;
   }
 
   const message = await prisma.chatMessage.create({

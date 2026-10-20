@@ -106,6 +106,13 @@ export function ChatPanel({ contacts, startKey }: Props) {
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Mirrors activeId so an in-flight send can detect that the user switched
+  // conversations while the upload was running.
+  const activeIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
 
   // Release the object URL when a preview is replaced or cleared.
   useEffect(() => {
@@ -213,6 +220,10 @@ export function ChatPanel({ contacts, startKey }: Props) {
     });
   };
 
+  const appendMessage = (message: Message) => {
+    setMessages((current) => (current.some((m) => m.id === message.id) ? current : [...current, message]));
+  };
+
   const send = async () => {
     const body = input.trim();
     const conversationId = activeId;
@@ -243,8 +254,10 @@ export function ChatPanel({ contacts, startKey }: Props) {
         const data = await apiClient.post<{ message: Message }>(`/conversations/${conversationId}/messages`, { body });
         sent = data.message;
       }
-      if (sent && conversationId === activeId) {
-        setMessages((current) => [...current, sent]);
+      // Only touch the thread and the draft if the user is still on the same
+      // conversation; otherwise the reply stays for the polling refresh.
+      if (sent && activeIdRef.current === conversationId) {
+        appendMessage(sent);
         setInput("");
         clearImage();
       }
