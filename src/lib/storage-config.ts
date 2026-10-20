@@ -29,15 +29,22 @@ export function getStorageRegion(
   endpoint = getStorageEndpoint(),
 ): string {
   const configuredRegion = region?.trim();
+  const endpointRegion = getAwsEndpointRegion(endpoint);
 
   if (!configuredRegion) {
     if (endpoint && !isAwsEndpoint(endpoint)) {
       return "auto";
     }
+    if (endpointRegion) {
+      return endpointRegion;
+    }
     throw new ApiError(503, "Set S3_REGION to the AWS region containing S3_BUCKET.");
   }
 
   if (configuredRegion.toLowerCase() === "auto" && isAwsEndpoint(endpoint)) {
+    if (endpointRegion) {
+      return endpointRegion;
+    }
     throw new ApiError(503, "S3_REGION cannot be auto when using AWS S3. Set it to the bucket's AWS region.");
   }
 
@@ -48,4 +55,13 @@ function isAwsEndpoint(endpoint?: string): boolean {
   if (!endpoint) return true;
   const hostname = new URL(endpoint).hostname;
   return /(?:^|\.)amazonaws\.com(?:\.cn)?$/i.test(hostname);
+}
+
+function getAwsEndpointRegion(endpoint?: string): string | undefined {
+  if (!endpoint) return undefined;
+  const hostname = new URL(endpoint).hostname;
+  const match = hostname.match(
+    /(?:^|\.)s3(?:\.dualstack)?[.-]([a-z0-9-]+)\.amazonaws\.com(?:\.cn)?$/i,
+  );
+  return match?.[1];
 }
