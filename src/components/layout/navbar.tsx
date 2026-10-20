@@ -118,11 +118,14 @@ export function Navbar({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
   const pathname = usePathname();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
   const searchRef = useRef<HTMLInputElement>(null);
+  const searchWrapRef = useRef<HTMLDivElement>(null);
+  const mobileSearchRef = useRef<HTMLDivElement>(null);
 
   const me = useMe();
   const role = me?.role ?? "PATIENT";
@@ -208,57 +211,53 @@ export function Navbar({ children }: { children: React.ReactNode }) {
     }
   }, [searchOpen]);
 
+  // Close the search dropdown when clicking outside of it, and support the
+  // ⌘K / Ctrl+K shortcut advertised in the search bar. Escape always closes it.
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
+      const insideSearch =
+        (searchWrapRef.current?.contains(target) ?? false) || (mobileSearchRef.current?.contains(target) ?? false);
+      if (!insideSearch) {
+        setSearchOpen(false);
+        setMobileSearchOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearchOpen(true);
+        searchRef.current?.focus();
+      }
+      if (event.key === "Escape") {
+        setSearchOpen(false);
+        setMobileSearchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
+
+  // Lock the page scroll while the mobile drawer is open so the content
+  // underneath cannot be scrolled past the overlay.
+  useEffect(() => {
+    document.body.style.overflow = mobileSidebarOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileSidebarOpen]);
+
   const isActive = (href: string) => {
     return pathname === href || (pathname.startsWith(href + "/") && href !== "/");
   };
 
-  return (
-    <>
-      {/* AI-Driven Navbar */}
-      <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
-        <div className="flex h-16 items-center justify-between gap-3 px-4 md:px-6">
-          {/* Mobile menu */}
-          <button
-            onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-            className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg hover:bg-muted"
-          >
-            {mobileSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-
-          {/* Logo */}
-          <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-foreground">
-              <svg viewBox="0 0 24 24" className="h-5 w-5 text-background" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M12 2v20M2 12h20" strokeLinecap="round" />
-              </svg>
-            </div>
-            <span className="text-lg font-bold tracking-tight text-foreground hidden sm:inline">Medic1905</span>
-          </Link>
-
-          {/* AI Search Bar */}
-          <div className="flex-1 max-w-xl mx-auto min-w-0">
-            <div className="ai-search-bar flex items-center gap-2 px-4 py-2">
-              <Search className="h-4 w-4 text-muted-foreground shrink-0" />
-              <input
-                ref={searchRef}
-                type="text"
-                placeholder={role === "DOCTOR" ? "Search patients, labs, AI tools..." : "Search doctors, labs, appointments..."}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => setSearchOpen(true)}
-                className="flex-1 min-w-0 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-              />
-              {searchQuery && (
-                <button onClick={() => { setSearchQuery(""); setSearchOpen(false); }} className="text-muted-foreground hover:text-foreground">
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-              <kbd className="hidden md:block text-xs text-muted-foreground border border-border rounded px-1.5 py-0.5">⌘K</kbd>
-            </div>
-
-            {/* AI Search Results Dropdown */}
-            {searchOpen && (searchQuery || !searchQuery) && (
-              <div className="absolute top-full left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-xl mt-1 ai-suggestions overflow-hidden z-50">
+  // The AI search dropdown, shared by the desktop search bar and the mobile search row.
+  const searchDropdown = searchOpen ? (
+<div className="absolute top-full left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-xl mt-1 ai-suggestions overflow-hidden z-50">
                 {/* Filter chips */}
                 <div className="flex gap-2 p-3 overflow-x-auto border-b border-border">
                   {FILTER_CHIPS.map((chip) => (
@@ -280,7 +279,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
                         <Link
                           key={i}
                           href={result.href}
-                          onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+                          onClick={() => { setSearchOpen(false); setSearchQuery(""); setMobileSearchOpen(false); }}
                           className="flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors cursor-pointer"
                         >
                           <div className="icon-badge h-8 w-8 bg-muted">
@@ -322,11 +321,67 @@ export function Navbar({ children }: { children: React.ReactNode }) {
                   )}
                 </div>
               </div>
-            )}
+  ) : null;
+
+  return (
+    <>
+      {/* AI-Driven Navbar */}
+      <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
+        <div className="flex h-16 items-center justify-between gap-3 px-4 md:px-6">
+          {/* Mobile menu */}
+          <button
+            onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+            className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg hover:bg-muted"
+          >
+            {mobileSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+
+          {/* Logo */}
+          <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-foreground">
+              <svg viewBox="0 0 24 24" className="h-5 w-5 text-background" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M12 2v20M2 12h20" strokeLinecap="round" />
+              </svg>
+            </div>
+            <span className="text-lg font-bold tracking-tight text-foreground hidden sm:inline">Medic1905</span>
+          </Link>
+
+          {/* AI Search Bar (sm and up; on phones it collapses to a search icon) */}
+          <div ref={searchWrapRef} className="relative hidden flex-1 max-w-xl mx-auto min-w-0 sm:block">
+            <div className="ai-search-bar flex items-center gap-2 px-4 py-2">
+              <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+              <input
+                ref={searchRef}
+                type="text"
+                placeholder={role === "DOCTOR" ? "Search patients, labs…" : "Search doctors, labs…"}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setSearchOpen(true)}
+                className="flex-1 min-w-0 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+              />
+              {searchQuery && (
+                <button onClick={() => { setSearchQuery(""); setSearchOpen(false); }} className="text-muted-foreground hover:text-foreground">
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+              <kbd className="hidden md:block text-xs text-muted-foreground border border-border rounded px-1.5 py-0.5">⌘K</kbd>
+            </div>
+
+            {/* AI Search Results Dropdown */}
+            {searchDropdown}
           </div>
 
           {/* Right side actions */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 sm:gap-3">
+            {/* Mobile search toggle */}
+            <button
+              onClick={() => setMobileSearchOpen(true)}
+              aria-label="Search"
+              data-testid="button-mobile-search"
+              className="flex sm:hidden h-9 w-9 items-center justify-center rounded-lg hover:bg-muted"
+            >
+              <Search className="h-5 w-5" />
+            </button>
             <NotificationCenter enabled={Boolean(me)} />
             {/* Theme switch toggle */}
             <button
@@ -364,6 +419,35 @@ export function Navbar({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+
+      {/* Mobile search row — opens from the search icon on phones */}
+      {mobileSearchOpen && (
+        <div
+          ref={mobileSearchRef}
+          className="fixed inset-x-0 top-16 z-50 border-b border-border bg-card p-3 shadow-lg sm:hidden"
+        >
+          <div className="ai-search-bar flex items-center gap-2 px-4 py-2">
+            <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+            <input
+              type="text"
+              autoFocus
+              placeholder={role === "DOCTOR" ? "Search patients, labs…" : "Search doctors, labs…"}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setSearchOpen(true)}
+              className="flex-1 min-w-0 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+            />
+            <button
+              onClick={() => { setMobileSearchOpen(false); setSearchOpen(false); }}
+              aria-label="Close search"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          {searchDropdown}
+        </div>
+      )}
 
       {/* Content row: sidebar beside main content, below the full-width header */}
       <div className="flex flex-1 min-h-[calc(100vh-4rem)]">
