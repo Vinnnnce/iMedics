@@ -41,6 +41,23 @@ export interface TopRatedDoctor {
   ratingCount: number;
 }
 
+export type TopRatedFacilityType = "HOSPITAL" | "LABORATORY" | "DIAGNOSTIC_CENTRE";
+
+export interface TopRatedFacility {
+  id: string;
+  name: string;
+  type: TopRatedFacilityType;
+  slug: string | null;
+  ratingAvg: number;
+  ratingCount: number;
+}
+
+const FACILITY_TYPE_ROUTES: Record<TopRatedFacilityType, { directory: string; profile: string; label: string }> = {
+  HOSPITAL: { directory: "/hospitals", profile: "/hospitals", label: "Hospital" },
+  LABORATORY: { directory: "/laboratories", profile: "/laboratories", label: "Laboratory" },
+  DIAGNOSTIC_CENTRE: { directory: "/diagnostic-centres", profile: "/diagnostic-centres", label: "Diagnostic centre" },
+};
+
 function BrandMark({ className }: { className?: string }) {
   // Medic1905 logo with the background removed. In dark mode it sits on a
   // small white chip so the navy wordmark stays visible; hover feedback on
@@ -77,7 +94,7 @@ function ServiceCard({ card }: { card: ImedicsServiceCard }) {
   );
 }
 
-export function ImedicsHomepage({ topDoctors }: { topDoctors: TopRatedDoctor[] }) {
+export function ImedicsHomepage({ topDoctors, topFacilities }: { topDoctors: TopRatedDoctor[]; topFacilities: TopRatedFacility[] }) {
   const { theme, toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -272,6 +289,34 @@ export function ImedicsHomepage({ topDoctors }: { topDoctors: TopRatedDoctor[] }
             <p className="mt-3 text-xs text-muted-foreground">No published doctor ratings yet.</p>
           )}
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            {topFacilities.length > 0 && topFacilities.map(facility => {
+              const route = FACILITY_TYPE_ROUTES[facility.type];
+              const href = facility.slug ? `${route.profile}/${facility.slug}` : route.directory;
+              return (
+                <Link
+                  key={facility.id}
+                  href={href}
+                  data-testid={`link-top-facility-${facility.id}`}
+                  className="flex flex-col rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/50 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
+                  <span className="flex items-center gap-1" aria-label={`Rated ${facility.ratingAvg.toFixed(1)} out of 5 from ${facility.ratingCount} reviews`}>
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <Star
+                        key={i}
+                        aria-hidden="true"
+                        className={`h-3.5 w-3.5 ${i < Math.round(facility.ratingAvg) ? "fill-foreground text-foreground" : "text-muted-foreground/40"}`}
+                      />
+                    ))}
+                    <span className="ml-1 text-xs font-semibold">{facility.ratingAvg.toFixed(1)}</span>
+                  </span>
+                  <span className="mt-2 truncate text-sm font-semibold">{facility.name}</span>
+                  <span className="mt-0.5 text-xs text-muted-foreground">{route.label}</span>
+                  <span className="mt-1 text-[11px] text-muted-foreground">
+                    {facility.ratingCount} patient {facility.ratingCount === 1 ? "review" : "reviews"}
+                  </span>
+                </Link>
+              );
+            })}
             {[
               { href: "/hospitals", label: "Hospitals", icon: Building2 },
               { href: "/laboratories", label: "Laboratories", icon: FlaskConical },
@@ -286,9 +331,7 @@ export function ImedicsHomepage({ topDoctors }: { topDoctors: TopRatedDoctor[] }
                   <item.icon aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">{item.label}</span>
                 </span>
-                <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
-                  Ratings coming soon
-                </span>
+                <span className="text-xs text-muted-foreground">Browse</span>
               </Link>
             ))}
           </div>

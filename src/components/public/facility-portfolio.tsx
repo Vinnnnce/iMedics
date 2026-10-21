@@ -16,6 +16,7 @@ import { FacilityServiceCatalog } from "./facility-service-catalog";
 import { getCurrentUser } from "@/lib/auth";
 import { initials } from "@/lib/format";
 import { FacilityWebsiteRenderer } from "./facility-website-renderer";
+import { FacilityReviewSection } from "./facility-review-section";
 import { prisma } from "@/lib/prisma";
 import { parseWebsiteLayout } from "@/lib/website/blocks";
 
@@ -31,6 +32,45 @@ async function loadPortfolio(directory: string, slug: string) {
     listPublicFacilityStaff(facility.id),
     listPublicFacilityServices(facility.id),
   ]);
+  // Patient reviews are an enhancement: if the table is missing or the query
+  // fails (e.g. the database migration has not been applied yet), the public
+  // facility profile must still render. Failures are logged, not shown.
+  let reviews: { rating: number; count: number; list: { id: string; rating: number; comment: string | null; facilityResponse: string | null; createdAt: Date; author: string }[] } | null = null;
+  try {
+    const [approved, aggregate] = await Promise.all([
+      prisma.facilityReview.findMany({
+        where: { facilityId: facility.id, moderationStatus: "APPROVED" },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: {
+          id: true, rating: true, comment: true, facilityResponse: true, createdAt: true,
+          patient: { select: { firstName: true } },
+        },
+      }),
+      prisma.facilityReview.aggregate({
+        where: { facilityId: facility.id, moderationStatus: "APPROVED" },
+        _avg: { rating: true },
+        _count: { rating: true },
+      }),
+    ]);
+    reviews = {
+      rating: aggregate._avg.rating ?? 0,
+      count: aggregate._count.rating,
+      list: approved.map(review => ({
+        id: review.id,
+        rating: review.rating,
+        comment: review.comment,
+        facilityResponse: review.facilityResponse,
+        createdAt: review.createdAt,
+        author: review.patient?.firstName ? `${review.patient.firstName}.` : "A patient",
+      })),
+    };
+  } catch (error) {
+    console.error(
+      "[facility-portfolio] patient reviews unavailable — has `prisma migrate deploy` been run?",
+      error instanceof Error ? error.message : error,
+    );
+  }
   // The mini-website section is an enhancement: if its table is missing or the
   // query fails (e.g. the database migration has not been applied yet), the
   // public facility profile must still render. Failures are logged, not shown
@@ -47,7 +87,7 @@ async function loadPortfolio(directory: string, slug: string) {
       error instanceof Error ? error.message : error,
     );
   }
-  return { facility, staff: staff.map(publicStaffProfile), services, website };
+  return { facility, staff: staff.map(publicStaffProfile), services, website, reviews };
 }
 
 export async function generatePortfolioMetadata({ directory, slug }: PortfolioPageInput): Promise<Metadata> {
@@ -74,7 +114,7 @@ export async function generatePortfolioMetadata({ directory, slug }: PortfolioPa
 
 /** Public facility mini-portfolio: profile, services and prices, departments, team, accreditations. */
 export async function FacilityPortfolio({ directory, slug }: PortfolioPageInput) {
-  const { facility, staff, services, website } = await loadPortfolio(directory, slug);
+  const { facility, staff, services, website, reviews } = await loadPortfolio(directory, slug);
   const publishedLayout = website?.publishedLayout ? parseWebsiteLayout(website.publishedLayout) : null;
   const user = await getCurrentUser();
   const canBook = user?.role === "PATIENT" && user.status === "ACTIVE";
@@ -352,6 +392,20 @@ export async function FacilityPortfolio({ directory, slug }: PortfolioPageInput)
           </Card>
         </div>
       </section>
+
+      {/* Patient reviews */}
+      {reviews && (
+        <FacilityReviewSection
+          facilityId={facility.id}
+          canReview={user?.role === "PATIENT" && user.status === "ACTIVE"}
+          initialReviews={reviews.list.map(review => ({
+            ...review,
+            createdAt: review.createdAt.toISOString(),
+          }))}
+          initialAverage={reviews.count > 0 ? reviews.rating : null}
+          initialCount={reviews.count}
+        />
+      )}
 
       {/* Contact */}
       <section aria-labelledby="contact-heading" id="contact" className="space-y-3">

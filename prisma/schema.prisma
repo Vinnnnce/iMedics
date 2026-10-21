@@ -42,6 +42,7 @@ model User {
   notificationPrefs      NotificationPreference[]
   pushSubscriptions      PushSubscription[]
   documentsUploaded      PatientDocument[]        @relation("PatientDocumentUploaded")
+  facilityDocTemplates    FacilityDocumentTemplate[] @relation("FacilityDocumentTemplateAuthor")
   documentSharesReceived DocumentShare[]          @relation("DocumentShareRecipient")
   trustedContactAccount  TrustedContact[]         @relation("TrustedContactUser")
   lastActiveAt           DateTime?                @map("last_active_at")
@@ -183,6 +184,8 @@ model LabStaffProfile {
   email                   String?                 @db.VarChar(120)
   logoUrl                 String?                 @map("logo_url") @db.VarChar(500)
   galleryImageKeys        String[]                @default([]) @map("gallery_image_keys")
+  ratingAvg               Float                   @default(0) @map("rating_avg")
+  ratingCount             Int                     @default(0) @map("rating_count")
   commissionBps           Int?                    @map("commission_bps")
   subaccountCode          String?                 @map("subaccount_code") @db.VarChar(60)
   settlementBank          String?                 @map("settlement_bank") @db.VarChar(100)
@@ -195,6 +198,9 @@ model LabStaffProfile {
   staffMembers            FacilityStaff[]
   referrals               FacilityReferral[]
   accreditations          FacilityAccreditation[]
+  documentTemplates       FacilityDocumentTemplate[]
+  issuedDocuments         PatientDocument[]         @relation("IssuingFacility")
+  reviews                 FacilityReview[]
 
   @@index([verificationStatus])
   @@map("lab_staff_profiles")
@@ -295,6 +301,7 @@ model Patient {
   organDonorStatus  Boolean?             @map("organ_donor_status")
   careCases         CareCase[]
   documents         PatientDocument[]
+  facilityReviews   FacilityReview[]
   reminders         MedicationReminder[]
   doseEvents        DoseEvent[]
   trustedContacts   TrustedContact[]
@@ -554,6 +561,54 @@ enum NoteTemplateKind {
   CONSULTATION
   CASE_NOTE
   REFERRAL
+}
+
+/** Kinds of patient documents a facility can customize with a template. */
+enum FacilityDocumentTemplateKind {
+  LAB_REPORT
+  REFERRAL_FORM
+  CASE_NOTE
+  IMAGING_REPORT
+}
+
+/// Document scaffolds a facility defines for the documents it issues:
+/// structure only (field headings and prompts), never patient data.
+model FacilityDocumentTemplate {
+  id         String                       @id @default(uuid()) @db.Uuid
+  facilityId  String                       @map("facility_id") @db.Uuid
+  name       String
+  kind       FacilityDocumentTemplateKind
+  /// JSON object of scaffold fields, e.g. { "findings": "…", "conclusion": "…" }.
+  content    String
+  createdById String                       @map("created_by_id") @db.Uuid
+  createdAt  DateTime                     @default(now()) @map("created_at")
+  updatedAt  DateTime                     @updatedAt @map("updated_at")
+  facility   LabStaffProfile               @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  createdBy  User                         @relation("FacilityDocumentTemplateAuthor", fields: [createdById], references: [id])
+
+  @@index([facilityId, kind])
+  @@map("facility_document_templates")
+}
+
+/// Patient reviews of a facility (hospital, laboratory, diagnostic centre).
+model FacilityReview {
+  id               String          @id @default(uuid()) @db.Uuid
+  facilityId       String          @map("facility_id") @db.Uuid
+  patientId        String          @map("patient_id") @db.Uuid
+  rating           Int
+  comment          String?
+  moderationStatus ReviewModeration @default(APPROVED) @map("moderation_status")
+  moderatedAt     DateTime?
+  facilityResponse String?          @map("facility_response")
+  respondedAt      DateTime?       @map("responded_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  facility         LabStaffProfile  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  patient          Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, facilityId])
+  @@index([facilityId])
+  @@map("facility_reviews")
 }
 
 model LabTest {
@@ -1989,6 +2044,8 @@ model PatientDocument {
   mimeType        String           @map("mime_type")
   sizeBytes       Int              @map("size_bytes")
   issuingFacility String?          @map("issuing_facility") @db.VarChar(200)
+  /// FK form of issuingFacility: the facility whose staff uploaded the document.
+  issuingFacilityId String?         @map("issuing_facility_id") @db.Uuid
   issuedOn        DateTime?        @map("issued_on")
   notes           String?
   uploadedById    String           @map("uploaded_by_id") @db.Uuid
@@ -1997,6 +2054,7 @@ model PatientDocument {
   updatedAt       DateTime         @updatedAt @map("updated_at")
   patient         Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
   uploader        User             @relation("PatientDocumentUploaded", fields: [uploadedById], references: [id])
+  issuingFacilityRef LabStaffProfile? @relation("IssuingFacility", fields: [issuingFacilityId], references: [id])
   shares          DocumentShare[]
 
   @@index([patientId, createdAt])

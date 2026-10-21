@@ -23,6 +23,8 @@ export const FACILITY_PERMISSIONS = [
   "MANAGE_PAYOUTS", // Manage settlement configuration
   "MANAGE_CREDENTIALS", // Record and verify staff credentials
   "MANAGE_REFERRALS", // Accept, decline or fulfil referrals
+  "VIEW_PATIENT_DOCUMENTS", // View patient documents issued by this facility
+  "MANAGE_DOCUMENT_TEMPLATES", // Create and edit the facility's document templates
   "VIEW_AUDIT", // Read-only access to audit logs
 ] as const;
 
@@ -41,11 +43,13 @@ const ROLE_PERMISSIONS: Record<FacilityStaffRole, readonly FacilityPermission[]>
     "VIEW_REVENUE",
     "MANAGE_CREDENTIALS",
     "MANAGE_REFERRALS",
+    "VIEW_PATIENT_DOCUMENTS",
+    "MANAGE_DOCUMENT_TEMPLATES",
   ],
   // Consultations, referrals, clinical records.
-  DOCTOR: ["MANAGE_BOOKINGS", "REGISTER_PATIENTS", "MANAGE_REFERRALS"],
+  DOCTOR: ["MANAGE_BOOKINGS", "REGISTER_PATIENTS", "MANAGE_REFERRALS", "VIEW_PATIENT_DOCUMENTS"],
   // Sample tracking, test entry, result entry, report preparation.
-  LAB_SCIENTIST: ["PROCESS_ORDERS", "ENTER_RESULTS", "VERIFY_RESULTS", "RELEASE_RESULTS"],
+  LAB_SCIENTIST: ["PROCESS_ORDERS", "ENTER_RESULTS", "VERIFY_RESULTS", "RELEASE_RESULTS", "VIEW_PATIENT_DOCUMENTS"],
   // Sample processing, equipment logs, result entry.
   LAB_TECHNICIAN: ["PROCESS_ORDERS", "ENTER_RESULTS"],
   // Sample receipt, labelling, preparation.
@@ -61,7 +65,7 @@ const ROLE_PERMISSIONS: Record<FacilityStaffRole, readonly FacilityPermission[]>
   // Invoices, payments, refunds, revenue reports.
   ACCOUNTANT: ["TAKE_PAYMENTS", "VIEW_REVENUE"],
   // Read-only audit logs, credential reports, compliance records.
-  COMPLIANCE_OFFICER: ["VIEW_AUDIT", "MANAGE_CREDENTIALS"],
+  COMPLIANCE_OFFICER: ["VIEW_AUDIT", "MANAGE_CREDENTIALS", "VIEW_PATIENT_DOCUMENTS"],
 };
 
 export function permissionsForRole(role: FacilityStaffRole): readonly FacilityPermission[] {
