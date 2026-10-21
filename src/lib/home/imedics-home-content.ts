@@ -17,7 +17,7 @@ export interface ImedicsServiceCard {
   /** Lucide icon name, resolved by the homepage component. */
   icon:
     | "stethoscope"
-    | "video"
+    | "message-circle"
     | "calendar"
     | "flask"
     | "folder"
@@ -37,9 +37,9 @@ export const IMEDICS_SERVICE_CARDS: readonly ImedicsServiceCard[] = [
   },
   {
     title: "Consultations",
-    description: "Secure chat and video consultations with your doctor.",
+    description: "Secure chat consultations with your doctor.",
     href: "/patient/consult",
-    icon: "video",
+    icon: "message-circle",
     access: "account",
   },
   {
@@ -51,7 +51,7 @@ export const IMEDICS_SERVICE_CARDS: readonly ImedicsServiceCard[] = [
   },
   {
     title: "Lab Tests & Results",
-    description: "Order laboratory tests and receive digital results.",
+    description: "View your laboratory test results as they arrive.",
     href: "/patient/results",
     icon: "flask",
     access: "account",
@@ -65,7 +65,7 @@ export const IMEDICS_SERVICE_CARDS: readonly ImedicsServiceCard[] = [
   },
   {
     title: "Prescriptions",
-    description: "Digital prescriptions and renewal requests.",
+    description: "View and print prescriptions issued by your doctors.",
     href: "/patient/prescriptions",
     icon: "file-text",
     access: "account",

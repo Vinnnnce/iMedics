@@ -216,7 +216,9 @@ export function Navbar({ children }: { children: React.ReactNode }) {
   // Logged-out visitors on the public homepage render it standalone: the
   // homepage brings its own header, footer, and theme toggle, so the
   // application chrome (sidebar, search, bottom nav) stays out of the way.
-  // Authenticated users are redirected by the root page before this renders.
+  // Authenticated visitors never reach this branch with the homepage: the
+  // root page redirects them (only suspended accounts render there, with the
+  // app chrome, which is the correct shell for them).
   if (pathname === "/" && !user) {
     return <>{children}</>;
   }

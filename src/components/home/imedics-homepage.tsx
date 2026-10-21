@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Calendar, ChevronDown, FileText, FlaskConical, FolderOpen, HeartPulse,
-  Menu, Moon, Sparkles, Stethoscope, Sun, Video, X, type LucideIcon,
+  Menu, MessageCircle, Moon, Sparkles, Stethoscope, Sun, X, type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import {
@@ -14,7 +14,7 @@ import {
 
 const SERVICE_ICONS: Record<ImedicsServiceCard["icon"], LucideIcon> = {
   stethoscope: Stethoscope,
-  video: Video,
+  "message-circle": MessageCircle,
   calendar: Calendar,
   flask: FlaskConical,
   folder: FolderOpen,
