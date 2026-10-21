@@ -13,5 +13,5 @@ export const GET = withAuth(["ADMIN"], async (req, { user }) => {
     select: { id: true, actorRole: true, action: true, resourceType: true, createdAt: true } });
   const csv = [["id", "actor_role", "action", "resource_type", "created_at"].map(csvCell).join(","),
     ...rows.map(r => [r.id, r.actorRole, r.action, r.resourceType, r.createdAt.toISOString()].map(csvCell).join(","))].join("\r\n");
-  return new Response(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="imedics-audit.csv"', "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
+  return new Response(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="medic1905-audit.csv"', "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
 });

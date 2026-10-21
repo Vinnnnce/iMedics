@@ -61,7 +61,7 @@ export function ItemTable({ items, title, actions, exportSection }: {
         if (!window.confirm("Export these authorized records to this device? The file may contain sensitive information. Keep it secure.")) return;
         void mutation.run(async () => {
           const query = new URLSearchParams({ section: exportSection, search, status, ...range });
-          await downloadCsv(`/api/workspace/report?${query}`, `imedics-${exportSection}.csv`);
+          await downloadCsv(`/api/workspace/report?${query}`, `medic1905-${exportSection}.csv`);
         }, "Export downloaded");
       }}>Export CSV</Button>}
     </FilterBar>

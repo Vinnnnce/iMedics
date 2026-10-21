@@ -26,4 +26,6 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      - run: npm run build
+      # CI has no database service — deploy-time migrations run on Vercel (real
+      # database), so build here without `prisma migrate deploy`.
+      - run: npx prisma generate && npx next build

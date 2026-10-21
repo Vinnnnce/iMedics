@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useMe } from "@/lib/use-me";
 import { useUser } from "@clerk/nextjs";
@@ -363,14 +364,16 @@ export function Navbar({ children }: { children: React.ReactNode }) {
             {mobileSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
 
-          {/* Logo */}
-          <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-foreground">
-              <svg viewBox="0 0 24 24" className="h-5 w-5 text-background" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M12 2v20M2 12h20" strokeLinecap="round" />
-              </svg>
-            </div>
-            <span className="text-lg font-bold tracking-tight text-foreground hidden sm:inline">Medic1905</span>
+          {/* Logo — Medic1905 wordmark (white chip keeps it legible in dark mode) */}
+          <Link href="/dashboard" className="flex shrink-0 items-center rounded-lg transition-opacity hover:opacity-80" aria-label="Medic1905 home">
+            <Image
+              src="/medic1905-logo.png"
+              alt="Medic1905"
+              width={465}
+              height={180}
+              priority
+              className="h-8 w-auto dark:rounded-lg dark:bg-white dark:p-1.5"
+            />
           </Link>
 
           {/* AI Search Bar (sm and up; on phones it collapses to a search icon) */}

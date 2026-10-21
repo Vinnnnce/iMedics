@@ -4,9 +4,9 @@ self.addEventListener("push", event => {
   try { payload = event.data ? event.data.json() : {}; } catch { /* generic fallback */ }
   const candidate = payload.href || payload.url;
   const href = typeof candidate === "string" && /^\/(?!\/)/.test(candidate) ? candidate : "/workspace";
-  event.waitUntil(self.registration.showNotification("iMedics", {
+  event.waitUntil(self.registration.showNotification("Medic1905", {
     body: "You have an update in your secure account. Sign in to view it.",
-    icon: "/favicon.ico", data: { href }, tag: "imedics-update"
+    icon: "/favicon.ico", data: { href }, tag: "medic1905-update"
   }));
 });
 self.addEventListener("notificationclick", event => {

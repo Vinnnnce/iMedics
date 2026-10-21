@@ -15,5 +15,5 @@ export const GET = withAuth(null, async (req, { user }) => {
   const rows = filterWorkspaceItems(data[query.section], query);
   await extensionAudit(user, "DASHBOARD_RECORDS_EXPORTED");
   const csv = [["Title", "Details", "Status", "UTC date", "Case number"], ...rows.map(row => [row.title, row.subtitle, row.status, row.at, row.caseNumber])].map(row => row.map(csvCell).join(",")).join("\r\n");
-  return new Response(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="imedics-${query.section}.csv"`, "X-Content-Type-Options": "nosniff" } });
+  return new Response(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="medic1905-${query.section}.csv"`, "X-Content-Type-Options": "nosniff" } });
 });
