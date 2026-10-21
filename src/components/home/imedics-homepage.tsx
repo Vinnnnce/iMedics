@@ -4,10 +4,12 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  Calendar, ChevronDown, FileText, FlaskConical, FolderOpen, HeartPulse,
-  Menu, MessageCircle, Moon, Sparkles, Stethoscope, Sun, X, type LucideIcon,
+  Building2, Calendar, ChevronDown, ClipboardList, FileText, FlaskConical, FolderOpen,
+  HeartPulse, Menu, MessageCircle, Moon, Sparkles, Stethoscope, Star, Sun, X,
+  type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
+import { HomeAdsCarousel } from "@/components/home/home-ads-carousel";
 import {
   IMEDICS_FAQS, IMEDICS_FEATURED_PANEL, IMEDICS_FOOTER_LINKS,
   IMEDICS_HOW_IT_WORKS_STEPS, IMEDICS_SERVICE_CARDS, type ImedicsServiceCard,
@@ -26,21 +28,31 @@ const SERVICE_ICONS: Record<ImedicsServiceCard["icon"], LucideIcon> = {
 
 const NAV_LINKS = [
   { href: "#services", label: "Services" },
+  { href: "#ratings", label: "Ratings" },
   { href: "#how-it-works", label: "How it works" },
   { href: "#faq", label: "FAQ" },
 ] as const;
 
+export interface TopRatedDoctor {
+  id: string;
+  name: string;
+  specialty: string | null;
+  ratingAvg: number;
+  ratingCount: number;
+}
+
 function BrandMark({ className }: { className?: string }) {
-  // Medic1905 logo (wordmark + stethoscope on a black tile — reads as a
-  // monochrome mark in both themes).
+  // Medic1905 logo with the background removed. In dark mode it sits on a
+  // small white chip so the navy wordmark stays visible; hover feedback on
+  // the surrounding link signals it is clickable.
   return (
     <Image
       src="/medic1905-logo.png"
       alt="Medic1905"
-      width={536}
-      height={207}
+      width={465}
+      height={180}
       priority
-      className={`w-auto rounded-md ${className ?? "h-9"}`}
+      className={`w-auto dark:rounded-lg dark:bg-white dark:p-1.5 dark:shadow-sm ${className ?? "h-9"}`}
     />
   );
 }
@@ -65,7 +77,7 @@ function ServiceCard({ card }: { card: ImedicsServiceCard }) {
   );
 }
 
-export function ImedicsHomepage() {
+export function ImedicsHomepage({ topDoctors }: { topDoctors: TopRatedDoctor[] }) {
   const { theme, toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -74,8 +86,8 @@ export function ImedicsHomepage() {
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-3 px-4">
-          <Link href="/" className="flex items-center gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label="Medic1905 home">
-            <BrandMark />
+          <Link href="/" className="flex items-center gap-2 rounded-lg transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label="Medic1905 home">
+            <BrandMark className="h-10" />
           </Link>
 
           <nav className="hidden items-center gap-6 md:flex" aria-label="Primary">
@@ -181,6 +193,11 @@ export function ImedicsHomepage() {
           </p>
         </section>
 
+        {/* Sliding highlights card */}
+        <div className="pb-2">
+          <HomeAdsCarousel />
+        </div>
+
         {/* Service grid — compact app-hub tiles */}
         <section id="services" aria-labelledby="services-heading" className="mx-auto w-full max-w-5xl px-4">
           <h2 id="services-heading" className="text-base font-semibold">Explore services</h2>
@@ -217,6 +234,63 @@ export function ImedicsHomepage() {
                 {IMEDICS_FEATURED_PANEL.secondaryCta}
               </Link>
             </div>
+          </div>
+        </section>
+
+        {/* Patient ratings — real doctor aggregates from reviews; facility
+            ratings are not collected yet, so those cards say so honestly. */}
+        <section id="ratings" aria-labelledby="ratings-heading" className="mx-auto w-full max-w-5xl px-4 pt-12">
+          <h2 id="ratings-heading" className="text-base font-semibold">Patient ratings</h2>
+          {topDoctors.length > 0 ? (
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {topDoctors.map(doctor => (
+                <Link
+                  key={doctor.id}
+                  href={`/doctors/${doctor.id}`}
+                  data-testid={`link-top-doctor-${doctor.id}`}
+                  className="flex flex-col rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/50 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
+                  <span className="flex items-center gap-1" aria-label={`Rated ${doctor.ratingAvg.toFixed(1)} out of 5 from ${doctor.ratingCount} reviews`}>
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <Star
+                        key={i}
+                        aria-hidden="true"
+                        className={`h-3.5 w-3.5 ${i < Math.round(doctor.ratingAvg) ? "fill-foreground text-foreground" : "text-muted-foreground/40"}`}
+                      />
+                    ))}
+                    <span className="ml-1 text-xs font-semibold">{doctor.ratingAvg.toFixed(1)}</span>
+                  </span>
+                  <span className="mt-2 text-sm font-semibold">{doctor.name}</span>
+                  <span className="mt-0.5 text-xs text-muted-foreground">{doctor.specialty ?? "Doctor"}</span>
+                  <span className="mt-1 text-[11px] text-muted-foreground">
+                    {doctor.ratingCount} patient {doctor.ratingCount === 1 ? "review" : "reviews"}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-muted-foreground">No published doctor ratings yet.</p>
+          )}
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            {[
+              { href: "/hospitals", label: "Hospitals", icon: Building2 },
+              { href: "/laboratories", label: "Laboratories", icon: FlaskConical },
+              { href: "/diagnostic-centres", label: "Diagnostic centres", icon: ClipboardList },
+            ].map(item => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/50 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                <span className="flex items-center gap-3">
+                  <item.icon aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">{item.label}</span>
+                </span>
+                <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+                  Ratings coming soon
+                </span>
+              </Link>
+            ))}
           </div>
         </section>
 

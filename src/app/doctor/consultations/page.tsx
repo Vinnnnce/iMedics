@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Icd10Picker, type Icd10Selection } from "@/components/doctor/icd10-picker";
+import { ConsultationTemplatePicker } from "@/components/doctor/consultation-tools";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -264,6 +265,18 @@ export default function DoctorConsultationsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <ConsultationTemplatePicker
+            onApply={scaffold => {
+              setHistoryPresentIllness(scaffold.history);
+              setExamination(scaffold.examination);
+              setNotes(scaffold.notes);
+            }}
+            getCurrent={() => ({
+              history: historyPresentIllness,
+              examination,
+              notes,
+            })}
+          />
           <div className="space-y-2">
             <Label htmlFor="chiefComplaint">Chief Complaint</Label>
             <Input

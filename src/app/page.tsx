@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { ImedicsHomepage } from "@/components/home/imedics-homepage";
+import { prisma } from "@/lib/prisma";
+import { ImedicsHomepage, type TopRatedDoctor } from "@/components/home/imedics-homepage";
 
 export const metadata: Metadata = {
   title: "Medic1905 — Healthcare, all in one place",
@@ -9,12 +10,49 @@ export const metadata: Metadata = {
     "Discover medical resources, explore healthcare services, and find the information you need to take your next step with confidence.",
 };
 
+/**
+ * Top-rated doctors shown on the public homepage, from real published
+ * reviews. Failures (e.g. database unavailable) degrade to an empty list —
+ * the homepage still renders.
+ */
+async function getTopRatedDoctors(): Promise<TopRatedDoctor[]> {
+  try {
+    const doctors = await prisma.doctorProfile.findMany({
+      where: {
+        verificationStatus: "VERIFIED",
+        ratingCount: { gt: 0 },
+      },
+      orderBy: [{ ratingAvg: "desc" }, { ratingCount: "desc" }],
+      take: 4,
+      select: {
+        id: true,
+        specialty: true,
+        ratingAvg: true,
+        ratingCount: true,
+        user: { select: { name: true } },
+      },
+    });
+    return doctors.map(doctor => ({
+      id: doctor.id,
+      name: doctor.user.name?.trim() || "Doctor",
+      specialty: doctor.specialty,
+      ratingAvg: doctor.ratingAvg,
+      ratingCount: doctor.ratingCount,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export default async function HomePage() {
   const user = await getCurrentUser();
 
   // Logged-out visitors get the public homepage; authenticated users keep the
   // existing role-based entry into the application, unchanged.
-  if (!user) return <ImedicsHomepage />;
+  if (!user) {
+    const topDoctors = await getTopRatedDoctors();
+    return <ImedicsHomepage topDoctors={topDoctors} />;
+  }
 
   if (user.status === "SUSPENDED" || user.status === "BANNED") {
     return (

@@ -5,6 +5,7 @@ import {
   IMEDICS_FAQS,
   IMEDICS_FEATURED_PANEL,
   IMEDICS_FOOTER_LINKS,
+  IMEDICS_HOME_SLIDES,
   IMEDICS_HOW_IT_WORKS_STEPS,
   IMEDICS_SERVICE_CARDS,
 } from "./imedics-home-content";
@@ -57,5 +58,17 @@ describe("Medic1905 homepage content", () => {
   it("does not advertise clinical data or results in card copy", () => {
     const copy = IMEDICS_SERVICE_CARDS.map(c => `${c.title} ${c.description}`).join(" ").toLowerCase();
     expect(copy).not.toMatch(/diagnos[ie] your|your test result value|\bcure\b|treat guaranteed/);
+  });
+
+  it("shows a sliding highlights card with real destinations", () => {
+    expect(IMEDICS_HOME_SLIDES.length).toBeGreaterThanOrEqual(3);
+    for (const slide of IMEDICS_HOME_SLIDES) {
+      expect(slide.title).toBeTruthy();
+      expect(slide.description).toBeTruthy();
+      if (slide.ctaHref) {
+        expect(slide.ctaHref).toMatch(/^\//);
+        expect(existsSync(path.join(process.cwd(), "src/app", slide.ctaHref, "page.tsx")), slide.ctaHref).toBe(true);
+      }
+    }
   });
 });

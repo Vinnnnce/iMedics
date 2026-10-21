@@ -86,6 +86,55 @@ export const IMEDICS_SERVICE_CARDS: readonly ImedicsServiceCard[] = [
   },
 ];
 
+export interface ImedicsHomeSlide {
+  id: string;
+  title: string;
+  description: string;
+  /** Optional destination the slide promotes (real route only). */
+  ctaHref?: string;
+  ctaLabel?: string;
+  /** Lucide icon name shown on the slide. */
+  icon: "stethoscope" | "heart-pulse" | "flask" | "sparkles" | "calendar" | "folder";
+  /** Optional image URL; rendered in monochrome (grayscale) when present. */
+  image?: string;
+}
+
+/** Add a new slide by appending an entry here — the carousel adapts. */
+export const IMEDICS_HOME_SLIDES: readonly ImedicsHomeSlide[] = [
+  {
+    id: "find-doctor",
+    title: "Find a verified doctor",
+    description: "Browse doctors by specialty and book a visit that fits your schedule.",
+    ctaHref: "/doctors",
+    ctaLabel: "Browse doctors",
+    icon: "stethoscope",
+  },
+  {
+    id: "lab-results",
+    title: "Lab results in one place",
+    description: "Laboratory results arrive in your account as soon as they are verified.",
+    ctaHref: "/patient/results",
+    ctaLabel: "See lab results",
+    icon: "flask",
+  },
+  {
+    id: "emergency",
+    title: "Emergency & CPR guides",
+    description: "Life-saving steps and emergency numbers, available without an account.",
+    ctaHref: "/emergency",
+    ctaLabel: "Open guides",
+    icon: "heart-pulse",
+  },
+  {
+    id: "ai-assistant",
+    title: "AI health assistant",
+    description: "Ask health questions and get clear, informational answers any time.",
+    ctaHref: "/ai-assistant",
+    ctaLabel: "Try the assistant",
+    icon: "sparkles",
+  },
+];
+
 export interface ImedicsFaqItem {
   question: string;
   answer: string;

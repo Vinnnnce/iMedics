@@ -28,6 +28,7 @@ model User {
   updatedAt              DateTime                 @updatedAt @map("updated_at")
   deletedAt              DateTime?                @map("deleted_at")
   aiReviews              AiAnalysis[]             @relation("AiAnalysisReviewedBy")
+  noteTemplates          NoteTemplate[]
   auditLogs              AuditLog[]
   messagesSent           ChatMessage[]
   doctorProfile          DoctorProfile?           @relation("DoctorProfileUser")
@@ -530,6 +531,29 @@ model ClinicalNote {
 
   @@index([patientId, createdAt])
   @@map("clinical_notes")
+}
+
+/// Documentation scaffolds a clinician saves for reuse: no patient data,
+/// only structure (field headings and prompts).
+model NoteTemplate {
+  id        String            @id @default(uuid()) @db.Uuid
+  authorId  String            @map("author_id") @db.Uuid
+  name      String
+  kind      NoteTemplateKind
+  /// JSON object of scaffold fields, e.g. { "history": "...", "examination": "...", "notes": "..." }.
+  content   String
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+  author    User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([authorId, kind])
+  @@map("note_templates")
+}
+
+enum NoteTemplateKind {
+  CONSULTATION
+  CASE_NOTE
+  REFERRAL
 }
 
 model LabTest {
