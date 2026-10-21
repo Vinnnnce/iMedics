@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { ImedicsHomepage } from "@/components/home/imedics-homepage";
 
 export const metadata: Metadata = {
-  title: "i-Medics — Healthcare, all in one place",
+  title: "Medic1905 — Healthcare, all in one place",
   description:
     "Discover medical resources, explore healthcare services, and find the information you need to take your next step with confidence.",
 };

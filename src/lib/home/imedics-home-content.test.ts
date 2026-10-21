@@ -9,7 +9,7 @@ import {
   IMEDICS_SERVICE_CARDS,
 } from "./imedics-home-content";
 
-describe("i-Medics homepage content", () => {
+describe("Medic1905 homepage content", () => {
   it("lists exactly eight compact service cards", () => {
     expect(IMEDICS_SERVICE_CARDS).toHaveLength(8);
     for (const card of IMEDICS_SERVICE_CARDS) {

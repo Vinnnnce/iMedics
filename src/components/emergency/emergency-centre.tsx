@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { EMERGENCY_MODULES, EMERGENCY_BANNER, GUIDELINE_SOURCE, LAST_REVIEWED } from "@/lib/emergency/content";
+import { EmergencyIllustration } from "@/components/emergency/illustrations";
 
 const PROGRESS_KEY = "medic1905.emergency.progress";
 
@@ -104,10 +105,14 @@ export function EmergencyCentre() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium">{m.title}</p>
-                    <Badge variant="outline" className="rounded-lg text-[10px]">{m.track === "BLS" ? "Basic life support" : "Advanced"}</Badge>
+                    <Badge variant="outline" className="shrink-0 rounded-lg text-[10px]">{m.track === "BLS" ? "Basic life support" : "Advanced"}</Badge>
                   </div>
                   <p className="mt-0.5 text-sm text-muted-foreground">{m.summary}</p>
                 </div>
+                <EmergencyIllustration
+                  id={m.id}
+                  className="h-12 w-12 shrink-0 text-muted-foreground sm:h-16 sm:w-16"
+                />
                 <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:flex">
                   <Clock className="h-3.5 w-3.5" aria-hidden="true" /> {m.minutes} min
                 </span>

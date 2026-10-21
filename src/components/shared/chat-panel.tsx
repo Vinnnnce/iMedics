@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Send } from "lucide-react";
+import { Image as ImageIcon, Send, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,13 +15,15 @@ interface Conversation {
   patientId: string;
   doctorId: string;
   unread: number;
-  lastMessage: { body: string; createdAt: string } | null;
+  lastMessage: { body: string; type: string; createdAt: string } | null;
 }
 
 interface Message {
   id: string;
   mine: boolean;
   body: string;
+  type: string;
+  attachmentKey: string | null;
   createdAt: string;
 }
 
@@ -40,15 +42,84 @@ interface Props {
 
 const POLL_MS = 5000;
 
+const IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const IMAGE_MAX_BYTES = 15 * 1024 * 1024;
+
+/** A photo attached to a message. The signed URL is short-lived, so it is
+ * fetched on demand and can be re-fetched if it expires while reading. */
+function ImageMessage({ conversationId, messageId }: { conversationId: string; messageId: string }) {
+  const [attempt, setAttempt] = useState(0);
+  // The key ties the loaded URL (or failure) to the exact fetch it came from, so
+  // switching messages or retrying resets the state without effects writing to
+  // state synchronously.
+  const key = `${conversationId}:${messageId}:${attempt}`;
+  const [loaded, setLoaded] = useState<{ key: string; url: string; failed: boolean } | null>(null);
+  const current = loaded?.key === key ? loaded : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .get<{ url: string }>(`/conversations/${conversationId}/messages/${messageId}/attachment`)
+      .then((data) => {
+        if (!cancelled) setLoaded({ key, url: data.url, failed: false });
+      })
+      .catch(() => {
+        if (!cancelled) setLoaded({ key, url: "", failed: true });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, messageId, attempt, key]);
+
+  if (current?.failed) {
+    return (
+      <button onClick={() => setAttempt((n) => n + 1)} className="text-xs text-muted-foreground underline">
+        Image unavailable — tap to retry
+      </button>
+    );
+  }
+
+  if (!current?.url) {
+    return <div className="h-32 w-32 animate-pulse rounded-lg bg-muted/70" aria-label="Loading image" />;
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- presigned S3 URL, not a static asset
+    <img
+      src={current.url}
+      alt="Photo shared in this conversation"
+      className="max-h-64 max-w-full rounded-lg object-cover"
+      loading="lazy"
+      onError={() => setLoaded({ key, url: "", failed: true })}
+    />
+  );
+}
+
 /** Text chat between a doctor and a patient in their care. Polls for new messages. */
 export function ChatPanel({ contacts, startKey }: Props) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [image, setImage] = useState<{ file: File; preview: string } | null>(null);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Mirrors activeId so an in-flight send can detect that the user switched
+  // conversations while the upload was running.
+  const activeIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
+
+  // Release the object URL when a preview is replaced or cleared.
+  useEffect(() => {
+    return () => {
+      if (image) URL.revokeObjectURL(image.preview);
+    };
+  }, [image]);
 
   const fetchConversations = useCallback(() => apiClient.get<{ conversations: Conversation[] }>("/conversations"), []);
 
@@ -113,6 +184,7 @@ export function ChatPanel({ contacts, startKey }: Props) {
 
   const selectConversation = (id: string) => {
     setMessages([]);
+    setImage(null);
     setActiveId(id);
   };
 
@@ -127,15 +199,68 @@ export function ChatPanel({ contacts, startKey }: Props) {
     }
   };
 
+  const pickImage = (file: File | undefined) => {
+    if (!file) return;
+    if (!IMAGE_MIME_TYPES.includes(file.type)) {
+      setError("Only PNG, JPEG or WebP images can be sent");
+      return;
+    }
+    if (file.size > IMAGE_MAX_BYTES) {
+      setError("Images must be 15 MB or smaller");
+      return;
+    }
+    setError("");
+    setImage({ file, preview: URL.createObjectURL(file) });
+  };
+
+  const clearImage = () => {
+    setImage((current) => {
+      if (current) URL.revokeObjectURL(current.preview);
+      return null;
+    });
+  };
+
+  const appendMessage = (message: Message) => {
+    setMessages((current) => (current.some((m) => m.id === message.id) ? current : [...current, message]));
+  };
+
   const send = async () => {
     const body = input.trim();
-    if (!body || !activeId || sending) return;
+    const conversationId = activeId;
+    // Capture the conversation the message belongs to so an async send cannot
+    // land in a thread the user has already switched away from.
+    if (!conversationId || sending || (!body && !image)) return;
     setSending(true);
     setError("");
     try {
-      const data = await apiClient.post<{ message: Message }>(`/conversations/${activeId}/messages`, { body });
-      setMessages((current) => [...current, data.message]);
-      setInput("");
+      let sent: Message | null = null;
+      if (image) {
+        const upload = await apiClient.post<{ key: string; uploadUrl: string }>(
+          `/conversations/${conversationId}/messages/upload`,
+          { mimeType: image.file.type, sizeBytes: image.file.size },
+        );
+        const put = await fetch(upload.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": image.file.type },
+          body: image.file,
+        });
+        if (!put.ok) throw new Error("Could not upload the image");
+        const data = await apiClient.post<{ message: Message }>(`/conversations/${conversationId}/messages`, {
+          body,
+          image: { key: upload.key, fileName: image.file.name, mimeType: image.file.type },
+        });
+        sent = data.message;
+      } else {
+        const data = await apiClient.post<{ message: Message }>(`/conversations/${conversationId}/messages`, { body });
+        sent = data.message;
+      }
+      // Only touch the thread and the draft if the user is still on the same
+      // conversation; otherwise the reply stays for the polling refresh.
+      if (sent && activeIdRef.current === conversationId) {
+        appendMessage(sent);
+        setInput("");
+        clearImage();
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not send the message");
     } finally {
@@ -184,14 +309,55 @@ export function ChatPanel({ contacts, startKey }: Props) {
                 {messages.map((m) => (
                   <div key={m.id} className={`flex ${m.mine ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${m.mine ? "bg-foreground text-background" : "bg-muted"}`}>
-                      <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                      {m.type === "IMAGE" && m.attachmentKey && (
+                        <div className="mb-1">
+                          <ImageMessage conversationId={active.id} messageId={m.id} />
+                        </div>
+                      )}
+                      {m.body && <p className="whitespace-pre-wrap break-words">{m.body}</p>}
                       <p className={`mt-1 text-[10px] ${m.mine ? "text-background/70" : "text-muted-foreground"}`}>{formatClinicDateTime(m.createdAt)}</p>
                     </div>
                   </div>
                 ))}
                 <div ref={bottomRef} />
               </div>
+              {/* Image preview strip */}
+              {image && (
+                <div className="mb-2 flex items-center gap-2 rounded-lg border border-border p-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- local object URL preview */}
+                  <img src={image.preview} alt="Selected image preview" className="h-12 w-12 rounded-lg object-cover" />
+                  <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{image.file.name}</p>
+                  <button
+                    onClick={clearImage}
+                    aria-label="Remove image"
+                    className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
               <div className="flex gap-2 border-t border-border pt-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    pickImage(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0 rounded-lg"
+                  aria-label="Send an image"
+                  title="Send an image"
+                  disabled={!active}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <ImageIcon className="h-4 w-4" />
+                </Button>
                 <Input
                   value={input}
                   maxLength={4000}
@@ -199,7 +365,11 @@ export function ChatPanel({ contacts, startKey }: Props) {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
                 />
-                <Button className="bg-foreground text-background rounded-lg" disabled={sending || !input.trim()} onClick={send}>
+                <Button
+                  className="bg-foreground text-background rounded-lg"
+                  disabled={sending || (!input.trim() && !image)}
+                  onClick={send}
+                >
                   <Send className="h-4 w-4" />
                 </Button>
               </div>

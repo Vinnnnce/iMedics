@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { findModule, EMERGENCY_BANNER, GUIDELINE_SOURCE, LAST_REVIEWED } from "@/lib/emergency/content";
+import { EmergencyIllustration } from "@/components/emergency/illustrations";
 
 const PROGRESS_KEY = "medic1905.emergency.progress";
 
@@ -50,11 +51,18 @@ export function EmergencyModuleView({ moduleId }: { moduleId: string }) {
       </div>
 
       <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-bold">{mod.title}</h1>
-          <Badge variant="outline" className="rounded-lg">{mod.track === "BLS" ? "Basic life support" : "Advanced (professionals)"}</Badge>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border border-border bg-muted/50 sm:h-28 sm:w-28">
+            <EmergencyIllustration id={mod.id} className="h-16 w-16 sm:h-20 sm:w-20" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-bold">{mod.title}</h1>
+              <Badge variant="outline" className="rounded-lg">{mod.track === "BLS" ? "Basic life support" : "Advanced (professionals)"}</Badge>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">{mod.summary}</p>
+          </div>
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">{mod.summary}</p>
       </div>
 
       <div className="flex items-start gap-3 rounded-xl border-2 border-destructive/40 bg-destructive/10 p-4" role="alert">

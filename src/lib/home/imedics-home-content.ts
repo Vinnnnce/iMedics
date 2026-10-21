@@ -1,5 +1,5 @@
 /**
- * i-Medics public homepage content. Pure data so it can be unit-tested and
+ * Medic1905 public homepage content. Pure data so it can be unit-tested and
  * reused by the landing page and its footer without duplication.
  *
  * Every card targets a real route in this application (enforced in
@@ -93,9 +93,9 @@ export interface ImedicsFaqItem {
 
 export const IMEDICS_FAQS: readonly ImedicsFaqItem[] = [
   {
-    question: "What is i-Medics?",
+    question: "What is Medic1905?",
     answer:
-      "i-Medics is a healthcare platform that connects you with verified doctors, hospitals, laboratories and diagnostic centres. You can find a provider, book consultations, order lab tests, and manage a secure health record — all in one place.",
+      "Medic1905 is a healthcare platform that connects you with verified doctors, hospitals, laboratories and diagnostic centres. You can find a provider, book consultations, order lab tests, and manage a secure health record — all in one place.",
   },
   {
     question: "Do I need an account?",
@@ -108,9 +108,9 @@ export const IMEDICS_FAQS: readonly ImedicsFaqItem[] = [
       "Yes. Records are stored securely, access is controlled by you, and sharing permissions stay in your hands. Doctors only see what you allow them to see.",
   },
   {
-    question: "Is i-Medics a medical provider?",
+    question: "Is Medic1905 a medical provider?",
     answer:
-      "No. i-Medics is a platform: doctors and facilities remain responsible for clinical decisions, and AI-assisted content is informational, not medical advice.",
+      "No. Medic1905 is a platform: doctors and facilities remain responsible for clinical decisions, and AI-assisted content is informational, not medical advice.",
   },
 ];
 
@@ -124,8 +124,8 @@ export const IMEDICS_HOW_IT_WORKS_STEPS: readonly string[] = [
 export const IMEDICS_FEATURED_PANEL = {
   heading: "Your next step in healthcare",
   description:
-    "Access i-Medics and continue exploring the tools and medical information available to you.",
-  cta: "Open i-Medics",
+    "Access Medic1905 and continue exploring the tools and medical information available to you.",
+  cta: "Login",
   ctaHref: "/auth/login",
   secondaryCta: "Create an account",
   secondaryCtaHref: "/auth/signup",

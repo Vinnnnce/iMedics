@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   Calendar, ChevronDown, FileText, FlaskConical, FolderOpen, HeartPulse,
@@ -30,15 +31,17 @@ const NAV_LINKS = [
 ] as const;
 
 function BrandMark({ className }: { className?: string }) {
+  // Medic1905 logo (wordmark + stethoscope on a black tile — reads as a
+  // monochrome mark in both themes).
   return (
-    <span
-      aria-hidden="true"
-      className={`flex items-center justify-center rounded-lg bg-foreground text-background ${className ?? "h-8 w-8"}`}
-    >
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="3">
-        <path d="M12 4v16M4 12h16" strokeLinecap="round" />
-      </svg>
-    </span>
+    <Image
+      src="/medic1905-logo.png"
+      alt="Medic1905"
+      width={536}
+      height={207}
+      priority
+      className={`w-auto rounded-md ${className ?? "h-9"}`}
+    />
   );
 }
 
@@ -71,9 +74,8 @@ export function ImedicsHomepage() {
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-3 px-4">
-          <Link href="/" className="flex items-center gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label="i-Medics home">
+          <Link href="/" className="flex items-center gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label="Medic1905 home">
             <BrandMark />
-            <span className="text-base font-bold tracking-tight">i-Medics</span>
           </Link>
 
           <nav className="hidden items-center gap-6 md:flex" aria-label="Primary">
@@ -169,7 +171,7 @@ export function ImedicsHomepage() {
       <main className="flex-1 pb-16">
         {/* Welcome area — deliberately compact; the service grid is the page */}
         <section aria-labelledby="welcome-heading" className="mx-auto w-full max-w-5xl px-4 pb-8 pt-10 md:pt-14">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Welcome to i-Medics</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Welcome to Medic1905</p>
           <h1 id="welcome-heading" className="mt-2 text-3xl font-bold leading-tight tracking-tight md:text-4xl">
             Healthcare, all in one place.
           </h1>
@@ -258,8 +260,7 @@ export function ImedicsHomepage() {
         <div className="mx-auto grid w-full max-w-5xl gap-8 px-4 py-8 sm:grid-cols-2 md:grid-cols-4">
           <div>
             <div className="flex items-center gap-2">
-              <BrandMark className="h-7 w-7" />
-              <span className="text-base font-bold tracking-tight">i-Medics</span>
+              <BrandMark className="h-8" />
             </div>
             <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
               A healthcare platform, not a medical provider. Doctors and facilities are responsible
@@ -285,7 +286,7 @@ export function ImedicsHomepage() {
           ))}
         </div>
         <div className="border-t border-border px-4 py-4 text-center text-xs text-muted-foreground">
-          © 2026 i-Medics. All rights reserved.
+          © 2026 Medic1905. All rights reserved.
         </div>
       </footer>
     </div>
