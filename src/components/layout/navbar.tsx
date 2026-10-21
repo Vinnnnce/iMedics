@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useMe } from "@/lib/use-me";
 import { useUser } from "@clerk/nextjs";
 import { useTheme } from "@/components/theme-provider";
+import { Footer } from "@/components/layout/footer";
 import { NotificationCenter } from "@/components/shared/notification-center";
 import {
   Search, Sun, Moon, Menu, X, Home, Stethoscope, Users,
@@ -212,8 +213,16 @@ export function Navbar({ children }: { children: React.ReactNode }) {
     return pathname === href || (pathname.startsWith(href + "/") && href !== "/");
   };
 
+  // Logged-out visitors on the public homepage render it standalone: the
+  // homepage brings its own header, footer, and theme toggle, so the
+  // application chrome (sidebar, search, bottom nav) stays out of the way.
+  // Authenticated users are redirected by the root page before this renders.
+  if (pathname === "/" && !user) {
+    return <>{children}</>;
+  }
+
   return (
-    <>
+    <div className="flex min-h-screen flex-col">
       {/* AI-Driven Navbar */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
         <div className="flex h-16 items-center justify-between gap-3 px-4 md:px-6">
@@ -418,7 +427,10 @@ export function Navbar({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main content column */}
-      <div className="flex-1 flex flex-col min-w-0">{children}</div>
+      <div className="flex-1 flex flex-col min-w-0">
+        <main className="flex-1 p-4 md:p-6 has-bottom-nav">{children}</main>
+        <Footer />
+      </div>
       </div>
 
       {/* Mobile sidebar overlay */}
@@ -460,7 +472,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Mobile Bottom Navigation */}
-      <nav className="bottom-nav md:hidden">
+      <nav className="bottom-nav md:hidden" aria-label="Mobile bottom navigation">
         {bottomNav.map((item, index) => {
           const Icon = item.icon;
           const active = isActive(item.href);
@@ -476,6 +488,6 @@ export function Navbar({ children }: { children: React.ReactNode }) {
           );
         })}
       </nav>
-    </>
+    </div>
   );
 }

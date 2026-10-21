@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
 import { ThemeProvider } from "@/components/theme-provider";
 
 const inter = Inter({
@@ -16,18 +15,23 @@ export const metadata: Metadata = {
   description: "Connect with doctors, upload lab results, and get AI-powered health insights.",
 };
 
+/**
+ * Runs before hydration to apply the stored theme preference, or the operating
+ * system's preferred colour scheme on a first visit. Setting the class on
+ * <html> here avoids a flash of the wrong theme during page load.
+ */
+const themeInitScript = `try{var s=localStorage.getItem("imedics.theme");var d=s?s==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;var c=document.documentElement.classList;c.remove("dark","light");c.add(d?"dark":"light");}catch(e){}`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider>
-      <html lang="en" className={`${inter.variable} h-full antialiased`}>
+      {/* suppressHydrationWarning: the theme-init script below mutates the
+          class attribute on <html> before React hydrates. */}
+      <html lang="en" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
         <body className="min-h-full flex flex-col bg-background text-foreground">
+          <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
           <ThemeProvider>
-            <div className="flex min-h-screen flex-col">
-              <Navbar>
-                <main className="flex-1 p-4 md:p-6 has-bottom-nav">{children}</main>
-                <Footer />
-              </Navbar>
-            </div>
+            <Navbar>{children}</Navbar>
           </ThemeProvider>
         </body>
       </html>

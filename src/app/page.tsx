@@ -1,9 +1,20 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import { ImedicsHomepage } from "@/components/home/imedics-homepage";
+
+export const metadata: Metadata = {
+  title: "i-Medics — Healthcare, all in one place",
+  description:
+    "Discover medical resources, explore healthcare services, and find the information you need to take your next step with confidence.",
+};
 
 export default async function HomePage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/auth/login");
+
+  // Logged-out visitors get the public homepage; authenticated users keep the
+  // existing role-based entry into the application, unchanged.
+  if (!user) return <ImedicsHomepage />;
 
   if (user.status === "SUSPENDED" || user.status === "BANNED") {
     return (

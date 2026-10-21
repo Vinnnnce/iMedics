@@ -130,6 +130,68 @@
   --sidebar-ring: #111111;
 }
 
+/* ═══════════════════════════════════════════════════════
+   i-Medics public homepage — strict monochrome scope
+   The landing page uses pure black/white/grey values while the
+   authenticated application keeps its own palette above. The
+   wrapper class only affects the homepage subtree.
+   ═══════════════════════════════════════════════════════ */
+.im-mono {
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0a;
+  --primary: #0a0a0a;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #0a0a0a;
+  --muted: #f5f5f5;
+  --muted-foreground: #525252;
+  --accent: #f0f0f0;
+  --accent-foreground: #0a0a0a;
+  --border: #d4d4d4;
+  --input: #d4d4d4;
+  --ring: #0a0a0a;
+  --destructive: #0a0a0a;
+  --success: #0a0a0a;
+  --warning: #0a0a0a;
+  scroll-behavior: smooth;
+}
+.dark .im-mono {
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --card: #171717;
+  --card-foreground: #fafafa;
+  --popover: #171717;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #0a0a0a;
+  --secondary: #1f1f1f;
+  --secondary-foreground: #fafafa;
+  --muted: #1f1f1f;
+  --muted-foreground: #a3a3a3;
+  --accent: #242424;
+  --accent-foreground: #fafafa;
+  --border: #2a2a2a;
+  --input: #2a2a2a;
+  --ring: #fafafa;
+  --destructive: #fafafa;
+  --success: #fafafa;
+  --warning: #fafafa;
+}
+/* Sticky-header anchor offset + accessible focus states for the homepage. */
+.im-mono section[id] { scroll-margin-top: 4.5rem; }
+.im-mono a:focus-visible,
+.im-mono button:focus-visible,
+.im-mono summary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+.im-mono .im-service-card { min-height: 10.5rem; }
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
