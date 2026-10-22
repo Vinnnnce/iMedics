@@ -1,16 +1,27 @@
 import { z } from "zod";
 import { ResultEntryForm, type OrderPrefill } from "@/components/lab/result-entry-form";
 import { prisma } from "@/lib/prisma";
-import { requirePageRole } from "@/lib/guards";
+import { requireModulePageWithPermission } from "@/lib/modules/page-guards";
 
 export default async function LabUploadPage({ searchParams }: { searchParams: Promise<{ orderId?: string }> }) {
-  await requirePageRole("LAB_SCIENTIST");
+  // Laboratory facilities only, with ENTER_RESULTS — the same scoping the
+  // result-entry APIs enforce. Only this facility's orders (or claimable
+  // unassigned legacy orders) can be prefilled; another organization's
+  // orderId is treated as unknown.
+  const { facilityId } = await requireModulePageWithPermission("ENTER_RESULTS", "LABORATORY");
 
   let prefill: OrderPrefill | null = null;
   const orderId = z.string().uuid().safeParse((await searchParams).orderId);
   if (orderId.success) {
     const order = await prisma.labOrder.findFirst({
-      where: { id: orderId.data, status: { in: ["ORDERED", "IN_PROGRESS"] } },
+      where: {
+        id: orderId.data,
+        status: { in: ["ORDERED", "IN_PROGRESS"] },
+        OR: [
+          { performingFacilityId: facilityId },
+          { performingFacilityId: null, status: "ORDERED" },
+        ],
+      },
       include: {
         patient: { select: { id: true, firstName: true, lastName: true, caseNumber: true } },
         items: { include: { labTest: { select: { code: true, name: true, unit: true, refLow: true, refHigh: true } } } },

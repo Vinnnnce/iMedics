@@ -49,4 +49,37 @@ describe("homepage ads", () => {
     expect(html).toContain("Sponsored: lab tests");
     expect(html).not.toContain("Find a verified doctor");
   });
+
+  it("renders one pagination dot per actual slide, not per built-in slide", () => {
+    // Regression: the dots used to map over IMEDICS_HOME_SLIDES, so admin-managed
+    // ads got the wrong number of dots (and wrong targets).
+    const slides: ImedicsHomeSlide[] = [
+      { id: "ad-0", title: "Ad one", description: "First.", icon: "sparkles" },
+      { id: "ad-1", title: "Ad two", description: "Second.", icon: "flask" },
+    ];
+    const html = renderToString(createElement(HomeAdsCarousel, { slides }));
+    expect(html).toContain("carousel-dot-0");
+    expect(html).toContain("carousel-dot-1");
+    expect(html).not.toContain("carousel-dot-2");
+    // The autoplay pause control renders alongside the dots.
+    expect(html).toContain("carousel-autoplay-toggle");
+  });
+
+  it("hides carousel controls when there is a single slide", () => {
+    const slides: ImedicsHomeSlide[] = [
+      { id: "ad-0", title: "Only ad", description: "One.", icon: "sparkles" },
+    ];
+    const html = renderToString(createElement(HomeAdsCarousel, { slides }));
+    expect(html).toContain("Only ad");
+    expect(html).not.toContain("carousel-prev");
+    expect(html).not.toContain("carousel-next");
+    expect(html).not.toContain("carousel-autoplay-toggle");
+  });
+
+  it("keeps the previous/next overlay from swallowing slide clicks", () => {
+    const html = renderToString(createElement(HomeAdsCarousel));
+    // The full-slide overlay is pointer-events-none; only the buttons opt back in.
+    expect(html).toContain("pointer-events-none");
+    expect(html).toContain("pointer-events-auto");
+  });
 });

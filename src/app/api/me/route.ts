@@ -2,6 +2,51 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
+import { permissionsForRole } from "@/lib/facility-staff";
+
+/**
+ * The user's facility context for navigation: their own facility profile, or
+ * their first active staff membership. The server resolves the facility kind
+ * and the membership role so the client can render module links without ever
+ * making an authorization decision — every module page and API route still
+ * enforces access server-side (see lib/guards.ts, lib/facility-auth.ts).
+ */
+async function facilityContext(userId: string, role: string, accountType: string | null) {
+  if (role !== "PATIENT" && role !== "LAB_SCIENTIST") return null;
+  const [ownProfile, membership] = await Promise.all([
+    prisma.labStaffProfile.findUnique({
+      where: { userId },
+      select: { id: true, laboratoryName: true, kind: true },
+    }),
+    prisma.facilityStaff.findFirst({
+      where: { userId, status: "ACTIVE" },
+      orderBy: { createdAt: "asc" },
+      select: {
+        facilityRole: true,
+        facility: { select: { id: true, laboratoryName: true, kind: true } },
+      },
+    }),
+  ]);
+
+  const facility = ownProfile ?? membership?.facility ?? null;
+  if (!facility) return null;
+
+  const kind =
+    facility.kind ??
+    (accountType === "HOSPITAL" || accountType === "LABORATORY" || accountType === "DIAGNOSTIC_CENTRE"
+      ? accountType
+      : null);
+  if (!kind) return null;
+
+  const facilityRole = membership?.facilityRole ?? "OWNER";
+  return {
+    id: facility.id,
+    name: facility.laboratoryName,
+    kind,
+    facilityRole,
+    permissions: permissionsForRole(facilityRole),
+  };
+}
 
 // GET /api/me — the signed-in user's authoritative role and onboarding state.
 // The client uses this for routing; it must never trust Clerk metadata for that.
@@ -9,7 +54,7 @@ import { withAuth, parseBody } from "@/lib/api";
 export const GET = withAuth(
   null,
   async (_req, { user }) => {
-    const [patient, doctor, lab] = await Promise.all([
+    const [patient, doctor, lab, facility] = await Promise.all([
       user.role === "PATIENT"
         ? prisma.patient.findFirst({
             where: { userId: user.id, deletedAt: null },
@@ -24,6 +69,7 @@ export const GET = withAuth(
         where: { userId: user.id },
         select: { verificationStatus: true },
       }),
+      facilityContext(user.id, user.role, user.accountType),
     ]);
 
     return NextResponse.json({
@@ -36,6 +82,8 @@ export const GET = withAuth(
       phone: user.phone,
       language: user.language,
       accountType: user.accountType,
+      avatarUrl: user.avatarUrl,
+      facility,
       onboardingComplete: user.onboardingComplete,
       verificationStatus:
         doctor?.verificationStatus ?? lab?.verificationStatus ?? null,

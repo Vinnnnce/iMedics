@@ -20,7 +20,7 @@ export const metadata: Metadata = {
  * system's preferred colour scheme on a first visit. Setting the class on
  * <html> here avoids a flash of the wrong theme during page load.
  */
-const themeInitScript = `try{var s=localStorage.getItem("imedics.theme");var d=s?s==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;var c=document.documentElement.classList;c.remove("dark","light");c.add(d?"dark":"light");}catch(e){}`;
+const themeInitScript = `try{var s=localStorage.getItem("imedics.theme");var d=s?s==="system"?window.matchMedia("(prefers-color-scheme: dark)").matches:s==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;var c=document.documentElement.classList;c.remove("dark","light");c.add(d?"dark":"light");}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

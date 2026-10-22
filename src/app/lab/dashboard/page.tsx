@@ -105,7 +105,7 @@ export default async function LabDashboardPage() {
         <h1 className="text-2xl font-bold">Lab Dashboard</h1>
         <p className="mt-1 text-sm text-muted-foreground">Orders and results at a glance</p>
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {stats.map((s) => (
           <Link key={s.label} href={s.href}>
             <Card className="beeline-card h-full transition-colors hover:bg-muted/50">
