@@ -5,7 +5,7 @@ import { withAuth, parseBody, parseQuery } from "@/lib/api";
 import { requireFacilityAccess } from "@/lib/facility-auth";
 import { requireFacilityKind, MINIMUM_PATIENT_SELECT } from "@/lib/modules/access-matrix";
 import { allocateAccessionNumber } from "@/lib/modules/accession";
-import { conflict, notFound } from "@/lib/errors";
+import { badRequest, conflict, notFound } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
 
 const listSchema = z.object({
@@ -79,6 +79,16 @@ export const POST = withAuth(null, async (req, { user }) => {
   }
 
   if (order.status === "CANCELLED") throw conflict("This order was cancelled");
+
+  // A parent specimen must belong to the same order — never link across
+  // orders, patients or facilities.
+  if (data.parentSpecimenId) {
+    const parent = await prisma.specimen.findFirst({
+      where: { id: data.parentSpecimenId, labOrderId: order.id },
+      select: { id: true },
+    });
+    if (!parent) throw badRequest("The parent specimen does not belong to this order");
+  }
 
   const specimen = await prisma.$transaction(async (tx) => {
     // Claim legacy doctor-placed orders exactly once (atomic guard).

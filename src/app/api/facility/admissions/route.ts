@@ -75,7 +75,15 @@ export const POST = withAuth(null, async (req, { user }) => {
   if (existing) throw conflict("This patient already has an active admission in your facility");
 
   let careCaseId = data.caseId ?? null;
-  if (!careCaseId) {
+  if (careCaseId) {
+    // The linked case must belong to this patient — never accept a case id
+    // from another patient's record.
+    const careCase = await prisma.careCase.findFirst({
+      where: { id: careCaseId, patientId: data.patientId },
+      select: { id: true },
+    });
+    if (!careCase) throw badRequest("The selected case does not belong to this patient");
+  } else {
     const careCase = await prisma.careCase.findFirst({
       where: { patientId: data.patientId, status: "OPEN" },
       orderBy: { createdAt: "desc" },

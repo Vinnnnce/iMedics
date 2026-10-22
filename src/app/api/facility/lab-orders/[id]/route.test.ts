@@ -1,8 +1,9 @@
 /**
  * Acceptance tests for the laboratory order workflow route (Module 02):
  * workflow transitions are validated server-side, finalized orders cannot be
- * silently overwritten, amendments need a reason, and orders of other
- * organizations are invisible (spec sections 6, 9, 11).
+ * silently overwritten, amendments need a reason, orders of other
+ * organizations are invisible, and concurrent status changes conflict
+ * rather than overwrite each other (spec sections 6, 9, 11).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,7 +12,8 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     facilityStaff: { findMany: vi.fn() },
     labStaffProfile: { findUnique: vi.fn(), findFirst: vi.fn() },
-    labOrder: { findFirst: vi.fn(), update: vi.fn() },
+    labOrder: { findFirst: vi.fn(), updateMany: vi.fn() },
+    labResult: { count: vi.fn() },
   },
 }));
 vi.mock("@/lib/audit", () => ({ writeAudit: vi.fn() }));
@@ -46,9 +48,8 @@ function mockOrder(status: string, performingFacilityId: string | null = LAB_ID)
   vi.mocked(prisma.labOrder.findFirst).mockResolvedValue({
     id: ORDER_ID, status, performingFacilityId, requestingFacilityId: HOSPITAL_ID, orderedById: null,
   } as never);
-  vi.mocked(prisma.labOrder.update).mockResolvedValue({
-    id: ORDER_ID, status, requestingFacilityId: HOSPITAL_ID, orderedById: null,
-  } as never);
+  // The conditional update succeeds while the order is still in `status`.
+  vi.mocked(prisma.labOrder.updateMany).mockResolvedValue({ count: 1 } as never);
 }
 
 beforeEach(() => {
@@ -61,8 +62,21 @@ describe("lab order workflow route", () => {
     mockOrder("ORDERED");
     const res = await invokePatch({ action: "ACCEPT" });
     expect(res.status).toBe(200);
-    expect(prisma.labOrder.update).toHaveBeenCalledWith(expect.objectContaining({
+    expect(prisma.labOrder.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: ORDER_ID, status: "ORDERED" }),
       data: expect.objectContaining({ status: "ACCEPTED" }),
+    }));
+  });
+
+  it("claims an unassigned legacy order exactly once", async () => {
+    mockFacility(LAB_ID, "LABORATORY");
+    mockOrder("ORDERED", null);
+    const res = await invokePatch({ action: "ACCEPT" });
+    expect(res.status).toBe(200);
+    // First updateMany call claims the order for this facility.
+    expect(prisma.labOrder.updateMany).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      where: expect.objectContaining({ id: ORDER_ID, performingFacilityId: null }),
+      data: expect.objectContaining({ performingFacilityId: LAB_ID }),
     }));
   });
 
@@ -71,15 +85,54 @@ describe("lab order workflow route", () => {
     mockOrder("FINALIZED");
     const res = await invokePatch({ action: "START_PROCESSING" });
     expect(res.status).toBe(422);
-    expect(prisma.labOrder.update).not.toHaveBeenCalled();
+    expect(prisma.labOrder.updateMany).not.toHaveBeenCalled();
   });
 
-  it("requires a reason to amend a finalized order (acceptance scenario 10)", async () => {
+  it("refuses to finalize an order with no results", async () => {
+    mockFacility(LAB_ID, "LABORATORY");
+    mockOrder("AWAITING_VERIFICATION");
+    vi.mocked(prisma.labResult.count).mockResolvedValue(0 as never);
+    const res = await invokePatch({ action: "FINALIZE" });
+    expect(res.status).toBe(409);
+    expect(prisma.labOrder.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("finalizes an order that carries results", async () => {
+    mockFacility(LAB_ID, "LABORATORY");
+    mockOrder("AWAITING_VERIFICATION");
+    vi.mocked(prisma.labResult.count).mockResolvedValue(3 as never);
+    const res = await invokePatch({ action: "FINALIZE" });
+    expect(res.status).toBe(200);
+    expect(prisma.labOrder.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: "FINALIZED" }),
+    }));
+  });
+
+  it("requires a reason to amend a delivered order (acceptance scenario 10)", async () => {
     mockFacility(LAB_ID, "LABORATORY");
     mockOrder("SENT_TO_FACILITY");
-    const noReason = await invokePatch({ action: "CANCEL" });
-    // CANCELLED is not a legal transition from SENT_TO_FACILITY at all.
-    expect(noReason.status).toBe(422);
+    const res = await invokePatch({ action: "AMEND" });
+    expect(res.status).toBe(422);
+    expect(prisma.labOrder.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("amends a delivered order when a reason is supplied", async () => {
+    mockFacility(LAB_ID, "LABORATORY");
+    mockOrder("SENT_TO_FACILITY");
+    const res = await invokePatch({ action: "AMEND", reason: "Corrected hemoglobin value" });
+    expect(res.status).toBe(200);
+    expect(prisma.labOrder.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: "AMENDED" }),
+    }));
+  });
+
+  it("conflicts when the order changed status concurrently", async () => {
+    mockFacility(LAB_ID, "LABORATORY");
+    mockOrder("ORDERED");
+    // The conditional update finds nothing — the order moved on.
+    vi.mocked(prisma.labOrder.updateMany).mockResolvedValue({ count: 0 } as never);
+    const res = await invokePatch({ action: "ACCEPT" });
+    expect(res.status).toBe(409);
   });
 
   it("refuses hospitals from using the laboratory workflow actions", async () => {
@@ -87,7 +140,7 @@ describe("lab order workflow route", () => {
     mockOrder("ORDERED");
     const res = await invokePatch({ action: "ACCEPT" });
     expect(res.status).toBe(403);
-    expect(prisma.labOrder.update).not.toHaveBeenCalled();
+    expect(prisma.labOrder.updateMany).not.toHaveBeenCalled();
   });
 
   it("hides another laboratory's order (acceptance scenario 7)", async () => {

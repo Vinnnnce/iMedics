@@ -30,10 +30,12 @@ function computeFlag(
   critLow: number | null,
   critHigh: number | null,
 ): ResultFlag | null {
-  if (value === null || low === null || high === null) return null;
-  // Critical bounds, when supplied by the laboratory, take precedence.
+  if (value === null) return null;
+  // Critical bounds, when supplied by the laboratory, take precedence and are
+  // evaluated even without routine reference intervals.
   if (critLow !== null && value < critLow) return "CRITICAL_LOW";
   if (critHigh !== null && value > critHigh) return "CRITICAL_HIGH";
+  if (low === null || high === null) return null;
   if (value < low) return "LOW";
   if (value > high) return "HIGH";
   return "NORMAL";
@@ -44,6 +46,8 @@ const submitSchema = z.object({
   labOrderId: z.string().uuid().optional(),
   category: z.string().trim().min(1).max(100),
   labName: z.string().trim().max(200).optional(),
+  // Reason is required when correcting an already-verified result.
+  reason: z.string().trim().max(1000).optional(),
   testDate: z.string().refine((v) => !Number.isNaN(Date.parse(v)), "Invalid test date"),
   patientLanguage: z.string().trim().max(20).optional(),
   values: z
@@ -104,6 +108,26 @@ export const POST = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
   const hasCriticalFinding = rows.some((r) => r.flag === "CRITICAL_LOW" || r.flag === "CRITICAL_HIGH");
 
   const labResult = await prisma.$transaction(async (tx) => {
+    // If this order already carries a verified result, submitting a corrected
+    // result must leave a traceable amendment rather than silently replacing
+    // the verified record (Module 02, Category 03). Snapshot the prior values.
+    if (data.labOrderId) {
+      const prior = await tx.labResult.findFirst({
+        where: { labOrderId: data.labOrderId, verifiedAt: { not: null } },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, values: { select: { name: true, value: true, unit: true, flag: true } } },
+      });
+      if (prior) {
+        await tx.labResultAmendment.create({
+          data: {
+            labResultId: prior.id,
+            changedById: user.id,
+            reason: data.reason ?? "Corrected result submitted",
+            previousSnapshot: { values: prior.values },
+          },
+        });
+      }
+    }
     const created = await tx.labResult.create({
       data: {
         patientId: patient.id,
@@ -118,7 +142,15 @@ export const POST = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
       },
     });
     if (data.labOrderId) {
-      await tx.labOrder.update({ where: { id: data.labOrderId }, data: { status: "COMPLETED" } });
+      // A corrected submission on a finalized order moves it to AMENDED rather
+      // than overwriting the finalized state; fresh orders complete normally.
+      const priorFinalized = await tx.labResult.count({
+        where: { labOrderId: data.labOrderId, verifiedAt: { not: null } },
+      });
+      await tx.labOrder.update({
+        where: { id: data.labOrderId },
+        data: { status: priorFinalized > 0 ? "AMENDED" : "COMPLETED" },
+      });
     }
     return created;
   });

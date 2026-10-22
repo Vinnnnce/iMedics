@@ -42,7 +42,7 @@ export function CreateAdmissionDialog() {
     setError(null);
     setPatientId(""); setPatientName("");
     if (!caseNumber.trim()) return setError("Enter the patient's case number");
-    const res = await fetch(`/api/lab/patients?caseNumber=${encodeURIComponent(caseNumber.trim())}`);
+    const res = await fetch(`/api/facility/patients?caseNumber=${encodeURIComponent(caseNumber.trim())}`);
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.patient) return setError("No patient found with that case number");
     setPatientId(data.patient.id);
@@ -160,10 +160,12 @@ export function AddNoteForm({ admissionId }: { admissionId: string }) {
       if (vitals.trim()) {
         // Simple "36.8, 72, 120/80" shorthand into structured vitals.
         const parts = vitals.split(",").map((p) => parseFloat(p.trim())).filter((n) => !Number.isNaN(n));
-        if (parts[0] !== undefined) body.temperature = parts[0];
-        if (parts[1] !== undefined) body.pulse = parts[1];
+        const v: Record<string, number> = {};
+        if (parts[0] !== undefined) v.temperature = parts[0];
+        if (parts[1] !== undefined) v.pulse = parts[1];
         const bp = vitals.match(/(\d{2,3})\s*\/\s*(\d{2,3})/);
-        if (bp) { body.systolic = parseInt(bp[1], 10); body.diastolic = parseInt(bp[2], 10); }
+        if (bp) { v.systolic = parseInt(bp[1], 10); v.diastolic = parseInt(bp[2], 10); }
+        if (Object.keys(v).length > 0) body.vitals = v;
       }
       await postJson(`/api/facility/admissions/${admissionId}/notes`, body);
       setContent(""); setVitals("");

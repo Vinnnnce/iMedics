@@ -38,8 +38,9 @@ export default async function LabDashboardPage() {
   const facilityId = profile.id;
 
   const [newOrders, inProgress, submittedToday, referralInbox, credentialAlerts, activeServices] = await Promise.all([
-    prisma.labOrder.count({ where: { status: "ORDERED" } }),
-    prisma.labOrder.count({ where: { status: "IN_PROGRESS" } }),
+    // Facility-scoped work queues — never a global count across organizations.
+    prisma.labOrder.count({ where: { OR: [{ performingFacilityId: facilityId, status: "ORDERED" }, { performingFacilityId: null, status: "ORDERED" }] } }),
+    prisma.labOrder.count({ where: { OR: [{ performingFacilityId: facilityId, status: "IN_PROGRESS" }, { performingFacilityId: null, status: "IN_PROGRESS" }] } }),
     prisma.labResult.count({ where: { uploadedById: user.id, createdAt: { gte: clinicInstant(today, 0), lt: clinicInstant(today, 24 * 60) } } }),
     // Referral inbox
     prisma.facilityReferral.count({ where: { facilityId: profile.id, status: "PENDING" } }),

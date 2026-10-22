@@ -409,3 +409,9 @@ SET "kind" = u."account_type"::text::"FacilityKind"
 FROM "users" u
 WHERE u."id" = p."user_id"
   AND u."account_type" IN ('LABORATORY', 'DIAGNOSTIC_CENTRE', 'HOSPITAL');
+
+-- One active admission per patient per facility, enforced by the database
+-- (the API pre-check gives a friendlier message; this closes the race window).
+CREATE UNIQUE INDEX "admissions_facility_patient_active_unique"
+  ON "admissions" ("facility_id", "patient_id")
+  WHERE ("status" = 'ACTIVE');

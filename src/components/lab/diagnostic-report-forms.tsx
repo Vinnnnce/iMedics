@@ -156,6 +156,24 @@ export function ReportActions({ reportId, status }: { reportId: string; status: 
   const [reason, setReason] = useState("");
   const [form, setForm] = useState({ preliminaryFindings: "", specialistInterpretation: "", recommendations: "" });
 
+  // Pre-fill the amendment form with the current report content so unchanged
+  // fields are submitted with their existing values instead of being blanked.
+  useEffect(() => {
+    if (!amending) return;
+    fetch(`/api/facility/diagnostic-reports/${reportId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.report) {
+          setForm({
+            preliminaryFindings: d.report.preliminaryFindings ?? "",
+            specialistInterpretation: d.report.specialistInterpretation ?? "",
+            recommendations: d.report.recommendations ?? "",
+          });
+        }
+      })
+      .catch(() => undefined);
+  }, [amending, reportId]);
+
   const act = async (action: string, extra?: Record<string, unknown>) => {
     setBusy(true);
     setError(null);

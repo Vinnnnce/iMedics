@@ -5,7 +5,7 @@ import { withAuth, parseBody, parseId } from "@/lib/api";
 import { requireFacilityAccess } from "@/lib/facility-auth";
 import { requireFacilityKind } from "@/lib/modules/access-matrix";
 import { assertLabOrderTransition, type LabOrderStatusValue } from "@/lib/modules/workflows";
-import { notFound } from "@/lib/errors";
+import { conflict, notFound } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
 import { notifyUser } from "@/lib/notifications/service";
 
@@ -14,8 +14,9 @@ const actionSchema = z.object({
     "ACCEPT",           // ORDERED -> ACCEPTED (lab confirms it will perform the order)
     "START_PROCESSING", // -> IN_PROGRESS
     "SUBMIT_VERIFICATION", // -> AWAITING_VERIFICATION
-    "FINALIZE",         // -> FINALIZED (verified results)
+    "FINALIZE",         // -> FINALIZED (verified results exist)
     "SEND_TO_HOSPITAL", // FINALIZED/AMENDED -> SENT_TO_FACILITY
+    "AMEND",            // FINALIZED/SENT -> AMENDED (reason required)
     "CANCEL",           // -> CANCELLED (reason required)
   ]),
   reason: z.string().trim().max(1000).optional(),
@@ -27,12 +28,15 @@ const TARGET_STATUS: Record<string, LabOrderStatusValue> = {
   SUBMIT_VERIFICATION: "AWAITING_VERIFICATION",
   FINALIZE: "FINALIZED",
   SEND_TO_HOSPITAL: "SENT_TO_FACILITY",
+  AMEND: "AMENDED",
   CANCEL: "CANCELLED",
 };
 
 // PATCH /api/facility/lab-orders/[id] — laboratory workflow actions (Module 02,
 // Category 05). Every transition is validated against the state machine and
 // the caller's facility permissions; reasons are required where mandated.
+// Status changes are conditional updates guarded on the expected previous
+// status, so concurrent requests cannot silently overwrite each other.
 export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }) => {
   const access = await requireFacilityAccess(user, "PROCESS_ORDERS", req);
   await requireFacilityKind(access, ["LABORATORY"]);
@@ -48,15 +52,33 @@ export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }
   const to = TARGET_STATUS[data.action];
   assertLabOrderTransition(order.status, to, access.permissions, data.reason);
 
-  // Claim unassigned legacy orders when the lab acts on them.
-  const updated = await prisma.labOrder.update({
-    where: { id },
-    data: {
-      status: to,
-      ...(order.performingFacilityId ? {} : { performingFacilityId: access.facility.id }),
-    },
-    select: { id: true, status: true, requestingFacilityId: true, orderedById: true },
+  if (data.action === "FINALIZE") {
+    // An order can only be finalized when complete, verified clinical results
+    // exist for it (spec: do not treat an unverified result as finalized).
+    const resultCount = await prisma.labResult.count({ where: { labOrderId: id } });
+    if (resultCount === 0) {
+      throw conflict("This order has no results yet — enter and verify results before finalizing");
+    }
+  }
+
+  // Claim unassigned legacy orders atomically when the lab acts on them.
+  if (!order.performingFacilityId) {
+    const claimed = await prisma.labOrder.updateMany({
+      where: { id, performingFacilityId: null },
+      data: { performingFacilityId: access.facility.id },
+    });
+    if (claimed.count === 0) throw conflict("This order was just claimed by another laboratory");
+  }
+
+  // Conditional update guarded on the status we validated — a concurrent
+  // transition (e.g. finalization) cannot be overwritten by a stale request.
+  const updated = await prisma.labOrder.updateMany({
+    where: { id, status: order.status },
+    data: { status: to },
   });
+  if (updated.count === 0) {
+    throw conflict("This order just changed status — refresh and try again");
+  }
 
   await writeAudit({
     userId: user.id,
@@ -70,18 +92,21 @@ export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }
 
   // Notify the requesting hospital / ordering clinician of the status change.
   if (to === "SENT_TO_FACILITY" || to === "FINALIZED") {
-    if (updated.requestingFacilityId) {
+    if (order.requestingFacilityId) {
       const owner = await prisma.labStaffProfile.findUnique({
-        where: { id: updated.requestingFacilityId },
+        where: { id: order.requestingFacilityId },
         select: { user: { select: { id: true } } },
       });
       if (owner?.user?.id) {
         await notifyUser(owner.user.id, { kind: "INVESTIGATION_UPDATED", orderId: id }).catch(() => undefined);
       }
-    } else if (updated.orderedById) {
-      await notifyUser(updated.orderedById, { kind: "INVESTIGATION_UPDATED", orderId: id }).catch(() => undefined);
+    } else if (order.orderedById) {
+      await notifyUser(order.orderedById, { kind: "INVESTIGATION_UPDATED", orderId: id }).catch(() => undefined);
     }
   }
 
-  return NextResponse.json({ success: true, order: updated });
+  return NextResponse.json({
+    success: true,
+    order: { id, status: to, requestingFacilityId: order.requestingFacilityId, orderedById: order.orderedById },
+  });
 });

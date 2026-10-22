@@ -7,16 +7,41 @@ import { requireFacilityKind } from "@/lib/modules/access-matrix";
 import { diagnosticReportIsLocked, DIAGNOSTIC_REPORT_STATUS_LABEL } from "@/lib/modules/workflows";
 import { badRequest, notFound } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
+import type { Prisma } from "@prisma/client";
 
 // GET /api/facility/diagnostic-reports/[id] — report detail with versions.
+// The owning diagnostic centre sees everything; the requesting hospital can
+// read a report once it has been sent to them (Module 03, Category 05).
 export const GET = withAuth<{ id: string }>(null, async (req, { user, params }) => {
-  const access = await requireFacilityAccess(user, "ENTER_RESULTS", req);
-  await requireFacilityKind(access, ["DIAGNOSTIC_CENTRE"]);
   const id = parseId((await params).id);
 
+  const labAccess = await requireFacilityAccess(user, "ENTER_RESULTS", req).catch(() => null);
+  if (labAccess && labAccess.facility.kind === "DIAGNOSTIC_CENTRE") {
+    const report = await prisma.diagnosticReport.findFirst({
+      where: { id, facilityId: labAccess.facility.id },
+      select: REPORT_SELECT });
+    if (report) return NextResponse.json({ report, role: "owner" });
+  }
+
+  // Requesting hospital: read-only access to reports sent to (or created for)
+  // them. They cannot act on the report — actions stay diagnostic-only.
+  const hospitalAccess = labAccess ?? await requireFacilityAccess(user, "REGISTER_PATIENTS", req);
   const report = await prisma.diagnosticReport.findFirst({
-    where: { id, facilityId: access.facility.id },
-    select: {
+    where: {
+      id,
+      OR: [
+        { sentToFacilityId: hospitalAccess.facility.id },
+        { booking: { requestingFacilityId: hospitalAccess.facility.id } },
+        { booking: { service: { facilityId: hospitalAccess.facility.id } } },
+      ],
+    },
+    select: REPORT_SELECT,
+  });
+  if (!report) throw notFound("Diagnostic report not found");
+  return NextResponse.json({ report, role: "recipient" });
+});
+
+const REPORT_SELECT = {
       id: true, bookingId: true, status: true,
       preliminaryFindings: true, specialistInterpretation: true, recommendations: true,
       draftedById: true, verifiedById: true, verifiedAt: true, signedById: true, signedAt: true,
@@ -35,12 +60,7 @@ export const GET = withAuth<{ id: string }>(null, async (req, { user, params }) 
       images: {
         select: { id: true, fileName: true, mimeType: true, sizeBytes: true, createdAt: true, storageKey: true },
       },
-    },
-  });
-  if (!report) throw notFound("Diagnostic report not found");
-
-  return NextResponse.json({ report });
-});
+} satisfies Prisma.DiagnosticReportSelect;
 
 const patchSchema = z.object({
   preliminaryFindings: z.string().trim().max(20000).optional(),

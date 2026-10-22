@@ -11,7 +11,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     facilityStaff: { findMany: vi.fn() },
     labStaffProfile: { findUnique: vi.fn(), findFirst: vi.fn() },
-    diagnosticReport: { findFirst: vi.fn(), update: vi.fn() },
+    diagnosticReport: { findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     diagnosticReportVersion: { findFirst: vi.fn(), create: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
   },
@@ -58,7 +58,7 @@ const REPORT = {
 
 function mockReport(status: string) {
   vi.mocked(prisma.diagnosticReport.findFirst).mockResolvedValue({ ...REPORT, status } as never);
-  vi.mocked(prisma.diagnosticReport.update).mockResolvedValue({ id: REPORT_ID, status } as never);
+  vi.mocked(prisma.diagnosticReport.updateMany).mockResolvedValue({ count: 1 } as never);
   vi.mocked(prisma.diagnosticReportVersion.findFirst).mockResolvedValue({ version: 1 } as never);
   vi.mocked(prisma.diagnosticReportVersion.create).mockResolvedValue({ id: "v2" } as never);
 }
@@ -68,12 +68,12 @@ beforeEach(() => {
 });
 
 describe("diagnostic report actions", () => {
-  it("finalizes a verified report and snapshots version 1", async () => {
+  it("finalizes a verified report and snapshots a new immutable version", async () => {
     mockFacility(DIAG_ID, "DIAGNOSTIC_CENTRE");
     mockReport("AWAITING_VERIFICATION");
     const res = await invoke({ action: "FINALIZE" });
     expect(res.status).toBe(200);
-    expect(prisma.diagnosticReport.update).toHaveBeenCalledWith(expect.objectContaining({
+    expect(prisma.diagnosticReport.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
         status: "FINALIZED",
         verifiedById: USER_ID,
@@ -97,7 +97,7 @@ describe("diagnostic report actions", () => {
     mockReport("FINALIZED");
     const res = await invoke({ action: "SEND" });
     expect(res.status).toBe(200);
-    expect(prisma.diagnosticReport.update).toHaveBeenCalledWith(expect.objectContaining({
+    expect(prisma.diagnosticReport.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: "SENT", sentToFacilityId: HOSPITAL_ID }),
     }));
   });
@@ -119,7 +119,7 @@ describe("diagnostic report actions", () => {
       specialistInterpretation: "Updated interpretation.",
     });
     expect(res.status).toBe(200);
-    expect(prisma.diagnosticReport.update).toHaveBeenCalledWith(expect.objectContaining({
+    expect(prisma.diagnosticReport.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: "AMENDED", specialistInterpretation: "Updated interpretation." }),
     }));
     expect(prisma.diagnosticReportVersion.create).toHaveBeenCalledWith(expect.objectContaining({
@@ -139,7 +139,7 @@ describe("diagnostic report actions", () => {
     mockReport("AWAITING_VERIFICATION");
     const res = await invoke({ action: "FINALIZE" });
     expect(res.status).toBe(403);
-    expect(prisma.diagnosticReport.update).not.toHaveBeenCalled();
+    expect(prisma.diagnosticReport.updateMany).not.toHaveBeenCalled();
   });
 
   it("refuses finalizing a report that is still a draft", async () => {

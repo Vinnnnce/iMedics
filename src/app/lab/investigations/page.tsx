@@ -42,6 +42,12 @@ export default async function InvestigationsPage() {
         performingFacility: { select: { laboratoryName: true } },
         items: { select: { labTest: { select: { name: true } } } },
         specimens: { select: { accessionNumber: true, status: true } },
+        results: {
+          select: {
+            id: true, status: true, verifiedAt: true,
+            values: { select: { name: true, value: true, unit: true, flag: true } },
+          },
+        },
       },
     }),
     prisma.facilityBooking.findMany({
@@ -51,7 +57,7 @@ export default async function InvestigationsPage() {
       include: {
         patient: { select: { firstName: true, lastName: true, caseNumber: true } },
         service: { select: { facility: { select: { laboratoryName: true } } } },
-        diagnosticReport: { select: { status: true, sentAt: true } },
+        diagnosticReport: { select: { id: true, status: true, sentAt: true } },
       },
     }),
   ]);
@@ -101,6 +107,27 @@ export default async function InvestigationsPage() {
                   Specimens: {o.specimens.map((s) => `${s.accessionNumber} (${s.status.toLowerCase().replace(/_/g, " ")})`).join(", ")}
                 </p>
               )}
+              {o.results.map((result) => (
+                <div key={result.id} className="mt-2 rounded-md bg-muted/50 p-2">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Result · {result.status.toLowerCase().replace(/_/g, " ")}
+                    {result.verifiedAt ? ` · verified ${formatClinicDateTime(result.verifiedAt)}` : ""}
+                  </p>
+                  <ul className="mt-1 space-y-0.5">
+                    {result.values.map((v, i) => (
+                      <li key={i} className="text-xs">
+                        {v.name}: {v.value}
+                        {v.unit ? ` ${v.unit}` : ""}
+                        {v.flag && v.flag !== "NORMAL" && (
+                          <span className="ml-1 font-semibold text-destructive">
+                            {v.flag.toLowerCase().replace(/_/g, " ")}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
           ))}
         </CardContent>
@@ -126,6 +153,14 @@ export default async function InvestigationsPage() {
                 {r.service?.facility ? ` · ${r.service.facility.laboratoryName}` : ""}
                 {` · referred ${formatClinicDateTime(r.createdAt)}`}
               </p>
+              {r.diagnosticReport && (
+                <Link
+                  href={`/lab/examinations/${r.diagnosticReport.id}`}
+                  className="mt-1 inline-block text-xs font-medium text-primary hover:underline"
+                >
+                  View report →
+                </Link>
+              )}
             </div>
           ))}
         </CardContent>

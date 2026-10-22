@@ -5,7 +5,20 @@ import { withAuth, parseBody, parseQuery } from "@/lib/api";
 import { requireFacilityAccess } from "@/lib/facility-auth";
 import { writeAudit } from "@/lib/audit";
 
-const TEMPLATE_KINDS = ["LAB_REPORT", "REFERRAL_FORM", "CASE_NOTE", "IMAGING_REPORT"] as const;
+// Must stay in sync with the FacilityDocumentTemplateKind Prisma enum — the
+// clinical document kinds extend the base set for the new modules.
+const TEMPLATE_KINDS = [
+  "LAB_REPORT",
+  "REFERRAL_FORM",
+  "CASE_NOTE",
+  "IMAGING_REPORT",
+  "DISCHARGE_SUMMARY",
+  "EPICRISIS",
+  "ADMISSION_NOTE",
+  "PROGRESS_NOTE",
+  "TRANSFER_SUMMARY",
+  "DIAGNOSTIC_REPORT",
+] as const;
 
 const createSchema = z.object({
   name: z.string().trim().min(1, "A template needs a name").max(80),

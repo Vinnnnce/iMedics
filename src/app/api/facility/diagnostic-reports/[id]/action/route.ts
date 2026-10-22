@@ -9,7 +9,8 @@ import {
   diagnosticReportIsLocked,
   DIAGNOSTIC_REPORT_STATUS_LABEL,
 } from "@/lib/modules/workflows";
-import { badRequest, notFound } from "@/lib/errors";
+import type { DiagnosticReportStatus } from "@prisma/client";
+import { badRequest, conflict, notFound } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
 import { notifyUser } from "@/lib/notifications/service";
 
@@ -21,6 +22,19 @@ const actionSchema = z.object({
   specialistInterpretation: z.string().trim().max(20000).optional(),
   recommendations: z.string().trim().max(10000).optional(),
 });
+
+// Concurrency-safe conditional update: the transition only applies while the
+// report is still in the status that was validated, so a stale request can
+// never silently overwrite a concurrent finalization or amendment.
+async function transitionStatus(id: string, from: DiagnosticReportStatus, to: DiagnosticReportStatus) {
+  const result = await prisma.diagnosticReport.updateMany({
+    where: { id, status: from },
+    data: { status: to },
+  });
+  if (result.count === 0) {
+    throw conflict("This report just changed status — refresh and try again");
+  }
+}
 
 // POST /api/facility/diagnostic-reports/[id]/action — verification, signing,
 // delivery and amendments (Module 03, Category 04/05). Finalized reports are
@@ -45,79 +59,77 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
     },
   });
   if (!report) throw notFound("Diagnostic report not found");
-
   if (data.action === "SUBMIT") {
     assertDiagnosticReportTransition(report.status, "AWAITING_VERIFICATION", access.permissions);
     if (!report.preliminaryFindings?.trim() && !report.specialistInterpretation?.trim()) {
       throw badRequest("The report needs findings or a specialist interpretation before submission");
     }
-    const updated = await prisma.diagnosticReport.update({
-      where: { id },
-      data: { status: "AWAITING_VERIFICATION" },
-      select: { id: true, status: true },
-    });
+    await transitionStatus(id, report.status, "AWAITING_VERIFICATION");
     await writeAudit({
       userId: user.id, actorRole: user.role, action: "DIAGNOSTIC_REPORT_SUBMITTED",
       resourceType: "DiagnosticReport", resourceId: id, req,
     });
-    return NextResponse.json({ success: true, report: updated });
+    return NextResponse.json({ success: true, report: { id, status: "AWAITING_VERIFICATION" } });
   }
 
   if (data.action === "FINALIZE") {
     assertDiagnosticReportTransition(report.status, "FINALIZED", access.permissions);
     // Finalization = professional verification + signature by the same
-    // authorized professional (Module 03: "finalize and sign").
-    const updated = await prisma.$transaction(async (tx) => {
-      const r = await tx.diagnosticReport.update({
-        where: { id },
-        data: {
-          status: "FINALIZED",
-          verifiedById: user.id,
-          verifiedAt: new Date(),
-          signedById: user.id,
-          signedAt: new Date(),
-          finalizedAt: new Date(),
+    // authorized professional (Module 03: "finalize and sign"). The conditional
+    // update guards against a concurrent amendment or submission.
+    const finalized = await prisma.diagnosticReport.updateMany({
+      where: { id, status: report.status },
+      data: {
+        status: "FINALIZED",
+        verifiedById: user.id,
+        verifiedAt: new Date(),
+        signedById: user.id,
+        signedAt: new Date(),
+        finalizedAt: new Date(),
+      },
+    });
+    if (finalized.count === 0) {
+      throw conflict("This report just changed status — refresh and try again");
+    }
+    // Version snapshot: the immutable original that any later amendment is
+    // measured against (Module 03, Category 03).
+    const last = await prisma.diagnosticReportVersion.findFirst({
+      where: { reportId: id },
+      orderBy: { version: "desc" },
+      select: { version: true },
+    });
+    await prisma.diagnosticReportVersion.create({
+      data: {
+        reportId: id,
+        version: (last?.version ?? 0) + 1,
+        snapshot: {
+          preliminaryFindings: report.preliminaryFindings,
+          specialistInterpretation: report.specialistInterpretation,
+          recommendations: report.recommendations,
         },
-        select: { id: true, status: true },
-      });
-      // Version 1: the immutable snapshot of the finalized original.
-      const last = await tx.diagnosticReportVersion.findFirst({
-        where: { reportId: id },
-        orderBy: { version: "desc" },
-        select: { version: true },
-      });
-      await tx.diagnosticReportVersion.create({
-        data: {
-          reportId: id,
-          version: (last?.version ?? 0) + 1,
-          snapshot: {
-            preliminaryFindings: report.preliminaryFindings,
-            specialistInterpretation: report.specialistInterpretation,
-            recommendations: report.recommendations,
-          },
-          changedById: user.id,
-        },
-      });
-      return r;
+        changedById: user.id,
+      },
     });
     await writeAudit({
       userId: user.id, actorRole: user.role, action: "DIAGNOSTIC_REPORT_FINALIZED",
       resourceType: "DiagnosticReport", resourceId: id, req,
     });
-    return NextResponse.json({ success: true, report: updated });
+    return NextResponse.json({ success: true, report: { id, status: "FINALIZED" } });
   }
 
   if (data.action === "SEND") {
     assertDiagnosticReportTransition(report.status, "SENT", access.permissions);
-    const updated = await prisma.diagnosticReport.update({
-      where: { id },
+    const sent = await prisma.diagnosticReport.updateMany({
+      where: { id, status: report.status },
       data: {
         status: "SENT",
         sentAt: new Date(),
         sentToFacilityId: report.booking.requestingFacilityId ?? null,
       },
-      select: { id: true, status: true },
     });
+    if (sent.count === 0) {
+      throw conflict("This report just changed status — refresh and try again");
+    }
     await writeAudit({
       userId: user.id, actorRole: user.role, action: "DIAGNOSTIC_REPORT_SENT",
       resourceType: "DiagnosticReport", resourceId: id,
@@ -133,7 +145,7 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
         await notifyUser(owner.user.id, { kind: "DIAGNOSTIC_REPORT_READY", bookingId: report.bookingId }).catch(() => undefined);
       }
     }
-    return NextResponse.json({ success: true, report: updated });
+    return NextResponse.json({ success: true, report: { id, status: "SENT" } });
   }
 
   // AMEND — correction of a finalized/sent report.
@@ -141,27 +153,30 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
   if (!diagnosticReportIsLocked(report.status)) {
     throw badRequest("Only finalized or delivered reports are amended");
   }
-  const updated = await prisma.$transaction(async (tx) => {
-    const last = await tx.diagnosticReportVersion.findFirst({
-      where: { reportId: id },
-      orderBy: { version: "desc" },
-      select: { version: true },
-    });
-    const nextVersion = (last?.version ?? 0) + 1;
-    const r = await tx.diagnosticReport.update({
-      where: { id },
+  await prisma.$transaction(async (tx) => {
+    // Conditional transition guarded on the validated status.
+    const r = await tx.diagnosticReport.updateMany({
+      where: { id, status: report.status },
       data: {
         status: "AMENDED",
         ...(data.preliminaryFindings !== undefined ? { preliminaryFindings: data.preliminaryFindings } : {}),
         ...(data.specialistInterpretation !== undefined ? { specialistInterpretation: data.specialistInterpretation } : {}),
         ...(data.recommendations !== undefined ? { recommendations: data.recommendations } : {}),
       },
-      select: { id: true, status: true },
     });
+    if (r.count === 0) throw conflict("This report just changed status — refresh and try again");
+    const last = await tx.diagnosticReportVersion.findFirst({
+      where: { reportId: id },
+      orderBy: { version: "desc" },
+      select: { version: true },
+    });
+    // The amendment version records who made the correction and re-verifies it:
+    // the amending professional signs the corrected content, while the prior
+    // version keeps the original author and signer (Category 03).
     await tx.diagnosticReportVersion.create({
       data: {
         reportId: id,
-        version: nextVersion,
+        version: (last?.version ?? 0) + 1,
         snapshot: {
           preliminaryFindings: data.preliminaryFindings ?? report.preliminaryFindings,
           specialistInterpretation: data.specialistInterpretation ?? report.specialistInterpretation,
@@ -180,5 +195,5 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
     details: { reason: data.reason ?? null }, req,
   });
 
-  return NextResponse.json({ success: true, report: updated, message: `Amended (${DIAGNOSTIC_REPORT_STATUS_LABEL.AMENDED}) — the original version is preserved in the report history` });
+  return NextResponse.json({ success: true, report: { id, status: "AMENDED" }, message: `Amended (${DIAGNOSTIC_REPORT_STATUS_LABEL.AMENDED}) — the original version is preserved in the report history` });
 });
