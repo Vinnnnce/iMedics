@@ -110,7 +110,10 @@ export const POST = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
   const labResult = await prisma.$transaction(async (tx) => {
     // If this order already carries a verified result, submitting a corrected
     // result must leave a traceable amendment rather than silently replacing
-    // the verified record (Module 02, Category 03). Snapshot the prior values.
+    // the verified record (Module 02, Category 03). A non-blank correction
+    // reason is mandatory, and the corrected order returns to verification —
+    // an unverified correction is never releasable as final.
+    let priorVerifiedResultId: string | null = null;
     if (data.labOrderId) {
       const prior = await tx.labResult.findFirst({
         where: { labOrderId: data.labOrderId, verifiedAt: { not: null } },
@@ -118,11 +121,15 @@ export const POST = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
         select: { id: true, values: { select: { name: true, value: true, unit: true, flag: true } } },
       });
       if (prior) {
+        if (!data.reason?.trim()) {
+          throw badRequest("A corrected result requires a reason for the amendment");
+        }
+        priorVerifiedResultId = prior.id;
         await tx.labResultAmendment.create({
           data: {
             labResultId: prior.id,
             changedById: user.id,
-            reason: data.reason ?? "Corrected result submitted",
+            reason: data.reason,
             previousSnapshot: { values: prior.values },
           },
         });
@@ -142,14 +149,12 @@ export const POST = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
       },
     });
     if (data.labOrderId) {
-      // A corrected submission on a finalized order moves it to AMENDED rather
-      // than overwriting the finalized state; fresh orders complete normally.
-      const priorFinalized = await tx.labResult.count({
-        where: { labOrderId: data.labOrderId, verifiedAt: { not: null } },
-      });
+      // A corrected submission on a verified order returns the order to
+      // verification (never straight to a releasable state); fresh orders
+      // complete normally.
       await tx.labOrder.update({
         where: { id: data.labOrderId },
-        data: { status: priorFinalized > 0 ? "AMENDED" : "COMPLETED" },
+        data: { status: priorVerifiedResultId ? "AWAITING_VERIFICATION" : "COMPLETED" },
       });
     }
     return created;

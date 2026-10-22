@@ -36,7 +36,7 @@ const REPORT_SELECT = {
   },
   versions: {
     orderBy: { version: "desc" as const },
-    select: { id: true, version: true, reason: true, createdAt: true },
+    select: { id: true, version: true, reason: true, snapshot: true, createdAt: true },
   },
 } as const satisfies Prisma.DiagnosticReportSelect;
 
@@ -63,15 +63,17 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
   }
 
   if (!report) {
+    // Requesting hospital: read-only, and only for reports issued to them
+    // (sent or an issued amendment) — drafts stay invisible to the requester.
     const hospitalAccess = labAccess ?? await requireFacilityAccess(user, "REGISTER_PATIENTS").catch(() => null);
     if (hospitalAccess) {
       report = await prisma.diagnosticReport.findFirst({
         where: {
           id,
+          status: { in: ["SENT", "AMENDED"] },
           OR: [
             { sentToFacilityId: hospitalAccess.facility.id },
             { booking: { requestingFacilityId: hospitalAccess.facility.id } },
-            { booking: { service: { facilityId: hospitalAccess.facility.id } } },
           ],
         },
         select: REPORT_SELECT,
@@ -123,12 +125,27 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             {report.versions.map((v) => (
-              <div key={v.id} className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="rounded-lg text-xs">Version {v.version}</Badge>
-                <span className="text-xs text-muted-foreground">
-                  {formatClinicDateTime(v.createdAt)}
-                  {v.reason ? ` · ${v.reason}` : ""}
-                </span>
+              <div key={v.id} className="rounded-md border p-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className="rounded-lg text-xs">Version {v.version}</Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {formatClinicDateTime(v.createdAt)}
+                    {v.reason ? ` · ${v.reason}` : ""}
+                  </span>
+                </div>
+                {v.snapshot && (
+                  <div className="mt-1 space-y-1 text-xs text-muted-foreground">
+                    {(v.snapshot as Record<string, unknown>).preliminaryFindings ? (
+                      <p className="line-clamp-2">Findings: {String((v.snapshot as Record<string, unknown>).preliminaryFindings)}</p>
+                    ) : null}
+                    {(v.snapshot as Record<string, unknown>).specialistInterpretation ? (
+                      <p className="line-clamp-2">Interpretation: {String((v.snapshot as Record<string, unknown>).specialistInterpretation)}</p>
+                    ) : null}
+                    {(v.snapshot as Record<string, unknown>).recommendations ? (
+                      <p className="line-clamp-2">Recommendations: {String((v.snapshot as Record<string, unknown>).recommendations)}</p>
+                    ) : null}
+                  </div>
+                )}
               </div>
             ))}
           </CardContent>

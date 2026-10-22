@@ -5,7 +5,7 @@ import { withAuth, parseBody, parseId } from "@/lib/api";
 import { requireFacilityAccess } from "@/lib/facility-auth";
 import { requireFacilityKind } from "@/lib/modules/access-matrix";
 import { diagnosticReportIsLocked, DIAGNOSTIC_REPORT_STATUS_LABEL } from "@/lib/modules/workflows";
-import { badRequest, notFound } from "@/lib/errors";
+import { badRequest, conflict, notFound } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
 import type { Prisma } from "@prisma/client";
 
@@ -23,16 +23,17 @@ export const GET = withAuth<{ id: string }>(null, async (req, { user, params }) 
     if (report) return NextResponse.json({ report, role: "owner" });
   }
 
-  // Requesting hospital: read-only access to reports sent to (or created for)
-  // them. They cannot act on the report — actions stay diagnostic-only.
+  // Requesting hospital: read-only access, and only to reports that have
+  // been issued to them (sent, or an issued amendment). Draft and in-progress
+  // reports stay invisible to the requester; actions stay diagnostic-only.
   const hospitalAccess = labAccess ?? await requireFacilityAccess(user, "REGISTER_PATIENTS", req);
   const report = await prisma.diagnosticReport.findFirst({
     where: {
       id,
+      status: { in: ["SENT", "AMENDED"] },
       OR: [
         { sentToFacilityId: hospitalAccess.facility.id },
         { booking: { requestingFacilityId: hospitalAccess.facility.id } },
-        { booking: { service: { facilityId: hospitalAccess.facility.id } } },
       ],
     },
     select: REPORT_SELECT,
@@ -55,7 +56,7 @@ const REPORT_SELECT = {
       },
       versions: {
         orderBy: { version: "desc" },
-        select: { id: true, version: true, reason: true, changedById: true, createdAt: true, changedBy: { select: { name: true } } },
+        select: { id: true, version: true, reason: true, snapshot: true, changedById: true, createdAt: true, changedBy: { select: { name: true } } },
       },
       images: {
         select: { id: true, fileName: true, mimeType: true, sizeBytes: true, createdAt: true, storageKey: true },
@@ -88,15 +89,20 @@ export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }
     );
   }
 
-  const updated = await prisma.diagnosticReport.update({
-    where: { id },
+  // Conditional update guarded on the status that was checked above — a
+  // concurrent finalization (or another edit) cannot be overwritten by this
+  // stale request.
+  const updated = await prisma.diagnosticReport.updateMany({
+    where: { id, status: report.status },
     data: {
       ...(data.preliminaryFindings !== undefined ? { preliminaryFindings: data.preliminaryFindings } : {}),
       ...(data.specialistInterpretation !== undefined ? { specialistInterpretation: data.specialistInterpretation } : {}),
       ...(data.recommendations !== undefined ? { recommendations: data.recommendations } : {}),
     },
-    select: { id: true, status: true },
   });
+  if (updated.count === 0) {
+    throw conflict("This report just changed status — refresh and try again");
+  }
 
   await writeAudit({
     userId: user.id,

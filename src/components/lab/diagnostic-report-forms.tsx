@@ -155,9 +155,12 @@ export function ReportActions({ reportId, status }: { reportId: string; status: 
   const [amending, setAmending] = useState(false);
   const [reason, setReason] = useState("");
   const [form, setForm] = useState({ preliminaryFindings: "", specialistInterpretation: "", recommendations: "" });
+  const [amendLoaded, setAmendLoaded] = useState(false);
 
   // Pre-fill the amendment form with the current report content so unchanged
   // fields are submitted with their existing values instead of being blanked.
+  // Submission stays disabled until the current content has loaded — a failed
+  // or slow load must never let a blank amendment through.
   useEffect(() => {
     if (!amending) return;
     fetch(`/api/facility/diagnostic-reports/${reportId}`)
@@ -169,6 +172,7 @@ export function ReportActions({ reportId, status }: { reportId: string; status: 
             specialistInterpretation: d.report.specialistInterpretation ?? "",
             recommendations: d.report.recommendations ?? "",
           });
+          setAmendLoaded(true);
         }
       })
       .catch(() => undefined);
@@ -201,7 +205,8 @@ export function ReportActions({ reportId, status }: { reportId: string; status: 
           <Button size="sm" variant="secondary" disabled={busy} onClick={() => act("SEND")}>Send to hospital</Button>
         )}
         {(status === "FINALIZED" || status === "SENT") && (
-          <Button size="sm" variant="destructive" disabled={busy} onClick={() => setAmending((v) => !v)}>Amend</Button>
+          <Button size="sm" variant="destructive" disabled={busy}
+            onClick={() => { setAmendLoaded(false); setAmending((v) => !v); }}>Amend</Button>
         )}
       </div>
       {amending && (
@@ -219,7 +224,7 @@ export function ReportActions({ reportId, status }: { reportId: string; status: 
               <Textarea rows={2} value={form[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
             </div>
           ))}
-          <Button size="sm" variant="destructive" disabled={busy || !reason.trim()}
+          <Button size="sm" variant="destructive" disabled={busy || !reason.trim() || !amendLoaded}
             onClick={() => act("AMEND", { reason, ...form })}>
             Submit amendment
           </Button>

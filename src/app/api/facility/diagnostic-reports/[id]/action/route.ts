@@ -75,40 +75,41 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
   if (data.action === "FINALIZE") {
     assertDiagnosticReportTransition(report.status, "FINALIZED", access.permissions);
     // Finalization = professional verification + signature by the same
-    // authorized professional (Module 03: "finalize and sign"). The conditional
-    // update guards against a concurrent amendment or submission.
-    const finalized = await prisma.diagnosticReport.updateMany({
-      where: { id, status: report.status },
-      data: {
-        status: "FINALIZED",
-        verifiedById: user.id,
-        verifiedAt: new Date(),
-        signedById: user.id,
-        signedAt: new Date(),
-        finalizedAt: new Date(),
-      },
-    });
-    if (finalized.count === 0) {
-      throw conflict("This report just changed status — refresh and try again");
-    }
-    // Version snapshot: the immutable original that any later amendment is
-    // measured against (Module 03, Category 03).
-    const last = await prisma.diagnosticReportVersion.findFirst({
-      where: { reportId: id },
-      orderBy: { version: "desc" },
-      select: { version: true },
-    });
-    await prisma.diagnosticReportVersion.create({
-      data: {
-        reportId: id,
-        version: (last?.version ?? 0) + 1,
-        snapshot: {
-          preliminaryFindings: report.preliminaryFindings,
-          specialistInterpretation: report.specialistInterpretation,
-          recommendations: report.recommendations,
+    // authorized professional (Module 03: "finalize and sign"). The status
+    // transition and the immutable version snapshot are committed in one
+    // transaction, so a finalized report can never exist without its
+    // original snapshot.
+    await prisma.$transaction(async (tx) => {
+      const r = await tx.diagnosticReport.updateMany({
+        where: { id, status: report.status },
+        data: {
+          status: "FINALIZED",
+          verifiedById: user.id,
+          verifiedAt: new Date(),
+          signedById: user.id,
+          signedAt: new Date(),
+          finalizedAt: new Date(),
         },
-        changedById: user.id,
-      },
+      });
+      if (r.count === 0) throw conflict("This report just changed status — refresh and try again");
+      const last = await tx.diagnosticReportVersion.findFirst({
+        where: { reportId: id },
+        orderBy: { version: "desc" },
+        select: { version: true },
+      });
+      await tx.diagnosticReportVersion.create({
+        data: {
+          reportId: id,
+          version: (last?.version ?? 0) + 1,
+          snapshot: {
+            preliminaryFindings: report.preliminaryFindings,
+            specialistInterpretation: report.specialistInterpretation,
+            recommendations: report.recommendations,
+          },
+          changedById: user.id,
+        },
+      });
+      return r;
     });
     await writeAudit({
       userId: user.id, actorRole: user.role, action: "DIAGNOSTIC_REPORT_FINALIZED",
@@ -159,6 +160,12 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
       where: { id, status: report.status },
       data: {
         status: "AMENDED",
+        // The amending professional re-verifies and signs the corrected
+        // content; the prior version keeps the original attribution.
+        verifiedById: user.id,
+        verifiedAt: new Date(),
+        signedById: user.id,
+        signedAt: new Date(),
         ...(data.preliminaryFindings !== undefined ? { preliminaryFindings: data.preliminaryFindings } : {}),
         ...(data.specialistInterpretation !== undefined ? { specialistInterpretation: data.specialistInterpretation } : {}),
         ...(data.recommendations !== undefined ? { recommendations: data.recommendations } : {}),

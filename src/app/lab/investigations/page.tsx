@@ -1,6 +1,7 @@
 import { SearchCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CreateLabOrderDialog } from "@/components/lab/lab-order-forms";
 import { requireModulePage } from "@/lib/modules/page-guards";
 import { prisma } from "@/lib/prisma";
 import { formatClinicDateTime } from "@/lib/format";
@@ -69,16 +70,21 @@ export default async function InvestigationsPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 md:px-0">
       <div>
-        <h1 className="text-2xl font-bold">Investigations</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Laboratory orders and diagnostic referrals you requested, with their
-          current status.{" "}
-          {pendingCritical > 0 && (
-            <Link href="/lab/critical-alerts" className="font-medium text-destructive hover:underline">
-              {pendingCritical} critical result{pendingCritical === 1 ? "" : "s"} awaiting acknowledgement
-            </Link>
-          )}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h1 className="text-2xl font-bold">Investigations</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Laboratory orders and diagnostic referrals you requested, with their
+              current status.{" "}
+              {pendingCritical > 0 && (
+                <Link href="/lab/critical-alerts" className="font-medium text-destructive hover:underline">
+                  {pendingCritical} critical result{pendingCritical === 1 ? "" : "s"} awaiting acknowledgement
+                </Link>
+              )}
+            </p>
+          </div>
+          <CreateLabOrderDialog />
+        </div>
       </div>
 
       <Card className="beeline-card">
@@ -107,7 +113,7 @@ export default async function InvestigationsPage() {
                   Specimens: {o.specimens.map((s) => `${s.accessionNumber} (${s.status.toLowerCase().replace(/_/g, " ")})`).join(", ")}
                 </p>
               )}
-              {o.results.map((result) => (
+              {o.results.filter((r) => r.status === "VERIFIED").map((result) => (
                 <div key={result.id} className="mt-2 rounded-md bg-muted/50 p-2">
                   <p className="text-xs font-medium text-muted-foreground">
                     Result · {result.status.toLowerCase().replace(/_/g, " ")}
