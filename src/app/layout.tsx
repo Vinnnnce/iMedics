@@ -11,8 +11,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Medic1905 — AI-Powered Telemedicine",
-  description: "Connect with doctors, upload lab results, and get AI-powered health insights.",
+  title: "Medic1905 — Nigeria 1st Telemedicine",
+  description: "Connect with doctors, hospitals, diagnostic centres and laboratories anywhere nationwide. Get AI-powered health insights.",
 };
 
 /**
