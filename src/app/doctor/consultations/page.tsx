@@ -661,8 +661,7 @@ export default function DoctorConsultationsPage() {
       </Card>
 
       <p className="text-xs text-muted-foreground text-center pb-2">
-        The consultation report structure follows the electronic medical record format of the JEMYS hospital
-        information system (jemys.ru) — complaints, anamnesis, objective examination with vitals, diagnosis,
+        The consultation report structure follows the electronic medical record format of the Medic1905 standard — complaints, anamnesis, objective examination with vitals, diagnosis,
         laboratory and diagnostic findings, prescriptions, and treatment plan.
       </p>
     </div>
