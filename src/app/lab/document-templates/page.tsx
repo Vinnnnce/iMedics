@@ -32,8 +32,9 @@ export default async function FacilityDocumentTemplatesPage() {
         <h1 className="text-2xl font-bold">Document templates</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Customise the structure of the medical documents your facility issues —
-          lab reports, referral forms, case notes and imaging reports. Templates hold
-          structure only (field prompts); never patient data.
+          lab reports, referral forms, case notes, imaging and diagnostic reports,
+          discharge summaries, epicrises, admission and progress notes, and transfer
+          summaries. Templates hold structure only (field prompts); never patient data.
         </p>
       </div>
       <FacilityTemplateManager

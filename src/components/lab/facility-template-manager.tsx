@@ -9,7 +9,17 @@ import { Label } from "@/components/ui/label";
 export interface FacilityTemplateRow {
   id: string;
   name: string;
-  kind: "LAB_REPORT" | "REFERRAL_FORM" | "CASE_NOTE" | "IMAGING_REPORT";
+  kind:
+    | "LAB_REPORT"
+    | "REFERRAL_FORM"
+    | "CASE_NOTE"
+    | "IMAGING_REPORT"
+    | "DISCHARGE_SUMMARY"
+    | "EPICRISIS"
+    | "ADMISSION_NOTE"
+    | "PROGRESS_NOTE"
+    | "TRANSFER_SUMMARY"
+    | "DIAGNOSTIC_REPORT";
   content: string;
   updatedAt: string;
   createdBy: string;
@@ -35,6 +45,36 @@ const KINDS: { value: FacilityTemplateRow["kind"]; label: string; example: strin
     value: "IMAGING_REPORT",
     label: "Imaging report",
     example: '{\n  "technique": "Technique …",\n  "findings": "Findings …",\n  "impression": "Impression …"\n}',
+  },
+  {
+    value: "DISCHARGE_SUMMARY",
+    label: "Discharge summary",
+    example: '{\n  "admissionDiagnosis": "Admission diagnosis …",\n  "hospitalCourse": "Hospital course …",\n  "dischargeDiagnosis": "Discharge diagnosis …",\n  "medications": "Medications on discharge …",\n  "followUp": "Follow-up …"\n}',
+  },
+  {
+    value: "EPICRISIS",
+    label: "Epicrisis",
+    example: '{\n  "summary": "Clinical summary …",\n  "finalDiagnosis": "Final diagnosis …",\n  "outcome": "Outcome …",\n  "recommendations": "Recommendations …"\n}',
+  },
+  {
+    value: "ADMISSION_NOTE",
+    label: "Admission note",
+    example: '{\n  "reason": "Reason for admission …",\n  "history": "Anamnesis …",\n  "examination": "Initial assessment …",\n  "workingDiagnosis": "Working diagnosis …"\n}',
+  },
+  {
+    value: "PROGRESS_NOTE",
+    label: "Progress note",
+    example: '{\n  "day": "Day …",\n  "subjective": "Subjective …",\n  "objective": "Objective / vitals …",\n  "assessment": "Assessment …",\n  "plan": "Plan …"\n}',
+  },
+  {
+    value: "TRANSFER_SUMMARY",
+    label: "Transfer summary",
+    example: '{\n  "reason": "Reason for transfer …",\n  "conditionAtTransfer": "Condition at transfer …",\n  "transferredTo": "Transferred to …"\n}',
+  },
+  {
+    value: "DIAGNOSTIC_REPORT",
+    label: "Diagnostic report",
+    example: '{\n  "examination": "Examination performed …",\n  "technique": "Technique …",\n  "findings": "Findings …",\n  "conclusion": "Conclusion …",\n  "recommendations": "Recommendations …"\n}',
   },
 ];
 

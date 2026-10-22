@@ -56,6 +56,17 @@ model User {
   providerSubaccount     ProviderSubaccount?
   refundsDecided         Refund[]                 @relation("RefundDecidedBy")
   refundsRequested       Refund[]                 @relation("RefundRequestedBy")
+  admissionNotesAuthored  AdmissionNote[]
+  wardTransfersRecorded   WardTransfer[]
+  labResultAmendments     LabResultAmendment[]    @relation("LabResultAmendedBy")
+  specimensCollected     Specimen[]               @relation("SpecimenCollectedBy")
+  specimensReceived      Specimen[]               @relation("SpecimenReceivedBy")
+  diagnosticReportsDrafted DiagnosticReport[]       @relation("DiagnosticReportDraftedBy")
+  diagnosticReportsVerified DiagnosticReport[]     @relation("DiagnosticReportVerifiedBy")
+  diagnosticReportsSigned DiagnosticReport[]       @relation("DiagnosticReportSignedBy")
+  diagnosticReportVersions DiagnosticReportVersion[] @relation("DiagnosticReportVersionBy")
+  diagnosticImagesUploaded DiagnosticImage[]       @relation("DiagnosticImageUploadedBy")
+  criticalAlertsAcked     CriticalResultAlert[]    @relation("CriticalAlertAcknowledgedBy")
 
   @@index([role])
   @@index([status])
@@ -106,6 +117,7 @@ model DoctorProfile {
   assignments               PatientAssignment[]
   prescriptions             Prescription[]
   careCases                 CareCase[]            @relation("CareCasePrimaryDoctor")
+  admissionsAdmitted        Admission[]            @relation("AdmissionAdmittingDoctor")
   sentFacilityReferrals     FacilityReferral[]    @relation("ReferralFromDoctor")
   professionalTitle         String?               @map("professional_title")
   qualifications            String?
@@ -201,9 +213,26 @@ model LabStaffProfile {
   documentTemplates       FacilityDocumentTemplate[]
   issuedDocuments         PatientDocument[]         @relation("IssuingFacility")
   reviews                 FacilityReview[]
+  /// Organization type of this facility, denormalized from the owner's account type at creation.
+  kind                    FacilityKind?
+  specimens              Specimen[]
+  admissions             Admission[]
+  transferredAdmissions   Admission[]            @relation("AdmissionTransferredToFacility")
+  referredBookings       FacilityBooking[]        @relation("BookingRequestingFacility")
+  requestingLabOrders     LabOrder[]               @relation("LabOrderRequestingFacility")
+  performingLabOrders     LabOrder[]               @relation("LabOrderPerformingFacility")
+  diagnosticReportsIssued DiagnosticReport[]
+  diagnosticReportsSentTo DiagnosticReport[]       @relation("DiagnosticReportSentToFacility")
+  criticalAlertsOrdered   CriticalResultAlert[]    @relation("CriticalAlertOrderingFacility")
 
   @@index([verificationStatus])
   @@map("lab_staff_profiles")
+}
+
+enum FacilityKind {
+  LABORATORY
+  DIAGNOSTIC_CENTRE
+  HOSPITAL
 }
 
 model DoctorSchedule {
@@ -307,6 +336,9 @@ model Patient {
   trustedContacts   TrustedContact[]
   inactivityRule    InactivityRule?
   facilityReferrals FacilityReferral[]   @relation("ReferralPatient")
+  /// Hospital admissions (Module 01).
+  admissions        Admission[]
+  criticalAlerts    CriticalResultAlert[]
 
   @@index([lastName, firstName])
   @@index([deletedAt])
@@ -569,6 +601,14 @@ enum FacilityDocumentTemplateKind {
   REFERRAL_FORM
   CASE_NOTE
   IMAGING_REPORT
+  /// Hospital documents (Module 01) facilities can customize.
+  DISCHARGE_SUMMARY
+  EPICRISIS
+  ADMISSION_NOTE
+  PROGRESS_NOTE
+  TRANSFER_SUMMARY
+  /// Diagnostic-centre documents (Module 03).
+  DIAGNOSTIC_REPORT
 }
 
 /// Document scaffolds a facility defines for the documents it issues:
@@ -643,9 +683,18 @@ model LabOrder {
   results       LabResult[]
   caseId        String?          @map("case_id") @db.Uuid
   case          CareCase?        @relation(fields: [caseId], references: [id])
+  /// The hospital facility whose clinician created this order.
+  requestingFacilityId   String?          @map("requesting_facility_id") @db.Uuid
+  requestingFacility     LabStaffProfile? @relation("LabOrderRequestingFacility", fields: [requestingFacilityId], references: [id])
+  /// The laboratory facility responsible for processing this order.
+  performingFacilityId   String?          @map("performing_facility_id") @db.Uuid
+  performingFacility     LabStaffProfile? @relation("LabOrderPerformingFacility", fields: [performingFacilityId], references: [id])
+  specimens             Specimen[]
 
   @@index([patientId])
   @@index([status])
+  @@index([performingFacilityId, status])
+  @@index([requestingFacilityId, status])
   @@map("lab_orders")
 }
 
@@ -682,6 +731,8 @@ model LabResult {
   patient        Patient          @relation(fields: [patientId], references: [id])
   uploadedBy     User?            @relation("LabResultUploadedBy", fields: [uploadedById], references: [id])
   verifiedBy     User?            @relation("LabResultVerifiedBy", fields: [verifiedById], references: [id])
+  amendments    LabResultAmendment[]
+  criticalAlert CriticalResultAlert?
 
   @@index([patientId, testDate(sort: Desc)])
   @@index([status])
@@ -926,6 +977,8 @@ model FacilityBooking {
   service             FacilityService              @relation(fields: [serviceId], references: [id])
   payment             Payment?
   caseId              String?                      @map("case_id") @db.Uuid
+  /// The hospital facility that referred the patient for this examination.
+  requestingFacilityId String?                     @map("requesting_facility_id") @db.Uuid
   assignedStaffId     String?                      @map("assigned_staff_id") @db.Uuid
   workflowStage       FacilityBookingWorkflowStage @default(BOOKED) @map("workflow_stage")
   workflowUpdatedAt   DateTime?                    @map("workflow_updated_at")
@@ -933,7 +986,10 @@ model FacilityBooking {
   reportDocumentKey   String?                      @map("report_document_key")
   releasedAt          DateTime?                    @map("released_at")
   case                CareCase?                    @relation(fields: [caseId], references: [id])
+  requestingFacility  LabStaffProfile?             @relation("BookingRequestingFacility", fields: [requestingFacilityId], references: [id])
   assignedStaff       FacilityStaff?               @relation("BookingAssignedStaff", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  diagnosticReport    DiagnosticReport?
+  diagnosticImages    DiagnosticImage[]
 
   @@index([patientId, createdAt])
   @@index([serviceId, status])
@@ -1177,6 +1233,15 @@ enum LabOrderStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+  /// Extended laboratory workflow (Module 02). Legacy values are kept for
+  /// existing rows; new orders move through the extended states.
+  ACCEPTED
+  SPECIMEN_PENDING
+  SPECIMEN_REJECTED
+  AWAITING_VERIFICATION
+  FINALIZED
+  SENT_TO_FACILITY
+  AMENDED
 }
 
 enum LabResultStatus {
@@ -1239,6 +1304,10 @@ enum NotificationType {
   MEDICATION_REMINDER
   WELFARE_ALERT
   DOCUMENT_SHARE
+  /// Critical lab finding awaiting clinician acknowledgement (Module 02).
+  CRITICAL_RESULT
+  /// Investigation status changes across the three modules.
+  INVESTIGATION_UPDATE
 }
 
 enum NotificationChannel {
@@ -1641,6 +1710,7 @@ model CareCase {
   payments            Payment[]
   facilityBookings    FacilityBooking[]
   facilityReferrals   FacilityReferral[] @relation("ReferralCase")
+  admissions          Admission[]
   events              CareCaseEvent[]
 
   @@index([patientId, createdAt(sort: Desc)])
@@ -2231,4 +2301,303 @@ model WelfareAlertDelivery {
 
   @@index([alertId])
   @@map("welfare_alert_deliveries")
+}
+
+// ============================================================
+// Modules: Hospital, Laboratory & Diagnostic Centre management
+// ============================================================
+
+// ---------- Module 02: specimen management ----------
+
+enum SpecimenStatus {
+  /// Registered against an order, waiting for collection.
+  PENDING_COLLECTION
+  COLLECTED
+  RECEIVED
+  REJECTED
+  /// The specimen was unsuitable; a new collection has been requested.
+  RECOLLECTION_REQUESTED
+  PROCESSED
+}
+
+/// One physical specimen received against a laboratory order. A recollection
+/// creates a new row linked to the rejected one, so history is never lost.
+model Specimen {
+  id             String        @id @default(uuid()) @db.Uuid
+  labOrderId     String        @map("lab_order_id") @db.Uuid
+  facilityId     String        @map("facility_id") @db.Uuid
+  /// Facility-scoped accession number, e.g. "SPC-2026-000123".
+  accessionNumber String       @map("accession_number")
+  specimenType   String?
+  status         SpecimenStatus @default(PENDING_COLLECTION)
+  collectedAt    DateTime?     @map("collected_at")
+  collectedById  String?      @map("collected_by_id") @db.Uuid
+  receivedAt     DateTime?     @map("received_at")
+  receivedById   String?       @map("received_by_id") @db.Uuid
+  /// Mandatory when a specimen is rejected.
+  rejectionReason String?
+  notes          String?
+  /// The rejected specimen this recollection replaces, if any.
+  parentSpecimenId String?     @map("parent_specimen_id") @db.Uuid
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  labOrder        LabOrder      @relation(fields: [labOrderId], references: [id])
+  facility        LabStaffProfile @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  collectedBy     User?         @relation("SpecimenCollectedBy", fields: [collectedById], references: [id])
+  receivedBy      User?         @relation("SpecimenReceivedBy", fields: [receivedById], references: [id])
+  parentSpecimen  Specimen?     @relation("SpecimenRecollection", fields: [parentSpecimenId], references: [id])
+  recollections   Specimen[]    @relation("SpecimenRecollection")
+
+  @@unique([facilityId, accessionNumber])
+  @@index([labOrderId])
+  @@index([facilityId, status])
+  @@map("specimens")
+}
+
+/// Per-facility sequence counters for accession numbers (one row per facility).
+model FacilityAccessionCounter {
+  id       String @id // facility id
+  sequence Int    @default(0)
+
+  @@map("facility_accession_counters")
+}
+
+// ---------- Module 01: hospital admissions ----------
+
+enum AdmissionStatus {
+  ACTIVE
+  DISCHARGED
+  /// Transferred to another facility; the record stays with its history.
+  TRANSFERRED
+  CANCELLED
+}
+
+enum DischargeDisposition {
+  RECOVERED
+  IMPROVED
+  UNCHANGED
+  WORSE
+  DECEASED
+  REFERRED
+}
+
+enum AdmissionNoteType {
+  ADMISSION_EXAMINATION
+  PHYSICIAN_PROGRESS
+  NURSING_OBSERVATION
+  SPECIALIST_CONSULTATION
+  PROCEDURE_REPORT
+}
+
+/// A hospital admission episode (Module 01, Category 03).
+model Admission {
+  id                  String       @id @default(uuid()) @db.Uuid
+  patientId           String       @map("patient_id") @db.Uuid
+  facilityId          String       @map("facility_id") @db.Uuid
+  caseId              String?      @map("case_id") @db.Uuid
+  admittingDoctorId   String?      @map("admitting_doctor_id") @db.Uuid
+  ward                String?
+  bed                 String?
+  admissionDate       DateTime     @map("admission_date")
+  reason              String?
+  initialAssessment  String?      @map("initial_assessment")
+  workingDiagnosis    String?      @map("working_diagnosis")
+  diagnosisCode       String?      @map("diagnosis_code")
+  diagnosisName       String?      @map("diagnosis_name")
+  status              AdmissionStatus @default(ACTIVE)
+  dischargeDate       DateTime?    @map("discharge_date")
+  disposition         DischargeDisposition?
+  finalDiagnosisCode  String?      @map("final_diagnosis_code")
+  finalDiagnosisName  String?      @map("final_diagnosis_name")
+  outcome             String?
+  /// Final discharge summary (epicrisis).
+  epicrisis           String?
+  medicationInstructions String?   @map("medication_instructions")
+  followUpInstructions   String?  @map("follow_up_instructions")
+  dischargedById      String?      @map("discharged_by_id") @db.Uuid
+  dischargedAt        DateTime?    @map("discharged_at")
+  /// Interfacility transfer target (status TRANSFERRED).
+  transferredToFacilityId String? @map("transferred_to_facility_id") @db.Uuid
+  transferSummary     String?      @map("transfer_summary")
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
+  patient             Patient      @relation(fields: [patientId], references: [id])
+  facility            LabStaffProfile @relation(fields: [facilityId], references: [id])
+  case                CareCase?    @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  admittingDoctor     DoctorProfile? @relation("AdmissionAdmittingDoctor", fields: [admittingDoctorId], references: [id], onDelete: SetNull)
+  transferredToFacility LabStaffProfile? @relation("AdmissionTransferredToFacility", fields: [transferredToFacilityId], references: [id])
+  notes               AdmissionNote[]
+  wardTransfers       WardTransfer[]
+
+  @@index([facilityId, status])
+  @@index([patientId, admissionDate(sort: Desc)])
+  @@map("admissions")
+}
+
+/// Daily progress and observation notes on an admission. Vitals are stored as a
+/// JSON object (temperature, pulse, blood pressure, etc.) alongside free text.
+model AdmissionNote {
+  id           String          @id @default(uuid()) @db.Uuid
+  admissionId  String          @map("admission_id") @db.Uuid
+  authorId     String          @map("author_id") @db.Uuid
+  type         AdmissionNoteType
+  content      String
+  vitals       Json?
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+  admission    Admission       @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  author       User            @relation(fields: [authorId], references: [id])
+
+  @@index([admissionId, createdAt])
+  @@map("admission_notes")
+}
+
+/// Internal ward-to-ward transfer inside the same hospital.
+model WardTransfer {
+  id           String   @id @default(uuid()) @db.Uuid
+  admissionId  String   @map("admission_id") @db.Uuid
+  fromWard    String?
+  toWard      String
+  reason      String?
+  actorId     String   @map("actor_id") @db.Uuid
+  transferredAt DateTime @map("transferred_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  admission    Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  actor        User     @relation(fields: [actorId], references: [id])
+
+  @@index([admissionId, transferredAt])
+  @@map("ward_transfers")
+}
+
+// ---------- Module 03: diagnostic reports ----------
+
+enum DiagnosticReportStatus {
+  DRAFT
+  AWAITING_VERIFICATION
+  FINALIZED
+  SENT
+  AMENDED
+}
+
+/// The examination report for a diagnostic booking. Finalized reports are
+/// immutable: corrections go through DiagnosticReportVersion amendments.
+model DiagnosticReport {
+  id                        String   @id @default(uuid()) @db.Uuid
+  bookingId                 String   @unique @map("booking_id") @db.Uuid
+  facilityId                String   @map("facility_id") @db.Uuid
+  status                    DiagnosticReportStatus @default(DRAFT)
+  preliminaryFindings       String?  @map("preliminary_findings")
+  specialistInterpretation  String?  @map("specialist_interpretation")
+  recommendations           String?
+  draftedById               String?  @map("drafted_by_id") @db.Uuid
+  verifiedById              String?  @map("verified_by_id") @db.Uuid
+  verifiedAt                DateTime? @map("verified_at")
+  signedById                String?  @map("signed_by_id") @db.Uuid
+  signedAt                  DateTime? @map("signed_at")
+  finalizedAt               DateTime? @map("finalized_at")
+  sentAt                    DateTime? @map("sent_at")
+  sentToFacilityId          String?  @map("sent_to_facility_id") @db.Uuid
+  createdAt                 DateTime  @default(now()) @map("created_at")
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
+  booking                   FacilityBooking @relation(fields: [bookingId], references: [id])
+  facility                  LabStaffProfile @relation(fields: [facilityId], references: [id])
+  draftedBy                 User?    @relation("DiagnosticReportDraftedBy", fields: [draftedById], references: [id])
+  verifiedBy                User?    @relation("DiagnosticReportVerifiedBy", fields: [verifiedById], references: [id])
+  signedBy                  User?    @relation("DiagnosticReportSignedBy", fields: [signedById], references: [id])
+  sentToFacility            LabStaffProfile? @relation("DiagnosticReportSentToFacility", fields: [sentToFacilityId], references: [id])
+  versions                  DiagnosticReportVersion[]
+  images                    DiagnosticImage[]
+
+  @@index([facilityId, status])
+  @@map("diagnostic_reports")
+}
+
+/// Immutable version snapshots of a diagnostic report. Version 1 is the
+/// finalized original; every amendment appends a new version with a reason.
+model DiagnosticReportVersion {
+  id          String   @id @default(uuid()) @db.Uuid
+  reportId    String   @map("report_id") @db.Uuid
+  version     Int
+  snapshot    Json
+  reason      String?
+  changedById String   @map("changed_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  report      DiagnosticReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  changedBy   User     @relation("DiagnosticReportVersionBy", fields: [changedById], references: [id])
+
+  @@unique([reportId, version])
+  @@map("diagnostic_report_versions")
+}
+
+/// Imaging attachments for a diagnostic examination. Files live in private
+/// object storage; only the storage key is persisted here.
+model DiagnosticImage {
+  id           String   @id @default(uuid()) @db.Uuid
+  reportId     String?  @map("report_id") @db.Uuid
+  bookingId    String   @map("booking_id") @db.Uuid
+  storageKey   String   @unique @map("storage_key")
+  fileName     String   @map("file_name")
+  mimeType     String   @map("mime_type")
+  sizeBytes    Int      @map("size_bytes")
+  uploadedById String   @map("uploaded_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+  report       DiagnosticReport? @relation(fields: [reportId], references: [id])
+  booking      FacilityBooking @relation(fields: [bookingId], references: [id])
+  uploadedBy   User     @relation("DiagnosticImageUploadedBy", fields: [uploadedById], references: [id])
+
+  @@index([bookingId])
+  @@map("diagnostic_images")
+}
+
+// ---------- Cross-module: amendments and critical alerts ----------
+
+/// Auditable amendment of a verified lab result. The previous content is
+/// snapshotted; the original record is never silently overwritten.
+model LabResultAmendment {
+  id               String   @id @default(uuid()) @db.Uuid
+  labResultId      String   @map("lab_result_id") @db.Uuid
+  reason           String
+  previousSnapshot Json     @map("previous_snapshot")
+  changedById      String   @map("changed_by_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at")
+  labResult        LabResult @relation(fields: [labResultId], references: [id])
+  changedBy        User     @relation("LabResultAmendedBy", fields: [changedById], references: [id])
+
+  @@index([labResultId, createdAt])
+  @@map("lab_result_amendments")
+}
+
+enum CriticalAlertStatus {
+  SENT
+  ACKNOWLEDGED
+  ESCALATED
+  RESOLVED
+}
+
+/// A critical lab finding that must be communicated to the ordering clinician
+/// and acknowledged. Unacknowledged alerts escalate.
+model CriticalResultAlert {
+  id                  String   @id @default(uuid()) @db.Uuid
+  labResultId         String   @unique @map("lab_result_id") @db.Uuid
+  labOrderId          String?   @map("lab_order_id") @db.Uuid
+  patientId           String   @map("patient_id") @db.Uuid
+  /// The hospital facility that ordered the investigation, when applicable.
+  orderingFacilityId  String?   @map("ordering_facility_id") @db.Uuid
+  notifiedUserId      String?
+  status              CriticalAlertStatus @default(SENT)
+  acknowledgedById    String?  @map("acknowledged_by_id") @db.Uuid
+  acknowledgedAt      DateTime?
+  escalatedAt         DateTime?
+  escalationLevel     Int      @default(0) @map("escalation_level")
+  note                String?
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+  labResult           LabResult @relation(fields: [labResultId], references: [id])
+  patient             Patient  @relation(fields: [patientId], references: [id])
+  orderingFacility    LabStaffProfile? @relation("CriticalAlertOrderingFacility", fields: [orderingFacilityId], references: [id])
+  acknowledgedBy      User?    @relation("CriticalAlertAcknowledgedBy", fields: [acknowledgedById], references: [id])
+
+  @@index([status])
+  @@index([orderingFacilityId, status])
+  @@map("critical_result_alerts")
 }

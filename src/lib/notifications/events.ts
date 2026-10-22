@@ -54,7 +54,11 @@ export type NotificationEvent =
   | { kind: "WELFARE_ALERT"; alertId: string }
   | { kind: "WELFARE_ALERT_ACKNOWLEDGED"; alertId: string }
   | { kind: "DOCUMENT_SHARE_GRANTED"; documentId: string }
-  | { kind: "PREVENTIVE_CARE_DUE"; taskId: string };
+  | { kind: "PREVENTIVE_CARE_DUE"; taskId: string }
+  | { kind: "CRITICAL_RESULT_ALERTED"; alertId: string; orderId: string }
+  | { kind: "CRITICAL_ALERT_ACKNOWLEDGED"; alertId: string }
+  | { kind: "INVESTIGATION_UPDATED"; orderId: string }
+  | { kind: "DIAGNOSTIC_REPORT_READY"; bookingId: string };
 
 export interface RenderedNotification {
   type: NotificationType;
@@ -276,6 +280,39 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
         body: "Your access has been restored.",
         href: "/",
         data: {},
+      };
+    case "CRITICAL_RESULT_ALERTED":
+      return {
+        type: "CRITICAL_RESULT",
+        title: "Critical result requires acknowledgement",
+        // No clinical detail in the notification itself — open the app to view it.
+        body: "A critical laboratory result is awaiting your acknowledgement. Sign in to review and acknowledge it.",
+        href: role === "LAB_SCIENTIST" ? "/lab/critical-alerts" : role === "DOCTOR" ? "/doctor/lab-requests" : "/lab/critical-alerts",
+        data: { alertId: event.alertId, orderId: event.orderId },
+      };
+    case "CRITICAL_ALERT_ACKNOWLEDGED":
+      return {
+        type: "CRITICAL_RESULT",
+        title: "Critical result acknowledged",
+        body: "The critical result alert has been acknowledged by the responsible clinician.",
+        href: role === "LAB_SCIENTIST" ? "/lab/critical-alerts" : "/doctor/lab-requests",
+        data: { alertId: event.alertId },
+      };
+    case "INVESTIGATION_UPDATED":
+      return {
+        type: "INVESTIGATION_UPDATE",
+        title: "Investigation status update",
+        body: "The status of an investigation you ordered has changed. Sign in to view the details.",
+        href: role === "LAB_SCIENTIST" ? "/lab/orders" : role === "DOCTOR" ? "/doctor/lab-requests" : "/facilities/investigations",
+        data: { orderId: event.orderId },
+      };
+    case "DIAGNOSTIC_REPORT_READY":
+      return {
+        type: "INVESTIGATION_UPDATE",
+        title: "Diagnostic report ready",
+        body: "A finalized diagnostic report is available for an examination you referred. Sign in to view it.",
+        href: role === "LAB_SCIENTIST" ? "/lab/examinations" : role === "DOCTOR" ? "/doctor/lab-requests" : "/facilities/investigations",
+        data: { bookingId: event.bookingId },
       };
   }
 }

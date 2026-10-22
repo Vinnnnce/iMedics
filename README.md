@@ -72,6 +72,16 @@ Also add a scheduled job that calls `GET /api/cron/appointment-reminders` every 
 
 Mini-websites for facilities, structured prescriptions with clinical-safety checks, patient document storage, medication reminders, inactivity-based welfare monitoring, a public emergency/CPR learning centre and the collapsible desktop sidebar are documented in [docs/PLATFORM_FEATURES.md](docs/PLATFORM_FEATURES.md), including the medication-reference policy (RxNav/RxNorm, free, no API key) and the limits of inactivity monitoring.
 
+## Hospital, laboratory & diagnostic-centre modules
+
+Three integrated modules with a server-enforced organization access matrix:
+hospital admissions with progress notes, transfers and discharge epicrises;
+laboratory specimen management (accessioning, rejection with documented
+reasons, recollection) and an extended order workflow; diagnostic examination
+reports with verification, signing and traceable amendments; critical-result
+alerts with acknowledgement; and customizable medical-document templates. See
+[docs/MODULES.md](docs/MODULES.md).
+
 ## Scripts
 
 `dev` · `build` · `start` · `lint` · `typecheck` · `test` · `test:watch` · `db:migrate` · `db:deploy` · `db:seed` · `db:seed:medications` · `db:studio` · `icd10:import`

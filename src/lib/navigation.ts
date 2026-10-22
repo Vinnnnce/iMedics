@@ -1,5 +1,5 @@
 import {
-  BarChart3, Bell, Briefcase, Building2, Calendar, CalendarClock, ClipboardList, CreditCard, FileText,
+  BarChart3, BedDouble, Bell, Briefcase, Building2, Calendar, CalendarClock, ClipboardList, CreditCard, FileText,
   FlaskConical, FolderOpen, Home, IdCard, LayoutDashboard, MessageSquare, Pill, Receipt, Settings,
   Shield, Sparkles, Stethoscope, Tags, Upload, User, Users, Wallet, type LucideIcon,
 } from "lucide-react";
@@ -53,9 +53,18 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
   ],
   LAB_SCIENTIST: [
     { href: "/lab/dashboard", label: "Home", icon: LayoutDashboard },
+    // Hospital / laboratory / diagnostic modules — each page enforces the
+    // facility kind server-side and redirects organizations that do not
+    // belong to that module.
+    { href: "/lab/admissions", label: "Admissions", icon: BedDouble },
+    { href: "/lab/orders", label: "Lab Orders", icon: ClipboardList },
+    { href: "/lab/specimens", label: "Specimens", icon: FlaskConical },
+    { href: "/lab/examinations", label: "Examinations", icon: FileText },
+    { href: "/lab/investigations", label: "Investigations", icon: Stethoscope },
+    { href: "/lab/critical-alerts", label: "Critical Alerts", icon: Bell },
     { href: "/lab/bookings", label: "Appointments", icon: Calendar },
-    { href: "/lab/orders", label: "Results & Reports", icon: FlaskConical },
     { href: "/lab/upload", label: "Upload Results", icon: Upload },
+    { href: "/lab/document-templates", label: "Document Templates", icon: FileText },
     { href: "/lab/services", label: "Service Catalogue", icon: Tags },
     { href: "/lab/users", label: "Patient Lookup", icon: Users },
     { href: "/payments", label: "Payments & Earnings", icon: Wallet },
