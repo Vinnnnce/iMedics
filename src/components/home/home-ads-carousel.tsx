@@ -22,15 +22,17 @@ const AUTO_ADVANCE_MS = 6000;
 /**
  * Sliding promotional card for the homepage. Slides are data-driven (see
  * imedics-home-content.ts) so more can be added without touching this
- * component. Auto-advances, pauses on hover/focus, honours
- * prefers-reduced-motion, and supports an optional image per slide
+ * component. When the admin content manager has active HOMEPAGE_CAROUSEL ads
+ * they replace the built-in slides. Auto-advances, pauses on hover/focus,
+ * honours prefers-reduced-motion, and supports an optional image per slide
  * (rendered in grayscale to keep the monochrome system).
  */
-export function HomeAdsCarousel() {
+export function HomeAdsCarousel({ slides }: { slides?: readonly ImedicsHomeSlide[] }) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
-  const total = IMEDICS_HOME_SLIDES.length;
+  const items = slides && slides.length > 0 ? slides : IMEDICS_HOME_SLIDES;
+  const total = items.length;
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -66,7 +68,7 @@ export function HomeAdsCarousel() {
           className="flex transition-transform duration-500 ease-in-out motion-reduce:transition-none"
           style={{ transform: `translateX(-${index * 100}%)` }}
         >
-          {IMEDICS_HOME_SLIDES.map((slide, i) => {
+          {items.map((slide, i) => {
             const Icon = SLIDE_ICONS[slide.icon];
             const active = i === index;
             return (

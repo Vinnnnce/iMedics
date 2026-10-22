@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ImedicsHomepage, type TopRatedDoctor, type TopRatedFacility } from "@/components/home/imedics-homepage";
+import { getHomepageAds } from "@/lib/home/home-ads";
 
 export const metadata: Metadata = {
   title: "Medic1905 — Healthcare, all in one place",
@@ -89,11 +90,19 @@ export default async function HomePage() {
   // Logged-out visitors get the public homepage; authenticated users keep the
   // existing role-based entry into the application, unchanged.
   if (!user) {
-    const [topDoctors, topFacilities] = await Promise.all([
+    const [topDoctors, topFacilities, homepageAds] = await Promise.all([
       getTopRatedDoctors(),
       getTopRatedFacilities(),
+      getHomepageAds(),
     ]);
-    return <ImedicsHomepage topDoctors={topDoctors} topFacilities={topFacilities} />;
+    return (
+      <ImedicsHomepage
+        topDoctors={topDoctors}
+        topFacilities={topFacilities}
+        carouselAds={homepageAds.carouselAds}
+        bannerAd={homepageAds.bannerAd}
+      />
+    );
   }
 
   if (user.status === "SUSPENDED" || user.status === "BANNED") {

@@ -13,7 +13,7 @@ export const GET = withAuth(["ADMIN"], async () => {
 const createAdSchema = z.object({
   title: z.string().trim().min(1, "Ad title is required").max(120),
   content: z.string().trim().min(1, "Ad content is required").max(1000),
-  placement: z.enum(["SIDEBAR", "DASHBOARD", "LOGIN"]).default("SIDEBAR"),
+  placement: z.enum(["SIDEBAR", "DASHBOARD", "LOGIN", "HOMEPAGE_CAROUSEL", "HOMEPAGE_BANNER"]).default("SIDEBAR"),
 });
 
 // POST /api/admin/ads — publish an advertisement
@@ -23,7 +23,7 @@ export const POST = withAuth(["ADMIN"], async (req) => {
   return NextResponse.json({ success: true, ad }, { status: 201 });
 });
 
-const updateSchema = z.object({ id: z.string().uuid(), active: z.boolean().optional(), title: z.string().trim().min(1).max(120).optional(), content: z.string().trim().min(1).max(1000).optional(), placement: z.enum(["SIDEBAR", "DASHBOARD", "LOGIN"]).optional() });
+const updateSchema = z.object({ id: z.string().uuid(), active: z.boolean().optional(), title: z.string().trim().min(1).max(120).optional(), content: z.string().trim().min(1).max(1000).optional(), placement: z.enum(["SIDEBAR", "DASHBOARD", "LOGIN", "HOMEPAGE_CAROUSEL", "HOMEPAGE_BANNER"]).optional() });
 
 // PATCH /api/admin/ads — toggle on or off, or edit
 export const PATCH = withAuth(["ADMIN"], async (req, { user }) => {

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EditDraftReportForm, ReportActions } from "@/components/lab/diagnostic-report-forms";
+import { DiagnosticImagesPanel } from "@/components/lab/diagnostic-images";
 import { requireFacilityPortalPage } from "@/lib/guards";
 import { requireFacilityAccess } from "@/lib/facility-auth";
 import { prisma } from "@/lib/prisma";
@@ -83,6 +84,16 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
 
   if (!report) notFound();
 
+  // Imaging studies attached to this examination's booking. Both viewers may
+  // download (the hospital only ever reaches issued reports here); only the
+  // owning diagnostic centre can upload — enforced again by the API.
+  const imageRows = await prisma.diagnosticImage.findMany({
+    where: { bookingId: report.booking.id },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, fileName: true, mimeType: true, sizeBytes: true, createdAt: true },
+  });
+  const images = imageRows.map((image) => ({ ...image, createdAt: image.createdAt.toISOString() }));
+
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 md:px-0">
       <div>
@@ -151,6 +162,13 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
           </CardContent>
         </Card>
       )}
+
+      <DiagnosticImagesPanel
+        bookingId={report.booking.id}
+        initialImages={images}
+        canUpload={viewer === "owner"}
+        canDownload
+      />
 
       {viewer === "owner" ? (
         <>

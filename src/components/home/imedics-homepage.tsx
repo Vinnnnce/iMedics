@@ -10,10 +10,17 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { HomeAdsCarousel } from "@/components/home/home-ads-carousel";
+import { HomeSingleAdBanner } from "@/components/home/home-single-ad-banner";
 import {
   IMEDICS_FAQS, IMEDICS_FEATURED_PANEL, IMEDICS_FOOTER_LINKS,
-  IMEDICS_HOW_IT_WORKS_STEPS, IMEDICS_SERVICE_CARDS, type ImedicsServiceCard,
+  IMEDICS_HOW_IT_WORKS_STEPS, IMEDICS_SERVICE_CARDS, type ImedicsServiceCard, type ImedicsHomeSlide,
 } from "@/lib/home/imedics-home-content";
+
+/** A simple ad from the admin content manager (no clinical data, ever). */
+export interface ImedicsHomeAd {
+  title: string;
+  content: string;
+}
 
 const SERVICE_ICONS: Record<ImedicsServiceCard["icon"], LucideIcon> = {
   stethoscope: Stethoscope,
@@ -94,9 +101,34 @@ function ServiceCard({ card }: { card: ImedicsServiceCard }) {
   );
 }
 
-export function ImedicsHomepage({ topDoctors, topFacilities }: { topDoctors: TopRatedDoctor[]; topFacilities: TopRatedFacility[] }) {
+export function ImedicsHomepage({
+  topDoctors,
+  topFacilities,
+  carouselAds,
+  bannerAd,
+}: {
+  topDoctors: TopRatedDoctor[];
+  topFacilities: TopRatedFacility[];
+  /** Active HOMEPAGE_CAROUSEL ads; replace the built-in carousel slides when set. */
+  carouselAds?: ImedicsHomeAd[];
+  /** The active HOMEPAGE_BANNER ad; the built-in default is used when absent. */
+  bannerAd?: ImedicsHomeAd | null;
+}) {
   const { theme, toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Admin-managed ads are mapped onto the carousel's slide format — they are
+  // plain promotional content and never carry clinical data.
+  const adSlides: ImedicsHomeSlide[] | undefined = carouselAds
+    ? carouselAds.map((ad, i) => ({
+        id: `ad-${i}`,
+        title: ad.title,
+        description: ad.content,
+        ctaHref: "/facilities",
+        ctaLabel: "Explore facilities",
+        icon: "sparkles",
+      }))
+    : undefined;
 
   return (
     <div className="im-mono flex min-h-screen flex-col bg-background text-foreground">
@@ -212,8 +244,11 @@ export function ImedicsHomepage({ topDoctors, topFacilities }: { topDoctors: Top
 
         {/* Sliding highlights card */}
         <div className="pb-2">
-          <HomeAdsCarousel />
+          <HomeAdsCarousel slides={adSlides} />
         </div>
+
+        {/* Single sponsored banner */}
+        <HomeSingleAdBanner ad={bannerAd} />
 
         {/* Service grid — compact app-hub tiles */}
         <section id="services" aria-labelledby="services-heading" className="mx-auto w-full max-w-5xl px-4">

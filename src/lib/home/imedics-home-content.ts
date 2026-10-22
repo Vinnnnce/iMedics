@@ -135,6 +135,22 @@ export const IMEDICS_HOME_SLIDES: readonly ImedicsHomeSlide[] = [
   },
 ];
 
+export interface ImedicsAdBanner {
+  title: string;
+  content: string;
+  ctaHref: string;
+  ctaLabel: string;
+}
+
+/** The single ad banner on the homepage. Falls back to this default whenever
+ * no HOMEPAGE_BANNER ad is active in the admin content manager. */
+export const IMEDICS_SINGLE_AD_BANNER: ImedicsAdBanner = {
+  title: "Medic1905 for organizations",
+  content: "Hospitals, laboratories and diagnostic centres manage referrals, results and imaging in one verified workspace.",
+  ctaHref: "/facilities",
+  ctaLabel: "Explore facilities",
+};
+
 export interface ImedicsFaqItem {
   question: string;
   answer: string;

@@ -58,6 +58,7 @@ export type NotificationEvent =
   | { kind: "PREVENTIVE_CARE_DUE"; taskId: string }
   | { kind: "CRITICAL_RESULT_ALERTED"; alertId: string; orderId: string }
   | { kind: "CRITICAL_ALERT_ACKNOWLEDGED"; alertId: string }
+  | { kind: "CRITICAL_ALERT_ESCALATED"; alertId: string; level: number }
   | { kind: "INVESTIGATION_UPDATED"; orderId: string }
   | { kind: "DIAGNOSTIC_REPORT_READY"; bookingId: string };
 
@@ -306,6 +307,15 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
         body: "The critical result alert has been acknowledged by the responsible clinician.",
         href: role === "LAB_SCIENTIST" ? "/lab/critical-alerts" : "/doctor/lab-requests",
         data: { alertId: event.alertId },
+      };
+    case "CRITICAL_ALERT_ESCALATED":
+      return {
+        type: "CRITICAL_RESULT",
+        title: "Critical result escalated",
+        // No clinical detail in the notification itself — open the app to view it.
+        body: `A critical result has not been acknowledged within the response window and has been escalated (level ${event.level}). Sign in to review and acknowledge it.`,
+        href: role === "DOCTOR" ? "/doctor/lab-requests" : "/lab/critical-alerts",
+        data: { alertId: event.alertId, level: String(event.level) },
       };
     case "INVESTIGATION_UPDATED":
       return {

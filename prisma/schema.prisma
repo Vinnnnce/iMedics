@@ -1362,6 +1362,8 @@ enum AdPlacement {
   SIDEBAR
   DASHBOARD
   LOGIN
+  HOMEPAGE_CAROUSEL
+  HOMEPAGE_BANNER
 }
 
 model DoctorService {

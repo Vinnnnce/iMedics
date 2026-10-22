@@ -96,6 +96,48 @@ export async function finalizeChatImage(stagingKey: string, mimeType: string): P
   return finalKey;
 }
 
+/** Diagnostic imaging: same immutable finalization as chat images, but the
+ * staging key is scoped to a facility booking and only the owning diagnostic
+ * centre can confirm. Returns the server-only final key and its verified size.
+ * The destination key is freshly generated per finalization, so replaying a
+ * confirmation (a still-valid presigned staging URL) can never overwrite an
+ * already-verified image — it lands on a new key.
+ */
+export async function finalizeDiagnosticImage(
+  stagingKey: string,
+  bookingId: string,
+  mimeType: string,
+): Promise<{ finalKey: string; sizeBytes: number }> {
+  const stagingPrefix = `diagnostic-images/staging/${bookingId}/`;
+  if (!stagingKey.startsWith(stagingPrefix)) throw badRequest("This image was not uploaded for this booking");
+
+  const inspected = await inspectObject(stagingKey);
+  if (inspected.sizeBytes < 1 || inspected.sizeBytes > MAX_UPLOAD_BYTES) {
+    await deleteObject(stagingKey);
+    throw badRequest("The uploaded file is empty or larger than 15 MB");
+  }
+  if (!SIGNATURES[mimeType]?.(inspected.head)) {
+    await deleteObject(stagingKey);
+    throw badRequest("The uploaded file's content does not match its declared type");
+  }
+
+  // A fresh, unpredictable destination on every finalization: a replayed
+  // confirmation writes a new object instead of clobbering a verified one.
+  const finalKey = `diagnostic-images/final/${bookingId}/${randomUUID()}`;
+  await copyObject(stagingKey, finalKey, inspected.etag, mimeType);
+
+  // Re-verify the copied object: if anything raced, fail loudly and clean up.
+  const copied = await inspectObject(finalKey);
+  if (copied.sizeBytes !== inspected.sizeBytes || !SIGNATURES[mimeType]?.(copied.head)) {
+    await deleteObject(finalKey);
+    await deleteObject(stagingKey);
+    throw badRequest("Upload failed verification. Please upload the file again.");
+  }
+
+  await deleteObject(stagingKey);
+  return { finalKey, sizeBytes: copied.sizeBytes };
+}
+
 /** Verification documents: same checks, but restricted to scans (no DICOM) and tagged with what the file is. */
 export const verificationUploadRequestSchema = z.object({
   fileName: z.string().trim().min(1).max(200),

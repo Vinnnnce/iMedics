@@ -141,16 +141,52 @@ facility links on lab orders and bookings; and extended enums (lab order
 workflow states, template kinds, notification types). All changes are
 additive — existing rows and flows are untouched.
 
+## Escalation cron
+
+Critical-alert escalation is implemented in `/api/cron/critical-alert-escalation`
+(the existing CRON_SECRET bearer pattern). **Activation is pending**: the
+platform must register the scheduled job (Vercel Cron or equivalent) to call it
+every ~5–15 minutes, as documented in the README's deployment section — the
+endpoint itself is deployed with the app. It marks alerts that have waited
+longer than the response window (`CRITICAL_ALERT_ESCALATION_MINUTES`, default
+30 min; overridable via `CRITICAL_ALERT_ESCALATION_WINDOW_MINUTES`) as
+ESCALATED and re-notifies the requesting facility (level 1), the performing
+facility (level 2) and platform administrators (level 3, at 1×/2×/4× the
+window). Runs are safe to overlap and delay: each escalation advances via a
+conditional update so an acknowledgement always wins, a delayed run that jumps
+levels still notifies every responsible recipient, and every notification row
+(in-app plus outbox job when installed) is persisted in the same transaction
+as the escalation itself — a failed notification rolls the escalation back so
+the next run retries. Every escalation writes an audit log entry.
+
+## Diagnostic imaging upload & download
+
+Examinations support image attachments through the same immutable private-S3
+flow as chat images: `POST /api/facility/diagnostic-images` issues a
+booking-scoped presigned staging URL, the browser PUTs the file, then
+`POST /api/facility/diagnostic-images/confirm` verifies the magic bytes, copies
+the verified content to a server-only final key and records a `DiagnosticImage`.
+Downloads (`GET /api/facility/diagnostic-images/[id]`) are short-lived,
+permission-checked (owning diagnostic centre; requesting hospital, issued
+reports only) and audited. Uploads are only accepted while the report is a
+draft or awaiting verification — once issued, images change exclusively
+through the amendment workflow, so a new upload can never bypass the release
+boundary. The confirm step re-checks state and limits inside the insert
+transaction, and every finalization writes to a fresh, unpredictable final
+key so a replayed confirmation can never overwrite a verified image. The
+examinations page renders the panel for both the owner (upload + download)
+and the requesting hospital (download only).
+
+## Homepage ads
+
+The public homepage has two ad slots: the rotating carousel
+(`HOMEPAGE_CAROUSEL`) and a single banner (`HOMEPAGE_BANNER`). Both are managed
+in the admin content manager and fall back to built-in default content when no
+ad is active, so the homepage never renders empty slots. The `AdPlacement` enum
+migration is additive.
+
 ## Remaining / external dependencies
 
-- **Escalation cron**: critical-alert escalation (30 min) is computed from
-  timestamps; a scheduled job to mark alerts ESCALATED and re-notify can be
-  added to the existing cron pattern (`/api/cron/*`) when the platform wants
-  automatic escalation.
-- **Imaging upload UI**: `DiagnosticImage` storage keys are persisted and the
-  schema supports image attachments; the upload widget for examinations can
-  reuse the existing private S3 upload flow (`/api/labs/[id]/files`) — wiring
-  it into the examinations page is the remaining UI step.
 - **Consent flags**: patient-level access restrictions exist via document
   sharing; a dedicated consent/consent-restriction model per investigation is
   a future increment (the access matrix already isolates organizations).
