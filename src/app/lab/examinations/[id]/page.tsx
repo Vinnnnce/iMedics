@@ -65,7 +65,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
   if (!report) {
     // Requesting hospital: read-only, and only for reports issued to them
     // (sent or an issued amendment) — drafts stay invisible to the requester.
-    const hospitalAccess = labAccess ?? await requireFacilityAccess(user, "REGISTER_PATIENTS").catch(() => null);
+    const hospitalAccess = await requireFacilityAccess(user, "REGISTER_PATIENTS").catch(() => null);
     if (hospitalAccess) {
       report = await prisma.diagnosticReport.findFirst({
         where: {

@@ -26,9 +26,17 @@ const actionSchema = z.object({
 // Concurrency-safe conditional update: the transition only applies while the
 // report is still in the status that was validated, so a stale request can
 // never silently overwrite a concurrent finalization or amendment.
-async function transitionStatus(id: string, from: DiagnosticReportStatus, to: DiagnosticReportStatus) {
+async function transitionStatus(
+  id: string,
+  from: DiagnosticReportStatus,
+  to: DiagnosticReportStatus,
+  expectedUpdatedAt: Date,
+) {
+  // Guarded on both status and updatedAt — a concurrent content edit (which
+  // bumps updatedAt) or status change makes this a conflict instead of an
+  // overwrite.
   const result = await prisma.diagnosticReport.updateMany({
-    where: { id, status: from },
+    where: { id, status: from, updatedAt: expectedUpdatedAt },
     data: { status: to },
   });
   if (result.count === 0) {
@@ -51,6 +59,7 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
     select: {
       id: true,
       status: true,
+      updatedAt: true,
       bookingId: true,
       preliminaryFindings: true,
       specialistInterpretation: true,
@@ -64,7 +73,7 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
     if (!report.preliminaryFindings?.trim() && !report.specialistInterpretation?.trim()) {
       throw badRequest("The report needs findings or a specialist interpretation before submission");
     }
-    await transitionStatus(id, report.status, "AWAITING_VERIFICATION");
+    await transitionStatus(id, report.status, "AWAITING_VERIFICATION", report.updatedAt);
     await writeAudit({
       userId: user.id, actorRole: user.role, action: "DIAGNOSTIC_REPORT_SUBMITTED",
       resourceType: "DiagnosticReport", resourceId: id, req,
@@ -80,8 +89,23 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
     // transaction, so a finalized report can never exist without its
     // original snapshot.
     await prisma.$transaction(async (tx) => {
+      // Re-read the current content inside the transaction so the immutable
+      // snapshot is exactly what was finalized — never a stale pre-read.
+      const current = await tx.diagnosticReport.findUnique({
+        where: { id },
+        select: {
+          status: true,
+          updatedAt: true,
+          preliminaryFindings: true,
+          specialistInterpretation: true,
+          recommendations: true,
+        },
+      });
+      if (!current || current.status !== report.status) {
+        throw conflict("This report just changed status — refresh and try again");
+      }
       const r = await tx.diagnosticReport.updateMany({
-        where: { id, status: report.status },
+        where: { id, status: current.status, updatedAt: current.updatedAt },
         data: {
           status: "FINALIZED",
           verifiedById: user.id,
@@ -91,7 +115,7 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
           finalizedAt: new Date(),
         },
       });
-      if (r.count === 0) throw conflict("This report just changed status — refresh and try again");
+      if (r.count === 0) throw conflict("This report just changed — refresh and try again");
       const last = await tx.diagnosticReportVersion.findFirst({
         where: { reportId: id },
         orderBy: { version: "desc" },
@@ -102,9 +126,9 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
           reportId: id,
           version: (last?.version ?? 0) + 1,
           snapshot: {
-            preliminaryFindings: report.preliminaryFindings,
-            specialistInterpretation: report.specialistInterpretation,
-            recommendations: report.recommendations,
+            preliminaryFindings: current.preliminaryFindings,
+            specialistInterpretation: current.specialistInterpretation,
+            recommendations: current.recommendations,
           },
           changedById: user.id,
         },
@@ -121,7 +145,7 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
   if (data.action === "SEND") {
     assertDiagnosticReportTransition(report.status, "SENT", access.permissions);
     const sent = await prisma.diagnosticReport.updateMany({
-      where: { id, status: report.status },
+      where: { id, status: report.status, updatedAt: report.updatedAt },
       data: {
         status: "SENT",
         sentAt: new Date(),
@@ -157,7 +181,7 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
   await prisma.$transaction(async (tx) => {
     // Conditional transition guarded on the validated status.
     const r = await tx.diagnosticReport.updateMany({
-      where: { id, status: report.status },
+      where: { id, status: report.status, updatedAt: report.updatedAt },
       data: {
         status: "AMENDED",
         // The amending professional re-verifies and signs the corrected

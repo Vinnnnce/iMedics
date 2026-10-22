@@ -100,12 +100,27 @@ describe("lab order workflow route", () => {
   it("finalizes an order that carries verified results", async () => {
     mockFacility(LAB_ID, "LABORATORY");
     mockOrder("AWAITING_VERIFICATION");
-    vi.mocked(prisma.labResult.count).mockResolvedValue(3 as never);
+    // First count: verified results; second count: results still pending.
+    vi.mocked(prisma.labResult.count)
+      .mockResolvedValueOnce(3 as never)
+      .mockResolvedValueOnce(0 as never);
     const res = await invokePatch({ action: "FINALIZE" });
     expect(res.status).toBe(200);
     expect(prisma.labOrder.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: "FINALIZED" }),
     }));
+  });
+
+  it("refuses to finalize while a correction is still awaiting verification", async () => {
+    mockFacility(LAB_ID, "LABORATORY");
+    mockOrder("AWAITING_VERIFICATION");
+    // A verified original exists, but a freshly submitted correction is pending.
+    vi.mocked(prisma.labResult.count)
+      .mockResolvedValueOnce(1 as never)
+      .mockResolvedValueOnce(1 as never);
+    const res = await invokePatch({ action: "FINALIZE" });
+    expect(res.status).toBe(409);
+    expect(prisma.labOrder.updateMany).not.toHaveBeenCalled();
   });
 
   it("refuses to finalize an order whose results are not verified", async () => {
@@ -117,7 +132,6 @@ describe("lab order workflow route", () => {
     expect(res.status).toBe(409);
     expect(prisma.labOrder.updateMany).not.toHaveBeenCalled();
   });
-
   it("requires a reason to amend a delivered order (acceptance scenario 10)", async () => {
     mockFacility(LAB_ID, "LABORATORY");
     mockOrder("SENT_TO_FACILITY");

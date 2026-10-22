@@ -36,6 +36,7 @@ export type NotificationEvent =
   | { kind: "DISPUTE_UPDATED"; paymentId: string }
   | { kind: "CONSULTATION_AVAILABLE" }
   | { kind: "REVIEW_SUBMITTED"; reviewId: string }
+  | { kind: "REVIEW_RESPONSE"; reviewId: string }
   | { kind: "VERIFICATION_UPDATED" }
   | { kind: "SUBSCRIPTION_ACTIVATED"; subscriptionId: string }
   | { kind: "SUBSCRIPTION_RENEWED"; subscriptionId: string }
@@ -101,6 +102,14 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
       return { type: "APPOINTMENT", title: "Consultation available", body: "A consultation update is available in your account.", href: "/doctor/consultations", data: {} };
     case "REVIEW_SUBMITTED":
       return { type: "SYSTEM", title: "New review received", body: "A patient has left a review. Sign in to read it.", href: "/doctor/dashboard", data: { reviewId: event.reviewId } };
+    case "REVIEW_RESPONSE":
+      return {
+        type: "SYSTEM",
+        title: "Facility replied to your review",
+        body: "The facility has responded to your review. Sign in to read the reply.",
+        href: "/patient/dashboard",
+        data: { reviewId: event.reviewId },
+      };
     case "VERIFICATION_UPDATED":
       return { type: "SYSTEM", title: "Verification updated", body: "Your professional verification status has changed.", href: "/auth/callback", data: {} };
     case "ACCOUNT_REGISTERED":

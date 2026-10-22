@@ -11,7 +11,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     facilityStaff: { findMany: vi.fn() },
     labStaffProfile: { findUnique: vi.fn(), findFirst: vi.fn() },
-    diagnosticReport: { findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    diagnosticReport: { findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     diagnosticReportVersion: { findFirst: vi.fn(), create: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
   },
@@ -48,6 +48,7 @@ const invoke = (body: unknown) =>
 const REPORT = {
   id: REPORT_ID,
   status: "AWAITING_VERIFICATION",
+  updatedAt: new Date("2026-01-01T00:00:00Z"),
   bookingId: BOOKING_ID,
   facilityId: DIAG_ID,
   preliminaryFindings: "Ground-glass opacities in the right lower lobe.",
@@ -58,6 +59,8 @@ const REPORT = {
 
 function mockReport(status: string) {
   vi.mocked(prisma.diagnosticReport.findFirst).mockResolvedValue({ ...REPORT, status } as never);
+  // The FINALIZE transaction re-reads the current content before snapshotting.
+  vi.mocked(prisma.diagnosticReport.findUnique).mockResolvedValue({ ...REPORT, status } as never);
   vi.mocked(prisma.diagnosticReport.updateMany).mockResolvedValue({ count: 1 } as never);
   vi.mocked(prisma.diagnosticReportVersion.findFirst).mockResolvedValue({ version: 1 } as never);
   vi.mocked(prisma.diagnosticReportVersion.create).mockResolvedValue({ id: "v2" } as never);

@@ -81,6 +81,10 @@ export const PUBLIC_FACILITY_SELECT = {
   slug: true,
   laboratoryName: true,
   tagline: true,
+  // Public review aggregates, maintained transactionally by the review routes —
+  // safe for the public web (no patient identifiers).
+  ratingAvg: true,
+  ratingCount: true,
   about: true,
   mission: true,
   vision: true,

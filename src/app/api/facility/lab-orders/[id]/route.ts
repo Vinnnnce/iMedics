@@ -53,14 +53,19 @@ export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }
   assertLabOrderTransition(order.status, to, access.permissions, data.reason);
 
   if (data.action === "FINALIZE") {
-    // An order can only be finalized when a professional has verified at
-    // least one of its results — an unverified or AI-pending result is never
-    // a finalized clinical report (spec: Module 02, Category 04).
-    const verifiedCount = await prisma.labResult.count({
-      where: { labOrderId: id, status: "VERIFIED" },
-    });
+    // An order can only be finalized when its results are professionally
+    // verified — an unverified, AI-pending or rejected result is never a
+    // finalized clinical report, and a freshly submitted correction must be
+    // re-verified before the order can be released again (Module 02, Cat 04).
+    const [verifiedCount, pendingCount] = await Promise.all([
+      prisma.labResult.count({ where: { labOrderId: id, status: "VERIFIED" } }),
+      prisma.labResult.count({ where: { labOrderId: id, status: { in: ["PENDING", "PENDING_AI_ANALYSIS"] } } }),
+    ]);
     if (verifiedCount === 0) {
       throw conflict("This order has no verified results yet — verify the results before finalizing");
+    }
+    if (pendingCount > 0) {
+      throw conflict("This order has results still awaiting verification — verify them before finalizing");
     }
   }
 

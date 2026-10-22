@@ -13,6 +13,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { applyTemplateToFields, TemplatePicker } from "@/components/lab/template-picker";
 
 async function postJson(url: string, body: unknown) {
   const res = await fetch(url, {
@@ -308,8 +309,30 @@ export function DischargeForm({ admissionId }: { admissionId: string }) {
     }
   };
 
+  const applyTemplate = (content: string) => {
+    const fields = {
+      finalDiagnosisName,
+      finalDiagnosisCode,
+      outcome,
+      epicrisis,
+      medicationInstructions,
+      followUpInstructions,
+    };
+    const next = applyTemplateToFields(content, fields, "epicrisis");
+    setFinalDiagnosisName(next.finalDiagnosisName ?? "");
+    setFinalDiagnosisCode(next.finalDiagnosisCode ?? "");
+    setOutcome(next.outcome ?? "");
+    setEpicrisis(next.epicrisis ?? "");
+    setMedicationInstructions(next.medicationInstructions ?? "");
+    setFollowUpInstructions(next.followUpInstructions ?? "");
+  };
+
   return (
     <form onSubmit={submit} className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">Pre-fill from a saved template</p>
+        <TemplatePicker kind="DISCHARGE_SUMMARY" onApply={applyTemplate} />
+      </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="space-y-1">
           <Label>Outcome</Label>

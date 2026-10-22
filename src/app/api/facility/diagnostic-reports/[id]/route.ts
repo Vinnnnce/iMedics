@@ -26,7 +26,7 @@ export const GET = withAuth<{ id: string }>(null, async (req, { user, params }) 
   // Requesting hospital: read-only access, and only to reports that have
   // been issued to them (sent, or an issued amendment). Draft and in-progress
   // reports stay invisible to the requester; actions stay diagnostic-only.
-  const hospitalAccess = labAccess ?? await requireFacilityAccess(user, "REGISTER_PATIENTS", req);
+  const hospitalAccess = await requireFacilityAccess(user, "REGISTER_PATIENTS", req);
   const report = await prisma.diagnosticReport.findFirst({
     where: {
       id,
@@ -79,7 +79,7 @@ export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }
 
   const report = await prisma.diagnosticReport.findFirst({
     where: { id, facilityId: access.facility.id },
-    select: { id: true, status: true },
+    select: { id: true, status: true, updatedAt: true },
   });
   if (!report) throw notFound("Diagnostic report not found");
 
@@ -93,7 +93,7 @@ export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }
   // concurrent finalization (or another edit) cannot be overwritten by this
   // stale request.
   const updated = await prisma.diagnosticReport.updateMany({
-    where: { id, status: report.status },
+    where: { id, status: report.status, updatedAt: report.updatedAt },
     data: {
       ...(data.preliminaryFindings !== undefined ? { preliminaryFindings: data.preliminaryFindings } : {}),
       ...(data.specialistInterpretation !== undefined ? { specialistInterpretation: data.specialistInterpretation } : {}),

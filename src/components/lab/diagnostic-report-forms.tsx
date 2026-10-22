@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { applyTemplateToFields, TemplatePicker } from "@/components/lab/template-picker";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
@@ -133,6 +134,13 @@ export function EditDraftReportForm({ reportId }: { reportId: string }) {
 
   return (
     <form onSubmit={save} className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">Pre-fill from a saved template</p>
+        <TemplatePicker
+          kind="DIAGNOSTIC_REPORT"
+          onApply={(content) => setForm((f) => applyTemplateToFields(content, f, "preliminaryFindings") as typeof f)}
+        />
+      </div>
       {REPORT_FORM_FIELDS.map((f) => (
         <div key={f.key} className="space-y-1">
           <Label>{f.label}</Label>

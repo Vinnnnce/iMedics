@@ -1,7 +1,7 @@
 import {
   BarChart3, BedDouble, Bell, Briefcase, Building2, Calendar, CalendarClock, ClipboardList, CreditCard, FileText,
   FlaskConical, FolderOpen, Home, IdCard, LayoutDashboard, MessageSquare, Pill, Receipt, Settings,
-  Shield, Sparkles, Stethoscope, Tags, Upload, User, Users, Wallet, type LucideIcon,
+  Shield, Sparkles, Star, Stethoscope, Tags, Upload, User, Users, Wallet, type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@prisma/client";
 import { ROLE_POLICY } from "./roles";
@@ -65,6 +65,7 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     { href: "/lab/bookings", label: "Appointments", icon: Calendar },
     { href: "/lab/upload", label: "Upload Results", icon: Upload },
     { href: "/lab/document-templates", label: "Document Templates", icon: FileText },
+    { href: "/lab/reviews", label: "Reviews", icon: Star },
     { href: "/lab/services", label: "Service Catalogue", icon: Tags },
     { href: "/lab/users", label: "Patient Lookup", icon: Users },
     { href: "/payments", label: "Payments & Earnings", icon: Wallet },
