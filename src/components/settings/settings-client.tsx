@@ -116,7 +116,7 @@ export function SettingsClient({ initial }: { initial: SettingsInitial }) {
     try {
       const presign = await apiClient.post<{ key: string; uploadUrl: string; headers: Record<string, string> }>(
         "/me/profile-image",
-        { mimeType: file.type, sizeBytes: file.size },
+        { fileName: file.name, mimeType: file.type, sizeBytes: file.size },
       );
       await fetch(presign.uploadUrl, {
         method: "PUT",
