@@ -456,6 +456,8 @@ export function Navbar({ children }: { children: React.ReactNode }) {
           {/* Mobile menu */}
           <button
             onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+            aria-label={mobileSidebarOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileSidebarOpen}
             className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg hover:bg-muted"
           >
             {mobileSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
