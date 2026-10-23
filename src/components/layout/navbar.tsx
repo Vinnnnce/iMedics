@@ -452,7 +452,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen flex-col">
       {/* AI-Driven Navbar */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
-        <div className="flex h-16 items-center justify-between gap-3 px-4 md:px-6">
+        <div className="flex h-16 items-center justify-between gap-2 px-3 sm:gap-3 sm:px-4 md:px-6">
           {/* Mobile menu */}
           <button
             onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
@@ -469,7 +469,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
               width={465}
               height={180}
               priority
-              className="h-8 w-auto dark:rounded-lg dark:bg-white dark:p-1.5"
+              className="h-7 w-auto sm:h-8 dark:rounded-lg dark:bg-white dark:p-1.5"
             />
           </Link>
 
