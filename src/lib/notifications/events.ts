@@ -60,7 +60,9 @@ export type NotificationEvent =
   | { kind: "CRITICAL_ALERT_ACKNOWLEDGED"; alertId: string }
   | { kind: "CRITICAL_ALERT_ESCALATED"; alertId: string; level: number }
   | { kind: "INVESTIGATION_UPDATED"; orderId: string }
-  | { kind: "DIAGNOSTIC_REPORT_READY"; bookingId: string };
+  | { kind: "DIAGNOSTIC_REPORT_READY"; bookingId: string }
+  | { kind: "CLINICAL_DOCUMENT_ACTION_NEEDED"; documentId: string; step: "REVIEW" | "SIGNATURE" }
+  | { kind: "CLINICAL_DOCUMENT_RELEASED"; documentId: string };
 
 export interface RenderedNotification {
   type: NotificationType;
@@ -332,6 +334,22 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
         body: "A finalized diagnostic report is available for an examination you referred. Sign in to view it.",
         href: role === "LAB_SCIENTIST" ? "/lab/examinations" : role === "DOCTOR" ? "/doctor/lab-requests" : "/facilities/investigations",
         data: { bookingId: event.bookingId },
+      };
+    case "CLINICAL_DOCUMENT_ACTION_NEEDED":
+      return {
+        type: "CLINICAL_DOCUMENT",
+        title: event.step === "REVIEW" ? "Document awaiting review" : "Document awaiting signature",
+        body: "A clinical document needs your attention. Sign in to view it.",
+        href: `/lab/clinical-documents/${event.documentId}`,
+        data: { documentId: event.documentId },
+      };
+    case "CLINICAL_DOCUMENT_RELEASED":
+      return {
+        type: "CLINICAL_DOCUMENT",
+        title: "New report available",
+        body: "Your care team has released a document to your record. Sign in to view it.",
+        href: "/patient/documents",
+        data: { documentId: event.documentId },
       };
   }
 }

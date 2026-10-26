@@ -7,6 +7,7 @@ datasource db {
 }
 
 model User {
+  clinicalDocumentsAuthored ClinicalDocument[] @relation("ClinicalDocumentAuthor")
   id                     String                   @id @default(uuid()) @db.Uuid
   clerkId                String                   @unique @map("clerk_id")
   email                  String                   @unique
@@ -157,6 +158,12 @@ model DoctorProfile {
 }
 
 model LabStaffProfile {
+  hospitalSettings        HospitalSettings?          @relation("HospitalSettingsFacility")
+  clinicalTemplates       ClinicalDocumentTemplate[] @relation("ClinicalTemplateFacility")
+  clinicalDocuments       ClinicalDocument[]         @relation("ClinicalDocumentFacility")
+  encounters              Encounter[]                @relation("EncounterFacility")
+  payerCoverages          PayerCoverage[]            @relation("PayerCoverageFacility")
+  medicalMedia            MedicalMedia[]             @relation("MedicalMediaFacility")
   id                      String                  @id @default(uuid()) @db.Uuid
   userId                  String                  @unique @map("user_id") @db.Uuid
   laboratoryName          String?                 @map("laboratory_name")
@@ -286,6 +293,10 @@ model DoctorLike {
 }
 
 model Patient {
+  clinicalDocuments ClinicalDocument[]   @relation("ClinicalDocumentPatient")
+  encounters        Encounter[]          @relation("EncounterPatient")
+  payerCoverages    PayerCoverage[]      @relation("PayerCoveragePatient")
+  medicalMedia      MedicalMedia[]       @relation("MedicalMediaPatient")
   id                String               @id @default(uuid()) @db.Uuid
   caseNumber        String               @unique @map("case_number")
   userId            String?              @unique @map("user_id") @db.Uuid
@@ -1308,6 +1319,8 @@ enum NotificationType {
   CRITICAL_RESULT
   /// Investigation status changes across the three modules.
   INVESTIGATION_UPDATE
+  /// Clinical documents awaiting review/signature, or released to the patient.
+  CLINICAL_DOCUMENT
 }
 
 enum NotificationChannel {
@@ -1453,6 +1466,14 @@ enum FacilityStaffRole {
   RECEPTIONIST
   ACCOUNTANT
   COMPLIANCE_OFFICER
+  RADIOLOGIST
+  DIAGNOSTIC_SPECIALIST
+  PHARMACIST
+  SURGEON
+  DEPARTMENT_HEAD
+  MEDICAL_RECORDS_OFFICER
+  BILLING_OFFICER
+  INSURANCE_OFFICER
 }
 
 enum FacilityStaffStatus {
@@ -2393,6 +2414,8 @@ enum AdmissionNoteType {
 
 /// A hospital admission episode (Module 01, Category 03).
 model Admission {
+  clinicalDocuments   ClinicalDocument[] @relation("ClinicalDocumentAdmission")
+  encounter           Encounter?   @relation("EncounterAdmission")
   id                  String       @id @default(uuid()) @db.Uuid
   patientId           String       @map("patient_id") @db.Uuid
   facilityId          String       @map("facility_id") @db.Uuid
@@ -2602,4 +2625,542 @@ model CriticalResultAlert {
   @@index([status])
   @@index([orderingFacilityId, status])
   @@map("critical_result_alerts")
+}
+
+// ============================================================
+// Hospital Information System (HIS) foundations
+// Multi-hospital configuration, versioned clinical document templates,
+// clinical documents with signatures/amendments, encounters and operational
+// priority, payer classification, and diagnostic media. Every row is scoped
+// to a facility (tenant); queries always filter by facility id.
+// ============================================================
+
+/// Per-hospital configuration (branding, numbering, terminology, release
+/// policy). Every change is snapshotted in HospitalSettingsRevision.
+model HospitalSettings {
+  id                          String                     @id @default(uuid()) @db.Uuid
+  facilityId                  String                     @unique @map("facility_id") @db.Uuid
+  displayName                 String?                    @map("display_name") @db.VarChar(200)
+  letterheadLines             String[]                   @default([]) @map("letterhead_lines")
+  logoUrl                     String?                    @map("logo_url") @db.VarChar(500)
+  addressLine                 String?                    @map("address_line") @db.VarChar(300)
+  contactPhone                String?                    @map("contact_phone") @db.VarChar(40)
+  contactEmail                String?                    @map("contact_email") @db.VarChar(120)
+  defaultLanguage             String                     @default("en") @map("default_language") @db.VarChar(10)
+  dateFormat                  String                     @default("dd/MM/yyyy") @map("date_format") @db.VarChar(20)
+  timeZone                    String                     @default("Africa/Lagos") @map("time_zone") @db.VarChar(60)
+  documentNumberPrefix        String                     @default("DOC") @map("document_number_prefix") @db.VarChar(12)
+  pageSize                    String                     @default("A4") @map("page_size") @db.VarChar(10)
+  footerText                  String?                    @map("footer_text") @db.VarChar(300)
+  /// Optional HIS modules this hospital uses (e.g. EMERGENCY, SURGERY, INSURANCE).
+  enabledModules              String[]                   @default([]) @map("enabled_modules")
+  /// Hospital-specific terminology overrides, e.g. { "ward": "Unit" }.
+  terminology                 Json                       @default("{}")
+  /// Approved triage protocol name and its categories (local protocol only).
+  triageProtocol              String?                    @map("triage_protocol") @db.VarChar(120)
+  triageCategories            String[]                   @default([]) @map("triage_categories")
+  /// Minutes without a workflow update before an encounter is flagged overdue.
+  overdueMinutes              Int                        @default(60) @map("overdue_minutes")
+  /// When true, template approval must be done by someone other than the last editor.
+  independentTemplateApproval Boolean                    @default(true) @map("independent_template_approval")
+  /// Retention category label applied to documents by default (policy text lives with the hospital).
+  defaultRetentionCategory    String                     @default("STANDARD") @map("default_retention_category") @db.VarChar(40)
+  version                     Int                        @default(1)
+  updatedById                 String?                    @map("updated_by_id") @db.Uuid
+  createdAt                   DateTime                   @default(now()) @map("created_at")
+  updatedAt                   DateTime                   @updatedAt @map("updated_at")
+  facility                    LabStaffProfile            @relation("HospitalSettingsFacility", fields: [facilityId], references: [id], onDelete: Cascade)
+  revisions                   HospitalSettingsRevision[]
+
+  @@map("hospital_settings")
+}
+
+model HospitalSettingsRevision {
+  id          String           @id @default(uuid()) @db.Uuid
+  settingsId  String           @map("settings_id") @db.Uuid
+  version     Int
+  snapshot    Json
+  changedById String?          @map("changed_by_id") @db.Uuid
+  createdAt   DateTime         @default(now()) @map("created_at")
+  settings    HospitalSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+
+  @@unique([settingsId, version])
+  @@map("hospital_settings_revisions")
+}
+
+enum TemplateLifecycle {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  PUBLISHED
+  RETIRED
+}
+
+/// A hospital's own document type. Cloned from the system catalogue or created
+/// from scratch; never shared between hospitals.
+model ClinicalDocumentTemplate {
+  id               String                            @id @default(uuid()) @db.Uuid
+  facilityId       String                            @map("facility_id") @db.Uuid
+  /// Stable per-hospital code, e.g. "B.21-outpatient-clinical-summary".
+  code             String                            @db.VarChar(120)
+  /// Catalogue group letter (A–P) or CUSTOM.
+  groupCode        String                            @map("group_code") @db.VarChar(10)
+  name             String                            @db.VarChar(200)
+  description      String?
+  /// System catalogue code this template was cloned from, if any.
+  sourceCode       String?                           @map("source_code") @db.VarChar(120)
+  departments      String[]                          @default([])
+  specialty        String?                           @db.VarChar(80)
+  /// Version number currently used for new documents (null until first publication).
+  publishedVersion Int?                              @map("published_version")
+  retiredAt        DateTime?                         @map("retired_at")
+  createdById      String                            @map("created_by_id") @db.Uuid
+  createdAt        DateTime                          @default(now()) @map("created_at")
+  updatedAt        DateTime                          @updatedAt @map("updated_at")
+  facility         LabStaffProfile                   @relation("ClinicalTemplateFacility", fields: [facilityId], references: [id], onDelete: Cascade)
+  versions         ClinicalDocumentTemplateVersion[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId, groupCode])
+  @@map("clinical_document_templates")
+}
+
+/// Immutable once published: the definition documents were written against.
+model ClinicalDocumentTemplateVersion {
+  id            String                   @id @default(uuid()) @db.Uuid
+  templateId    String                   @map("template_id") @db.Uuid
+  version       Int
+  status        TemplateLifecycle        @default(DRAFT)
+  /// Sections, fields, signature rules, permissions and output settings (validated JSON).
+  definition    Json
+  changeNote    String?                  @map("change_note") @db.VarChar(500)
+  editedById    String                   @map("edited_by_id") @db.Uuid
+  submittedAt   DateTime?                @map("submitted_at")
+  approvedById  String?                  @map("approved_by_id") @db.Uuid
+  approvedAt    DateTime?                @map("approved_at")
+  publishedById String?                  @map("published_by_id") @db.Uuid
+  publishedAt   DateTime?                @map("published_at")
+  retiredAt     DateTime?                @map("retired_at")
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
+  template      ClinicalDocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  documents     ClinicalDocument[]
+
+  @@unique([templateId, version])
+  @@index([status])
+  @@map("clinical_document_template_versions")
+}
+
+enum ClinicalDocumentStatus {
+  DRAFT
+  PENDING_REVIEW
+  PENDING_SIGNATURE
+  FINAL
+  /// Superseded by a finalized amendment (kept unchanged for the record).
+  AMENDED
+  ENTERED_IN_ERROR
+}
+
+enum DocumentSensitivity {
+  STANDARD
+  RESTRICTED
+  /// Mental health, genetic, infectious disease, safeguarding, etc.
+  SPECIALLY_PROTECTED
+}
+
+model ClinicalDocument {
+  id                  String                          @id @default(uuid()) @db.Uuid
+  facilityId          String                          @map("facility_id") @db.Uuid
+  patientId           String                          @map("patient_id") @db.Uuid
+  encounterId         String?                         @map("encounter_id") @db.Uuid
+  admissionId         String?                         @map("admission_id") @db.Uuid
+  templateVersionId   String                          @map("template_version_id") @db.Uuid
+  /// Facility-scoped unique number, e.g. "DOC-2026-000123".
+  documentNumber      String                          @map("document_number") @db.VarChar(40)
+  title               String                          @db.VarChar(200)
+  groupCode           String                          @map("group_code") @db.VarChar(10)
+  department          String?                         @db.VarChar(120)
+  status              ClinicalDocumentStatus          @default(DRAFT)
+  sensitivity         DocumentSensitivity             @default(STANDARD)
+  /// Field values keyed by field id.
+  content             Json                            @default("{}")
+  /// SHA-256 of the canonical content, set on finalization; signatures bind to it.
+  contentHash         String?                         @map("content_hash") @db.VarChar(64)
+  /// Amendment chain: 1 for originals, +1 for each amendment.
+  revision            Int                             @default(1)
+  supersedesId        String?                         @unique @map("supersedes_id") @db.Uuid
+  amendmentReason     String?                         @map("amendment_reason")
+  authorId            String                          @map("author_id") @db.Uuid
+  reviewedById        String?                         @map("reviewed_by_id") @db.Uuid
+  reviewedAt          DateTime?                       @map("reviewed_at")
+  finalizedAt         DateTime?                       @map("finalized_at")
+  releasedToPatientAt DateTime?                       @map("released_to_patient_at")
+  releasedById        String?                         @map("released_by_id") @db.Uuid
+  voidReason          String?                         @map("void_reason")
+  createdAt           DateTime                        @default(now()) @map("created_at")
+  updatedAt           DateTime                        @updatedAt @map("updated_at")
+  facility            LabStaffProfile                 @relation("ClinicalDocumentFacility", fields: [facilityId], references: [id])
+  patient             Patient                         @relation("ClinicalDocumentPatient", fields: [patientId], references: [id])
+  encounter           Encounter?                      @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  admission           Admission?                      @relation("ClinicalDocumentAdmission", fields: [admissionId], references: [id], onDelete: SetNull)
+  templateVersion     ClinicalDocumentTemplateVersion @relation(fields: [templateVersionId], references: [id])
+  author              User                            @relation("ClinicalDocumentAuthor", fields: [authorId], references: [id])
+  supersedes          ClinicalDocument?               @relation("ClinicalDocumentAmendment", fields: [supersedesId], references: [id])
+  supersededBy        ClinicalDocument?               @relation("ClinicalDocumentAmendment")
+  signatures          DocumentSignature[]
+  events              ClinicalDocumentEvent[]
+
+  @@unique([facilityId, documentNumber])
+  @@index([facilityId, status])
+  @@index([patientId, createdAt(sort: Desc)])
+  @@map("clinical_documents")
+}
+
+enum SignatureRole {
+  AUTHOR
+  CO_SIGNER
+  REVIEWER
+  VERIFIER
+  DEPARTMENT_HEAD
+  PATIENT
+  AUTHORIZED_REPRESENTATIVE
+  CLINICIAN_OBTAINING_CONSENT
+  WITNESS
+  INTERPRETER
+}
+
+enum SignatureMethod {
+  /// Signed in-app by the authenticated signer themselves.
+  AUTHENTICATED_ELECTRONIC
+  /// Wet-ink signature on paper; recorded and attested by an authenticated staff member.
+  HANDWRITTEN_ATTESTED
+}
+
+/// A signature actually given by a real person. Never generated automatically.
+model DocumentSignature {
+  id              String           @id @default(uuid()) @db.Uuid
+  documentId      String           @map("document_id") @db.Uuid
+  role            SignatureRole
+  method          SignatureMethod
+  /// Platform user who signed (electronic) or who attested a handwritten signature.
+  signerUserId    String?          @map("signer_user_id") @db.Uuid
+  attestedById    String?          @map("attested_by_id") @db.Uuid
+  signerName      String           @map("signer_name") @db.VarChar(160)
+  signerTitle     String?          @map("signer_title") @db.VarChar(160)
+  registrationId  String?          @map("registration_id") @db.VarChar(80)
+  relationship    String?          @db.VarChar(80)
+  /// Content hash and template version the signature applies to.
+  contentHash     String           @map("content_hash") @db.VarChar(64)
+  templateVersion Int              @map("template_version")
+  signedAt        DateTime         @default(now()) @map("signed_at")
+  revokedAt       DateTime?        @map("revoked_at")
+  revokedReason   String?          @map("revoked_reason")
+  document        ClinicalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("document_signatures")
+}
+
+/// Workflow trail per document (create, save, submit, review, sign, finalize,
+/// amend, release, print, download). Complements the platform audit log.
+model ClinicalDocumentEvent {
+  id         String           @id @default(uuid()) @db.Uuid
+  documentId String           @map("document_id") @db.Uuid
+  action     String           @db.VarChar(40)
+  actorId    String?          @map("actor_id") @db.Uuid
+  note       String?
+  snapshot   Json?
+  createdAt  DateTime         @default(now()) @map("created_at")
+  document   ClinicalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, createdAt])
+  @@map("clinical_document_events")
+}
+
+/// Per-facility, per-year sequence counters (document numbers, encounter numbers).
+model FacilitySequence {
+  facilityId String @map("facility_id") @db.Uuid
+  name       String @db.VarChar(30)
+  year       Int
+  value      Int    @default(0)
+
+  @@id([facilityId, name, year])
+  @@map("facility_sequences")
+}
+
+enum CarePriority {
+  EMERGENCY
+  URGENT
+  SEMI_URGENT
+  ROUTINE
+  ELECTIVE
+}
+
+enum EncounterType {
+  EMERGENCY_DEPARTMENT
+  UNSCHEDULED_OUTPATIENT
+  SCHEDULED_OUTPATIENT
+  PLANNED_INPATIENT
+  EMERGENCY_INPATIENT
+  DAY_SURGERY
+  PLANNED_PROCEDURE
+  EMERGENCY_PROCEDURE
+  OBSERVATION
+  TRANSFER_IN
+  FOLLOW_UP
+  OTHER
+}
+
+enum EncounterWorkflowStatus {
+  REGISTERED
+  AWAITING_TRIAGE
+  TRIAGED
+  AWAITING_CLINICIAN
+  UNDER_ASSESSMENT
+  AWAITING_INVESTIGATIONS
+  AWAITING_SPECIALIST
+  AWAITING_TREATMENT
+  AWAITING_ADMISSION
+  ADMITTED
+  IN_PROCEDURE
+  RECOVERING
+  AWAITING_DISCHARGE
+  DISCHARGED
+  TRANSFERRED
+  CANCELLED
+  DID_NOT_ATTEND
+}
+
+/// A patient visit/episode at one hospital. Care priority (administrative
+/// urgency) is kept separate from the encounter type and from clinical triage.
+model Encounter {
+  id              String                  @id @default(uuid()) @db.Uuid
+  facilityId      String                  @map("facility_id") @db.Uuid
+  patientId       String                  @map("patient_id") @db.Uuid
+  encounterNumber String                  @map("encounter_number") @db.VarChar(40)
+  type            EncounterType
+  priority        CarePriority            @default(ROUTINE)
+  status          EncounterWorkflowStatus @default(REGISTERED)
+  department      String?                 @db.VarChar(120)
+  clinicianName   String?                 @map("clinician_name") @db.VarChar(160)
+  chiefComplaint  String?                 @map("chief_complaint")
+  /// Category from the hospital's approved local triage protocol (null until triaged).
+  triageCategory  String?                 @map("triage_category") @db.VarChar(60)
+  triageProtocol  String?                 @map("triage_protocol") @db.VarChar(120)
+  triagedById     String?                 @map("triaged_by_id") @db.Uuid
+  triagedAt       DateTime?               @map("triaged_at")
+  admissionId     String?                 @unique @map("admission_id") @db.Uuid
+  /// Payer coverage that applied to this encounter (history preserved even if the patient's classification changes).
+  coverageId      String?                 @map("coverage_id") @db.Uuid
+  payerCategory   PayerCategory?          @map("payer_category")
+  registeredAt    DateTime                @default(now()) @map("registered_at")
+  statusChangedAt DateTime                @default(now()) @map("status_changed_at")
+  closedAt        DateTime?               @map("closed_at")
+  createdById     String                  @map("created_by_id") @db.Uuid
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+  facility        LabStaffProfile         @relation("EncounterFacility", fields: [facilityId], references: [id])
+  patient         Patient                 @relation("EncounterPatient", fields: [patientId], references: [id])
+  admission       Admission?              @relation("EncounterAdmission", fields: [admissionId], references: [id], onDelete: SetNull)
+  coverage        PayerCoverage?          @relation(fields: [coverageId], references: [id], onDelete: SetNull)
+  events          EncounterStatusEvent[]
+  documents       ClinicalDocument[]
+  media           MedicalMedia[]
+
+  @@unique([facilityId, encounterNumber])
+  @@index([facilityId, status])
+  @@index([facilityId, priority])
+  @@index([patientId, registeredAt(sort: Desc)])
+  @@map("encounters")
+}
+
+model EncounterStatusEvent {
+  id          String                   @id @default(uuid()) @db.Uuid
+  encounterId String                   @map("encounter_id") @db.Uuid
+  fromStatus  EncounterWorkflowStatus? @map("from_status")
+  toStatus    EncounterWorkflowStatus  @map("to_status")
+  priority    CarePriority?
+  note        String?
+  actorId     String?                  @map("actor_id") @db.Uuid
+  createdAt   DateTime                 @default(now()) @map("created_at")
+  encounter   Encounter                @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+
+  @@index([encounterId, createdAt])
+  @@map("encounter_status_events")
+}
+
+enum PayerCategory {
+  PUBLIC_INSURANCE
+  PRIVATE_INSURANCE
+  EMPLOYER_SPONSORED
+  GOVERNMENT_SUBSIDIZED
+  INTERNATIONAL_INSURANCE
+  TRAVEL_INSURANCE
+  SELF_PAY
+  UNINSURED
+  CHARITY
+  OTHER
+}
+
+enum CoverageEligibility {
+  NOT_VERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+enum ClaimStatus {
+  NOT_SUBMITTED
+  SUBMITTED
+  IN_REVIEW
+  APPROVED
+  PARTIALLY_APPROVED
+  REJECTED
+  PAID
+}
+
+/// A patient's payer arrangement at one hospital. Coverage is recorded and
+/// verified by staff — never inferred from demographics. Ended rows are kept.
+model PayerCoverage {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  facilityId            String                 @map("facility_id") @db.Uuid
+  patientId             String                 @map("patient_id") @db.Uuid
+  category              PayerCategory
+  /// 1 = primary, 2 = secondary.
+  rank                  Int                    @default(1)
+  providerName          String?                @map("provider_name") @db.VarChar(160)
+  planName              String?                @map("plan_name") @db.VarChar(160)
+  /// Restricted: masked in lists, shown in full only to MANAGE_INSURANCE.
+  memberNumber          String?                @map("member_number") @db.VarChar(80)
+  coverageStart         DateTime?              @map("coverage_start") @db.Date
+  coverageEnd           DateTime?              @map("coverage_end") @db.Date
+  eligibility           CoverageEligibility    @default(NOT_VERIFIED)
+  benefitNotes          String?                @map("benefit_notes")
+  referralRequired      Boolean                @default(false) @map("referral_required")
+  preauthRequired       Boolean                @default(false) @map("preauth_required")
+  authorizationNumber   String?                @map("authorization_number") @db.VarChar(80)
+  authorizationExpires  DateTime?              @map("authorization_expires") @db.Date
+  claimStatus           ClaimStatus            @default(NOT_SUBMITTED) @map("claim_status")
+  billingResponsibility String?                @map("billing_responsibility") @db.VarChar(160)
+  copayKobo             Int?                   @map("copay_kobo")
+  outOfPocketKobo       Int?                   @map("out_of_pocket_kobo")
+  active                Boolean                @default(true)
+  endedAt               DateTime?              @map("ended_at")
+  endedReason           String?                @map("ended_reason")
+  createdById           String                 @map("created_by_id") @db.Uuid
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  facility              LabStaffProfile        @relation("PayerCoverageFacility", fields: [facilityId], references: [id])
+  patient               Patient                @relation("PayerCoveragePatient", fields: [patientId], references: [id])
+  verifications         CoverageVerification[]
+  encounters            Encounter[]
+
+  @@index([facilityId, active, category])
+  @@index([patientId])
+  @@map("payer_coverages")
+}
+
+model CoverageVerification {
+  id          String              @id @default(uuid()) @db.Uuid
+  coverageId  String              @map("coverage_id") @db.Uuid
+  eligibility CoverageEligibility
+  claimStatus ClaimStatus?        @map("claim_status")
+  note        String?
+  actorId     String              @map("actor_id") @db.Uuid
+  createdAt   DateTime            @default(now()) @map("created_at")
+  coverage    PayerCoverage       @relation(fields: [coverageId], references: [id], onDelete: Cascade)
+
+  @@index([coverageId, createdAt])
+  @@map("coverage_verifications")
+}
+
+enum MediaCategory {
+  XRAY
+  CT
+  MRI
+  ULTRASOUND
+  ECHOCARDIOGRAPHY
+  ECG_HOLTER
+  EEG
+  ENDOSCOPY
+  GASTROSCOPY
+  COLONOSCOPY
+  ANGIOGRAPHY
+  MAMMOGRAPHY
+  DOPPLER
+  FLUOROSCOPY
+  NUCLEAR_MEDICINE
+  PULMONARY_FUNCTION
+  LABORATORY_REPORT
+  PATHOLOGY_HISTOLOGY
+  MICROBIOLOGY
+  AUDIOLOGY
+  OPHTHALMIC
+  PRESSURE_THERAPY
+  REHABILITATION
+  OTHER
+}
+
+enum MediaReportStatus {
+  UNREPORTED
+  PRELIMINARY
+  VERIFIED
+  AMENDED
+}
+
+enum MediaScanStatus {
+  /// No malware scanner configured — the file passed signature checks only.
+  NOT_SCANNED
+  CLEAN
+  INFECTED
+}
+
+/// A diagnostic file (image, video, waveform, report, interoperability
+/// message) attached to a patient and optionally an encounter. Binary content
+/// lives in private object storage; only metadata and the key are stored here.
+model MedicalMedia {
+  id                  String              @id @default(uuid()) @db.Uuid
+  facilityId          String              @map("facility_id") @db.Uuid
+  patientId           String              @map("patient_id") @db.Uuid
+  encounterId         String?             @map("encounter_id") @db.Uuid
+  category            MediaCategory
+  /// Distinguishes diagnostic results from treatment/therapy documentation.
+  isTherapyRecord     Boolean             @default(false) @map("is_therapy_record")
+  examinationType     String              @map("examination_type") @db.VarChar(160)
+  examinationAt       DateTime?           @map("examination_at")
+  department          String?             @db.VarChar(120)
+  orderingClinician   String?             @map("ordering_clinician") @db.VarChar(160)
+  performingFacility  String?             @map("performing_facility") @db.VarChar(200)
+  reportingClinician  String?             @map("reporting_clinician") @db.VarChar(160)
+  reportStatus        MediaReportStatus   @default(UNREPORTED) @map("report_status")
+  modality            String?             @db.VarChar(40)
+  device              String?             @db.VarChar(160)
+  bodySite            String?             @map("body_site") @db.VarChar(120)
+  contrastDetails     String?             @map("contrast_details") @db.VarChar(300)
+  accessionNumber     String?             @map("accession_number") @db.VarChar(80)
+  studyInstanceUid    String?             @map("study_instance_uid") @db.VarChar(128)
+  externalReference   String?             @map("external_reference") @db.VarChar(160)
+  relatedOrderRef     String?             @map("related_order_ref") @db.VarChar(80)
+  fileName            String              @map("file_name") @db.VarChar(200)
+  formatKey           String              @map("format_key") @db.VarChar(30)
+  mimeType            String              @map("mime_type") @db.VarChar(100)
+  sizeBytes           BigInt              @map("size_bytes")
+  sha256              String              @db.VarChar(64)
+  storageKey          String              @unique @map("storage_key")
+  scanStatus          MediaScanStatus     @default(NOT_SCANNED) @map("scan_status")
+  sensitivity         DocumentSensitivity @default(STANDARD)
+  retentionCategory   String              @default("STANDARD") @map("retention_category") @db.VarChar(40)
+  releasedToPatientAt DateTime?           @map("released_to_patient_at")
+  uploadedById        String              @map("uploaded_by_id") @db.Uuid
+  deletedAt           DateTime?           @map("deleted_at")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  facility            LabStaffProfile     @relation("MedicalMediaFacility", fields: [facilityId], references: [id])
+  patient             Patient             @relation("MedicalMediaPatient", fields: [patientId], references: [id])
+  encounter           Encounter?          @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+
+  @@index([facilityId, category])
+  @@index([patientId, createdAt(sort: Desc)])
+  @@index([patientId, sha256])
+  @@map("medical_media")
 }

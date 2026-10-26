@@ -82,6 +82,10 @@ reports with verification, signing and traceable amendments; critical-result
 alerts with acknowledgement; and customizable medical-document templates. See
 [docs/MODULES.md](docs/MODULES.md).
 
+## Hospital Information System (HIS)
+
+Multi-hospital clinical documentation and operations under `/lab/his`: per-hospital settings (versioned), a system catalogue of document templates for groups A–P that hospitals adopt and customize (draft → review → approved → published → retired), clinical documents with author/review/signature/finalize/amend workflow and audit trail, print view and server-side Unicode PDF, patient portfolio and records-package export, diagnostic media uploads (format registry, checksums, duplicate detection), encounters with care priority/workflow dashboards, payer classification, and aggregated analytics. Patients see released documents at `/patient/documents`. See [docs/HIS.md](docs/HIS.md).
+
 ## Scripts
 
 `dev` · `build` · `start` · `lint` · `typecheck` · `test` · `test:watch` · `db:migrate` · `db:deploy` · `db:seed` · `db:seed:medications` · `db:studio` · `icd10:import`

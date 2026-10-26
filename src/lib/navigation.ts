@@ -1,4 +1,5 @@
 import {
+  Activity,
   BarChart3, BedDouble, Bell, Briefcase, Building2, Calendar, CalendarClock, ClipboardList, CreditCard, FileText,
   FlaskConical, FolderOpen, Home, IdCard, LayoutDashboard, MessageSquare, Pill, Receipt, Settings,
   Shield, Sparkles, Star, Stethoscope, Tags, Upload, User, Users, Wallet, type LucideIcon,
@@ -22,6 +23,7 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     { href: "/patient/appointments", label: "Appointments", icon: Calendar },
     { href: "/patient/consult", label: "Messages", icon: MessageSquare },
     { href: "/patient/results", label: "Results & Reports", icon: FlaskConical },
+    { href: "/patient/documents", label: "Hospital Documents", icon: FileText },
     { href: "/patient/case-file", label: "Health Record", icon: FileText },
     { href: "/patient/cases", label: "My Cases", icon: FolderOpen },
     { href: "/patient/history", label: "Case History", icon: ClipboardList },
@@ -56,6 +58,11 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     // Hospital / laboratory / diagnostic modules — each page enforces the
     // facility kind server-side and redirects organizations that do not
     // belong to that module.
+    { href: "/lab/his", label: "Hospital System", icon: Building2 },
+    { href: "/lab/clinical-documents", label: "Medical Documents", icon: FileText },
+    { href: "/lab/encounters", label: "Encounters & Queues", icon: Activity },
+    { href: "/lab/media", label: "Diagnostic Media", icon: Upload },
+    { href: "/lab/insurance", label: "Payer Classification", icon: Wallet },
     { href: "/lab/admissions", label: "Admissions", icon: BedDouble },
     { href: "/lab/orders", label: "Lab Orders", icon: ClipboardList },
     { href: "/lab/specimens", label: "Specimens", icon: FlaskConical },
