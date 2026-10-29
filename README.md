@@ -57,7 +57,7 @@ Sign up with an email listed in `ADMIN_EMAILS` (and verify it in Clerk) to becom
 
 Set every variable from `.env.example`, and run `npm run db:deploy` against production before the first deploy and after each schema change.
 
-Also add a scheduled job that calls `GET /api/cron/appointment-reminders` every 15 minutes with `Authorization: Bearer $CRON_SECRET` (Vercel Cron does this when `CRON_SECRET` is set; note Vercel's free plan limits cron frequency). It sends appointment reminders, releases slots held by unpaid bookings and retries refunds the gateway has not accepted. Two more scheduled jobs use the same pattern: `GET /api/cron/medication-reminders` (materialises dose events, sends due medication nudges, marks long-past doses missed — every 10–15 minutes) and `GET /api/cron/inactivity-checks` (raises patient-welfare alerts after 48 hours of inactivity, then escalates — every 15–30 minutes). In the Paystack dashboard, set the webhook URL to `<your-domain>/api/payments/webhook/paystack`.
+Also add a scheduled job that calls `GET /api/cron/appointment-reminders` every 15 minutes with `Authorization: Bearer $CRON_SECRET` (Vercel Cron does this when `CRON_SECRET` is set; note Vercel's free plan limits cron frequency). It sends appointment reminders, releases slots held by unpaid bookings and retries refunds the gateway has not accepted. Two more scheduled jobs use the same pattern: `GET /api/cron/medication-reminders` (materialises dose events, sends due medication nudges, marks long-past doses missed — every 10–15 minutes) and `GET /api/cron/inactivity-checks` (raises patient-welfare alerts after 48 hours of inactivity, then escalates — every 15–30 minutes). A fourth job, `GET /api/cron/critical-alert-escalation` (every 5–15 minutes), escalates critical result alerts that have not been acknowledged within the 30-minute response window: it re-notifies the requesting facility (level 1), the performing facility (level 2) and platform administrators (level 3, at 1x/2x/4x the window), persisting every notification atomically with the escalation; overlapping or delayed runs are safe. In the Paystack dashboard, set the webhook URL to `<your-domain>/api/payments/webhook/paystack`.
 
 ## Clinical coding, pricing, payments and notifications
 
@@ -71,6 +71,20 @@ Also add a scheduled job that calls `GET /api/cron/appointment-reminders` every 
 ## Platform features
 
 Mini-websites for facilities, structured prescriptions with clinical-safety checks, patient document storage, medication reminders, inactivity-based welfare monitoring, a public emergency/CPR learning centre and the collapsible desktop sidebar are documented in [docs/PLATFORM_FEATURES.md](docs/PLATFORM_FEATURES.md), including the medication-reference policy (RxNav/RxNorm, free, no API key) and the limits of inactivity monitoring.
+
+## Hospital, laboratory & diagnostic-centre modules
+
+Three integrated modules with a server-enforced organization access matrix:
+hospital admissions with progress notes, transfers and discharge epicrises;
+laboratory specimen management (accessioning, rejection with documented
+reasons, recollection) and an extended order workflow; diagnostic examination
+reports with verification, signing and traceable amendments; critical-result
+alerts with acknowledgement; and customizable medical-document templates. See
+[docs/MODULES.md](docs/MODULES.md).
+
+## Hospital Information System (HIS)
+
+Multi-hospital clinical documentation and operations under `/lab/his`: per-hospital settings (versioned), a system catalogue of document templates for groups A–P that hospitals adopt and customize (draft → review → approved → published → retired), clinical documents with author/review/signature/finalize/amend workflow and audit trail, print view and server-side Unicode PDF, patient portfolio and records-package export, diagnostic media uploads (format registry, checksums, duplicate detection), encounters with care priority/workflow dashboards, payer classification, and aggregated analytics. Patients see released documents at `/patient/documents`. See [docs/HIS.md](docs/HIS.md).
 
 ## Scripts
 

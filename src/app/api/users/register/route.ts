@@ -225,6 +225,12 @@ export const POST = withAuth(
             cacRegistrationNumber: data.cacRegistrationNumber,
             facilityLicenseNumber: data.facilityLicenseNumber,
             ...(profileImageUrl ? { logoUrl: profileImageUrl } : {}),
+            // Denormalized organization type for module access scoping.
+            ...(accountType === "HOSPITAL"
+              ? { kind: "HOSPITAL" }
+              : accountType === "DIAGNOSTIC_CENTRE"
+                ? { kind: "DIAGNOSTIC_CENTRE" }
+                : { kind: "LABORATORY" }),
           },
         });
       }

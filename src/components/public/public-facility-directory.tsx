@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BadgeCheck, MapPin, FlaskConical } from "lucide-react";
+import { BadgeCheck, MapPin, FlaskConical, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { listPublicFacilities } from "@/lib/public-facilities";
@@ -68,6 +68,26 @@ export async function PublicFacilityDirectory({ directory, typeLabel, pluralLabe
                     </Badge>
                   </div>
                   {f.tagline && <p className="text-xs text-muted-foreground">{f.tagline}</p>}
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    {f.ratingCount != null && f.ratingCount > 0 && f.ratingAvg != null ? (
+                      <>
+                        <span className="flex items-center gap-0.5" aria-label={`Rated ${f.ratingAvg.toFixed(1)} of 5 from ${f.ratingCount} reviews`}>
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              aria-hidden="true"
+                              className={`h-3.5 w-3.5 ${i < Math.round(f.ratingAvg) ? "fill-foreground text-foreground" : "text-muted-foreground/40"}`}
+                            />
+                          ))}
+                        </span>
+                        <span>
+                          {f.ratingAvg.toFixed(1)} · {f.ratingCount} review{f.ratingCount === 1 ? "" : "s"}
+                        </span>
+                      </>
+                    ) : (
+                      <span>No patient reviews yet</span>
+                    )}
+                  </div>
                   <p className="flex items-center gap-1 text-xs text-muted-foreground">
                     <MapPin aria-hidden="true" className="h-3 w-3" />
                     {[f.city, f.state].filter(Boolean).join(", ") || "Location on request"}

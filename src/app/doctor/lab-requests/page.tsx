@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getDoctorProfile, requirePageRole } from "@/lib/guards";
 import { formatClinicDateTime } from "@/lib/format";
 
-const STATUS_LABEL = { ORDERED: "Sent to lab", IN_PROGRESS: "In progress", COMPLETED: "Completed", CANCELLED: "Cancelled" } as const;
+const STATUS_LABEL: Record<string, string> = { ORDERED: "Sent to lab", ACCEPTED: "Accepted", SPECIMEN_PENDING: "Specimen pending", SPECIMEN_REJECTED: "Specimen rejected", IN_PROGRESS: "Processing", AWAITING_VERIFICATION: "Awaiting verification", COMPLETED: "Completed", FINALIZED: "Finalized", SENT_TO_FACILITY: "Report sent", AMENDED: "Amended", CANCELLED: "Cancelled" };
 
 export default async function DoctorLabRequestsPage() {
   const user = await requirePageRole("DOCTOR");

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseId, parseQuery } from "@/lib/api";
-import { assertCanSend, findConversation } from "@/lib/chat";
+import { assertCanSend, findConversation, CHAT_IMAGE_MIME_TYPES } from "@/lib/chat";
+import { finalizeChatImage } from "@/lib/uploads";
 import { queueNotification } from "@/lib/notifications/service";
 
 const listSchema = z.object({
@@ -32,23 +33,52 @@ export const GET = withAuth<{ id: string }>(["DOCTOR", "PATIENT"], async (req, {
       mine: m.senderId === user.id,
       type: m.type,
       body: m.body,
+      attachmentKey: m.attachmentKey,
       createdAt: m.createdAt,
       readAt: m.readAt,
     })),
   });
 });
 
-const sendSchema = z.object({ body: z.string().trim().min(1, "Message cannot be empty").max(4000) });
+const sendSchema = z
+  .object({
+    body: z.string().trim().max(4000),
+    image: z
+      .object({
+        key: z.string().min(1).max(300),
+        fileName: z.string().trim().min(1).max(200),
+        mimeType: z.enum(CHAT_IMAGE_MIME_TYPES, { error: "Only PNG, JPEG or WebP images can be sent" }),
+      })
+      .optional(),
+  })
+  .refine((value) => value.image !== undefined || value.body.length > 0, {
+    message: "Message cannot be empty",
+  });
 
-// POST /api/conversations/[id]/messages — send a text message
+// POST /api/conversations/[id]/messages — send a text message, optionally with an image
 export const POST = withAuth<{ id: string }>(["DOCTOR", "PATIENT"], async (req, { user, params }) => {
   const id = parseId((await params).id);
   const conversation = await findConversation(user, id);
   await assertCanSend(conversation);
-  const { body } = await parseBody(req, sendSchema);
+  const data = await parseBody(req, sendSchema);
+
+  let type: "TEXT" | "IMAGE" = "TEXT";
+  let attachmentKey: string | null = null;
+  if (data.image) {
+    // Only images uploaded for this conversation by this sender can be attached.
+    const expectedPrefix = `chat-attachments/staging/${conversation.id}/${user.id}/`;
+    if (!data.image.key.startsWith(expectedPrefix)) {
+      return NextResponse.json({ error: "This image cannot be attached to this conversation" }, { status: 403 });
+    }
+    // Verify the upload server-side (magic bytes, size) and copy it to a
+    // server-only final key, so the still-writable staging URL cannot replace
+    // the verified content after the message is stored.
+    attachmentKey = await finalizeChatImage(data.image.key, data.image.mimeType);
+    type = "IMAGE";
+  }
 
   const message = await prisma.chatMessage.create({
-    data: { conversationId: id, senderId: user.id, body },
+    data: { conversationId: id, senderId: user.id, body: data.body, type, attachmentKey },
   });
 
   // Tell the other participant (the text itself is never included). Rapid-fire messages are coalesced.
@@ -60,7 +90,7 @@ export const POST = withAuth<{ id: string }>(["DOCTOR", "PATIENT"], async (req, 
   queueNotification(recipient, { kind: "MESSAGE_RECEIVED", conversationId: id });
 
   return NextResponse.json(
-    { message: { id: message.id, mine: true, type: message.type, body: message.body, createdAt: message.createdAt, readAt: null } },
+    { message: { id: message.id, mine: true, type: message.type, body: message.body, attachmentKey: message.attachmentKey, createdAt: message.createdAt, readAt: null } },
     { status: 201 },
   );
 });

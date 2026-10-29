@@ -80,7 +80,7 @@ export function AdminOperations({ users }: { users: { id: string; name: string }
         <form className="flex flex-wrap items-end gap-3" onSubmit={event => {
           event.preventDefault();
           if (window.confirm("Export authorized audit metadata to this device? Keep the downloaded file secure.")) void mutation.run(
-            () => downloadCsv(`/api/workspace/export?${new URLSearchParams(Object.entries(range).filter(([, value]) => Boolean(value)))}`, "imedics-audit.csv"), "Audit export downloaded");
+            () => downloadCsv(`/api/workspace/export?${new URLSearchParams(Object.entries(range).filter(([, value]) => Boolean(value)))}`, "medic1905-audit.csv"), "Audit export downloaded");
         }}><FormField label="Audit from (UTC)"><Input type="date" value={range.from} max={range.to || undefined} onChange={e => setRange({ ...range, from: e.target.value })} /></FormField>
           <FormField label="Audit to (UTC)"><Input type="date" value={range.to} min={range.from || undefined} onChange={e => setRange({ ...range, to: e.target.value })} /></FormField><Button type="submit" variant="outline">Export audit CSV</Button>
         </form><p className="text-xs text-muted-foreground">Exports omit clinical payloads, addresses, IPs, raw headers, and audit details. Verify encryption, retention, access reviews, and incident-response procedures in deployment infrastructure.</p>

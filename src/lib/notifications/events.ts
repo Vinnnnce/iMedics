@@ -36,6 +36,7 @@ export type NotificationEvent =
   | { kind: "DISPUTE_UPDATED"; paymentId: string }
   | { kind: "CONSULTATION_AVAILABLE" }
   | { kind: "REVIEW_SUBMITTED"; reviewId: string }
+  | { kind: "REVIEW_RESPONSE"; reviewId: string }
   | { kind: "VERIFICATION_UPDATED" }
   | { kind: "SUBSCRIPTION_ACTIVATED"; subscriptionId: string }
   | { kind: "SUBSCRIPTION_RENEWED"; subscriptionId: string }
@@ -54,7 +55,14 @@ export type NotificationEvent =
   | { kind: "WELFARE_ALERT"; alertId: string }
   | { kind: "WELFARE_ALERT_ACKNOWLEDGED"; alertId: string }
   | { kind: "DOCUMENT_SHARE_GRANTED"; documentId: string }
-  | { kind: "PREVENTIVE_CARE_DUE"; taskId: string };
+  | { kind: "PREVENTIVE_CARE_DUE"; taskId: string }
+  | { kind: "CRITICAL_RESULT_ALERTED"; alertId: string; orderId: string }
+  | { kind: "CRITICAL_ALERT_ACKNOWLEDGED"; alertId: string }
+  | { kind: "CRITICAL_ALERT_ESCALATED"; alertId: string; level: number }
+  | { kind: "INVESTIGATION_UPDATED"; orderId: string }
+  | { kind: "DIAGNOSTIC_REPORT_READY"; bookingId: string }
+  | { kind: "CLINICAL_DOCUMENT_ACTION_NEEDED"; documentId: string; step: "REVIEW" | "SIGNATURE" }
+  | { kind: "CLINICAL_DOCUMENT_RELEASED"; documentId: string };
 
 export interface RenderedNotification {
   type: NotificationType;
@@ -97,6 +105,14 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
       return { type: "APPOINTMENT", title: "Consultation available", body: "A consultation update is available in your account.", href: "/doctor/consultations", data: {} };
     case "REVIEW_SUBMITTED":
       return { type: "SYSTEM", title: "New review received", body: "A patient has left a review. Sign in to read it.", href: "/doctor/dashboard", data: { reviewId: event.reviewId } };
+    case "REVIEW_RESPONSE":
+      return {
+        type: "SYSTEM",
+        title: "Facility replied to your review",
+        body: "The facility has responded to your review. Sign in to read the reply.",
+        href: "/patient/dashboard",
+        data: { reviewId: event.reviewId },
+      };
     case "VERIFICATION_UPDATED":
       return { type: "SYSTEM", title: "Verification updated", body: "Your professional verification status has changed.", href: "/auth/callback", data: {} };
     case "ACCOUNT_REGISTERED":
@@ -276,6 +292,64 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
         body: "Your access has been restored.",
         href: "/",
         data: {},
+      };
+    case "CRITICAL_RESULT_ALERTED":
+      return {
+        type: "CRITICAL_RESULT",
+        title: "Critical result requires acknowledgement",
+        // No clinical detail in the notification itself — open the app to view it.
+        body: "A critical laboratory result is awaiting your acknowledgement. Sign in to review and acknowledge it.",
+        href: role === "LAB_SCIENTIST" ? "/lab/critical-alerts" : role === "DOCTOR" ? "/doctor/lab-requests" : "/lab/critical-alerts",
+        data: { alertId: event.alertId, orderId: event.orderId },
+      };
+    case "CRITICAL_ALERT_ACKNOWLEDGED":
+      return {
+        type: "CRITICAL_RESULT",
+        title: "Critical result acknowledged",
+        body: "The critical result alert has been acknowledged by the responsible clinician.",
+        href: role === "LAB_SCIENTIST" ? "/lab/critical-alerts" : "/doctor/lab-requests",
+        data: { alertId: event.alertId },
+      };
+    case "CRITICAL_ALERT_ESCALATED":
+      return {
+        type: "CRITICAL_RESULT",
+        title: "Critical result escalated",
+        // No clinical detail in the notification itself — open the app to view it.
+        body: `A critical result has not been acknowledged within the response window and has been escalated (level ${event.level}). Sign in to review and acknowledge it.`,
+        href: role === "DOCTOR" ? "/doctor/lab-requests" : "/lab/critical-alerts",
+        data: { alertId: event.alertId, level: String(event.level) },
+      };
+    case "INVESTIGATION_UPDATED":
+      return {
+        type: "INVESTIGATION_UPDATE",
+        title: "Investigation status update",
+        body: "The status of an investigation you ordered has changed. Sign in to view the details.",
+        href: role === "LAB_SCIENTIST" ? "/lab/orders" : role === "DOCTOR" ? "/doctor/lab-requests" : "/facilities/investigations",
+        data: { orderId: event.orderId },
+      };
+    case "DIAGNOSTIC_REPORT_READY":
+      return {
+        type: "INVESTIGATION_UPDATE",
+        title: "Diagnostic report ready",
+        body: "A finalized diagnostic report is available for an examination you referred. Sign in to view it.",
+        href: role === "LAB_SCIENTIST" ? "/lab/examinations" : role === "DOCTOR" ? "/doctor/lab-requests" : "/facilities/investigations",
+        data: { bookingId: event.bookingId },
+      };
+    case "CLINICAL_DOCUMENT_ACTION_NEEDED":
+      return {
+        type: "CLINICAL_DOCUMENT",
+        title: event.step === "REVIEW" ? "Document awaiting review" : "Document awaiting signature",
+        body: "A clinical document needs your attention. Sign in to view it.",
+        href: `/lab/clinical-documents/${event.documentId}`,
+        data: { documentId: event.documentId },
+      };
+    case "CLINICAL_DOCUMENT_RELEASED":
+      return {
+        type: "CLINICAL_DOCUMENT",
+        title: "New report available",
+        body: "Your care team has released a document to your record. Sign in to view it.",
+        href: "/patient/documents",
+        data: { documentId: event.documentId },
       };
   }
 }

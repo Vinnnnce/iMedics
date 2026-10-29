@@ -14,7 +14,7 @@ export const GET = withAuth(["DOCTOR", "PATIENT"], async (_req, { user }) => {
     include: {
       patient: { select: { id: true, firstName: true, lastName: true } },
       doctor: { select: { id: true, user: { select: { name: true } } } },
-      messages: { orderBy: { createdAt: "desc" }, take: 1, select: { body: true, createdAt: true, senderId: true } },
+      messages: { orderBy: { createdAt: "desc" }, take: 1, select: { body: true, type: true, createdAt: true, senderId: true } },
       _count: { select: { messages: { where: { readAt: null, senderId: { not: user.id } } } } },
     },
   });
@@ -25,7 +25,13 @@ export const GET = withAuth(["DOCTOR", "PATIENT"], async (_req, { user }) => {
       with: user.role === "DOCTOR" ? `${patient.firstName} ${patient.lastName}` : doctor.user.name,
       patientId: patient.id,
       doctorId: doctor.id,
-      lastMessage: messages[0] ?? null,
+      lastMessage: messages[0]
+        ? {
+            body: messages[0].body || (messages[0].type === "IMAGE" ? "Photo" : messages[0].body),
+            type: messages[0].type,
+            createdAt: messages[0].createdAt,
+          }
+        : null,
       unread: _count.messages,
       createdAt: c.createdAt,
     }))

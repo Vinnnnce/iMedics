@@ -32,6 +32,8 @@
 .ws-skip:focus { top: 12px; }
 .ws-sidebar { width: 236px; flex-shrink: 0; background: var(--ws-panel); border-right: 1px solid var(--ws-line); padding: 28px 20px 20px; display: flex; flex-direction: column; height: 100%; overflow-y: auto; overscroll-behavior: contain; }
 .ws-brand { display: flex; align-items: center; gap: 11px; color: var(--ws-green) !important; margin: 0 10px 30px; }
+.ws-brand img { height: 34px; width: auto; display: block; }
+.ws-app[data-theme=dark] .ws-brand img { background: #fff; border-radius: 8px; padding: 3px; }
 .ws-brand > span { font-size: 27px; font-weight: 900; letter-spacing: -.9px; color: var(--ws-ink); }
 .ws-brand-dot { color: var(--ws-green); }
 .ws-portal-label { display: flex; align-items: center; justify-content: space-between; padding: 13px 11px; border: 1px solid var(--ws-line); border-radius: 8px; margin-bottom: 30px; font-weight: 700; }

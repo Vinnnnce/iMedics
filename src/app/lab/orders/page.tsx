@@ -5,14 +5,26 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { LabOrderActions } from "@/components/shared/lab-order-actions";
 import { prisma } from "@/lib/prisma";
-import { requirePageRole } from "@/lib/guards";
+import { requireModulePageWithPermission } from "@/lib/modules/page-guards";
 import { ageFromDob, formatClinicDateTime } from "@/lib/format";
 
 export default async function LabOrdersPage() {
-  await requirePageRole("LAB_SCIENTIST");
+  // Laboratory facilities only, with PROCESS_ORDERS — the same scoping the
+  // module APIs enforce. The queue lists this facility's own orders plus the
+  // unassigned legacy doctor orders it may claim; other organizations' orders
+  // are never listed.
+  const { facilityId } = await requireModulePageWithPermission("PROCESS_ORDERS", "LABORATORY");
 
   const orders = await prisma.labOrder.findMany({
-    where: { status: { in: ["ORDERED", "IN_PROGRESS"] } },
+    where: {
+      status: { in: ["ORDERED", "IN_PROGRESS"] },
+      OR: [
+        { performingFacilityId: facilityId },
+        // Legacy orders without a performing facility can be claimed by a
+        // laboratory (the claim itself is enforced by the API).
+        { performingFacilityId: null, status: "ORDERED" },
+      ],
+    },
     orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
     take: 100,
     include: {

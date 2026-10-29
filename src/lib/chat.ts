@@ -2,6 +2,13 @@ import type { Prisma, User } from "@prisma/client";
 import { prisma } from "./prisma";
 import { forbidden, notFound } from "./errors";
 
+/** The image types a chat message may carry. The content is always re-verified
+ * against the file signature after upload, so this list is advisory for the UI. */
+export const CHAT_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+
+/** Chat images use the same ceiling as every other upload in the app. */
+export const CHAT_IMAGE_MAX_BYTES = 15 * 1024 * 1024;
+
 /** Conversations the caller is a participant in. */
 export function conversationAccess(user: User): Prisma.ConversationWhereInput {
   return user.role === "DOCTOR" ? { doctor: { userId: user.id } } : { patient: { userId: user.id } };

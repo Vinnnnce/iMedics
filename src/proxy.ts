@@ -15,6 +15,10 @@ const isPublicRoute = createRouteMatcher([
   // Public facility mini-websites and directories (hospitals, labs).
   "/hospitals(.*)",
   "/laboratories(.*)",
+  "/diagnostic-centres(.*)",
+  // Public facility reviews (approved patient ratings) shown on public
+  // facility profiles; writes are still authenticated inside the route.
+  "/api/facility-reviews(.*)",
   // Called by the payment gateway and the scheduler; both authenticate themselves (signature / bearer secret).
   "/api/payments/webhook/(.*)",
   "/api/cron/(.*)",

@@ -243,14 +243,31 @@ export function derivedStatusForConsultation(
 }
 
 export function derivedStatusForLabOrder(
-  status: "ORDERED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED",
+  status:
+    | "ORDERED"
+    | "IN_PROGRESS"
+    | "COMPLETED"
+    | "CANCELLED"
+    | "ACCEPTED"
+    | "SPECIMEN_PENDING"
+    | "SPECIMEN_REJECTED"
+    | "AWAITING_VERIFICATION"
+    | "FINALIZED"
+    | "SENT_TO_FACILITY"
+    | "AMENDED",
 ): CareCaseStatus {
   switch (status) {
     case "ORDERED":
-      return "AWAITING_RESULT";
+    case "ACCEPTED":
+    case "SPECIMEN_PENDING":
     case "IN_PROGRESS":
+    case "SPECIMEN_REJECTED":
+    case "AWAITING_VERIFICATION":
       return "AWAITING_RESULT";
     case "COMPLETED":
+    case "FINALIZED":
+    case "SENT_TO_FACILITY":
+    case "AMENDED":
       return "RESULT_AVAILABLE";
     case "CANCELLED":
       return "CLOSED";

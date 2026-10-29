@@ -9,6 +9,7 @@ import { badRequest, notFound } from "@/lib/errors";
 import { ApiError } from "@/lib/errors";
 import { runLabAnalysis } from "@/lib/ai/lab-analysis";
 import { writeAudit } from "@/lib/audit";
+import { notifyUser } from "@/lib/notifications/service";
 
 const LAB_CATEGORIES: readonly LabCategory[] = ["BLOOD", "URINE", "STOOL", "SWAB", "XRAY", "CT", "ULTRASOUND", "MRI", "OTHER"];
 
@@ -22,8 +23,19 @@ function toNumber(value: string): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
-function computeFlag(value: number | null, low: number | null, high: number | null): ResultFlag | null {
-  if (value === null || low === null || high === null) return null;
+function computeFlag(
+  value: number | null,
+  low: number | null,
+  high: number | null,
+  critLow: number | null,
+  critHigh: number | null,
+): ResultFlag | null {
+  if (value === null) return null;
+  // Critical bounds, when supplied by the laboratory, take precedence and are
+  // evaluated even without routine reference intervals.
+  if (critLow !== null && value < critLow) return "CRITICAL_LOW";
+  if (critHigh !== null && value > critHigh) return "CRITICAL_HIGH";
+  if (low === null || high === null) return null;
   if (value < low) return "LOW";
   if (value > high) return "HIGH";
   return "NORMAL";
@@ -34,6 +46,8 @@ const submitSchema = z.object({
   labOrderId: z.string().uuid().optional(),
   category: z.string().trim().min(1).max(100),
   labName: z.string().trim().max(200).optional(),
+  // Reason is required when correcting an already-verified result.
+  reason: z.string().trim().max(1000).optional(),
   testDate: z.string().refine((v) => !Number.isNaN(Date.parse(v)), "Invalid test date"),
   patientLanguage: z.string().trim().max(20).optional(),
   values: z
@@ -45,6 +59,11 @@ const submitSchema = z.object({
         unit: z.string().trim().max(50).default(""),
         refLow: z.string().trim().max(50).default(""),
         refHigh: z.string().trim().max(50).default(""),
+        // Optional critical alert bounds — when supplied and exceeded, the
+        // value is flagged CRITICAL_LOW / CRITICAL_HIGH and a critical-result
+        // alert is raised for the ordering clinician (Module 02, Category 04).
+        critLow: z.string().trim().max(50).optional(),
+        critHigh: z.string().trim().max(50).optional(),
       }),
     )
     .min(1)
@@ -72,6 +91,8 @@ export const POST = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
     const numericValue = toNumber(v.value);
     const refLow = toNumber(v.refLow);
     const refHigh = toNumber(v.refHigh);
+    const critLow = v.critLow ? toNumber(v.critLow) : null;
+    const critHigh = v.critHigh ? toNumber(v.critHigh) : null;
     return {
       code: v.code,
       name: v.name,
@@ -80,11 +101,40 @@ export const POST = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
       unit: v.unit || null,
       refLow,
       refHigh,
-      flag: computeFlag(numericValue, refLow, refHigh),
+      flag: computeFlag(numericValue, refLow, refHigh, critLow, critHigh),
     };
   });
 
+  const hasCriticalFinding = rows.some((r) => r.flag === "CRITICAL_LOW" || r.flag === "CRITICAL_HIGH");
+
   const labResult = await prisma.$transaction(async (tx) => {
+    // If this order already carries a verified result, submitting a corrected
+    // result must leave a traceable amendment rather than silently replacing
+    // the verified record (Module 02, Category 03). A non-blank correction
+    // reason is mandatory, and the corrected order returns to verification —
+    // an unverified correction is never releasable as final.
+    let priorVerifiedResultId: string | null = null;
+    if (data.labOrderId) {
+      const prior = await tx.labResult.findFirst({
+        where: { labOrderId: data.labOrderId, verifiedAt: { not: null } },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, values: { select: { name: true, value: true, unit: true, flag: true } } },
+      });
+      if (prior) {
+        if (!data.reason?.trim()) {
+          throw badRequest("A corrected result requires a reason for the amendment");
+        }
+        priorVerifiedResultId = prior.id;
+        await tx.labResultAmendment.create({
+          data: {
+            labResultId: prior.id,
+            changedById: user.id,
+            reason: data.reason,
+            previousSnapshot: { values: prior.values },
+          },
+        });
+      }
+    }
     const created = await tx.labResult.create({
       data: {
         patientId: patient.id,
@@ -99,7 +149,13 @@ export const POST = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
       },
     });
     if (data.labOrderId) {
-      await tx.labOrder.update({ where: { id: data.labOrderId }, data: { status: "COMPLETED" } });
+      // A corrected submission on a verified order returns the order to
+      // verification (never straight to a releasable state); fresh orders
+      // complete normally.
+      await tx.labOrder.update({
+        where: { id: data.labOrderId },
+        data: { status: priorVerifiedResultId ? "AWAITING_VERIFICATION" : "COMPLETED" },
+      });
     }
     return created;
   });
@@ -124,6 +180,50 @@ export const POST = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
     req,
   });
 
+  // Critical-result workflow (Module 02, Category 04): a critical finding
+  // raises an alert for the ordering clinician/hospital that must be
+  // acknowledged; the notification itself carries no clinical detail.
+  let criticalAlertId: string | null = null;
+  if (hasCriticalFinding) {
+    const order = data.labOrderId
+      ? await prisma.labOrder.findUnique({
+          where: { id: data.labOrderId },
+          select: { id: true, requestingFacilityId: true, orderedById: true },
+        })
+      : null;
+    if (order) {
+      const alert = await prisma.criticalResultAlert.create({
+        data: {
+          labResultId: labResult.id,
+          labOrderId: order.id,
+          patientId: patient.id,
+          orderingFacilityId: order.requestingFacilityId,
+          status: "SENT",
+        },
+        select: { id: true },
+      });
+      criticalAlertId = alert.id;
+      const recipientUserId = order.requestingFacilityId
+        ? (
+            await prisma.labStaffProfile
+              .findUnique({
+                where: { id: order.requestingFacilityId },
+                select: { user: { select: { id: true } } },
+              })
+              .then((f) => f?.user?.id)
+              .catch(() => undefined)
+          )
+        : order.orderedById;
+      if (recipientUserId) {
+        await notifyUser(recipientUserId, {
+          kind: "CRITICAL_RESULT_ALERTED",
+          alertId: alert.id,
+          orderId: order.id,
+        }).catch(() => undefined);
+      }
+    }
+  }
+
   const flagged = rows.filter((r) => r.flag === "LOW" || r.flag === "HIGH");
   return NextResponse.json(
     {
@@ -135,6 +235,7 @@ export const POST = withAuth(["LAB_SCIENTIST"], async (req, { user }) => {
       totalValues: rows.length,
       flaggedCount: flagged.length,
       flagged: flagged.map((r) => ({ code: r.code, name: r.name, value: r.value, flag: r.flag })),
+      criticalAlertId,
       status: analysed ? "ai_analysis_complete" : "pending_ai_analysis",
     },
     { status: 201 },

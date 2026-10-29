@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Icd10Picker, type Icd10Selection } from "@/components/doctor/icd10-picker";
+import { ConsultationTemplatePicker } from "@/components/doctor/consultation-tools";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -264,6 +265,18 @@ export default function DoctorConsultationsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <ConsultationTemplatePicker
+            onApply={scaffold => {
+              setHistoryPresentIllness(scaffold.history);
+              setExamination(scaffold.examination);
+              setNotes(scaffold.notes);
+            }}
+            getCurrent={() => ({
+              history: historyPresentIllness,
+              examination,
+              notes,
+            })}
+          />
           <div className="space-y-2">
             <Label htmlFor="chiefComplaint">Chief Complaint</Label>
             <Input
@@ -648,8 +661,7 @@ export default function DoctorConsultationsPage() {
       </Card>
 
       <p className="text-xs text-muted-foreground text-center pb-2">
-        The consultation report structure follows the electronic medical record format of the JEMYS hospital
-        information system (jemys.ru) — complaints, anamnesis, objective examination with vitals, diagnosis,
+        The consultation report structure follows the electronic medical record format of the Medic1905 standard — complaints, anamnesis, objective examination with vitals, diagnosis,
         laboratory and diagnostic findings, prescriptions, and treatment plan.
       </p>
     </div>

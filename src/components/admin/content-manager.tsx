@@ -12,9 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiClient } from "@/lib/api-client";
 
 interface Notice { id: string; text: string; active: boolean; createdAt: string }
-interface Ad { id: string; title: string; content: string; placement: "SIDEBAR" | "DASHBOARD" | "LOGIN"; active: boolean; createdAt: string }
+interface Ad { id: string; title: string; content: string; placement: "SIDEBAR" | "DASHBOARD" | "LOGIN" | "HOMEPAGE_CAROUSEL" | "HOMEPAGE_BANNER"; active: boolean; createdAt: string }
 
-const PLACEMENT = { SIDEBAR: "Sidebar", DASHBOARD: "Dashboard", LOGIN: "Login page" } as const;
+const PLACEMENT = { SIDEBAR: "Sidebar", DASHBOARD: "Dashboard", LOGIN: "Login page", HOMEPAGE_CAROUSEL: "Homepage carousel", HOMEPAGE_BANNER: "Homepage banner" } as const;
 
 export function ContentManager({ notices, ads }: { notices: Notice[]; ads: Ad[] }) {
   const router = useRouter();

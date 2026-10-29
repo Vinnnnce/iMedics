@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { badRequest } from "./errors";
-import { deleteObject, inspectObject } from "./storage";
+import { copyObject, deleteObject, inspectObject } from "./storage";
 import { DOCUMENT_KIND_KEYS, VERIFICATION_MIME_TYPES } from "./verification";
 
 export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024; // 15 MB
@@ -59,6 +59,83 @@ export async function verifyUpload(key: string, mimeType: string): Promise<{ siz
     throw badRequest("The uploaded file's content does not match its declared type");
   }
   return { sizeBytes };
+}
+
+/** Chat images are uploaded to a browser-writable staging key whose presigned
+ * PUT stays valid for minutes. Before a message stores the key, the verified
+ * content is copied to a server-only final key (same path, `final/` prefix) so
+ * the sender cannot replace the verified image afterwards. Returns the final key. */
+export async function finalizeChatImage(stagingKey: string, mimeType: string): Promise<string> {
+  const stagingPrefix = "chat-attachments/staging/";
+  if (!stagingKey.startsWith(stagingPrefix)) throw badRequest("This image was not uploaded for this conversation");
+
+  const inspected = await inspectObject(stagingKey);
+  if (inspected.sizeBytes < 1 || inspected.sizeBytes > MAX_UPLOAD_BYTES) {
+    await deleteObject(stagingKey);
+    throw badRequest("The uploaded file is empty or larger than 15 MB");
+  }
+  if (!SIGNATURES[mimeType]?.(inspected.head)) {
+    await deleteObject(stagingKey);
+    throw badRequest("The uploaded file's content does not match its declared type");
+  }
+
+  // A fresh destination on every finalization: a still-valid presigned staging
+  // URL cannot be re-uploaded and confirmed over an already-sent image.
+  const finalKey = `chat-attachments/final/${stagingKey.slice(stagingPrefix.length)}`;
+  await copyObject(stagingKey, finalKey, inspected.etag, mimeType);
+
+  // Re-verify the copied object: if anything raced, fail loudly and clean up.
+  const copied = await inspectObject(finalKey);
+  if (copied.sizeBytes !== inspected.sizeBytes || !SIGNATURES[mimeType]?.(copied.head)) {
+    await deleteObject(finalKey);
+    await deleteObject(stagingKey);
+    throw badRequest("Upload failed verification. Please upload the file again.");
+  }
+
+  await deleteObject(stagingKey);
+  return finalKey;
+}
+
+/** Diagnostic imaging: same immutable finalization as chat images, but the
+ * staging key is scoped to a facility booking and only the owning diagnostic
+ * centre can confirm. Returns the server-only final key and its verified size.
+ * The destination key is freshly generated per finalization, so replaying a
+ * confirmation (a still-valid presigned staging URL) can never overwrite an
+ * already-verified image — it lands on a new key.
+ */
+export async function finalizeDiagnosticImage(
+  stagingKey: string,
+  bookingId: string,
+  mimeType: string,
+): Promise<{ finalKey: string; sizeBytes: number }> {
+  const stagingPrefix = `diagnostic-images/staging/${bookingId}/`;
+  if (!stagingKey.startsWith(stagingPrefix)) throw badRequest("This image was not uploaded for this booking");
+
+  const inspected = await inspectObject(stagingKey);
+  if (inspected.sizeBytes < 1 || inspected.sizeBytes > MAX_UPLOAD_BYTES) {
+    await deleteObject(stagingKey);
+    throw badRequest("The uploaded file is empty or larger than 15 MB");
+  }
+  if (!SIGNATURES[mimeType]?.(inspected.head)) {
+    await deleteObject(stagingKey);
+    throw badRequest("The uploaded file's content does not match its declared type");
+  }
+
+  // A fresh, unpredictable destination on every finalization: a replayed
+  // confirmation writes a new object instead of clobbering a verified one.
+  const finalKey = `diagnostic-images/final/${bookingId}/${randomUUID()}`;
+  await copyObject(stagingKey, finalKey, inspected.etag, mimeType);
+
+  // Re-verify the copied object: if anything raced, fail loudly and clean up.
+  const copied = await inspectObject(finalKey);
+  if (copied.sizeBytes !== inspected.sizeBytes || !SIGNATURES[mimeType]?.(copied.head)) {
+    await deleteObject(finalKey);
+    await deleteObject(stagingKey);
+    throw badRequest("Upload failed verification. Please upload the file again.");
+  }
+
+  await deleteObject(stagingKey);
+  return { finalKey, sizeBytes: copied.sizeBytes };
 }
 
 /** Verification documents: same checks, but restricted to scans (no DICOM) and tagged with what the file is. */

@@ -60,6 +60,7 @@ export default function LoginPage() {
             appearance={clerkAppearance}
             routing="hash"
             signUpUrl="/auth/signup"
+            fallbackRedirectUrl="/"
           />
         </div>
 

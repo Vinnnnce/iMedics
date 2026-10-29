@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { User } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { findAccessiblePatient } from "@/lib/access";
+import { permissionsForRole } from "@/lib/facility-staff";
 import { writeAudit } from "@/lib/audit";
 import type { AccessibleDocument } from "@/lib/documents/shared";
 
@@ -75,6 +76,23 @@ export async function findAccessibleDocument(user: User, documentId: string): Pr
     // documents. Out of scope is indistinguishable from non-existent (404).
     throw Object.assign(new Error("Document not found"), { status: 404 });
   }
+
+  // Facility staff: may read documents their own facility issued (with the
+  // VIEW_PATIENT_DOCUMENTS permission). Read-only — they cannot manage shares.
+  if (document.issuingFacilityId && user.status === "ACTIVE") {
+    const membership = await prisma.facilityStaff.findFirst({
+      where: {
+        userId: user.id,
+        facilityId: document.issuingFacilityId,
+        status: { in: ["ACTIVE", "ON_LEAVE"] },
+      },
+      select: { id: true, facilityRole: true },
+    });
+    if (membership && permissionsForRole(membership.facilityRole).includes("VIEW_PATIENT_DOCUMENTS")) {
+      return { document, canManage: false };
+    }
+  }
+
   throw Object.assign(new Error("Document not found"), { status: 404 });
 }
 
