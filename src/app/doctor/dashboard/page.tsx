@@ -14,6 +14,8 @@ import { SuggestionsCard } from "@/components/shared/suggestions-card";
 import { doctorSuggestions } from "@/lib/suggestions";
 import { loadWorkspace } from "@/lib/workspace/data";
 import { listUnreadNotifications } from "@/lib/data/notifications";
+import { ProfileCompletenessCard } from "@/components/shared/profile-completeness-card";
+import { doctorCompleteness } from "@/lib/profile-completeness";
 
 export default async function DoctorDashboardPage() {
   const user = await requirePageRole("DOCTOR");
@@ -24,7 +26,7 @@ export default async function DoctorDashboardPage() {
   const dayStart = clinicInstant(today, 0);
   const dayEnd = clinicInstant(today, 24 * 60);
 
-  const [pendingBookings, activePatients, consultationsToday, aiToReview, upcoming, notifications, workspace] = await Promise.all([
+  const [pendingBookings, activePatients, consultationsToday, aiToReview, upcoming, notifications, workspace, scheduleCount, portfolioCount] = await Promise.all([
     prisma.appointment.count({ where: { AND: [{ doctorId: doctor.id, status: "BOOKED", scheduledAt: { gte: new Date() } }, visibleToDoctor] } }),
     prisma.patientAssignment.count({ where: { doctorId: doctor.id, status: "ACTIVE", patient: { deletedAt: null } } }),
     prisma.consultation.count({ where: { doctorId: doctor.id, createdAt: { gte: dayStart, lt: dayEnd } } }),
@@ -37,7 +39,21 @@ export default async function DoctorDashboardPage() {
     }),
     listUnreadNotifications(user.id),
     loadWorkspace(user),
+    prisma.doctorSchedule.count({ where: { doctorId: doctor.id } }),
+    prisma.doctorPortfolioItem.count({ where: { doctorId: doctor.id } }),
   ]);
+
+  const completeness = doctorCompleteness({
+    avatarUrl: user.avatarUrl,
+    specialty: doctor.specialty,
+    biography: doctor.biography,
+    education: doctor.education,
+    languages: doctor.languages,
+    location: doctor.location,
+    consultationFee: doctor.consultationFee,
+    scheduleCount,
+    portfolioCount,
+  });
 
   const suggestionItems = doctorSuggestions({
     pendingBookings,
@@ -73,6 +89,8 @@ export default async function DoctorDashboardPage() {
           <BadgeCheck className="h-3 w-3 mr-1" /> Verified
         </Badge>
       </div>
+
+      <ProfileCompletenessCard completeness={completeness} title="Complete your public profile" />
 
       <NotificationsCard items={notifications.map((n) => ({ ...n, createdAt: n.createdAt.toISOString() }))} />
 

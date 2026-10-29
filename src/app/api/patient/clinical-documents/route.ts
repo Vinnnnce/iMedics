@@ -9,12 +9,12 @@ export const GET = withAuth(["PATIENT"], async (req, { user }) => {
   const patient = await prisma.patient.findFirst({ where: { userId: user.id, deletedAt: null }, select: { id: true } });
   if (!patient) return NextResponse.json({ documents: [], media: [] });
   const [documents, media] = await Promise.all([
-    prisma.clinicalDocument.findMany({
+    prisma.clinicalDocument.findMany({ take: 200,
       where: { patientId: patient.id, releasedToPatientAt: { not: null }, status: { in: ["FINAL", "AMENDED"] } },
       orderBy: { finalizedAt: "desc" },
       select: { id: true, documentNumber: true, title: true, groupCode: true, status: true, finalizedAt: true, facility: { select: { laboratoryName: true } } },
     }),
-    prisma.medicalMedia.findMany({
+    prisma.medicalMedia.findMany({ take: 200,
       where: { patientId: patient.id, releasedToPatientAt: { not: null }, deletedAt: null },
       orderBy: { createdAt: "desc" },
       select: { id: true, category: true, examinationType: true, examinationAt: true, fileName: true, reportStatus: true, facility: { select: { laboratoryName: true } } },

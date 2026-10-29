@@ -17,11 +17,11 @@ export default async function DoctorRecordsPage() {
   const doctor = await getVerifiedDoctorProfile(user);
 
   const [assignedPatients, shared] = await Promise.all([
-    prisma.patient.findMany({
+    prisma.patient.findMany({ take: 500,
       where: { deletedAt: null, assignments: { some: { doctorId: doctor.id } } },
       select: { id: true, firstName: true, lastName: true },
     }),
-    prisma.documentShare.findMany({
+    prisma.documentShare.findMany({ take: 500,
       where: { sharedWithUserId: user.id, revokedAt: null, document: { deletedAt: null } },
       include: { document: { include: { patient: true } } },
     }),

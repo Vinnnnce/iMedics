@@ -45,7 +45,7 @@ export const GET = withAuth(["PATIENT", "DOCTOR", "ADMIN"], async (req, { user }
   const id = await resolvePatientId(user, patientId);
 
   const [reminders, doses, adherence] = await Promise.all([
-    prisma.medicationReminder.findMany({ where: { patientId: id, active: true }, orderBy: { createdAt: "desc" } }),
+    prisma.medicationReminder.findMany({ take: 100, where: { patientId: id, active: true }, orderBy: { createdAt: "desc" } }),
     todaysDoses(id),
     adherenceSummary(id),
   ]);

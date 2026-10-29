@@ -35,6 +35,7 @@ export type NotificationEvent =
   | { kind: "SUBSCRIPTION_UPDATED" }
   | { kind: "DISPUTE_UPDATED"; paymentId: string }
   | { kind: "CONSULTATION_AVAILABLE" }
+  | { kind: "CONSULTATION_AMENDED"; consultationId: string }
   | { kind: "REVIEW_SUBMITTED"; reviewId: string }
   | { kind: "REVIEW_RESPONSE"; reviewId: string }
   | { kind: "VERIFICATION_UPDATED" }
@@ -103,6 +104,8 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
       return { type: "PAYMENT", title: "Payment dispute updated", body: "There is an update about a payment dispute. Sign in to review it.", href: `/payments/${event.paymentId}`, data: { paymentId: event.paymentId } };
     case "CONSULTATION_AVAILABLE":
       return { type: "APPOINTMENT", title: "Consultation available", body: "A consultation update is available in your account.", href: "/doctor/consultations", data: {} };
+    case "CONSULTATION_AMENDED":
+      return { type: "SYSTEM", title: "Consultation report updated", body: "Your doctor updated a consultation report. Sign in to read the latest version.", href: "/patient/consult", data: { consultationId: event.consultationId } };
     case "REVIEW_SUBMITTED":
       return { type: "SYSTEM", title: "New review received", body: "A patient has left a review. Sign in to read it.", href: "/doctor/dashboard", data: { reviewId: event.reviewId } };
     case "REVIEW_RESPONSE":

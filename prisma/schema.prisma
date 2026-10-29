@@ -154,6 +154,7 @@ model DoctorProfile {
 
   @@index([specialty])
   @@index([verificationStatus])
+  @@index([verificationStatus, ratingAvg(sort: Desc), ratingCount(sort: Desc)], map: "doctor_profiles_top_rated_idx")
   @@map("doctor_profiles")
 }
 
@@ -219,6 +220,7 @@ model LabStaffProfile {
   accreditations          FacilityAccreditation[]
   documentTemplates       FacilityDocumentTemplate[]
   issuedDocuments         PatientDocument[]         @relation("IssuingFacility")
+  documentShares          DocumentFacilityShare[]   @relation("FacilityDocumentShares")
   reviews                 FacilityReview[]
   /// Organization type of this facility, denormalized from the owner's account type at creation.
   kind                    FacilityKind?
@@ -233,6 +235,7 @@ model LabStaffProfile {
   criticalAlertsOrdered   CriticalResultAlert[]    @relation("CriticalAlertOrderingFacility")
 
   @@index([verificationStatus])
+  @@index([isPublished, verificationStatus, kind, ratingAvg(sort: Desc)], map: "lab_staff_profiles_top_rated_idx")
   @@map("lab_staff_profiles")
 }
 
@@ -473,8 +476,12 @@ model Consultation {
   notes                 String?
   status                ConsultationStatus     @default(DRAFT)
   finalizedAt           DateTime?              @map("finalized_at")
+  /// Starts at 1; every amendment of a finalized report increments it.
+  revision              Int                    @default(1)
+  amendedAt             DateTime?              @map("amended_at")
   createdAt             DateTime               @default(now()) @map("created_at")
   updatedAt             DateTime               @updatedAt @map("updated_at")
+  revisions             ConsultationRevision[]
   aiAnalysis            AiAnalysis?
   clinicalNotes         ClinicalNote[]
   /// The single ICD-10 code for this consultation.
@@ -488,6 +495,8 @@ model Consultation {
 
   @@index([patientId])
   @@index([doctorId])
+  @@index([doctorId, status, updatedAt])
+  @@index([patientId, status, finalizedAt])
   @@map("consultations")
 }
 
@@ -1105,9 +1114,19 @@ model Ad {
   content   String
   placement AdPlacement @default(SIDEBAR)
   active    Boolean     @default(true)
+  /// Optional https image shown with the ad (landing-page carousel / banner).
+  imageUrl  String?     @map("image_url") @db.VarChar(500)
+  /// Optional https destination opened when the ad is clicked.
+  linkUrl   String?     @map("link_url") @db.VarChar(500)
+  /// Optional schedule: the ad is only shown inside this window.
+  startsAt  DateTime?   @map("starts_at")
+  endsAt    DateTime?   @map("ends_at")
+  /// Lower numbers are shown first.
+  sortOrder Int         @default(0) @map("sort_order")
   createdAt DateTime    @default(now()) @map("created_at")
   updatedAt DateTime    @updatedAt @map("updated_at")
 
+  @@index([placement, active, sortOrder])
   @@map("ads")
 }
 
@@ -2149,8 +2168,10 @@ model PatientDocument {
   uploader        User             @relation("PatientDocumentUploaded", fields: [uploadedById], references: [id])
   issuingFacilityRef LabStaffProfile? @relation("IssuingFacility", fields: [issuingFacilityId], references: [id])
   shares          DocumentShare[]
+  facilityShares  DocumentFacilityShare[]
 
   @@index([patientId, createdAt])
+  @@index([issuingFacilityId, createdAt])
   @@map("patient_documents")
 }
 
@@ -3163,4 +3184,111 @@ model MedicalMedia {
   @@index([patientId, createdAt(sort: Desc)])
   @@index([patientId, sha256])
   @@map("medical_media")
+}
+
+/// A snapshot of a consultation report taken just before it was amended.
+/// Revision N holds the content that was current as revision N.
+model ConsultationRevision {
+  id             String       @id @default(uuid()) @db.Uuid
+  consultationId String       @map("consultation_id") @db.Uuid
+  revision       Int
+  snapshot       Json
+  reason         String?      @db.VarChar(500)
+  editedById     String       @map("edited_by_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at")
+  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  @@unique([consultationId, revision])
+  @@index([consultationId])
+  @@map("consultation_revisions")
+}
+
+/// A patient's grant letting a whole facility (not one staff user) see a
+/// document. Staff access is still limited by their facility permissions.
+model DocumentFacilityShare {
+  id          String          @id @default(uuid()) @db.Uuid
+  documentId  String          @map("document_id") @db.Uuid
+  facilityId  String          @map("facility_id") @db.Uuid
+  grantedById String          @map("granted_by_id") @db.Uuid
+  grantedAt   DateTime        @default(now()) @map("granted_at")
+  revokedAt   DateTime?       @map("revoked_at")
+  document    PatientDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  facility    LabStaffProfile @relation("FacilityDocumentShares", fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, facilityId])
+  @@index([facilityId, revokedAt])
+  @@map("document_facility_shares")
+}
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+/// A news article published on the platform (managed by admins).
+model NewsArticle {
+  id            String        @id @default(uuid()) @db.Uuid
+  slug          String        @unique @db.VarChar(160)
+  title         String        @db.VarChar(200)
+  summary       String?       @db.VarChar(500)
+  body          String
+  coverImageUrl String?       @map("cover_image_url") @db.VarChar(500)
+  authorName    String?       @map("author_name") @db.VarChar(120)
+  status        PublishStatus @default(DRAFT)
+  publishedAt   DateTime?     @map("published_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  @@index([status, publishedAt(sort: Desc)])
+  @@map("news_articles")
+}
+
+/// A podcast episode published on the platform (managed by admins).
+model PodcastEpisode {
+  id              String        @id @default(uuid()) @db.Uuid
+  slug            String        @unique @db.VarChar(160)
+  title           String        @db.VarChar(200)
+  description     String
+  audioUrl        String?       @map("audio_url") @db.VarChar(500)
+  coverImageUrl   String?       @map("cover_image_url") @db.VarChar(500)
+  durationSeconds Int?          @map("duration_seconds")
+  episodeNumber   Int?          @map("episode_number")
+  status          PublishStatus @default(DRAFT)
+  publishedAt     DateTime?     @map("published_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  @@index([status, publishedAt(sort: Desc)])
+  @@map("podcast_episodes")
+}
+
+enum ProfileReportStatus {
+  OPEN
+  REVIEWED
+  DISMISSED
+}
+
+enum ProfileReportTarget {
+  DOCTOR
+  FACILITY
+}
+
+/// A signed-in user's report of a doctor or facility profile for admin review.
+model ProfileReport {
+  id          String              @id @default(uuid()) @db.Uuid
+  reporterId  String              @map("reporter_id") @db.Uuid
+  targetType  ProfileReportTarget @map("target_type")
+  targetId    String              @map("target_id") @db.Uuid
+  reason      String              @db.VarChar(40)
+  details     String?             @db.VarChar(1000)
+  status      ProfileReportStatus @default(OPEN)
+  createdAt   DateTime            @default(now()) @map("created_at")
+  reviewedAt  DateTime?           @map("reviewed_at")
+  reviewedById String?            @map("reviewed_by_id") @db.Uuid
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([targetType, targetId])
+  @@index([reporterId, targetType, targetId, status])
+  @@map("profile_reports")
 }

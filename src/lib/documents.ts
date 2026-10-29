@@ -30,70 +30,87 @@ export function documentStorageKey(patientId: string, fileName: string): string 
   return `patient-documents/${patientId}/${randomUUID()}.${safeExt}`;
 }
 
+const notFoundDocument = () => Object.assign(new Error("Document not found"), { status: 404 });
+
+/**
+ * The facilities whose patient documents this user may read: the facility they
+ * own, plus every facility where their staff role grants VIEW_PATIENT_DOCUMENTS.
+ */
+export async function facilitiesWithDocumentAccess(user: User): Promise<string[]> {
+  if (user.status !== "ACTIVE") return [];
+  const [own, memberships] = await Promise.all([
+    prisma.labStaffProfile.findUnique({ where: { userId: user.id }, select: { id: true } }),
+    prisma.facilityStaff.findMany({
+      where: { userId: user.id, status: { in: ["ACTIVE", "ON_LEAVE"] } },
+      select: { facilityId: true, facilityRole: true },
+      take: 20,
+    }),
+  ]);
+  const ids = new Set<string>();
+  if (own) ids.add(own.id);
+  for (const m of memberships) {
+    if (permissionsForRole(m.facilityRole).includes("VIEW_PATIENT_DOCUMENTS")) ids.add(m.facilityId);
+  }
+  return [...ids];
+}
+
 /**
  * Resolve a document for the caller or throw 404. Patients can see their own
- * documents and documents clinicians attached for them; clinicians can see
- * documents of patients assigned to them; shared recipients see documents shared
- * with them (read-only).
+ * documents; clinicians can see documents of patients assigned to them or that
+ * they uploaded; facility staff can read documents their facility issued and
+ * documents a patient shared with their facility (read-only); individual share
+ * recipients see documents shared with them (read-only). Admins never have access.
  */
 export async function findAccessibleDocument(user: User, documentId: string): Promise<AccessibleDocument> {
   const document = await prisma.patientDocument.findUnique({
     where: { id: documentId },
     include: { patient: { include: { user: true } } },
   });
-  if (!document || document.deletedAt) throw Object.assign(new Error("Document not found"), { status: 404 });
+  if (!document || document.deletedAt) throw notFoundDocument();
 
-  if (user.role === "PATIENT") {
-    if (document.patient.userId !== user.id) throw Object.assign(new Error("Document not found"), { status: 404 });
+  // Per platform policy, admins have no access to patient records — including
+  // documents. Out of scope is indistinguishable from non-existent (404).
+  if (user.role === "ADMIN") throw notFoundDocument();
+
+  if (user.role === "PATIENT" && document.patient.userId === user.id) {
     return { document, canManage: true };
   }
 
-  if (user.role === "DOCTOR" || user.role === "LAB_SCIENTIST") {
-    // Clinicians: assigned patients (doctors) or their own uploads.
-    const share = await prisma.documentShare.findFirst({
-      where: { documentId, sharedWithUserId: user.id, revokedAt: null },
-    });
-    let assigned = false;
-    if (user.role === "DOCTOR") {
-      const doctor = await prisma.doctorProfile.findUnique({ where: { userId: user.id } });
-      if (doctor) {
-        const assignment = await prisma.patientAssignment.findFirst({
-          where: { patientId: document.patientId, doctorId: doctor.id },
-          select: { id: true },
-        });
-        assigned = Boolean(assignment);
-      }
+  let canManage = document.uploadedById === user.id;
+  if (user.role === "DOCTOR") {
+    const doctor = await prisma.doctorProfile.findUnique({ where: { userId: user.id }, select: { id: true } });
+    if (doctor) {
+      const assignment = await prisma.patientAssignment.findFirst({
+        where: { patientId: document.patientId, doctorId: doctor.id },
+        select: { id: true },
+      });
+      if (assignment) canManage = true;
     }
-    if (document.uploadedById === user.id || assigned) {
-      return { document, canManage: assigned || document.uploadedById === user.id };
-    }
-    if (share) return { document, canManage: false };
-    throw Object.assign(new Error("Document not found"), { status: 404 });
   }
+  if (canManage) return { document, canManage: true };
 
-  if (user.role === "ADMIN") {
-    // Per platform policy, admins have no access to patient records — including
-    // documents. Out of scope is indistinguishable from non-existent (404).
-    throw Object.assign(new Error("Document not found"), { status: 404 });
-  }
-
-  // Facility staff: may read documents their own facility issued (with the
-  // VIEW_PATIENT_DOCUMENTS permission). Read-only — they cannot manage shares.
-  if (document.issuingFacilityId && user.status === "ACTIVE") {
-    const membership = await prisma.facilityStaff.findFirst({
-      where: {
-        userId: user.id,
-        facilityId: document.issuingFacilityId,
-        status: { in: ["ACTIVE", "ON_LEAVE"] },
-      },
-      select: { id: true, facilityRole: true },
-    });
-    if (membership && permissionsForRole(membership.facilityRole).includes("VIEW_PATIENT_DOCUMENTS")) {
+  // Facility staff (including staff whose platform role is PATIENT): issued by
+  // their facility, or shared by the patient with their facility. Read-only.
+  const facilityIds = await facilitiesWithDocumentAccess(user);
+  if (facilityIds.length > 0) {
+    if (document.issuingFacilityId && facilityIds.includes(document.issuingFacilityId)) {
       return { document, canManage: false };
     }
+    const facilityShare = await prisma.documentFacilityShare.findFirst({
+      where: { documentId, facilityId: { in: facilityIds }, revokedAt: null },
+      select: { id: true },
+    });
+    if (facilityShare) return { document, canManage: false };
   }
 
-  throw Object.assign(new Error("Document not found"), { status: 404 });
+  // An individual share to this user (read-only).
+  const share = await prisma.documentShare.findFirst({
+    where: { documentId, sharedWithUserId: user.id, revokedAt: null },
+    select: { id: true },
+  });
+  if (share) return { document, canManage: false };
+
+  throw notFoundDocument();
 }
 
 /** Resolve the patient a document belongs to for a doctor caller (assignment check). */

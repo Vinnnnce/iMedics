@@ -5,7 +5,33 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+/**
+ * Collects `value -> label` from the SelectItem elements declared inside a
+ * Select. Base UI shows the raw value (e.g. a UUID) in the trigger unless it
+ * is told what each value is called, so the label is derived here once and
+ * every dropdown shows "Ada Obi — MC-7K3Q9XPD" instead of an internal ID.
+ */
+function collectItemLabels(children: React.ReactNode, found: Record<string, React.ReactNode> = {}) {
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement(child)) return;
+    const props = child.props as { value?: unknown; children?: React.ReactNode };
+    if (child.type === SelectItem && typeof props.value === "string") {
+      found[props.value] = props.children;
+    } else if (props.children) {
+      collectItemLabels(props.children, found);
+    }
+  });
+  return found;
+}
+
+/** Select that labels its selected value from its SelectItem children. */
+function Select<Value = string, Multiple extends boolean | undefined = false>(
+  props: SelectPrimitive.Root.Props<Value, Multiple>
+) {
+  const { items, children } = props;
+  const labels = React.useMemo(() => items ?? collectItemLabels(children), [items, children]);
+  return <SelectPrimitive.Root<Value, Multiple> {...props} items={labels as typeof items} />;
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (

@@ -27,7 +27,7 @@ export default async function PatientPortfolioPage({ params }: { params: Promise
     prisma.admission.findMany({ where: { facilityId: fid, patientId: id }, orderBy: { admissionDate: "desc" }, take: 50, select: { id: true, admissionDate: true, dischargeDate: true, status: true, ward: true, workingDiagnosis: true } }),
     prisma.clinicalDocument.findMany({ where: { facilityId: fid, patientId: id }, orderBy: { createdAt: "desc" }, take: 200, select: { id: true, documentNumber: true, title: true, groupCode: true, status: true, createdAt: true, sensitivity: true, releasedToPatientAt: true } }),
     prisma.medicalMedia.findMany({ where: { facilityId: fid, patientId: id, deletedAt: null }, orderBy: { createdAt: "desc" }, take: 100, select: { id: true, category: true, examinationType: true, createdAt: true, reportStatus: true, isTherapyRecord: true } }),
-    can("MANAGE_INSURANCE") ? prisma.payerCoverage.findMany({ where: { facilityId: fid, patientId: id }, orderBy: { createdAt: "desc" } }) : Promise.resolve([]),
+    can("MANAGE_INSURANCE") ? prisma.payerCoverage.findMany({ take: 200, where: { facilityId: fid, patientId: id }, orderBy: { createdAt: "desc" } }) : Promise.resolve([]),
     can("VIEW_AUDIT") ? prisma.auditLog.findMany({ where: { facilityId: fid, patientId: id }, orderBy: { createdAt: "desc" }, take: 50, select: { id: true, action: true, createdAt: true, user: { select: { name: true } } } }) : Promise.resolve([]),
   ]);
   if (!patient) notFound();

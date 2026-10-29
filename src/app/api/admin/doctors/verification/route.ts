@@ -5,7 +5,7 @@ import { withAuth } from "@/lib/api";
 // GET /api/admin/doctors/verification — every doctor with their per-dimension verification state.
 // Evidence documents are not included; they stay in the admin document viewer.
 export const GET = withAuth(["ADMIN"], async () => {
-  const doctors = await prisma.doctorProfile.findMany({
+  const doctors = await prisma.doctorProfile.findMany({ take: 500,
     select: {
       userId: true,
       verificationStatus: true,

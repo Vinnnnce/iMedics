@@ -69,7 +69,7 @@ export const GET = withAuth<{ id: string }>(["PATIENT", "DOCTOR", "ADMIN"], asyn
 
   // Payments belong to this episode either directly (case_id) or through the
   // appointment that a consultation of this case was recorded against.
-  const episodePayments = await prisma.payment.findMany({
+  const episodePayments = await prisma.payment.findMany({ take: 200,
     where: {
       OR: [
         { caseId: id },

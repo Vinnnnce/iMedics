@@ -12,7 +12,7 @@ import { displayValue } from "./documents";
  * watermark so a PDF can never look signed or verified when it is not.
  */
 
-const PAGE_SIZES: Record<string, [number, number]> = { A4: [595.28, 841.89], LETTER: [612, 792], A5: [419.53, 595.28] };
+export const PAGE_SIZES: Record<string, [number, number]> = { A4: [595.28, 841.89], LETTER: [612, 792], A5: [419.53, 595.28] };
 const SIGNATURE_ROLE_LABEL: Record<string, string> = {
   AUTHOR: "Author / responsible clinician", CO_SIGNER: "Co-signatory", REVIEWER: "Reviewer", VERIFIER: "Verifying clinician",
   DEPARTMENT_HEAD: "Head of department", PATIENT: "Patient", AUTHORIZED_REPRESENTATIVE: "Authorized representative",
@@ -24,7 +24,7 @@ const METHOD_LABEL: Record<string, string> = {
 };
 
 let fontCache: { regular: Uint8Array; bold: Uint8Array } | null = null;
-async function fonts() {
+export async function loadPdfFonts() {
   if (!fontCache) {
     const dir = path.join(process.cwd(), "assets", "fonts");
     const [regular, bold] = await Promise.all([readFile(path.join(dir, "DejaVuSans.ttf")), readFile(path.join(dir, "DejaVuSans-Bold.ttf"))]);
@@ -35,7 +35,7 @@ async function fonts() {
 
 const fmt = (iso: string | null) => (iso ? new Date(iso).toISOString().replace("T", " ").slice(0, 16) + " UTC" : "—");
 
-class Writer {
+export class Writer {
   page!: PDFPage;
   y = 0;
   pages: PDFPage[] = [];
@@ -104,7 +104,7 @@ class Writer {
 export async function renderDocumentsPdf(views: DocumentView[], options: { manifestTitle?: string } = {}): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.registerFontkit(fontkit);
-  const f = await fonts();
+  const f = await loadPdfFonts();
   const font = await pdf.embedFont(f.regular, { subset: true });
   const bold = await pdf.embedFont(f.bold, { subset: true });
   pdf.setProducer("Medic1905 HIS");

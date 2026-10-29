@@ -2,52 +2,35 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withAuth, parseQuery } from "@/lib/api";
 import { requireFacilityAccess } from "@/lib/facility-auth";
-import { prisma } from "@/lib/prisma";
+import { DOCUMENT_CATEGORIES } from "@/lib/documents/shared";
+import { FACILITY_DOCUMENT_SCOPES, listFacilityDocuments } from "@/lib/facility-documents";
 
 const querySchema = z.object({
   facilityId: z.string().uuid().optional(),
   patient: z.string().trim().max(100).optional(),
+  scope: z.enum(FACILITY_DOCUMENT_SCOPES).optional(),
+  category: z.enum(DOCUMENT_CATEGORIES).optional(),
+  cursor: z.string().uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 
 /**
- * GET /api/facility/documents — patient documents issued by the caller's
- * facility (VIEW_PATIENT_DOCUMENTS permission). Returns metadata only:
- * storage keys never leave the server. Read-only view of what the facility
- * has issued and to which patients.
+ * GET /api/facility/documents — patient documents the caller's facility may
+ * read (VIEW_PATIENT_DOCUMENTS permission): those it issued and those patients
+ * shared with it. Paginated with a cursor (`nextCursor` is null on the last
+ * page). Metadata only: storage keys never leave the server.
  */
-export const GET = withAuth(["DOCTOR", "ADMIN", "LAB_SCIENTIST"], async (req, { user }) => {
+export const GET = withAuth(["PATIENT", "DOCTOR", "ADMIN", "LAB_SCIENTIST"], async (req, { user }) => {
   const query = parseQuery(req, querySchema);
   const { facility } = await requireFacilityAccess(user, "VIEW_PATIENT_DOCUMENTS", req);
 
-  const documents = await prisma.patientDocument.findMany({
-    where: {
-      issuingFacilityId: facility.id,
-      deletedAt: null,
-      ...(query.patient
-        ? {
-            patient: {
-              OR: [
-                { firstName: { contains: query.patient, mode: "insensitive" } },
-                { lastName: { contains: query.patient, mode: "insensitive" } },
-                { caseNumber: { contains: query.patient, mode: "insensitive" } },
-              ],
-            },
-          }
-        : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-    select: {
-      id: true,
-      category: true,
-      title: true,
-      issuedOn: true,
-      notes: true,
-      createdAt: true,
-      patient: { select: { id: true, firstName: true, lastName: true, caseNumber: true } },
-      uploader: { select: { name: true } },
-    },
+  const result = await listFacilityDocuments({
+    facilityId: facility.id,
+    scope: query.scope,
+    category: query.category,
+    patient: query.patient,
+    cursor: query.cursor,
+    limit: query.limit,
   });
-
-  return NextResponse.json({ documents });
+  return NextResponse.json(result);
 });

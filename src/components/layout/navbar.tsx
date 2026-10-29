@@ -8,10 +8,11 @@ import { useMe } from "@/lib/use-me";
 import { useUser } from "@clerk/nextjs";
 import { useTheme } from "@/components/theme-provider";
 import { Footer } from "@/components/layout/footer";
+import { ADMIN_LINKS } from "@/components/admin/admin-links";
 import { NotificationCenter } from "@/components/shared/notification-center";
 import {
   Search, Sun, Moon, Menu, X, Home, Stethoscope, Users,
-  FlaskConical, Heart, Sparkles, User, Shield, Globe, HeartPulse,
+  FlaskConical, Heart, Sparkles, User, Globe, HeartPulse,
   Calendar, FileText, Video, MessageSquare, Building2,
   ClipboardList, Upload, LayoutDashboard, ArrowRight, Receipt, Wallet, Tags, PanelLeftClose,
   FolderOpen, BellRing, ShieldCheck, Settings, BedDouble, SearchCheck, Bell, Star, Briefcase,
@@ -153,13 +154,59 @@ const DOCTOR_AI_SUGGESTIONS = [
   { text: "AI case history analysis", icon: FileText, category: "ai" },
 ];
 
-const FILTER_CHIPS = [
+const ADMIN_SUGGESTIONS = [
+  { text: "Review pending verifications", icon: ShieldCheck, category: "verification" },
+  { text: "Manage users", icon: Users, category: "users" },
+  { text: "Check payments", icon: Receipt, category: "payments" },
+  { text: "Manage ads and notices", icon: Globe, category: "content" },
+];
+
+const FACILITY_SUGGESTIONS = [
+  { text: "Open patient documents", icon: FolderOpen, category: "documents" },
+  { text: "Manage document templates", icon: FileText, category: "templates" },
+  { text: "View bookings", icon: Calendar, category: "bookings" },
+  { text: "Reply to reviews", icon: Star, category: "reviews" },
+];
+
+type FilterChip = { label: string; value: string };
+
+const PATIENT_CHIPS: FilterChip[] = [
   { label: "All", value: "all" },
   { label: "Doctors", value: "doctors" },
-  { label: "Patients", value: "patients" },
   { label: "Lab Results", value: "labs" },
   { label: "Appointments", value: "appointments" },
   { label: "Prescriptions", value: "prescriptions" },
+];
+const DOCTOR_CHIPS: FilterChip[] = [
+  { label: "All", value: "all" },
+  { label: "Patients", value: "patients" },
+  { label: "Consultations", value: "consultations" },
+  { label: "Prescriptions", value: "prescriptions" },
+];
+const FACILITY_CHIPS: FilterChip[] = [
+  { label: "All", value: "all" },
+  { label: "Patients", value: "patients" },
+  { label: "Documents", value: "documents" },
+  { label: "Bookings", value: "bookings" },
+];
+const ADMIN_CHIPS: FilterChip[] = [
+  { label: "All", value: "all" },
+  { label: "Users", value: "users" },
+  { label: "Payments", value: "payments" },
+  { label: "Verifications", value: "verification" },
+];
+
+/** Shared by every facility user: the only non-module links they need. */
+const FACILITY_COMMON_NAV: NavItem[] = [
+  { href: "/emergency", label: "Emergency", icon: HeartPulse, roles: ["FACILITY"] },
+  { href: "/payments", label: "Payments", icon: Wallet, roles: ["FACILITY"] },
+  { href: "/settings", label: "Settings", icon: Settings, roles: ["FACILITY"] },
+  { href: "/profile", label: "Profile", icon: User, roles: ["FACILITY"] },
+];
+
+const ADMIN_NAV: NavItem[] = [
+  ...ADMIN_LINKS.map((l) => ({ href: l.href, label: l.label, icon: l.icon, roles: ["ADMIN"] })),
+  { href: "/settings", label: "Settings", icon: Settings, roles: ["ADMIN"] },
 ];
 
 export function Navbar({ children }: { children: React.ReactNode }) {
@@ -198,21 +245,27 @@ export function Navbar({ children }: { children: React.ReactNode }) {
    * context: the /api/me response computes the facility kind and permissions
    * server-side, and the target pages still enforce everything independently.
    */
+  const isFacilityUser = Boolean(me?.facility) && (role === "PATIENT" || role === "LAB_SCIENTIST");
   const visibleNavItems = useMemo(() => {
-    const base =
-      role === "DOCTOR" ? DOCTOR_NAV : role === "LAB_SCIENTIST" ? LAB_NAV : PATIENT_NAV;
-    // Facility staff whose platform role is PATIENT still get the workspace
-    // module links: the facility context is resolved server-side in /api/me.
-    const items =
-      role === "PATIENT" && me?.facility
-        ? [FACILITY_DASHBOARD_ITEM, ...FACILITY_MODULE_ITEMS, ...base]
-        : base;
+    // Every account type gets exactly its own menu: nothing from another
+    // role's workspace is ever mixed in.
+    if (role === "ADMIN") return ADMIN_NAV;
 
-    const filtered = items.filter((item) => {
+    const facility = me?.facility ?? null;
+    let items: NavItem[];
+    if (role === "DOCTOR") items = DOCTOR_NAV;
+    else if (role === "LAB_SCIENTIST") items = LAB_NAV;
+    else if (facility) {
+      // Facility staff whose platform role is PATIENT: workspace links only.
+      items = [FACILITY_DASHBOARD_ITEM, ...FACILITY_MODULE_ITEMS, ...FACILITY_COMMON_NAV];
+    } else items = PATIENT_NAV;
+
+    return items.filter((item) => {
       if (!item.roles.includes("FACILITY")) return item.roles.includes(role);
-      const facility = me?.facility;
       if (!facility) return false;
-      if (!KIND_MODULE_HREFS[facility.kind].includes(item.href)) return false;
+      // Common facility links (no permission, not a module) always show.
+      const isModule = item.href.startsWith("/lab/") && item.href !== "/lab/dashboard";
+      if (isModule && !KIND_MODULE_HREFS[facility.kind].includes(item.href)) return false;
       if (
         facility.facilityRole !== "OWNER" &&
         item.permission &&
@@ -222,15 +275,17 @@ export function Navbar({ children }: { children: React.ReactNode }) {
       }
       return true;
     });
-
-    // The admin panel link is shown only to accounts the server has granted the ADMIN role.
-    if (role === "ADMIN") {
-      filtered.push({ href: "/admin", label: "Admin Panel", icon: Shield, roles: [role] });
-    }
-    return filtered;
   }, [role, me]);
   const navItems = visibleNavItems;
   const bottomNav = useMemo(() => {
+    if (role === "ADMIN") {
+      return [
+        { href: "/admin", label: "Home", icon: Home, roles: [role] },
+        { href: "/admin/verifications", label: "Verify", icon: ShieldCheck, roles: [role] },
+        { href: "/admin/users", label: "Users", icon: Users, roles: [role] },
+        { href: "/admin/payments", label: "Payments", icon: Receipt, roles: [role] },
+      ] as NavItem[];
+    }
     const facility = me?.facility;
     if (facility && (role === "PATIENT" || role === "LAB_SCIENTIST")) {
       // Facility users: quick links to their workspace modules by kind.
@@ -249,7 +304,30 @@ export function Navbar({ children }: { children: React.ReactNode }) {
     }
     return BOTTOM_NAV_ITEMS.filter((item) => item.roles.includes(role));
   }, [me?.facility, role]);
-  const suggestions = role === "DOCTOR" ? DOCTOR_AI_SUGGESTIONS : AI_SUGGESTIONS;
+  const suggestions =
+    role === "ADMIN"
+      ? ADMIN_SUGGESTIONS
+      : isFacilityUser || role === "LAB_SCIENTIST"
+        ? FACILITY_SUGGESTIONS
+        : role === "DOCTOR"
+          ? DOCTOR_AI_SUGGESTIONS
+          : AI_SUGGESTIONS;
+  const filterChips =
+    role === "ADMIN"
+      ? ADMIN_CHIPS
+      : isFacilityUser || role === "LAB_SCIENTIST"
+        ? FACILITY_CHIPS
+        : role === "DOCTOR"
+          ? DOCTOR_CHIPS
+          : PATIENT_CHIPS;
+  const searchPlaceholder =
+    role === "ADMIN"
+      ? "Search users, payments…"
+      : isFacilityUser || role === "LAB_SCIENTIST"
+        ? "Search patients, documents…"
+        : role === "DOCTOR"
+          ? "Search patients, labs…"
+          : "Search doctors, labs…";
 
   const filteredSuggestions = searchQuery
     ? suggestions.filter((s) => s.text.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -286,7 +364,16 @@ export function Navbar({ children }: { children: React.ReactNode }) {
           s.category === "history" && n.href.includes("history") ||
           s.category === "lab" && n.href.includes("lab") ||
           s.category === "schedule" && n.href.includes("schedule") ||
-          s.category === "ai" && n.href.includes("ai")
+          s.category === "ai" && n.href.includes("ai") ||
+          s.category === "verification" && n.href.includes("verifications") ||
+          s.category === "users" && n.href.includes("users") ||
+          s.category === "payments" && n.href.includes("payments") ||
+          s.category === "content" && n.href.includes("content") ||
+          s.category === "documents" && n.href.includes("documents") ||
+          s.category === "templates" && n.href.includes("templates") ||
+          s.category === "bookings" && n.href.includes("bookings") ||
+          s.category === "reviews" && n.href.includes("reviews") ||
+          s.category === "consultations" && n.href.includes("consultations")
         );
         if (matchingNav) {
           results.push({
@@ -385,7 +472,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
 <div className="absolute top-full left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-xl mt-1 ai-suggestions overflow-hidden z-50">
                 {/* Filter chips */}
                 <div className="flex gap-2 p-3 overflow-x-auto border-b border-border">
-                  {FILTER_CHIPS.map((chip) => (
+                  {filterChips.map((chip) => (
                     <button
                       key={chip.value}
                       onClick={() => setActiveFilter(chip.value)}
@@ -482,7 +569,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
               <input
                 ref={searchRef}
                 type="text"
-                placeholder={role === "DOCTOR" ? "Search patients, labs…" : "Search doctors, labs…"}
+                placeholder={searchPlaceholder}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setSearchOpen(true)}
@@ -558,7 +645,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
             <input
               type="text"
               autoFocus
-              placeholder={role === "DOCTOR" ? "Search patients, labs…" : "Search doctors, labs…"}
+              placeholder={searchPlaceholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => setSearchOpen(true)}

@@ -7,6 +7,8 @@ import { clinicInstant, clinicToday } from "@/lib/clinic-time";
 import { resolveFacilityForPortalUser } from "@/lib/facility-auth";
 import { SuggestionsCard } from "@/components/shared/suggestions-card";
 import { facilitySuggestions } from "@/lib/suggestions";
+import { ProfileCompletenessCard } from "@/components/shared/profile-completeness-card";
+import { facilityCompleteness } from "@/lib/profile-completeness";
 
 /** Credentials expiring within 90 days (or already expired) for the facility. */
 async function credentialAlertCount(facilityId: string): Promise<number> {
@@ -99,12 +101,23 @@ export default async function LabDashboardPage() {
             ]
           : [];
 
+  const completeness = facilityCompleteness({
+    logoUrl: profile.logoUrl,
+    about: profile.about,
+    operatingHours: profile.operatingHours,
+    addressLine: profile.addressLine,
+    city: profile.city,
+    serviceCount: activeServices,
+    isPublished: profile.isPublished,
+  });
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Lab Dashboard</h1>
         <p className="mt-1 text-sm text-muted-foreground">Orders and results at a glance</p>
       </div>
+      <ProfileCompletenessCard completeness={completeness} title="Complete your public page" />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {stats.map((s) => (
           <Link key={s.label} href={s.href}>
