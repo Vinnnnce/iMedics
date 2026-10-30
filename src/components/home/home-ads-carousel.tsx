@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { PublicEntryLink as Link } from "@/components/shared/public-entry-link";
 import {
   Calendar, ChevronLeft, ChevronRight, FlaskConical, FolderOpen, HeartPulse,
   Pause, Play, Sparkles, Stethoscope, type LucideIcon,

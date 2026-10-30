@@ -36,6 +36,7 @@
 - Run lint, typecheck, automated tests, Prisma validation and CI-style build without deployment migrations.
 - Deploy only through the existing authorized GitHub/Vercel workflow; verify production after deployment.
 - On an anonymous production visit, protected sidebar/header/bottom links must not issue speculative RSC requests redirected to Clerk's external sign-in domain. Inspect console errors as well as JavaScript page errors; clicking a protected route must still initiate sign-in.
+- Homepage service/rating cards, carousel/banner CTAs, specialties and footer links must also disable prefetch. Protected destinations use full-page navigation; public pages retain ordinary navigation. Check mobile and desktop after network idle and scrolling, plus a real protected-link click. Modified clicks, new tabs, downloads and caller-canceled clicks retain their native behavior.
 
 ## Disposable acceptance and continued PDF implementation
 - Plan mode creates no users. Local mode creates database-only fixtures that cannot authenticate to Clerk. Clerk mode creates two unpublished synthetic hospitals and 20 distinct expiring identities.

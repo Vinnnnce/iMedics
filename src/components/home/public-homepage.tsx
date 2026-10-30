@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PublicEntryLink as Link } from "@/components/shared/public-entry-link";
 import {
   Activity, BadgeCheck, Bell, Building2, CreditCard, FileText, FlaskConical,
   HeartPulse, Lock, Receipt, Search, ShieldCheck, Stethoscope, TrendingUp, Video,

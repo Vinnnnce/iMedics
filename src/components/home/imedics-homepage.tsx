@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
+import { PublicEntryLink as Link } from "@/components/shared/public-entry-link";
 import {
   Calendar, ChevronDown, FileText, Mic, Newspaper, FlaskConical, FolderOpen,
   HeartPulse, Menu, MessageCircle, Moon, Sparkles, Stethoscope, Star, Sun, X,

@@ -6,7 +6,9 @@ The continued update adds isolated two-hospital/20-user provisioning, app-enforc
 
 Twenty local database-only fixtures were successfully created for `localqa20261031`; they cannot authenticate to Clerk. Clerk authorization failed and no secure credential is available, so no live Clerk accounts or authenticated live acceptance passes are claimed.
 
-All 823 tests passed locally across 105 files with real PostgreSQL, including the 44 previously skipped integration tests and the new HIS suite. Browser component QA at 1440px and 375px verified that a failed upload retried after changing patients still confirms against its original patient and metadata, with no horizontal overflow or JavaScript errors; API, identity and storage were mocked.
+All 852 tests passed locally across 107 files with real PostgreSQL, including the 44 previously skipped integration tests, the new HIS suite and 29 anonymous-navigation regressions. TypeScript, ESLint, the optimized production build and whitespace checks passed. Browser component QA at 1440px and 375px verified that a failed upload retried after changing patients still confirms against its original patient and metadata, with no horizontal overflow or JavaScript errors; API, identity and storage were mocked.
+
+A later network-idle browser check found homepage links prefetching protected routes, whose Clerk redirects caused CORS console errors. Public entry links now disable prefetch and use full-page navigation for protected destinations, including same-origin absolute URLs. Public destinations, modified clicks, new tabs, downloads and caller-canceled clicks retain ordinary behavior. Automated checks pass; deployment and the final live browser recheck of this follow-up are pending.
 
 See [HIS Implementation Phase Status](HIS_PHASE_STATUS.md) for explicit remaining implementation work and [Disposable HIS Acceptance](HIS_ACCEPTANCE.md) for staging configuration, provisioning, short-lived sessions and safe deactivation. This is continued implementation, not complete production signoff for the full PDF.
 
@@ -30,7 +32,7 @@ This update implements an incremental clinical-document and diagnostic-media wor
 
 ## Deployment and configuration
 
-Deploy the existing project through its normal GitHub/Vercel integration. This patch needs no new database migration or environment variables; it assumes the existing HIS migrations have already been deployed. Do not run database commands against production without reviewing the current schema and backups.
+Deploy the existing project through its normal GitHub/Vercel integration. The earlier e40d346 patch needed no new migration; the continued implementation above adds two migrations and optional isolated-acceptance configuration documented in HIS_ACCEPTANCE.md. The navigation follow-up adds no migration. Do not run database commands against production without reviewing the current schema and backups.
 
 The existing environment must supply Clerk configuration, Postgres URLs and private S3-compatible storage. Configure bucket CORS for presigned uploads and enforce private access, encryption, lifecycle/retention policy and operational logging. The existing optional MALWARE_SCAN_URL integration must return JSON `{"result":"CLEAN"}` or `{"result":"INFECTED"}`; MALWARE_SCAN_TOKEN supplies its configured authentication. When scanning is a hospital requirement, enabling and validating that service is a release gate.
 
@@ -58,6 +60,6 @@ The repository contains broad A–P catalogue scaffolds, encounters/admissions, 
 
 Tenant authorization remains application-level and storage-key-level, with additional PostgreSQL write-time link/identity guards in this continued update. This is not RLS: unrestricted SQL read access still bypasses application authorization. Tenant-read isolation and private-bucket policies require a reviewed infrastructure rollout; database-enforced tenant isolation is not complete.
 
-HL7/FHIR file acceptance is not an operational interoperability gateway; DICOM upload is not PACS/RIS integration. Device interfaces, accredited/qualified e-signatures, certificate revocation/timestamps, durable queue delivery guarantees, disaster recovery, retention enforcement, independent security review and jurisdiction-specific consent/legal sign-off remain deployment work. Audit writes currently use the existing best-effort logging mechanism, not a transactional tamper-evident clinical audit ledger.
+HL7/FHIR file acceptance is not an operational interoperability gateway; DICOM upload is not PACS/RIS integration. Device interfaces, accredited/qualified e-signatures, certificate revocation/timestamps, durable queue delivery guarantees, disaster recovery, retention enforcement, independent security review and jurisdiction-specific consent/legal sign-off remain deployment work. Critical clinical mutations now persist audit rows transactionally; supplementary metadata/read logging remains best-effort in places. This is not a complete tamper-evident clinical audit ledger.
 
 Attachment references are not automatically embedded into exported PDFs or records packages, are not automatically released to patients, and are not a medical-image viewer. The selector shows the latest 200 eligible patient media records. Archived/unavailable references remain visible as identifiers and cannot be newly submitted/finalized until corrected.

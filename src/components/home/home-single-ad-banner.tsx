@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PublicEntryLink as Link } from "@/components/shared/public-entry-link";
 import { Building2, ChevronRight } from "lucide-react";
 import { IMEDICS_SINGLE_AD_BANNER } from "@/lib/home/imedics-home-content";
 
