@@ -109,6 +109,8 @@ const KIND_MODULE_HREFS: Record<MeFacility["kind"], readonly string[]> = {
   DIAGNOSTIC_CENTRE: ["/lab/examinations", "/lab/documents", "/lab/document-templates", "/lab/referrals"],
 };
 
+const FACILITY_WEBSITE_ITEM: NavItem = { href: "/lab/website", label: "Our Website", icon: Globe, roles: ["FACILITY"], permission: "MANAGE_PROFILE" };
+
 const LAB_NAV: NavItem[] = [
   { href: "/lab/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["LAB_SCIENTIST"] },
   ...FACILITY_MODULE_ITEMS,
@@ -116,7 +118,7 @@ const LAB_NAV: NavItem[] = [
   { href: "/lab/services", label: "Services & Prices", icon: Tags, roles: ["LAB_SCIENTIST"], permission: "MANAGE_SERVICES" },
   { href: "/lab/reviews", label: "Reviews", icon: Star, roles: ["LAB_SCIENTIST"], permission: "MANAGE_PROFILE" },
   { href: "/lab/users", label: "Patient Lookup", icon: Users, roles: ["LAB_SCIENTIST"], permission: "REGISTER_PATIENTS" },
-  { href: "/lab/website", label: "Our Website", icon: Globe, roles: ["LAB_SCIENTIST"], permission: "MANAGE_PROFILE" },
+  FACILITY_WEBSITE_ITEM,
   { href: "/emergency", label: "Emergency", icon: HeartPulse, roles: ["LAB_SCIENTIST"] },
   { href: "/payments", label: "Payments", icon: Wallet, roles: ["LAB_SCIENTIST"] },
   { href: "/settings", label: "Settings", icon: Settings, roles: ["LAB_SCIENTIST"] },
@@ -257,14 +259,14 @@ export function Navbar({ children }: { children: React.ReactNode }) {
     else if (role === "LAB_SCIENTIST") items = LAB_NAV;
     else if (facility) {
       // Facility staff whose platform role is PATIENT: workspace links only.
-      items = [FACILITY_DASHBOARD_ITEM, ...FACILITY_MODULE_ITEMS, ...FACILITY_COMMON_NAV];
+      items = [FACILITY_DASHBOARD_ITEM, ...FACILITY_MODULE_ITEMS, ...FACILITY_COMMON_NAV, FACILITY_WEBSITE_ITEM];
     } else items = PATIENT_NAV;
 
     return items.filter((item) => {
       if (!item.roles.includes("FACILITY")) return item.roles.includes(role);
       if (!facility) return false;
       // Common facility links (no permission, not a module) always show.
-      const isModule = item.href.startsWith("/lab/") && item.href !== "/lab/dashboard";
+      const isModule = item.href.startsWith("/lab/") && item.href !== "/lab/dashboard" && item.href !== "/lab/website";
       if (isModule && !KIND_MODULE_HREFS[facility.kind].includes(item.href)) return false;
       if (
         facility.facilityRole !== "OWNER" &&
@@ -274,7 +276,9 @@ export function Navbar({ children }: { children: React.ReactNode }) {
         return false;
       }
       return true;
-    });
+    }).map((item) => item.href === "/lab/website" && facility
+      ? { ...item, href: `/lab/website?facilityId=${encodeURIComponent(facility.id)}` }
+      : item);
   }, [role, me]);
   const navItems = visibleNavItems;
   const bottomNav = useMemo(() => {
@@ -454,7 +458,8 @@ export function Navbar({ children }: { children: React.ReactNode }) {
   }, []);
 
   const isActive = (href: string) => {
-    return pathname === href || (pathname.startsWith(href + "/") && href !== "/");
+    const path = href.split("?")[0];
+    return pathname === path || (pathname.startsWith(path + "/") && path !== "/");
   };
 
   // Logged-out visitors on the public homepage render it standalone: the

@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { withAuth, parseBody } from "@/lib/api";
 import { writeAudit } from "@/lib/audit";
+import { requireWebsiteAccess } from "@/lib/website/access";
+import { badRequest } from "@/lib/errors";
 import {
   parseWebsiteLayout,
   encodeWebsiteLayout,
@@ -15,37 +17,37 @@ import {
 
 /**
  * Facility mini-website API. Only the facility owner account or staff with the
- * OWNER/FACILITY_MANAGER role may edit or publish; every write is audited and
+ * MANAGE_PROFILE permission may edit or publish; every write is audited and
  * each account can only touch its own facility's website (enforced by resolving
  * the facility from the caller's own profile/memberships).
  */
 
-async function resolveFacility(user: { id: string }) {
-  const own = await prisma.labStaffProfile.findUnique({ where: { userId: user.id } });
-  if (own) return { facility: own, canManage: true };
-  const membership = await prisma.facilityStaff.findFirst({
-    where: { userId: user.id, status: "ACTIVE", facilityRole: { in: ["OWNER", "FACILITY_MANAGER"] } },
-    orderBy: { createdAt: "asc" },
-    include: { facility: true },
-  });
-  if (!membership) return null;
-  return { facility: membership.facility, canManage: true };
-}
-
 const draftSchema = z.object({
   template: z.string().max(60).optional(),
   layout: websiteLayoutSchema,
-  addOns: z.array(z.string().max(60)).max(20).default([]),
+  addOns: z.array(z.enum(WEBSITE_ADDONS.map((a) => a.key) as [string, ...string[]])).max(20).default([]),
 });
 
+function validatedLayout(input: unknown, addOns: string[]) {
+  try {
+    const layout = parseWebsiteLayout(input);
+    validateAddOns(layout.blocks, addOns);
+    return layout;
+  } catch (error) {
+    throw badRequest(error instanceof Error ? error.message : "Invalid website layout");
+  }
+}
+
 // GET /api/facility/website — the draft, published layout and status for the caller's facility.
-export const GET = withAuth(["LAB_SCIENTIST", "ADMIN"], async (_req, { user }) => {
-  const resolved = await resolveFacility(user);
+export const GET = withAuth(null, async (req, { user }) => {
+  const resolved = await requireWebsiteAccess(user, req);
   if (!resolved) return NextResponse.json({ error: "No facility found for this account" }, { status: 404 });
   let website = await prisma.facilityWebsite.findUnique({ where: { facilityId: resolved.facility.id } });
   if (!website) {
-    website = await prisma.facilityWebsite.create({
-      data: {
+    website = await prisma.facilityWebsite.upsert({
+      where: { facilityId: resolved.facility.id },
+      update: {},
+      create: {
         facilityId: resolved.facility.id,
         template: "medical-centre",
         draftLayout: encodeWebsiteLayout({ version: 1, blocks: [] }),
@@ -70,13 +72,12 @@ export const GET = withAuth(["LAB_SCIENTIST", "ADMIN"], async (_req, { user }) =
 });
 
 // PUT /api/facility/website — save a draft. Never makes anything public.
-export const PUT = withAuth(["LAB_SCIENTIST", "ADMIN"], async (req, { user }) => {
-  const resolved = await resolveFacility(user);
+export const PUT = withAuth(null, async (req, { user }) => {
+  const resolved = await requireWebsiteAccess(user, req);
   if (!resolved) return NextResponse.json({ error: "No facility found for this account" }, { status: 404 });
   const body = await parseBody(req, draftSchema);
 
-  const layout = parseWebsiteLayout(body.layout);
-  validateAddOns(layout.blocks, body.addOns);
+  const layout = validatedLayout(body.layout, body.addOns);
   if (body.template && !WEBSITE_TEMPLATES.some((t) => t.key === body.template)) {
     return NextResponse.json({ error: "Unknown template" }, { status: 400 });
   }
@@ -113,22 +114,23 @@ export const PUT = withAuth(["LAB_SCIENTIST", "ADMIN"], async (req, { user }) =>
 });
 
 // POST /api/facility/website — publish the current draft (copies draft → published).
-export const POST = withAuth(["LAB_SCIENTIST", "ADMIN"], async (req, { user }) => {
-  const resolved = await resolveFacility(user);
+export const POST = withAuth(null, async (req, { user }) => {
+  const resolved = await requireWebsiteAccess(user, req);
   if (!resolved) return NextResponse.json({ error: "No facility found for this account" }, { status: 404 });
   const website = await prisma.facilityWebsite.findUnique({ where: { facilityId: resolved.facility.id } });
   if (!website) return NextResponse.json({ error: "Save a draft before publishing" }, { status: 400 });
+  if (!resolved.facility.slug || !resolved.facility.isPublished || resolved.facility.verificationStatus !== "VERIFIED") {
+    throw badRequest("Your facility profile must be verified and publicly listed before publishing website sections. Update your facility profile first.");
+  }
 
-  const layout = parseWebsiteLayout(website.draftLayout);
-  validateAddOns(layout.blocks, website.addOns);
+  const layout = validatedLayout(website.draftLayout, website.addOns);
 
-  const published = await prisma.facilityWebsite.update({
+  const [published] = await prisma.$transaction([prisma.facilityWebsite.update({
     where: { id: website.id },
     data: { publishedLayout: encodeWebsiteLayout(layout), publishedAt: new Date() },
-  });
-  await prisma.facilityWebsiteRevision.create({
+  }), prisma.facilityWebsiteRevision.create({
     data: { websiteId: website.id, layout: encodeWebsiteLayout(layout), addOns: website.addOns, publishedById: user.id },
-  });
+  })]);
 
   await writeAudit({
     userId: user.id,
@@ -144,8 +146,8 @@ export const POST = withAuth(["LAB_SCIENTIST", "ADMIN"], async (req, { user }) =
 });
 
 // DELETE /api/facility/website — unpublish (take the mini-website offline).
-export const DELETE = withAuth(["LAB_SCIENTIST", "ADMIN"], async (_req: NextRequest, { user }) => {
-  const resolved = await resolveFacility(user);
+export const DELETE = withAuth(null, async (req: NextRequest, { user }) => {
+  const resolved = await requireWebsiteAccess(user, req);
   if (!resolved) return NextResponse.json({ error: "No facility found for this account" }, { status: 404 });
   const website = await prisma.facilityWebsite.findUnique({ where: { facilityId: resolved.facility.id } });
   if (!website) return NextResponse.json({ error: "No website found" }, { status: 404 });
