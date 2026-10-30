@@ -25,3 +25,4 @@
 - Full authenticated journeys require test accounts and real Clerk/database configuration. Mocked tests are not production verification.
 - Run lint, typecheck, automated tests, Prisma validation and CI-style build without deployment migrations.
 - Deploy only through the existing authorized GitHub/Vercel workflow; verify production after deployment.
+- On an anonymous production visit, protected sidebar/header/bottom links must not issue speculative RSC requests redirected to Clerk's external sign-in domain. Inspect console errors as well as JavaScript page errors; clicking a protected route must still initiate sign-in.
