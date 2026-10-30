@@ -31,6 +31,8 @@ This matrix follows the implementation phases in the user-supplied Medic1905-upd
 
 ## Boundaries
 
+The latest verified code commit is [f2a7dbf](https://github.com/Vinnnnce/iMedics/commit/f2a7dbf1b9f3e69edd970ebf48e582f26611ee0c), with [successful CI](https://github.com/Vinnnnce/iMedics/actions/runs/41131021704) and Vercel rollout. Local verification passed 852 tests across 107 files, including real-PostgreSQL integration and 29 navigation regressions. Live anonymous homepage checks no longer reproduce the protected-link prefetch CORS issue; protected links reach sign-in through document navigation. Clerk-origin CSP console messages remain on authentication pages, and no authenticated live acceptance pass is claimed.
+
 Database-only fixtures cannot authenticate to Clerk and are not live disposable accounts. Privileged SQL read access is not tenant-isolated by these write triggers.
 
 NOT_SCANNED is not CLEAN. Enabling a scanner later does not retroactively certify prior objects without a rescan; unscanned content remains quarantined.
