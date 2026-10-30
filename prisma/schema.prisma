@@ -167,6 +167,10 @@ model LabStaffProfile {
   encounters              Encounter[]                @relation("EncounterFacility")
   payerCoverages          PayerCoverage[]            @relation("PayerCoverageFacility")
   medicalMedia            MedicalMedia[]             @relation("MedicalMediaFacility")
+  nursingObservations     NursingObservation[]       @relation("NursingObservationFacility")
+  nursingTasks            NursingTask[]              @relation("NursingTaskFacility")
+  nursingHandovers        NursingHandover[]          @relation("NursingHandoverFacility")
+  medicationOrders        MedicationOrder[]          @relation("MedicationOrderFacility")
   id                      String                  @id @default(uuid()) @db.Uuid
   userId                  String                  @unique @map("user_id") @db.Uuid
   laboratoryName          String?                 @map("laboratory_name")
@@ -302,6 +306,10 @@ model Patient {
   encounters        Encounter[]          @relation("EncounterPatient")
   payerCoverages    PayerCoverage[]      @relation("PayerCoveragePatient")
   medicalMedia      MedicalMedia[]       @relation("MedicalMediaPatient")
+  nursingObservations NursingObservation[] @relation("NursingObservationPatient")
+  nursingTasks      NursingTask[]        @relation("NursingTaskPatient")
+  nursingHandovers  NursingHandover[]    @relation("NursingHandoverPatient")
+  medicationOrders  MedicationOrder[]    @relation("MedicationOrderPatient")
   id                String               @id @default(uuid()) @db.Uuid
   caseNumber        String               @unique @map("case_number")
   userId            String?              @unique @map("user_id") @db.Uuid
@@ -3215,6 +3223,106 @@ model MedicalMediaUploadSession {
   @@index([facilityId, status])
   @@index([status, expiresAt])
   @@map("medical_media_upload_session")
+}
+
+/// A structured nursing observation (vital sign, pain, intake/output...).
+/// Timestamped, unit-annotated and attributed; no clinical thresholds are
+/// applied automatically — validation is format-only, never interpretive.
+model NursingObservation {
+  id             String    @id @default(uuid()) @db.Uuid
+  facilityId     String    @map("facility_id") @db.Uuid
+  patientId      String    @map("patient_id") @db.Uuid
+  encounterId    String?   @map("encounter_id") @db.Uuid
+  admissionId    String?   @map("admission_id") @db.Uuid
+  observationType String    @map("observation_type") @db.VarChar(40)
+  value          String    @db.VarChar(60)
+  unit           String    @db.VarChar(20)
+  recordedAt     DateTime  @map("recorded_at")
+  notes          String?   @db.VarChar(500)
+  recordedById   String    @map("recorded_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  facility     LabStaffProfile @relation("NursingObservationFacility", fields: [facilityId], references: [id])
+  patient      Patient         @relation("NursingObservationPatient", fields: [patientId], references: [id])
+
+  @@index([facilityId, patientId, recordedAt(sort: Desc)])
+  @@index([patientId, observationType])
+  @@map("nursing_observation")
+}
+
+/// A nursing care task with a guarded status lifecycle.
+model NursingTask {
+  id            String    @id @default(uuid()) @db.Uuid
+  facilityId    String    @map("facility_id") @db.Uuid
+  patientId     String    @map("patient_id") @db.Uuid
+  encounterId   String?   @map("encounter_id") @db.Uuid
+  admissionId   String?   @map("admission_id") @db.Uuid
+  title         String    @db.VarChar(200)
+  instructions  String?   @db.VarChar(1000)
+  dueAt         DateTime? @map("due_at")
+  status        String    @default("DUE") @db.VarChar(16)
+  assignedToId  String?   @map("assigned_to_id") @db.Uuid
+  createdById   String    @map("created_by_id") @db.Uuid
+  completedAt   DateTime? @map("completed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  facility     LabStaffProfile @relation("NursingTaskFacility", fields: [facilityId], references: [id])
+  patient      Patient         @relation("NursingTaskPatient", fields: [patientId], references: [id])
+
+  @@index([facilityId, status])
+  @@index([facilityId, patientId, status])
+  @@index([assignedToId, status])
+  @@map("nursing_task")
+}
+
+/// A structured shift handover: outstanding tasks and patient context.
+model NursingHandover {
+  id            String    @id @default(uuid()) @db.Uuid
+  facilityId    String    @map("facility_id") @db.Uuid
+  patientId     String    @map("patient_id") @db.Uuid
+  encounterId   String?   @map("encounter_id") @db.Uuid
+  fromUserId    String    @map("from_user_id") @db.Uuid
+  toUserId      String?   @map("to_user_id") @db.Uuid
+  summary       String    @db.VarChar(2000)
+  openTaskIds   Json      @default("[]") @map("open_task_ids")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  facility     LabStaffProfile @relation("NursingHandoverFacility", fields: [facilityId], references: [id])
+  patient      Patient         @relation("NursingHandoverPatient", fields: [patientId], references: [id])
+
+  @@index([facilityId, patientId, createdAt(sort: Desc)])
+  @@map("nursing_handover")
+}
+
+/// A medication order with a pharmacy workflow (draft → submitted → reviewed
+/// → dispensed, with cancel/complete). Orders snapshot the prescriber and keep
+/// an auditable status history; dispensing requires REVIEW_MEDICATIONS.
+model MedicationOrder {
+  id              String    @id @default(uuid()) @db.Uuid
+  facilityId      String    @map("facility_id") @db.Uuid
+  patientId       String    @map("patient_id") @db.Uuid
+  encounterId     String?   @map("encounter_id") @db.Uuid
+  medicationName  String    @map("medication_name") @db.VarChar(160)
+  strength        String?   @db.VarChar(60)
+  dose            String?   @db.VarChar(100)
+  route           String?   @db.VarChar(40)
+  frequency       String?   @db.VarChar(60)
+  duration        String?   @db.VarChar(60)
+  notes           String?   @db.VarChar(500)
+  prescriberId    String    @map("prescriber_id") @db.Uuid
+  status          String    @default("DRAFT") @db.VarChar(16)
+  reviewedById    String?   @map("reviewed_by_id") @db.Uuid
+  dispensedAt     DateTime? @map("dispensed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  facility       LabStaffProfile @relation("MedicationOrderFacility", fields: [facilityId], references: [id])
+  patient        Patient         @relation("MedicationOrderPatient", fields: [patientId], references: [id])
+
+  @@index([facilityId, status])
+  @@index([facilityId, patientId, createdAt(sort: Desc)])
+  @@map("medication_order")
 }
 
 /// A snapshot of a consultation report taken just before it was amended.

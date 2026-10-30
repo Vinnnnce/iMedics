@@ -27,6 +27,8 @@ export default async function HisHubPage() {
     { href: "/lab/clinical-documents", label: "Medical documents", desc: "Template library (groups A–P), worklists, authoring, signatures, PDF", show: can("VIEW_PATIENT_DOCUMENTS") || can("MANAGE_DOCUMENT_TEMPLATES") },
     { href: "/lab/encounters", label: "Encounters & queues", desc: "Emergency, urgent, planned, inpatient and outpatient dashboards", show: kind === "HOSPITAL" && can("MANAGE_ENCOUNTERS") },
     { href: "/lab/media", label: "Diagnostic media", desc: "Secure multi-format uploads to the patient record", show: can("UPLOAD_MEDIA") || can("VIEW_PATIENT_DOCUMENTS") },
+    { href: "/lab/nursing", label: "Nursing", desc: "Observations, care tasks and shift handovers", show: can("RECORD_NURSING") || can("VIEW_PATIENT_DOCUMENTS") },
+    { href: "/lab/pharmacy", label: "Pharmacy", desc: "Medication orders: review, dispensing and reconciliation", show: can("ORDER_MEDICATIONS") || can("REVIEW_MEDICATIONS") || can("VIEW_PATIENT_DOCUMENTS") },
     { href: "/lab/insurance", label: "Payer classification", desc: "Insurance, self-pay, eligibility, authorizations and claims", show: can("MANAGE_INSURANCE") },
     { href: "/lab/hospital-settings", label: "Hospital settings", desc: "Branding, numbering, terminology, triage protocol (versioned)", show: can("MANAGE_HOSPITAL_SETTINGS") },
     { href: "/lab/his-analytics", label: "Analytics", desc: "Aggregated, de-identified operational indicators", show: can("VIEW_ANALYTICS") },

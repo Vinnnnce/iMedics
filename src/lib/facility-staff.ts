@@ -36,6 +36,9 @@ export const FACILITY_PERMISSIONS = [
   "MANAGE_ENCOUNTERS", // Register encounters, triage, queue and workflow status
   "MANAGE_INSURANCE", // Payer classification, eligibility, authorizations, claims
   "UPLOAD_MEDIA", // Upload diagnostic media to a patient's record
+  "RECORD_NURSING", // Record nursing observations, care tasks and handovers
+  "ORDER_MEDICATIONS", // Prescribe and submit medication orders
+  "REVIEW_MEDICATIONS", // Review and dispense medication orders (pharmacy)
   "VIEW_ANALYTICS", // Aggregated operational dashboards
 ] as const;
 
@@ -64,7 +67,7 @@ const ROLE_PERMISSIONS: Record<FacilityStaffRole, readonly FacilityPermission[]>
   // Consultations, referrals, clinical records.
   DOCTOR: [
     "MANAGE_BOOKINGS", "REGISTER_PATIENTS", "MANAGE_REFERRALS", "VIEW_PATIENT_DOCUMENTS",
-    "AUTHOR_DOCUMENTS", "REVIEW_DOCUMENTS", "SIGN_DOCUMENTS", "RELEASE_DOCUMENTS", "MANAGE_ENCOUNTERS", "UPLOAD_MEDIA",
+    "AUTHOR_DOCUMENTS", "REVIEW_DOCUMENTS", "SIGN_DOCUMENTS", "RELEASE_DOCUMENTS", "MANAGE_ENCOUNTERS", "UPLOAD_MEDIA", "ORDER_MEDICATIONS",
   ],
   // Sample tracking, test entry, result entry, report preparation.
   LAB_SCIENTIST: [
@@ -78,7 +81,7 @@ const ROLE_PERMISSIONS: Record<FacilityStaffRole, readonly FacilityPermission[]>
   // Patient identification, sample collection, labelling.
   PHLEBOTOMIST: ["PROCESS_ORDERS"],
   // Patient care tasks, appointment support.
-  NURSE: ["PROCESS_ORDERS", "REGISTER_PATIENTS", "VIEW_PATIENT_DOCUMENTS", "AUTHOR_DOCUMENTS", "SIGN_DOCUMENTS", "MANAGE_ENCOUNTERS"],
+  NURSE: ["PROCESS_ORDERS", "REGISTER_PATIENTS", "VIEW_PATIENT_DOCUMENTS", "AUTHOR_DOCUMENTS", "SIGN_DOCUMENTS", "MANAGE_ENCOUNTERS", "RECORD_NURSING"],
   // Imaging procedures, image upload, technical reports.
   RADIOGRAPHER: ["PROCESS_ORDERS", "ENTER_RESULTS", "AUTHOR_DOCUMENTS", "UPLOAD_MEDIA"],
   // Booking, patient registration, payments.
@@ -98,17 +101,17 @@ const ROLE_PERMISSIONS: Record<FacilityStaffRole, readonly FacilityPermission[]>
     "AUTHOR_DOCUMENTS", "REVIEW_DOCUMENTS", "SIGN_DOCUMENTS", "RELEASE_DOCUMENTS", "UPLOAD_MEDIA",
   ],
   // Medication reconciliation, stewardship and pharmacy records.
-  PHARMACIST: ["VIEW_PATIENT_DOCUMENTS", "AUTHOR_DOCUMENTS", "SIGN_DOCUMENTS"],
+  PHARMACIST: ["VIEW_PATIENT_DOCUMENTS", "AUTHOR_DOCUMENTS", "SIGN_DOCUMENTS", "REVIEW_MEDICATIONS"],
   // Operative and procedural documentation.
   SURGEON: [
     "MANAGE_BOOKINGS", "REGISTER_PATIENTS", "MANAGE_REFERRALS", "VIEW_PATIENT_DOCUMENTS",
-    "AUTHOR_DOCUMENTS", "REVIEW_DOCUMENTS", "SIGN_DOCUMENTS", "RELEASE_DOCUMENTS", "MANAGE_ENCOUNTERS", "UPLOAD_MEDIA",
+    "AUTHOR_DOCUMENTS", "REVIEW_DOCUMENTS", "SIGN_DOCUMENTS", "RELEASE_DOCUMENTS", "MANAGE_ENCOUNTERS", "UPLOAD_MEDIA", "ORDER_MEDICATIONS",
   ],
   // Clinical lead: co-signature/approval, template approval, analytics.
   DEPARTMENT_HEAD: [
     "REGISTER_PATIENTS", "MANAGE_REFERRALS", "VIEW_PATIENT_DOCUMENTS", "VERIFY_RESULTS",
     "AUTHOR_DOCUMENTS", "REVIEW_DOCUMENTS", "SIGN_DOCUMENTS", "APPROVE_DOCUMENTS", "RELEASE_DOCUMENTS",
-    "MANAGE_DOCUMENT_TEMPLATES", "MANAGE_ENCOUNTERS", "UPLOAD_MEDIA", "VIEW_ANALYTICS",
+    "MANAGE_DOCUMENT_TEMPLATES", "MANAGE_ENCOUNTERS", "UPLOAD_MEDIA", "ORDER_MEDICATIONS", "VIEW_ANALYTICS",
   ],
   // Registration, records release and external record intake.
   MEDICAL_RECORDS_OFFICER: ["REGISTER_PATIENTS", "VIEW_PATIENT_DOCUMENTS", "RELEASE_DOCUMENTS", "UPLOAD_MEDIA", "MANAGE_ENCOUNTERS"],

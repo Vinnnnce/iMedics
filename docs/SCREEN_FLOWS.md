@@ -360,3 +360,26 @@
 - Tab switching: Labs (lab results + AI), Notes (clinical notes), Chat (in-call messaging), Rx (e-prescriptions)
 - Tap "Draft Clinical Note" → expands editable text area with AI pre-filled content
 - Tap "Save to record" → saves note to patient's medical record via API
+
+## 3. Nurse Journey: HIS Hub → Nursing Workstation
+
+- Sign-in → `DoctorHome` (or lab landing) → `His` hub shows "Nursing" card (permission: RECORD_NURSING or VIEW_PATIENT_DOCUMENTS)
+- Tap "Nursing" → `/lab/nursing` renders `NursingDashboard`
+- Patient identification: enter exact case number + date of birth → "Open nursing chart" (no name search)
+- Chart header shows patient name, case number, DOB; "Close chart" button exits
+- **Observations section:** type dropdown (registry: temperature °C, pulse bpm, BP mmHg, SpO2, weight, height, pain, glucose, intake/output), value input with unit label, optional "taken at" timestamp (defaults to now), notes → "Record observation" writes with author + timestamp; log table lists type, value+unit, recorded time, notes
+- **Care tasks section:** add task with title, instructions, optional due time → starts as "Due"; status chip + buttons per allowed transition (Start, Complete, Defer, Escalate; deferred/escalated tasks offer reopen)
+- **Handover section:** summary textarea + "Record handover" attaches the patient's currently open tasks; history lists handovers with time and attached-task count
+- Permission notes: users without RECORD_NURSING see the chart read-only
+- Navigation: back to HIS hub via header link; no patient search by name anywhere
+
+## 4. Pharmacist Journey: HIS Hub → Pharmacy Worklist
+
+- Sign-in → `DoctorHome` → `His` hub shows "Pharmacy" card (permission: ORDER_MEDICATIONS or REVIEW_MEDICATIONS or VIEW_PATIENT_DOCUMENTS)
+- Tap "Pharmacy" → `/lab/pharmacy` renders `PharmacyDashboard`
+- Two modes: "Facility worklist" (all orders, status filter chips) and "Patient orders" (identify by case number + DOB first)
+- Prescribers (ORDER_MEDICATIONS) get the new-order form: medication, strength, dose, route, frequency, duration, notes → "Create order" saves as Draft
+- Each order card shows medication + strength, patient identity, dose/route/frequency/duration, recorded allergies (red), prescriber notes, timestamps, status chip
+- Workflow buttons per status: Draft → "Submit to pharmacy"; Submitted → "Mark reviewed"; Reviewed → "Dispense"; Dispensed → "Mark completed"; "Cancel" (prescriber's own orders only). Review/dispense buttons are hidden/disabled without REVIEW_MEDICATIONS
+- Permission notes: the system shows allergies for visibility but performs no interaction checking and suggests no dosing
+- Navigation: back to HIS hub via header link
