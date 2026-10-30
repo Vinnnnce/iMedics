@@ -22,6 +22,8 @@ model User {
   termsAcceptedAt        DateTime?                @map("terms_accepted_at")
   termsVersion           String?                  @map("terms_version")
   lastLoginAt            DateTime?                @map("last_login_at")
+  /// Optional expiry for explicitly provisioned, synthetic acceptance accounts.
+  testAccountExpiresAt   DateTime?                @map("test_account_expires_at")
   /// Why an admin suspended or banned the account; shown to the user and kept for the record.
   statusReason           String?                  @map("status_reason")
   statusChangedAt        DateTime?                @map("status_changed_at")

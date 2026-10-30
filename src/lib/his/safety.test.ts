@@ -55,6 +55,13 @@ describe("patient-linked attachment fields", () => {
     vi.mocked(prisma.medicalMedia.findMany).mockResolvedValue([]);
     await expect(validateAttachments(definition, { report: FILE }, context)).rejects.toThrow(/available file of this patient/);
   });
+  it("requires an explicit CLEAN scan when submitting or finalizing attachments", async () => {
+    vi.mocked(prisma.medicalMedia.findMany).mockResolvedValue([]);
+    await expect(validateAttachments(definition, { report: FILE }, { ...context, requireClean: true })).rejects.toThrow(/malware-scanned CLEAN/);
+    expect(prisma.medicalMedia.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ scanStatus: "CLEAN" }),
+    }));
+  });
   it("does not downgrade sensitivity or accept a PDF as an image", async () => {
     vi.mocked(prisma.medicalMedia.findMany).mockResolvedValue([{ id: FILE, mimeType: "application/pdf", sensitivity: "RESTRICTED" }] as never);
     await expect(validateAttachments(definition, { report: FILE }, context)).rejects.toThrow(/compatible type and sensitivity/);

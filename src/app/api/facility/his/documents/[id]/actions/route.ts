@@ -9,7 +9,6 @@ import { auditHis, documentEvent } from "@/lib/his/audit";
 import { loadFacilityDocument, signerProfile } from "@/lib/his/documents";
 import { SIGNATURE_ROLES, parseDefinition, validateContent } from "@/lib/his/template-schema";
 import { canPerform, contentHash, missingSignatures, signingRequirement, statusAfterSubmit, templateSignatureRoles, type DocumentAction } from "@/lib/his/workflow";
-import { notifyUser } from "@/lib/notifications/service";
 import { assertDocumentReadable } from "@/lib/his/visibility";
 import { validateAttachments } from "@/lib/his/attachments";
 import type { DocumentContent } from "@/lib/his/template-schema";
@@ -31,12 +30,6 @@ const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("release"), confirmProtected: z.boolean().optional() }),
   z.object({ action: z.literal("void"), reason: z.string().trim().min(5).max(1000) }),
 ]);
-
-async function staffWithPermission(facilityId: string, permission: string, exclude: string) {
-  const { permissionsForRole } = await import("@/lib/facility-staff");
-  const staff = await prisma.facilityStaff.findMany({ where: { facilityId, status: "ACTIVE", userId: { not: null } }, select: { userId: true, facilityRole: true }, take: 200 });
-  return staff.filter((s) => s.userId && s.userId !== exclude && (permissionsForRole(s.facilityRole) as readonly string[]).includes(permission)).map((s) => s.userId as string).slice(0, 20);
-}
 
 // POST /api/facility/his/documents/[id]/actions — document workflow transitions.
 // Signatures are only ever recorded for the person actually signing (or, for
@@ -63,6 +56,7 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
   const checkAttachments = () => validateAttachments(def, doc.content as DocumentContent, {
     facilityId: access.facility.id, patientId: doc.patientId, sensitivity: doc.sensitivity,
     canReview: hasPermission(access, "REVIEW_DOCUMENTS"),
+    requireClean: true,
   });
   let result: Record<string, unknown> = {};
 
@@ -78,8 +72,6 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
         await tx.clinicalDocument.update({ where: { id: doc.id }, data: { status: next } });
         await documentEvent(tx, doc.id, "SUBMITTED", user.id, null, { content: doc.content ?? {}, hash: contentHash(doc.content) });
       });
-      const recipients = next === "PENDING_REVIEW" ? await staffWithPermission(access.facility.id, "REVIEW_DOCUMENTS", user.id) : [];
-      await Promise.all(recipients.map((id) => notifyUser(id, { kind: "CLINICAL_DOCUMENT_ACTION_NEEDED", documentId: doc.id, step: "REVIEW" }).catch(() => undefined)));
       result = { status: next };
       break;
     }
@@ -90,7 +82,6 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
         await tx.clinicalDocument.update({ where: { id: doc.id }, data: { status: "PENDING_SIGNATURE", reviewedById: user.id, reviewedAt: now } });
         await documentEvent(tx, doc.id, "REVIEWED", user.id, body.note ?? null);
       });
-      await notifyUser(doc.authorId, { kind: "CLINICAL_DOCUMENT_ACTION_NEEDED", documentId: doc.id, step: "SIGNATURE" }).catch(() => undefined);
       break;
     }
     case "return": {
@@ -191,7 +182,6 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
         await tx.clinicalDocument.update({ where: { id: doc.id }, data: { releasedToPatientAt: now, releasedById: user.id } });
         await documentEvent(tx, doc.id, "RELEASED", user.id);
       });
-      if (doc.patient.userId) await notifyUser(doc.patient.userId, { kind: "CLINICAL_DOCUMENT_RELEASED", documentId: doc.id }).catch(() => undefined);
       break;
     }
     case "void": {

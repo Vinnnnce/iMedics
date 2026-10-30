@@ -84,6 +84,11 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
       });
       break;
   }
+  await tx.auditLog.create({ data: {
+    userId: user.id, actorRole: user.role, facilityId: access.facility.id,
+    action: `HIS_TEMPLATE_${action.toUpperCase()}`, resourceType: "ClinicalDocumentTemplate", resourceId: id,
+    details: { version: latest.version, noteRecorded: Boolean(note) },
+  } });
   });
 
   await auditHis(access, `HIS_TEMPLATE_${action.toUpperCase().replace("-", "_")}`, "ClinicalDocumentTemplate", template.id, req, { details: { version: action === "new-version" ? latest.version + 1 : latest.version } });

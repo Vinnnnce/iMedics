@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseId } from "@/lib/api";
 import { forbidden } from "@/lib/errors";
 import { requireHisAccess } from "@/lib/his/access";
-import { auditHis } from "@/lib/his/audit";
+import { documentEvent } from "@/lib/his/audit";
 import { buildDocumentView, loadFacilityDocument } from "@/lib/his/documents";
 import { renderDocumentsPdf } from "@/lib/his/pdf";
 
@@ -16,9 +16,8 @@ export const GET = withAuth<{ id: string }>(null, async (req, { user, params }) 
     throw forbidden("This record is specially protected");
   }
   const bytes = await renderDocumentsPdf([await buildDocumentView(doc)]);
-  await prisma.clinicalDocumentEvent.create({ data: { documentId: doc.id, action: "PDF_DOWNLOADED", actorId: user.id } });
-  await auditHis(access, "HIS_DOCUMENT_PDF_DOWNLOADED", "ClinicalDocument", doc.id, req, { patientId: doc.patientId });
+  await prisma.$transaction((tx) => documentEvent(tx, doc.id, "PDF_DOWNLOADED", user.id));
   return new Response(Buffer.from(bytes), {
-    headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${doc.documentNumber}.pdf"` },
+    headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${doc.documentNumber}.pdf"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" },
   });
 });

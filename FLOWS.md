@@ -36,3 +36,18 @@
 - Run lint, typecheck, automated tests, Prisma validation and CI-style build without deployment migrations.
 - Deploy only through the existing authorized GitHub/Vercel workflow; verify production after deployment.
 - On an anonymous production visit, protected sidebar/header/bottom links must not issue speculative RSC requests redirected to Clerk's external sign-in domain. Inspect console errors as well as JavaScript page errors; clicking a protected route must still initiate sign-in.
+
+## Disposable acceptance and continued PDF implementation
+- Plan mode creates no users. Local mode creates database-only fixtures that cannot authenticate to Clerk. Clerk mode creates two unpublished synthetic hospitals and 20 distinct expiring identities.
+- Provisioning refuses production, real-patient databases, live Clerk keys and unallowlisted app/database hosts.
+- Expired synthetic accounts are rejected despite a valid Clerk session. External email/push delivery is suppressed for synthetic accounts.
+- Template publication and clinical document changes record transactional audit rows. An audit failure rolls back the clinical transition.
+- Database guards reject cross-hospital templates, cross-patient encounters and incorrect final-storage namespaces. Finalized content cannot be overwritten; amendments preserve the original.
+- Historical payer arrangements cannot be edited after use by an encounter; end and replace instead.
+- Each of the 18 specialty source packs has specialty-specific fields and independent review. Existing hospital versions remain unchanged.
+- Final documents expose authenticated FHIR JSON with the same sensitivity guard as PDF export.
+- Bulk upload: match synthetic patient A, enter metadata, add three files; only two transfer at a time. Change patient and retry a failed file; confirmation must still use patient A and its original metadata.
+- Old patient-list requests must not populate the media list after patient selection changes.
+- Executables fail before upload. Unscanned files cannot be viewed, released, or submitted/finalized as document attachments.
+- Check desktop/mobile overflow, console errors, queue actions and safety notices.
+- Real Clerk/storage, witnessed consent and authenticated browser acceptance remain separate from mocked browser and real-database integration tests.

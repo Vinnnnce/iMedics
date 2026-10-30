@@ -11,7 +11,7 @@ vi.mock("@/lib/audit", () => ({ writeAudit: vi.fn() }));
 vi.mock("@/lib/storage", () => ({ deleteObject: vi.fn(), presignDownload: vi.fn(), presignView: vi.fn(), DOWNLOAD_URL_TTL_SECONDS: 60 }));
 vi.mock("@/lib/his/media-storage", () => ({ finalizeMedia: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
-  prisma: { medicalMedia: { findFirst: vi.fn(), updateMany: vi.fn(), create: vi.fn() }, hospitalSettings: { findUnique: vi.fn() }, patient: { findFirst: vi.fn() } },
+  prisma: { medicalMedia: { findFirst: vi.fn(), updateMany: vi.fn(), create: vi.fn() }, hospitalSettings: { findUnique: vi.fn() }, patient: { findFirst: vi.fn() }, auditLog: { create: vi.fn() }, $transaction: vi.fn() },
 }));
 
 import { requireRole, requireUser } from "@/lib/auth";
@@ -41,6 +41,7 @@ beforeEach(() => {
   vi.mocked(prisma.medicalMedia.findFirst).mockResolvedValue(file() as never);
   vi.mocked(prisma.medicalMedia.updateMany).mockResolvedValue({ count: 1 });
   vi.mocked(prisma.hospitalSettings.findUnique).mockResolvedValue(null);
+  vi.mocked(prisma.$transaction).mockImplementation(async (fn) => (fn as unknown as (tx: typeof prisma) => Promise<unknown>)(prisma));
 });
 
 describe("diagnostic media verification and release", () => {
@@ -112,7 +113,7 @@ describe("patient media downloads", () => {
     vi.mocked(prisma.medicalMedia.findFirst).mockResolvedValue(null);
     expect((await PATIENT_GET(request(undefined, "GET"), ctx)).status).toBe(404);
     expect(prisma.medicalMedia.findFirst).toHaveBeenCalledWith({
-      where: { id: ID, patientId: PATIENT, deletedAt: null, releasedToPatientAt: { not: null }, reportStatus: { in: ["VERIFIED", "AMENDED"] }, scanStatus: { not: "INFECTED" } },
+      where: { id: ID, patientId: PATIENT, deletedAt: null, releasedToPatientAt: { not: null }, reportStatus: { in: ["VERIFIED", "AMENDED"] }, scanStatus: "CLEAN" },
     });
   });
 });

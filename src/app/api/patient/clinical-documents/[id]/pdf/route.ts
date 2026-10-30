@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseId } from "@/lib/api";
 import { notFound } from "@/lib/errors";
-import { writeAudit } from "@/lib/audit";
+import { documentEvent } from "@/lib/his/audit";
 import { buildDocumentView, documentInclude } from "@/lib/his/documents";
 import { renderDocumentsPdf } from "@/lib/his/pdf";
 import { visibleToPatient } from "@/lib/his/workflow";
@@ -16,7 +16,6 @@ export const GET = withAuth<{ id: string }>(["PATIENT"], async (req, { user, par
   if (!doc || !visibleToPatient(doc)) throw notFound("Document not found");
   const view = await buildDocumentView(doc);
   const bytes = await renderDocumentsPdf([view]);
-  await prisma.clinicalDocumentEvent.create({ data: { documentId: doc.id, action: "PATIENT_DOWNLOADED", actorId: user.id } });
-  await writeAudit({ userId: user.id, actorRole: user.role, patientId: doc.patientId, facilityId: doc.facilityId, action: "PATIENT_DOCUMENT_PDF_DOWNLOADED", resourceType: "ClinicalDocument", resourceId: doc.id, req });
-  return new Response(Buffer.from(bytes), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${doc.documentNumber}.pdf"` } });
+  await prisma.$transaction((tx) => documentEvent(tx, doc.id, "PATIENT_DOWNLOADED", user.id));
+  return new Response(Buffer.from(bytes), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${doc.documentNumber}.pdf"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
 });

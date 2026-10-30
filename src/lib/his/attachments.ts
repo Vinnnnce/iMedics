@@ -7,7 +7,7 @@ import { sectionVisible, type DocumentContent, type TemplateDefinition } from ".
 export async function validateAttachments(
   definition: TemplateDefinition,
   content: DocumentContent,
-  context: { facilityId: string; patientId: string; sensitivity: string; canReview: boolean },
+  context: { facilityId: string; patientId: string; sensitivity: string; canReview: boolean; requireClean?: boolean },
 ): Promise<void> {
   const fields = definition.sections.filter((s) => sectionVisible(s, content))
     .flatMap((s) => s.fields).filter((f) => (f.type === "image" || f.type === "attachment") && content[f.id]);
@@ -16,7 +16,7 @@ export async function validateAttachments(
   const files = await prisma.medicalMedia.findMany({
     where: {
       id: { in: ids }, facilityId: context.facilityId, patientId: context.patientId,
-      deletedAt: null, scanStatus: { not: "INFECTED" }, ...mediaVisibility(context.canReview),
+      deletedAt: null, scanStatus: context.requireClean ? "CLEAN" : { not: "INFECTED" }, ...mediaVisibility(context.canReview),
     },
     select: { id: true, mimeType: true, sensitivity: true },
   });
@@ -27,7 +27,7 @@ export async function validateAttachments(
     if (!file || (field.type === "image" && !file.mimeType.startsWith("image/")) ||
         rank[file.sensitivity] > (rank[context.sensitivity] ?? 0)) {
       // Do not distinguish another patient's file from an unknown id.
-      throw badRequest(`"${field.label}" must reference an available file of this patient with compatible type and sensitivity`);
+      throw badRequest(`"${field.label}" must reference an available${context.requireClean ? ", malware-scanned CLEAN" : ""} file of this patient with compatible type and sensitivity`);
     }
   }
 }

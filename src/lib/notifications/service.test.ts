@@ -50,4 +50,14 @@ describe("notification persistence and lifecycle", () => {
     expect(mocks.persist).not.toHaveBeenCalled();
     expect(mocks.after).not.toHaveBeenCalled();
   });
+  it.each([true, false])("retains synthetic in-app alerts but never dispatches externally (outbox=%s)", async (queued) => {
+    mocks.user.mockResolvedValue({ id: "synthetic", role: "PATIENT", email: "synthetic+clerk_test@example.com", testAccountExpiresAt: new Date(Date.now() + 60000) });
+    mocks.hasOutbox.mockResolvedValue(queued);
+    await queueNotification("synthetic", { kind: "ACCOUNT_UPDATED" });
+    expect(queued ? mocks.persist : mocks.create).toHaveBeenCalledOnce();
+    expect(mocks.after).not.toHaveBeenCalled();
+    expect(mocks.deliver).not.toHaveBeenCalled();
+    expect(mocks.email).not.toHaveBeenCalled();
+    expect(mocks.push).not.toHaveBeenCalled();
+  });
 });

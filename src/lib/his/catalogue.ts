@@ -1,4 +1,5 @@
 import type { SignatureRule, TemplateDefinition, TemplateField, TemplateSection } from "./template-schema";
+import { specialtySection } from "./specialty-packs";
 
 /**
  * System catalogue of default clinical document templates (groups A–P).
@@ -360,6 +361,13 @@ function clinical(name: string, groupCode: string): TemplateDefinition {
 }
 
 function definitionFor(groupCode: string, name: string): TemplateDefinition {
+  if (groupCode === "N") {
+    const base = clinical(name, groupCode);
+    return { ...base, sections: [...base.sections, specialtySection(name)],
+      workflow: { requiresReview: true, independentReview: true },
+      authorRoles: ["OWNER", "DOCTOR", "SURGEON", "DEPARTMENT_HEAD"],
+    };
+  }
   if (groupCode === "F" || (groupCode === "E" && /consent/i.test(name))) return consent(name);
   if (groupCode === "G") return lab(name);
   if (groupCode === "H") return imaging();

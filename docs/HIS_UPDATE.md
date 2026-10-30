@@ -1,4 +1,14 @@
-# Medic1905-update implementation handoff
+# iMedics HIS Update Handoff
+
+## Continued implementation and disposable acceptance
+
+The continued update adds isolated two-hospital/20-user provisioning, app-enforced expiry, synthetic notification suppression, a live acceptance runner, DB tenant/patient write guards, immutable finalized content/payer history, transactional clinical audit/outbox, clinical-only critical acknowledgements, all 18 structured specialty defaults, protected FHIR export and bounded patient-bound bulk uploads.
+
+Twenty local database-only fixtures were successfully created for `localqa20261031`; they cannot authenticate to Clerk. Clerk authorization failed and no secure credential is available, so no live Clerk accounts or authenticated live acceptance passes are claimed.
+
+All 823 tests passed locally across 105 files with real PostgreSQL, including the 44 previously skipped integration tests and the new HIS suite. Browser component QA at 1440px and 375px verified that a failed upload retried after changing patients still confirms against its original patient and metadata, with no horizontal overflow or JavaScript errors; API, identity and storage were mocked.
+
+See [HIS Implementation Phase Status](HIS_PHASE_STATUS.md) for explicit remaining implementation work and [Disposable HIS Acceptance](HIS_ACCEPTANCE.md) for staging configuration, provisioning, short-lived sessions and safe deactivation. This is continued implementation, not complete production signoff for the full PDF.
 
 This update implements an incremental clinical-document and diagnostic-media workstream from the supplied 56-page Medic1905-update.pdf. It is not a claim that the entire multi-hospital specification is production-complete. The existing Next.js, Clerk, Prisma/Postgres, facility permissions, audit, private S3 and notification architecture is retained.
 
@@ -22,7 +32,7 @@ The existing environment must supply Clerk configuration, Postgres URLs and priv
 
 Adopt the newly appended consent templates through the hospital template library. Existing versions do not silently acquire new fields. To add a supporting-file field to an existing published hospital template, create a new version, edit, submit, independently approve if required, and publish. Existing signed records continue pointing to their original version.
 
-## Verification and remaining acceptance work
+## Previous update verification and remaining acceptance work
 
 Local checks on 2026-10-30 used Node 22. Prisma schema validation, TypeScript, ESLint, the optimized Next.js production build and `git diff --check` passed. The full test suite passed 703 tests across 95 files; 44 integration tests in three files were skipped and are not counted as verified. `npm audit` reported zero vulnerabilities after the compatible lockfile updates.
 
@@ -40,9 +50,9 @@ Before clinical use, run the following with synthetic data and separate accounts
 
 ## Specification boundaries
 
-The repository already contains broad A–P catalogue scaffolds, encounters/admissions, coverage/payer categories, settings, portfolio, audit and operational analytics. Many specialty document types still share generic structures and require field-by-field clinical review. This patch does not introduce full specialty-specific nursing/medication workflows, comprehensive observation/escalation protocols, cross-hospital grants, patient/caregiver delegation, appointment scheduling integrations or complete department-specific permission policy.
+The repository contains broad A–P catalogue scaffolds, encounters/admissions, coverage, settings, portfolio, audit and operational analytics. All 18 specialty defaults now have distinct structured fields; other catalogue forms still include generic structures, and every template requires clinical review. Full nursing/medication workflows, comprehensive observation/escalation protocols, cross-hospital grants, caregiver delegation, scheduling integrations and complete department policy remain unfinished.
 
-Tenant checks are application-level and storage-key-level, not a PostgreSQL row-level-security implementation. A database role with unrestricted SQL access bypasses application checks. Database RLS, composite tenant foreign keys and private-bucket policies require a separate reviewed infrastructure/schema rollout and integration tests; do not describe database-enforced tenant isolation as complete.
+Tenant authorization remains application-level and storage-key-level, with additional PostgreSQL write-time link/identity guards in this continued update. This is not RLS: unrestricted SQL read access still bypasses application authorization. Tenant-read isolation and private-bucket policies require a reviewed infrastructure rollout; database-enforced tenant isolation is not complete.
 
 HL7/FHIR file acceptance is not an operational interoperability gateway; DICOM upload is not PACS/RIS integration. Device interfaces, accredited/qualified e-signatures, certificate revocation/timestamps, durable queue delivery guarantees, disaster recovery, retention enforcement, independent security review and jurisdiction-specific consent/legal sign-off remain deployment work. Audit writes currently use the existing best-effort logging mechanism, not a transactional tamper-evident clinical audit ledger.
 

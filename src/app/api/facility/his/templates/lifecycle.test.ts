@@ -6,7 +6,7 @@ vi.mock("@/lib/his/access", () => ({ requireHisAccess: vi.fn(), hasPermission: (
 vi.mock("@/lib/his/audit", () => ({ auditHis: vi.fn() }));
 vi.mock("@/lib/prisma", () => {
   const model = () => ({ findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn(), create: vi.fn() });
-  return { prisma: { clinicalDocumentTemplate: model(), clinicalDocumentTemplateVersion: model(), hospitalSettings: model(), $transaction: vi.fn() } };
+  return { prisma: { clinicalDocumentTemplate: model(), clinicalDocumentTemplateVersion: model(), hospitalSettings: model(), auditLog: model(), $transaction: vi.fn() } };
 });
 
 import { requireUser } from "@/lib/auth";

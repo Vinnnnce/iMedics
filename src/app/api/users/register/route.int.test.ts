@@ -139,8 +139,8 @@ describe.skipIf(!url)("POST /api/users/register", () => {
     const response = await invoke({
       ...basePayload(),
       accountType: "doctor",
-      mdcnRegistrationNumber: "MDCN-1",
-      mdcnLicenseNumber: "LIC-1",
+      mdcnRegistrationNumber: `SYNTHETIC-MDCN-${RUN}`,
+      mdcnLicenseNumber: `SYNTHETIC-LIC-${RUN}`,
       yearOfRegistration: "2020",
       yearsOfExperience: "5",
       specialty: "Internal Medicine",
@@ -156,7 +156,7 @@ describe.skipIf(!url)("POST /api/users/register", () => {
     const doctor = await prisma.doctorProfile.findUnique({
       where: { userId: user.id },
     });
-    expect(doctor?.licenseNumber).toBe("LIC-1");
+    expect(doctor?.licenseNumber).toBe(`SYNTHETIC-LIC-${RUN}`);
     expect(doctor?.verificationStatus).toBe("PENDING");
 
     const updated = await prisma.user.findUnique({ where: { id: user.id } });

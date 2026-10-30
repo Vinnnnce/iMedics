@@ -5,6 +5,7 @@ import { withAuth, parseBody, parseQuery } from "@/lib/api";
 import { assertPatientLinked, maskIdentifier, requireHisAccess } from "@/lib/his/access";
 import { auditHis } from "@/lib/his/audit";
 import { INSURED, coverageBody, toDates } from "@/lib/his/coverage";
+import { badRequest } from "@/lib/errors";
 
 const listSchema = z.object({
   filter: z.enum(["all", "insured", "uninsured", "pending", "authorization", "rejected", "selfpay"]).default("all"),
@@ -43,6 +44,7 @@ export const GET = withAuth(null, async (req, { user }) => {
 export const POST = withAuth(null, async (req, { user }) => {
   const access = await requireHisAccess(user, "MANAGE_INSURANCE", req);
   const body = await parseBody(req, coverageBody.extend({ patientId: z.string().uuid() }));
+  if (body.coverageStart && body.coverageEnd && body.coverageStart > body.coverageEnd) throw badRequest("Coverage end must not precede its start");
   await assertPatientLinked(access.facility.id, body.patientId);
   const { patientId, ...rest } = body;
   const coverage = await prisma.payerCoverage.create({

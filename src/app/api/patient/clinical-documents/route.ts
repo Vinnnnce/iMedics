@@ -15,11 +15,12 @@ export const GET = withAuth(["PATIENT"], async (req, { user }) => {
       select: { id: true, documentNumber: true, title: true, groupCode: true, status: true, finalizedAt: true, facility: { select: { laboratoryName: true } } },
     }),
     prisma.medicalMedia.findMany({ take: 200,
-      where: { patientId: patient.id, releasedToPatientAt: { not: null }, deletedAt: null },
+      where: { patientId: patient.id, releasedToPatientAt: { not: null }, deletedAt: null,
+        reportStatus: { in: ["VERIFIED", "AMENDED"] }, scanStatus: "CLEAN" },
       orderBy: { createdAt: "desc" },
       select: { id: true, category: true, examinationType: true, examinationAt: true, fileName: true, reportStatus: true, facility: { select: { laboratoryName: true } } },
     }),
   ]);
   await writeAudit({ userId: user.id, actorRole: user.role, patientId: patient.id, action: "PATIENT_DOCUMENTS_LISTED", resourceType: "ClinicalDocument", req });
-  return NextResponse.json({ documents, media });
+  return NextResponse.json({ documents, media }, { headers: { "Cache-Control": "private, no-store" } });
 });

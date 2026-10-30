@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ACCEPT_ATTRIBUTE, MEDIA_CATEGORY_LABEL } from "@/lib/his/media-formats";
+import { ACCEPT_ATTRIBUTE, MEDIA_CATEGORY_LABEL, resolveFormat } from "@/lib/his/media-formats";
 import { PatientIdentify, type IdentifiedPatient } from "./patient-identify";
 import { api, inputClass } from "./use-api";
 
-interface Item { file: File; state: "queued" | "hashing" | "uploading" | "verifying" | "done" | "error"; progress: number; error?: string }
+interface UploadMetadata { category: string; examinationType: string; examinationAt: string; modality: string; bodySite: string; accessionNumber: string; orderingClinician: string; reportingClinician: string; reportStatus: string; sensitivity: string }
+interface Item { id: string; file: File; patientId: string; patientCaseNumber: string; metadata: UploadMetadata; state: "queued" | "hashing" | "uploading" | "verifying" | "done" | "error"; progress: number; error?: string; allowDuplicate?: boolean }
 interface MediaRow { id: string; category: keyof typeof MEDIA_CATEGORY_LABEL; examinationType: string; fileName: string; sizeBytes: number; reportStatus: string; sensitivity: string; scanStatus: string; releasedToPatientAt: string | null; createdAt: string; patient: { firstName: string; lastName: string; caseNumber: string } }
 
 const MIME_BY_EXT: Record<string, string> = { dcm: "application/dicom", dicom: "application/dicom", hl7: "application/hl7-v2", json: "application/fhir+json", xml: "application/xml", scp: "application/octet-stream", ecg: "application/octet-stream", csv: "text/csv", txt: "text/plain", wav: "audio/wav", mp3: "audio/mpeg", mov: "video/quicktime", m4v: "video/mp4", tif: "image/tiff", tiff: "image/tiff" };
@@ -23,7 +24,9 @@ function put(url: string, file: File, type: string, onProgress: (p: number) => v
     xhr.open("PUT", url);
     xhr.setRequestHeader("Content-Type", type);
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100));
-    xhr.onload = () => (xhr.status < 300 ? resolve() : reject(new Error(`Storage rejected the upload (${xhr.status})`)));
+    xhr.timeout = 15 * 60_000;
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Storage rejected the upload (${xhr.status})`)));
+    xhr.ontimeout = () => reject(new Error("Upload timed out. Retry this file."));
     xhr.onerror = () => reject(new Error("Network error during upload"));
     xhr.send(file);
   });
@@ -33,33 +36,67 @@ function put(url: string, file: File, type: string, onProgress: (p: number) => v
 export function MediaUploader({ canUpload, canRelease, canReview = false }: { canUpload: boolean; canRelease: boolean; canReview?: boolean }) {
   const [patient, setPatient] = useState<IdentifiedPatient | null>(null);
   const [items, setItems] = useState<Item[]>([]);
-  const [meta, setMeta] = useState({ category: "XRAY", examinationType: "", examinationAt: "", modality: "", bodySite: "", accessionNumber: "", orderingClinician: "", reportingClinician: "", reportStatus: "UNREPORTED", sensitivity: "STANDARD" });
-  const [list, setList] = useState<MediaRow[]>([]);
+  const [meta, setMeta] = useState<UploadMetadata>({ category: "XRAY", examinationType: "", examinationAt: "", modality: "", bodySite: "", accessionNumber: "", orderingClinician: "", reportingClinician: "", reportStatus: "UNREPORTED", sensitivity: "STANDARD" });
+  const running = useRef(new Set<string>());
+  const [listing, setListing] = useState<{ scope: string; items: MediaRow[] }>({ scope: "", items: [] });
+  const selection = patient?.id ?? "all";
+  const selectedScope = useRef(selection);
+  useEffect(() => { selectedScope.current = selection; }, [selection]);
+  const list = listing.scope === selection ? listing.items : [];
   const [error, setError] = useState<string | null>(null);
-  const load = useCallback(async () => { try { const d = await api<{ media: MediaRow[] }>(`/api/facility/his/media${patient ? `?patientId=${patient.id}` : ""}`); setList(d.media); } catch (e) { setError(e instanceof Error ? e.message : "Failed"); } }, [patient]);
-  useEffect(() => { const t = setTimeout(() => void load(), 0); return () => clearTimeout(t); }, [load]);
-  const update = (i: number, p: Partial<Item>) => setItems((arr) => arr.map((x, k) => (k === i ? { ...x, ...p } : x)));
-
-  const uploadOne = async (i: number, file: File, allowDuplicate = false) => {
-    if (!patient) return;
+  const load = useCallback(async () => {
+    const scope = patient?.id ?? "all";
     try {
-      update(i, { state: "hashing", error: undefined, progress: 0 });
+      const d = await api<{ media: MediaRow[] }>(`/api/facility/his/media${patient ? `?patientId=${patient.id}` : ""}`);
+      if (selectedScope.current === scope) setListing({ scope, items: d.media });
+    } catch (e) { if (selectedScope.current === scope) setError(e instanceof Error ? e.message : "Failed"); }
+  }, [patient]);
+  useEffect(() => { const t = setTimeout(() => void load(), 0); return () => clearTimeout(t); }, [load]);
+  const update = useCallback((id: string, p: Partial<Item>) => setItems((arr) => arr.map((x) => (x.id === id ? { ...x, ...p } : x))), []);
+
+  const uploadOne = useCallback(async (item: Item) => {
+    const { id, file, patientId, metadata } = item;
+    try {
+      const resolved = resolveFormat(file.name, mimeOf(file));
+      if ("error" in resolved) throw new Error(resolved.error);
+      if (file.size < 1 || file.size > resolved.format.maxBytes) throw new Error("File is empty or exceeds this format's size limit");
+      update(id, { state: "hashing", error: undefined, progress: 0 });
       const hash = await sha256(file);
       const type = mimeOf(file);
-      const presign = await api<{ key: string; uploadUrl: string }>("/api/facility/his/media", { body: { patientId: patient.id, fileName: file.name, mimeType: type, sizeBytes: file.size, sha256: hash, allowDuplicate } });
-      update(i, { state: "uploading" });
-      await put(presign.uploadUrl, file, type, (p) => update(i, { progress: p }));
-      update(i, { state: "verifying" });
-      await api("/api/facility/his/media/confirm", { body: { key: presign.key, patientId: patient.id, fileName: file.name, mimeType: type, sha256: hash, category: meta.category, examinationType: meta.examinationType || file.name, examinationAt: meta.examinationAt ? new Date(meta.examinationAt).toISOString() : null, modality: meta.modality || null, bodySite: meta.bodySite || null, accessionNumber: meta.accessionNumber || null, orderingClinician: meta.orderingClinician || null, reportingClinician: meta.reportingClinician || null, reportStatus: meta.reportStatus, sensitivity: meta.sensitivity } });
-      update(i, { state: "done", progress: 100 });
+      const presign = await api<{ key: string; uploadUrl: string }>("/api/facility/his/media", { body: { patientId, fileName: file.name, mimeType: type, sizeBytes: file.size, sha256: hash, allowDuplicate: item.allowDuplicate ?? false } });
+      update(id, { state: "uploading" });
+      await put(presign.uploadUrl, file, type, (p) => update(id, { progress: p }));
+      update(id, { state: "verifying" });
+      await api("/api/facility/his/media/confirm", { body: { key: presign.key, patientId, fileName: file.name, mimeType: type, sha256: hash, category: metadata.category, examinationType: metadata.examinationType || file.name, examinationAt: metadata.examinationAt ? new Date(metadata.examinationAt).toISOString() : null, modality: metadata.modality || null, bodySite: metadata.bodySite || null, accessionNumber: metadata.accessionNumber || null, orderingClinician: metadata.orderingClinician || null, reportingClinician: metadata.reportingClinician || null, reportStatus: metadata.reportStatus, sensitivity: metadata.sensitivity } });
+      update(id, { state: "done", progress: 100 });
       void load();
-    } catch (e) { update(i, { state: "error", error: e instanceof Error ? e.message : "Upload failed" }); }
-  };
+    } catch (e) { update(id, { state: "error", error: e instanceof Error ? e.message : "Upload failed" }); }
+    finally { running.current.delete(id); }
+  }, [load, update]);
+  useEffect(() => {
+    // Bounded concurrency prevents a large dropped batch from hashing every
+    // file into memory or opening unbounded storage connections at once.
+    for (const item of items) {
+      if (running.current.size >= 2) break;
+      if (item.state !== "queued" || running.current.has(item.id)) continue;
+      running.current.add(item.id);
+      void uploadOne(item);
+    }
+  }, [items, uploadOne]);
   const addFiles = (files: FileList | File[]) => {
-    const start = items.length;
-    const next = [...files].map((file) => ({ file, state: "queued" as const, progress: 0 }));
-    setItems((arr) => [...arr, ...next]);
-    next.forEach((n, k) => void uploadOne(start + k, n.file));
+    if (!patient) return;
+    if (files.length > 20) { setError("Add at most 20 files per batch."); return; }
+    if (items.filter((x) => !["done", "error"].includes(x.state)).length + files.length > 40) { setError("Wait for queued uploads to finish before adding more files."); return; }
+    const next: Item[] = [...files].map((file) => {
+      const resolved = resolveFormat(file.name, mimeOf(file));
+      const reason = "error" in resolved ? resolved.error : file.size < 1 || file.size > resolved.format.maxBytes ? `File is empty or exceeds the ${Math.round(resolved.format.maxBytes / 1048576)} MB limit` : undefined;
+      return { id: crypto.randomUUID(), file, patientId: patient.id, patientCaseNumber: patient.caseNumber, metadata: { ...meta }, state: reason ? "error" : "queued", progress: 0, error: reason };
+    });
+    setItems((arr) => {
+      if (arr.filter((x) => !["done", "error"].includes(x.state)).length + next.length > 40) return arr;
+      return [...arr, ...next];
+    });
+    setError(null);
   };
   const open = async (id: string, mode: "view" | "download") => { try { const d = await api<{ url: string }>(`/api/facility/his/media/${id}?mode=${mode}`); window.open(d.url, "_blank", "noopener"); } catch (e) { setError(e instanceof Error ? e.message : "Failed"); } };
   const change = async (id: string, body: Record<string, unknown>) => {
@@ -91,11 +128,13 @@ export function MediaUploader({ canUpload, canRelease, canReview = false }: { ca
             Drag &amp; drop files here, or click to choose (PDF, DOC/DOCX, XLS/XLSX, CSV/TXT, JPEG, PNG, TIFF, DICOM, MP4/MOV, WAV/MP3, HL7 v2, FHIR)
             <input type="file" multiple accept={ACCEPT_ATTRIBUTE} className="sr-only" disabled={!patient} onChange={(e) => e.target.files && addFiles(e.target.files)} data-testid="input-media-files" />
           </label>
-          <ul className="space-y-1 text-xs">{items.map((it, i) => (
-            <li key={i} className="flex items-center gap-2">
-              <span className="flex-1 truncate">{it.file.name}</span>
+          <p className="text-xs text-muted-foreground">Up to 20 files per batch, with two simultaneous uploads. Each file keeps the patient and metadata selected when it was added. Retry restarts that file; resumable multipart transfer is not enabled.</p>
+          <ul className="space-y-1 text-xs">{items.map((it) => (
+            <li key={it.id} className="flex flex-wrap items-center gap-2">
+              <span className="min-w-0 flex-1 truncate">{it.file.name}</span>
+              <span className="text-muted-foreground">Patient: {it.patientCaseNumber}</span>
               <span>{it.state}{it.state === "uploading" ? ` ${it.progress}%` : ""}</span>
-              {it.state === "error" && <><span className="text-destructive">{it.error}</span><Button size="xs" variant="outline" onClick={() => uploadOne(i, it.file)}>Retry</Button>{it.error?.includes("already attached") && <Button size="xs" variant="ghost" onClick={() => uploadOne(i, it.file, true)}>Upload anyway</Button>}</>}
+              {it.state === "error" && <><span className="text-destructive">{it.error}</span><Button size="xs" variant="outline" onClick={() => update(it.id, { state: "queued", error: undefined })}>Retry</Button>{it.error?.includes("already attached") && <Button size="xs" variant="ghost" onClick={() => update(it.id, { state: "queued", error: undefined, allowDuplicate: true })}>Upload anyway</Button>}</>}
             </li>
           ))}</ul>
         </section>
@@ -110,7 +149,7 @@ export function MediaUploader({ canUpload, canRelease, canReview = false }: { ca
               <Button size="xs" variant="outline" onClick={() => open(m.id, "view")}>Preview</Button>
               <Button size="xs" variant="outline" onClick={() => open(m.id, "download")}>Download</Button>
               {canReview && !["VERIFIED", "AMENDED"].includes(m.reportStatus) && <Button size="xs" variant="outline" onClick={() => change(m.id, { action: "reportStatus", reportStatus: "VERIFIED" })}>Verify report</Button>}
-              {canRelease && !m.releasedToPatientAt && ["VERIFIED", "AMENDED"].includes(m.reportStatus) && <Button size="xs" onClick={() => change(m.id, { action: "release", confirmProtected: m.sensitivity === "SPECIALLY_PROTECTED" })}>{m.sensitivity === "SPECIALLY_PROTECTED" ? "Confirm policy & release protected file" : "Release"}</Button>}
+              {canRelease && !m.releasedToPatientAt && m.scanStatus === "CLEAN" && ["VERIFIED", "AMENDED"].includes(m.reportStatus) && <Button size="xs" onClick={() => change(m.id, { action: "release", confirmProtected: m.sensitivity === "SPECIALLY_PROTECTED" })}>{m.sensitivity === "SPECIALLY_PROTECTED" ? "Confirm policy & release protected file" : "Release"}</Button>}
               {canRelease && m.releasedToPatientAt && <Button size="xs" variant="outline" onClick={() => change(m.id, { action: "revoke" })}>Revoke release</Button>}
             </li>
           ))}</ul>

@@ -22,7 +22,7 @@ export const GET = withAuth<{ id: string }>(null, async (req, { user, params }) 
   const { mode } = parseQuery(req, getSchema);
   const media = await prisma.medicalMedia.findFirst({ where: { id: parseId((await params).id), facilityId: access.facility.id, deletedAt: null } });
   if (!media) throw notFound("File not found");
-  if (media.scanStatus === "INFECTED") throw forbidden("This file was rejected by the malware scanner");
+  if (media.scanStatus !== "CLEAN") throw forbidden("File content is quarantined until a CLEAN malware scan completes");
   if (media.sensitivity === "SPECIALLY_PROTECTED" && !hasPermission(access, "REVIEW_DOCUMENTS")) throw forbidden("This record is specially protected");
   const preview = formatByKey(media.formatKey)?.preview ?? "none";
   const inline = mode === "view" && ["image", "pdf", "video", "audio"].includes(preview);
@@ -41,7 +41,8 @@ export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }
   if (media.sensitivity === "SPECIALLY_PROTECTED" && !hasPermission(access, "REVIEW_DOCUMENTS")) throw forbidden("This record is specially protected");
   const need = (p: Parameters<typeof hasPermission>[1]) => { if (!hasPermission(access, p)) throw forbidden("Your role does not allow this action"); };
   const update = async (data: Parameters<typeof prisma.medicalMedia.updateMany>[0]["data"]) => {
-    const changed = await prisma.medicalMedia.updateMany({
+    await prisma.$transaction(async (tx) => {
+    const changed = await tx.medicalMedia.updateMany({
       where: {
         id, facilityId: access.facility.id, deletedAt: null,
         reportStatus: media.reportStatus, releasedToPatientAt: media.releasedToPatientAt,
@@ -49,12 +50,18 @@ export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }
       }, data,
     });
     if (!changed.count) throw conflict("This file changed in the meantime — reload and try again");
+    await tx.auditLog.create({ data: {
+      userId: user.id, actorRole: user.role, facilityId: access.facility.id, patientId: media.patientId,
+      action: `HIS_MEDIA_${body.action.toUpperCase().replaceAll("-", "_")}`, resourceType: "MedicalMedia", resourceId: id,
+      details: { previousReportStatus: media.reportStatus, previouslyReleased: Boolean(media.releasedToPatientAt) },
+    } });
+    });
   };
 
   if (body.action === "release") {
     need("RELEASE_DOCUMENTS");
     if (media.releasedToPatientAt) throw conflict("Already released");
-    if (media.scanStatus === "INFECTED") throw forbidden("This file was rejected by the malware scanner");
+    if (media.scanStatus !== "CLEAN") throw forbidden("Patient release requires a completed CLEAN malware scan");
     if (media.reportStatus !== "VERIFIED" && media.reportStatus !== "AMENDED") throw badRequest("Only verified results can be released to the patient");
     if (media.sensitivity === "SPECIALLY_PROTECTED" && body.confirmProtected !== true) throw badRequest("Confirm release of a specially protected record complies with policy");
     await update({ releasedToPatientAt: new Date() });

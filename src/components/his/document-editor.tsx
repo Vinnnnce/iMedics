@@ -119,6 +119,7 @@ export function DocumentEditor({ view, perms, isAuthor, mediaOptions = [] }: { v
         {view.status !== "AMENDED" && view.status !== "ENTERED_IN_ERROR" && (perms.approve || (isAuthor && view.status !== "FINAL")) && <Button size="sm" variant="ghost" disabled={busy} onClick={() => { const r = ask("Reason this was entered in error"); if (r) void act({ action: "void", reason: r }, "Marked entered in error"); }}>Entered in error</Button>}
         <a className="text-xs text-primary underline" href={`/lab/clinical-documents/${view.id}/print`}>Print view</a>
         <a className="text-xs text-primary underline" href={`/api/facility/his/documents/${view.id}/pdf`} target="_blank" rel="noreferrer">PDF</a>
+        {["FINAL", "AMENDED"].includes(view.status) && <a className="text-xs text-primary underline" href={`/api/facility/his/documents/${view.id}/fhir`}>FHIR JSON</a>}
       </div>
       {msg && <p role={msg.ok ? "status" : "alert"} className={`text-sm ${msg.ok ? "text-emerald-700" : "text-destructive"}`}>{msg.text}</p>}
       {view.definition.notice && <p className="rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">{view.definition.notice}</p>}
