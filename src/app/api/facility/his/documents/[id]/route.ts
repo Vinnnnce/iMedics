@@ -7,6 +7,7 @@ import { requireHisAccess } from "@/lib/his/access";
 import { auditHis, documentEvent } from "@/lib/his/audit";
 import { buildDocumentView, loadFacilityDocument } from "@/lib/his/documents";
 import { parseDefinition, validateContent } from "@/lib/his/template-schema";
+import { validateAttachments } from "@/lib/his/attachments";
 
 const saveSchema = z.object({
   content: z.record(z.string(), z.unknown()),
@@ -34,8 +35,13 @@ export const PUT = withAuth<{ id: string }>(null, async (req, { user, params }) 
   if (doc.status !== "DRAFT") throw conflict("Only drafts can be edited — finalized documents are corrected by amendment");
   if (doc.authorId !== user.id) throw forbidden("Only the author can edit this draft");
   const body = await parseBody(req, saveSchema);
-  const { content, errors } = validateContent(parseDefinition(doc.templateVersion.definition), body.content, { complete: false });
+  const definition = parseDefinition(doc.templateVersion.definition);
+  const { content, errors } = validateContent(definition, body.content, { complete: false });
   if (errors.length) throw badRequest(errors.join("; "));
+  await validateAttachments(definition, content, {
+    facilityId: access.facility.id, patientId: doc.patientId, sensitivity: doc.sensitivity,
+    canReview: access.permissions.includes("REVIEW_DOCUMENTS"),
+  });
 
   await prisma.$transaction(async (tx) => {
     const updated = await tx.clinicalDocument.updateMany({

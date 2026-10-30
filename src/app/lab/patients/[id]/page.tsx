@@ -10,6 +10,7 @@ import { STATUS_LABEL } from "@/lib/his/workflow";
 import { prisma } from "@/lib/prisma";
 import { writeAudit } from "@/lib/audit";
 import { formatClinicDateTime, formatDate } from "@/lib/format";
+import { documentVisibility, mediaVisibility } from "@/lib/his/visibility";
 
 const SECTIONS = ["Demographics", "Encounters & admissions", "Documents", "Diagnostic media", "Insurance", "Timeline", "Access history"];
 const anchor = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, "-");
@@ -25,8 +26,8 @@ export default async function PatientPortfolioPage({ params }: { params: Promise
     prisma.patient.findUnique({ where: { id }, select: { caseNumber: true, firstName: true, middleName: true, lastName: true, gender: true, dateOfBirth: true, bloodGroup: true, ecName: true, ecRelationship: true, ecPhone: true } }),
     prisma.encounter.findMany({ where: { facilityId: fid, patientId: id }, orderBy: { registeredAt: "desc" }, take: 50 }),
     prisma.admission.findMany({ where: { facilityId: fid, patientId: id }, orderBy: { admissionDate: "desc" }, take: 50, select: { id: true, admissionDate: true, dischargeDate: true, status: true, ward: true, workingDiagnosis: true } }),
-    prisma.clinicalDocument.findMany({ where: { facilityId: fid, patientId: id }, orderBy: { createdAt: "desc" }, take: 200, select: { id: true, documentNumber: true, title: true, groupCode: true, status: true, createdAt: true, sensitivity: true, releasedToPatientAt: true } }),
-    prisma.medicalMedia.findMany({ where: { facilityId: fid, patientId: id, deletedAt: null }, orderBy: { createdAt: "desc" }, take: 100, select: { id: true, category: true, examinationType: true, createdAt: true, reportStatus: true, isTherapyRecord: true } }),
+    prisma.clinicalDocument.findMany({ where: { facilityId: fid, patientId: id, AND: [documentVisibility(user.id, can("REVIEW_DOCUMENTS"))] }, orderBy: { createdAt: "desc" }, take: 200, select: { id: true, documentNumber: true, title: true, groupCode: true, status: true, createdAt: true, sensitivity: true, releasedToPatientAt: true } }),
+    prisma.medicalMedia.findMany({ where: { facilityId: fid, patientId: id, deletedAt: null, ...mediaVisibility(can("REVIEW_DOCUMENTS")) }, orderBy: { createdAt: "desc" }, take: 100, select: { id: true, category: true, examinationType: true, createdAt: true, reportStatus: true, isTherapyRecord: true } }),
     can("MANAGE_INSURANCE") ? prisma.payerCoverage.findMany({ take: 200, where: { facilityId: fid, patientId: id }, orderBy: { createdAt: "desc" } }) : Promise.resolve([]),
     can("VIEW_AUDIT") ? prisma.auditLog.findMany({ where: { facilityId: fid, patientId: id }, orderBy: { createdAt: "desc" }, take: 50, select: { id: true, action: true, createdAt: true, user: { select: { name: true } } } }) : Promise.resolve([]),
   ]);

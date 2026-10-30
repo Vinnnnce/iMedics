@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
-import { badRequest, notFound } from "@/lib/errors";
+import { badRequest, forbidden, notFound } from "@/lib/errors";
 import { assertPatientLinked, requireHisAccess } from "@/lib/his/access";
 import { auditHis } from "@/lib/his/audit";
 import { THERAPY_CATEGORIES, resolveFormat } from "@/lib/his/media-formats";
 import { finalizeMedia } from "@/lib/his/media-storage";
 import { safeFileName } from "@/lib/uploads";
+import { deleteObject } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -44,6 +45,9 @@ const schema = z.object({
 export const POST = withAuth(null, async (req, { user }) => {
   const access = await requireHisAccess(user, "UPLOAD_MEDIA", req);
   const body = await parseBody(req, schema);
+  if (["VERIFIED", "AMENDED"].includes(body.reportStatus) && !access.permissions.includes("REVIEW_DOCUMENTS")) {
+    throw forbidden("Your role cannot verify diagnostic reports");
+  }
   await assertPatientLinked(access.facility.id, body.patientId);
   if (body.encounterId) {
     const enc = await prisma.encounter.findFirst({ where: { id: body.encounterId, facilityId: access.facility.id, patientId: body.patientId }, select: { id: true } });
@@ -51,10 +55,12 @@ export const POST = withAuth(null, async (req, { user }) => {
   }
   const resolved = resolveFormat(body.fileName, body.mimeType);
   if ("error" in resolved) throw badRequest(resolved.error);
-  const { finalKey, sizeBytes, sha256, scanStatus } = await finalizeMedia(body.key, access.facility.id, body.patientId, resolved.format, body.sha256);
   const settings = await prisma.hospitalSettings.findUnique({ where: { facilityId: access.facility.id }, select: { defaultRetentionCategory: true } });
+  const { finalKey, sizeBytes, sha256, scanStatus } = await finalizeMedia(body.key, access.facility.id, body.patientId, resolved.format, body.sha256);
 
-  const media = await prisma.medicalMedia.create({
+  let media;
+  try {
+    media = await prisma.medicalMedia.create({
     data: {
       facilityId: access.facility.id, patientId: body.patientId, encounterId: body.encounterId ?? null, category: body.category,
       isTherapyRecord: THERAPY_CATEGORIES.includes(body.category), examinationType: body.examinationType,
@@ -68,7 +74,11 @@ export const POST = withAuth(null, async (req, { user }) => {
       uploadedById: user.id,
     },
     select: { id: true },
-  });
+    });
+  } catch (error) {
+    await deleteObject(finalKey);
+    throw error;
+  }
   await auditHis(access, "HIS_MEDIA_UPLOADED", "MedicalMedia", media.id, req, { patientId: body.patientId, details: { category: body.category, format: resolved.format.key, sizeBytes } });
   return NextResponse.json({ media }, { status: 201 });
 });

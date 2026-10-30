@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import type { DocumentView } from "@/lib/his/documents";
@@ -8,8 +8,9 @@ import { ATTESTED_ROLES, sectionVisible, type DocumentContent, type TemplateFiel
 import { api, inputClass, textareaClass } from "./use-api";
 
 interface Perms { author: boolean; review: boolean; sign: boolean; approve: boolean; release: boolean }
+interface MediaOption { id: string; fileName: string; mimeType: string; sensitivity: string }
 
-function FieldInput({ field, value, onChange, disabled }: { field: TemplateField; value: DocumentContent[string] | undefined; onChange: (v: DocumentContent[string]) => void; disabled: boolean }) {
+function FieldInput({ field, value, onChange, disabled, mediaOptions }: { field: TemplateField; value: DocumentContent[string] | undefined; onChange: (v: DocumentContent[string]) => void; disabled: boolean; mediaOptions: MediaOption[] }) {
   const id = `f-${field.id}`;
   const label = <label htmlFor={id} className="text-xs font-semibold">{field.label}{field.required ? " *" : ""}{field.unit ? ` (${field.unit})` : ""}</label>;
   switch (field.type) {
@@ -34,13 +35,21 @@ function FieldInput({ field, value, onChange, disabled }: { field: TemplateField
         </div>
       );
     }
-    case "signature": case "image": case "attachment": return <p className="text-xs text-muted-foreground">{field.label}: captured through the signature workflow / Diagnostic media module.</p>;
+    case "image": case "attachment": {
+      const choices = mediaOptions.filter((m) => field.type !== "image" || m.mimeType.startsWith("image/"));
+      return <div>{label}<select id={id} className={inputClass} disabled={disabled} value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value || null)}>
+        <option value="">Choose a patient file</option>
+        {typeof value === "string" && !choices.some((m) => m.id === value) && <option value={value}>Unavailable file reference: {value}</option>}
+        {choices.map((m) => <option key={m.id} value={m.id}>{m.fileName}</option>)}
+      </select><p className="mt-1 text-xs text-muted-foreground">Upload files in Diagnostic media first. Only files for this patient are available; patient access requires a separate release.</p></div>;
+    }
+    case "signature": return <p className="text-xs text-muted-foreground">{field.label}: captured through the signature workflow below.</p>;
     default: return <div>{label}<input id={id} className={inputClass} disabled={disabled} value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} /></div>;
   }
 }
 
 /** Document authoring and workflow: autosaved drafts, explicit submit/review/sign/finalize, amendments. */
-export function DocumentEditor({ view, perms, isAuthor }: { view: DocumentView; perms: Perms; isAuthor: boolean }) {
+export function DocumentEditor({ view, perms, isAuthor, mediaOptions = [] }: { view: DocumentView; perms: Perms; isAuthor: boolean; mediaOptions?: MediaOption[] }) {
   const router = useRouter();
   const [content, setContent] = useState<DocumentContent>(view.content);
   const [dirty, setDirty] = useState(false);
@@ -53,16 +62,27 @@ export function DocumentEditor({ view, perms, isAuthor }: { view: DocumentView; 
   const [attest, setAttest] = useState(false);
   const editable = view.status === "DRAFT" && isAuthor && perms.author;
   const contentRef = useRef(content);
-  useEffect(() => { contentRef.current = content; }, [content]);
+  const savingRef = useRef<Promise<void> | null>(null);
+  const saveDraft = useCallback(async (autosave: boolean) => {
+    // Explicit save/submit waits for any autosave, then saves the newest snapshot.
+    while (savingRef.current) await savingRef.current.catch(() => undefined);
+    const snapshot = contentRef.current;
+    const pending = api(`/api/facility/his/documents/${view.id}`, { method: "PUT", body: { content: snapshot, autosave } }).then(() => {
+      if (contentRef.current === snapshot) setDirty(false);
+      setSaved(new Date().toLocaleTimeString());
+    });
+    savingRef.current = pending;
+    try { await pending; } finally { if (savingRef.current === pending) savingRef.current = null; }
+  }, [view.id]);
 
   useEffect(() => {
-    if (!editable || !dirty) return;
+    if (!editable || !dirty || busy) return;
     const t = setTimeout(async () => {
-      try { await api(`/api/facility/his/documents/${view.id}`, { method: "PUT", body: { content: contentRef.current, autosave: true } }); setDirty(false); setSaved(new Date().toLocaleTimeString()); router.refresh(); }
+      try { await saveDraft(true); }
       catch (e) { setMsg({ ok: false, text: `Autosave failed: ${e instanceof Error ? e.message : ""}` }); }
     }, 2500);
     return () => clearTimeout(t);
-  }, [content, dirty, editable, view.id, router]);
+  }, [content, dirty, editable, busy, saveDraft]);
 
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent) => { if (dirty) { e.preventDefault(); } };
@@ -73,7 +93,7 @@ export function DocumentEditor({ view, perms, isAuthor }: { view: DocumentView; 
   const act = async (body: Record<string, unknown>, ok: string) => {
     setBusy(true); setMsg(null);
     try {
-      if (dirty && editable) { await api(`/api/facility/his/documents/${view.id}`, { method: "PUT", body: { content } }); setDirty(false); }
+      if (editable) await saveDraft(false);
       const res = await api<{ amendment?: { id: string } }>(`/api/facility/his/documents/${view.id}/actions`, { body });
       setMsg({ ok: true, text: ok });
       if (res.amendment) router.push(`/lab/clinical-documents/${res.amendment.id}`); else router.refresh();
@@ -89,7 +109,7 @@ export function DocumentEditor({ view, perms, isAuthor }: { view: DocumentView; 
         <strong data-testid="text-document-status">{view.statusLabel}</strong>
         {editable && <span className="text-xs text-muted-foreground">{dirty ? "Unsaved changes…" : saved ? `Autosaved ${saved}` : "Draft"}</span>}
         <span className="flex-1" />
-        {editable && <Button size="sm" variant="outline" disabled={busy} onClick={async () => { setBusy(true); try { await api(`/api/facility/his/documents/${view.id}`, { method: "PUT", body: { content } }); setDirty(false); setMsg({ ok: true, text: "Saved" }); router.refresh(); } catch (e) { setMsg({ ok: false, text: e instanceof Error ? e.message : "Failed" }); } finally { setBusy(false); } }} data-testid="button-save-document">Save</Button>}
+        {editable && <Button size="sm" variant="outline" disabled={busy} onClick={async () => { setBusy(true); try { await saveDraft(false); setMsg({ ok: true, text: "Saved" }); router.refresh(); } catch (e) { setMsg({ ok: false, text: e instanceof Error ? e.message : "Failed" }); } finally { setBusy(false); } }} data-testid="button-save-document">Save</Button>}
         {editable && <Button size="sm" disabled={busy} onClick={() => act({ action: "submit" }, "Submitted")} data-testid="button-submit-document">Submit</Button>}
         {view.status === "PENDING_REVIEW" && perms.review && <Button size="sm" disabled={busy} onClick={() => act({ action: "review" }, "Verified")} data-testid="button-review-document">Verify (clinical review)</Button>}
         {(view.status === "PENDING_REVIEW" || view.status === "PENDING_SIGNATURE") && (perms.review || isAuthor) && <Button size="sm" variant="ghost" disabled={busy} onClick={() => { const r = ask("Reason for returning to draft (signatures will be revoked)"); if (r) void act({ action: "return", reason: r }, "Returned to draft"); }}>Return to draft</Button>}
@@ -109,7 +129,10 @@ export function DocumentEditor({ view, perms, isAuthor }: { view: DocumentView; 
         {view.definition.sections.filter((s) => sectionVisible(s, content)).map((s) => (
           <section key={s.id} className="space-y-3 rounded-xl border bg-card p-4">
             <h2 className="text-sm font-semibold">{s.title}</h2>
-            {s.fields.map((f) => <FieldInput key={f.id} field={f} disabled={!editable} value={content[f.id]} onChange={(v) => { setContent((c) => ({ ...c, [f.id]: v })); setDirty(true); }} />)}
+            {s.fields.map((f) => <FieldInput key={f.id} field={f} mediaOptions={mediaOptions.filter((m) => {
+              const rank: Record<string, number> = { STANDARD: 0, RESTRICTED: 1, SPECIALLY_PROTECTED: 2 };
+              return rank[m.sensitivity] <= rank[view.sensitivity];
+            })} disabled={!editable || busy} value={content[f.id]} onChange={(v) => { const next = { ...contentRef.current, [f.id]: v }; contentRef.current = next; setContent(next); setDirty(true); }} />)}
           </section>
         ))}
       </form>

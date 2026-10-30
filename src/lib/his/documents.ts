@@ -118,7 +118,13 @@ export async function buildDocumentView(doc: DocumentRow): Promise<DocumentView>
       .map((sec) => ({
         id: sec.id,
         title: sec.title,
-        fields: sec.fields.filter((f) => f.type !== "signature").map((f) => ({ id: f.id, label: f.label, type: f.type, value: content[f.id], columns: f.columns, unit: f.unit })),
+        fields: sec.fields.filter((f) => f.type !== "signature").map((f) => ({
+          id: f.id, label: f.label, type: f.type,
+          value: (f.type === "image" || f.type === "attachment") && content[f.id]
+            ? `Diagnostic media reference: ${content[f.id]} (file not embedded; access and release controlled separately)`
+            : content[f.id],
+          columns: f.columns, unit: f.unit,
+        })),
       })),
     signatures: doc.signatures.map((sig) => ({
       id: sig.id,

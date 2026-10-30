@@ -10,6 +10,9 @@ import { loadFacilityDocument, signerProfile } from "@/lib/his/documents";
 import { SIGNATURE_ROLES, parseDefinition, validateContent } from "@/lib/his/template-schema";
 import { canPerform, contentHash, missingSignatures, signingRequirement, statusAfterSubmit, templateSignatureRoles, type DocumentAction } from "@/lib/his/workflow";
 import { notifyUser } from "@/lib/notifications/service";
+import { assertDocumentReadable } from "@/lib/his/visibility";
+import { validateAttachments } from "@/lib/his/attachments";
+import type { DocumentContent } from "@/lib/his/template-schema";
 
 const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("submit") }),
@@ -42,6 +45,7 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
   const access = await requireHisAccess(user, null, req);
   const body = await parseBody(req, schema);
   const doc = await loadFacilityDocument(access.facility.id, parseId((await params).id));
+  assertDocumentReadable(doc, user.id, hasPermission(access, "REVIEW_DOCUMENTS"));
   const def = parseDefinition(doc.templateVersion.definition);
   const action = body.action as DocumentAction;
   if (!canPerform(action, doc.status)) throw conflict(`Cannot ${action} a document in status ${doc.status}`);
@@ -56,6 +60,10 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
       await fn(tx);
     });
   const now = new Date();
+  const checkAttachments = () => validateAttachments(def, doc.content as DocumentContent, {
+    facilityId: access.facility.id, patientId: doc.patientId, sensitivity: doc.sensitivity,
+    canReview: hasPermission(access, "REVIEW_DOCUMENTS"),
+  });
   let result: Record<string, unknown> = {};
 
   switch (body.action) {
@@ -64,6 +72,7 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
       if (doc.authorId !== user.id) throw forbidden("Only the author can submit this document");
       const { errors } = validateContent(def, doc.content as Record<string, unknown>, { complete: true });
       if (errors.length) throw badRequest(errors.join("; "));
+      await checkAttachments();
       const next = statusAfterSubmit(def);
       await guarded(async (tx) => {
         await tx.clinicalDocument.update({ where: { id: doc.id }, data: { status: next } });
@@ -99,6 +108,9 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
       const { method, permission } = signingRequirement(role);
       need(permission);
       if (role === "AUTHOR" && doc.authorId !== user.id) throw forbidden("Only the author can sign as author");
+      if ((role === "REVIEWER" || role === "VERIFIER") && def.workflow.independentReview && doc.authorId === user.id) {
+        throw forbidden("This document requires an independent reviewing signatory");
+      }
       const hash = contentHash(doc.content);
       if (doc.signatures.some((s) => !s.revokedAt && s.role === role && s.contentHash === hash && (method === "HANDWRITTEN_ATTESTED" || s.signerUserId === user.id))) {
         throw conflict("This signature is already recorded");
@@ -128,6 +140,9 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
     }
     case "finalize": {
       need("SIGN_DOCUMENTS");
+      const { errors } = validateContent(def, doc.content as Record<string, unknown>, { complete: true });
+      if (errors.length) throw badRequest(errors.join("; "));
+      await checkAttachments();
       const hash = contentHash(doc.content);
       const missing = missingSignatures(def, doc.signatures, hash);
       if (missing.length) throw badRequest(`Missing required signatures: ${missing.map((m) => m.label).join(", ")}`);

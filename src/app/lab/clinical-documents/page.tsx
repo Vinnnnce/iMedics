@@ -6,6 +6,7 @@ import { CATALOGUE_GROUPS, catalogue, groupAllowedForKind, groupTitle } from "@/
 import { STATUS_LABEL } from "@/lib/his/workflow";
 import { prisma } from "@/lib/prisma";
 import { formatClinicDateTime } from "@/lib/format";
+import { documentVisibility } from "@/lib/his/visibility";
 
 const STATUSES = Object.keys(STATUS_LABEL) as (keyof typeof STATUS_LABEL)[];
 
@@ -20,6 +21,7 @@ export default async function ClinicalDocumentsPage({ searchParams }: { searchPa
       ? prisma.clinicalDocument.findMany({
           where: {
             facilityId: facility.id,
+            AND: [documentVisibility(user.id, can("REVIEW_DOCUMENTS"))],
             ...(status ? { status } : {}),
             ...(sp.group ? { groupCode: sp.group.slice(0, 10) } : {}),
             ...(q ? { OR: [{ title: { contains: q, mode: "insensitive" as const } }, { documentNumber: { contains: q.toUpperCase() } }, { patient: { caseNumber: q.toUpperCase() } }] } : {}),

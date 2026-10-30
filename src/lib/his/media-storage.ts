@@ -15,10 +15,12 @@ export async function scanObject(key: string): Promise<"CLEAN" | "INFECTED" | "N
     method: "POST",
     headers: { "Content-Type": "application/json", ...(process.env.MALWARE_SCAN_TOKEN ? { Authorization: `Bearer ${process.env.MALWARE_SCAN_TOKEN}` } : {}) },
     body: JSON.stringify({ bucket: process.env.S3_BUCKET, key }),
+    signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) throw badRequest("The malware scanner is unavailable. Please retry the upload later.");
   const data = (await res.json()) as { result?: string };
-  return data.result === "INFECTED" ? "INFECTED" : "CLEAN";
+  if (data?.result === "CLEAN" || data?.result === "INFECTED") return data.result;
+  throw badRequest("The malware scanner did not return a definitive result. Please retry the upload later.");
 }
 
 export async function sha256OfObject(key: string): Promise<string> {
@@ -60,17 +62,18 @@ export async function finalizeMedia(
 
   const finalKey = `medical-media/final/${facilityId}/${patientId}/${randomUUID()}`;
   await copyObject(stagingKey, finalKey, inspected.etag, format.mimeTypes[0]);
-  await deleteObject(stagingKey);
-
-  const sha256 = await sha256OfObject(finalKey);
-  if (sha256 !== declaredSha256.toLowerCase()) {
+  try {
+    await deleteObject(stagingKey);
+    const sha256 = await sha256OfObject(finalKey);
+    if (sha256 !== declaredSha256.toLowerCase()) {
+      throw badRequest("Checksum mismatch — the file was corrupted or changed during upload. Please retry.");
+    }
+    const scan = await scanObject(finalKey);
+    if (scan === "INFECTED") throw badRequest("The file was rejected by the malware scanner");
+    return { finalKey, sizeBytes: inspected.sizeBytes, sha256, scanStatus: scan };
+  } catch (error) {
+    // Never retain an unregistered final object after a failed verification.
     await deleteObject(finalKey);
-    throw badRequest("Checksum mismatch — the file was corrupted or changed during upload. Please retry.");
+    throw error;
   }
-  const scan = await scanObject(finalKey);
-  if (scan === "INFECTED") {
-    await deleteObject(finalKey);
-    throw badRequest("The file was rejected by the malware scanner");
-  }
-  return { finalKey, sizeBytes: inspected.sizeBytes, sha256, scanStatus: scan };
 }

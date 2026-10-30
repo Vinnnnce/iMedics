@@ -90,12 +90,18 @@ export const templateDefinitionSchema = z
   })
   .superRefine((def, ctx) => {
     const ids = new Set<string>();
+    const sectionIds = new Set<string>();
     def.sections.forEach((section, si) => {
+      if (sectionIds.has(section.id)) ctx.addIssue({ code: "custom", path: ["sections", si, "id"], message: `Duplicate section id "${section.id}"` });
+      sectionIds.add(section.id);
       section.fields.forEach((field, fi) => {
         if (ids.has(field.id)) {
           ctx.addIssue({ code: "custom", path: ["sections", si, "fields", fi, "id"], message: `Duplicate field id "${field.id}"` });
         }
         ids.add(field.id);
+        if (field.min !== undefined && field.max !== undefined && field.min > field.max) {
+          ctx.addIssue({ code: "custom", path: ["sections", si, "fields", fi], message: `"${field.label}" minimum cannot exceed maximum` });
+        }
         if ((field.type === "select" || field.type === "multiselect") && !field.options?.length) {
           ctx.addIssue({ code: "custom", path: ["sections", si, "fields", fi, "options"], message: `"${field.label}" needs at least one option` });
         }
@@ -136,14 +142,35 @@ export function lockedViolations(source: TemplateDefinition, next: TemplateDefin
     if (!kept) problems.push(`Required field "${field.label}" cannot be removed`);
     else if (kept.type !== field.type) problems.push(`Required field "${field.label}" cannot change type`);
     else if (field.required && !kept.required) problems.push(`Required field "${field.label}" cannot be made optional`);
+    if (!kept) continue;
+    if ((field.min !== undefined && (kept.min === undefined || kept.min < field.min)) ||
+        (field.max !== undefined && (kept.max === undefined || kept.max > field.max)) ||
+        (field.maxLength !== undefined && (kept.maxLength === undefined || kept.maxLength > field.maxLength)) ||
+        (field.options && kept.options?.some((option) => !field.options!.includes(option))) ||
+        (field.columns && canonicalJson(field.columns) !== canonicalJson(kept.columns))) {
+      problems.push(`Required field "${field.label}" validation cannot be weakened`);
+    }
+    const originalSection = source.sections.find((s) => s.fields.some((f) => f.id === fid))!;
+    const nextSection = next.sections.find((s) => s.fields.some((f) => f.id === fid))!;
+    if (canonicalJson(originalSection.condition) !== canonicalJson(nextSection.condition)) {
+      problems.push(`Required field "${field.label}" visibility cannot be changed`);
+    }
   }
   for (const rule of source.signatures) {
     if (!rule.locked) continue;
     const kept = next.signatures.find((r) => r.role === rule.role);
     if (!kept || (rule.required && !kept.required)) problems.push(`Signature "${rule.label}" is mandatory and cannot be removed`);
+    if (kept) {
+      const allowed = rule.anyOf?.length ? rule.anyOf : [rule.role];
+      const alternatives = kept.anyOf?.length ? kept.anyOf : [kept.role];
+      if (alternatives.some((role) => !allowed.includes(role))) problems.push(`Signature "${rule.label}" cannot accept weaker alternatives`);
+    }
   }
   if (source.workflow.requiresReview && !next.workflow.requiresReview && source.signatures.some((r) => r.locked)) {
     problems.push("Mandatory review cannot be switched off for this document type");
+  }
+  if (source.workflow.independentReview && !next.workflow.independentReview && source.signatures.some((r) => r.locked)) {
+    problems.push("Mandatory independent review cannot be switched off for this document type");
   }
   return problems;
 }
@@ -188,6 +215,7 @@ export function validateContent(
       const bad = () => errors.push(`"${field.label}" has an invalid value`);
       switch (field.type) {
         case "number": {
+          if (typeof value !== "number" && (typeof value !== "string" || !value.trim())) { bad(); break; }
           const n = typeof value === "number" ? value : Number(value);
           if (!Number.isFinite(n)) { bad(); break; }
           if (field.min !== undefined && n < field.min) errors.push(`"${field.label}" must be at least ${field.min}`);
@@ -203,15 +231,23 @@ export function validateContent(
           else content[field.id] = value as string[];
           break;
         case "table":
-          if (!Array.isArray(value) || value.length > 200 || value.some((row) => !Array.isArray(row) || row.some((c) => typeof c !== "string" || c.length > 2000))) bad();
+          if (!Array.isArray(value) || value.length > 200 || value.some((row) => !Array.isArray(row) || row.length !== field.columns?.length || row.some((c) => typeof c !== "string" || c.length > 2000))) bad();
           else content[field.id] = value as string[][];
           break;
         case "select":
           if (typeof value !== "string" || !field.options?.includes(value)) bad(); else content[field.id] = value;
           break;
-        case "date":
+        case "date": {
+          if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
+              Number.isNaN(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value) bad();
+          else content[field.id] = value;
+          break;
+        }
         case "datetime":
-          if (typeof value !== "string" || Number.isNaN(Date.parse(value))) bad(); else content[field.id] = value;
+          if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value) || Number.isNaN(Date.parse(value))) bad(); else content[field.id] = value;
+          break;
+        case "image": case "attachment":
+          if (typeof value !== "string" || !z.string().uuid().safeParse(value).success) bad(); else content[field.id] = value;
           break;
         default: {
           if (typeof value !== "string") { bad(); break; }
@@ -228,7 +264,9 @@ export function validateContent(
       for (const field of section.fields) {
         if (!field.required || field.type === "signature") continue;
         const v = content[field.id];
-        const empty = v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0) || (field.type === "checkbox" && v !== true);
+        const empty = v === undefined || v === null || (typeof v === "string" && !v.trim()) ||
+          (Array.isArray(v) && (v.length === 0 || (field.type === "table" && !(v as string[][]).some((row) => row.some((cell) => cell.trim()))))) ||
+          (field.type === "checkbox" && v !== true);
         if (empty) errors.push(`"${field.label}" is required`);
       }
     }

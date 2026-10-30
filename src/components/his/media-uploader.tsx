@@ -7,7 +7,7 @@ import { PatientIdentify, type IdentifiedPatient } from "./patient-identify";
 import { api, inputClass } from "./use-api";
 
 interface Item { file: File; state: "queued" | "hashing" | "uploading" | "verifying" | "done" | "error"; progress: number; error?: string }
-interface MediaRow { id: string; category: keyof typeof MEDIA_CATEGORY_LABEL; examinationType: string; fileName: string; sizeBytes: number; reportStatus: string; scanStatus: string; releasedToPatientAt: string | null; createdAt: string; patient: { firstName: string; lastName: string; caseNumber: string } }
+interface MediaRow { id: string; category: keyof typeof MEDIA_CATEGORY_LABEL; examinationType: string; fileName: string; sizeBytes: number; reportStatus: string; sensitivity: string; scanStatus: string; releasedToPatientAt: string | null; createdAt: string; patient: { firstName: string; lastName: string; caseNumber: string } }
 
 const MIME_BY_EXT: Record<string, string> = { dcm: "application/dicom", dicom: "application/dicom", hl7: "application/hl7-v2", json: "application/fhir+json", xml: "application/xml", scp: "application/octet-stream", ecg: "application/octet-stream", csv: "text/csv", txt: "text/plain", wav: "audio/wav", mp3: "audio/mpeg", mov: "video/quicktime", m4v: "video/mp4", tif: "image/tiff", tiff: "image/tiff" };
 const mimeOf = (f: File) => MIME_BY_EXT[f.name.split(".").pop()?.toLowerCase() ?? ""] ?? f.type ?? "application/octet-stream";
@@ -30,7 +30,7 @@ function put(url: string, file: File, type: string, onProgress: (p: number) => v
 }
 
 /** Bulk drag-and-drop diagnostic upload with checksum, progress, retry and metadata. */
-export function MediaUploader({ canUpload, canRelease }: { canUpload: boolean; canRelease: boolean }) {
+export function MediaUploader({ canUpload, canRelease, canReview = false }: { canUpload: boolean; canRelease: boolean; canReview?: boolean }) {
   const [patient, setPatient] = useState<IdentifiedPatient | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [meta, setMeta] = useState({ category: "XRAY", examinationType: "", examinationAt: "", modality: "", bodySite: "", accessionNumber: "", orderingClinician: "", reportingClinician: "", reportStatus: "UNREPORTED", sensitivity: "STANDARD" });
@@ -62,6 +62,10 @@ export function MediaUploader({ canUpload, canRelease }: { canUpload: boolean; c
     next.forEach((n, k) => void uploadOne(start + k, n.file));
   };
   const open = async (id: string, mode: "view" | "download") => { try { const d = await api<{ url: string }>(`/api/facility/his/media/${id}?mode=${mode}`); window.open(d.url, "_blank", "noopener"); } catch (e) { setError(e instanceof Error ? e.message : "Failed"); } };
+  const change = async (id: string, body: Record<string, unknown>) => {
+    try { await api(`/api/facility/his/media/${id}`, { method: "PATCH", body }); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
+  };
 
   return (
     <div className="space-y-4">
@@ -78,7 +82,7 @@ export function MediaUploader({ canUpload, canRelease }: { canUpload: boolean; c
             <label className="text-xs">Accession / study no.<input className={inputClass} value={meta.accessionNumber} onChange={(e) => setMeta({ ...meta, accessionNumber: e.target.value })} /></label>
             <label className="text-xs">Ordering clinician<input className={inputClass} value={meta.orderingClinician} onChange={(e) => setMeta({ ...meta, orderingClinician: e.target.value })} /></label>
             <label className="text-xs">Reporting clinician<input className={inputClass} value={meta.reportingClinician} onChange={(e) => setMeta({ ...meta, reportingClinician: e.target.value })} /></label>
-            <label className="text-xs">Report status<select className={inputClass} value={meta.reportStatus} onChange={(e) => setMeta({ ...meta, reportStatus: e.target.value })}>{["UNREPORTED", "PRELIMINARY", "VERIFIED"].map((s) => <option key={s}>{s}</option>)}</select></label>
+            <label className="text-xs">Report status<select className={inputClass} value={meta.reportStatus} onChange={(e) => setMeta({ ...meta, reportStatus: e.target.value })}>{(canReview ? ["UNREPORTED", "PRELIMINARY", "VERIFIED"] : ["UNREPORTED", "PRELIMINARY"]).map((s) => <option key={s}>{s}</option>)}</select></label>
             <label className="text-xs">Access classification<select className={inputClass} value={meta.sensitivity} onChange={(e) => setMeta({ ...meta, sensitivity: e.target.value })}>{["STANDARD", "RESTRICTED", "SPECIALLY_PROTECTED"].map((s) => <option key={s}>{s}</option>)}</select></label>
           </div>
           <label
@@ -105,7 +109,9 @@ export function MediaUploader({ canUpload, canRelease }: { canUpload: boolean; c
               <div className="flex-1"><p className="font-medium">{m.examinationType}</p><p className="text-xs text-muted-foreground">{MEDIA_CATEGORY_LABEL[m.category]} · {m.patient.firstName} {m.patient.lastName} ({m.patient.caseNumber}) · {m.fileName} · {(m.sizeBytes / 1048576).toFixed(1)} MB · {m.reportStatus} · {m.scanStatus === "NOT_SCANNED" ? "not malware-scanned" : m.scanStatus}{m.releasedToPatientAt ? " · released" : ""}</p></div>
               <Button size="xs" variant="outline" onClick={() => open(m.id, "view")}>Preview</Button>
               <Button size="xs" variant="outline" onClick={() => open(m.id, "download")}>Download</Button>
-              {canRelease && !m.releasedToPatientAt && m.reportStatus === "VERIFIED" && <Button size="xs" onClick={async () => { try { await api(`/api/facility/his/media/${m.id}`, { method: "PATCH", body: { action: "release", confirmProtected: true } }); void load(); } catch (e) { setError(e instanceof Error ? e.message : "Failed"); } }}>Release</Button>}
+              {canReview && !["VERIFIED", "AMENDED"].includes(m.reportStatus) && <Button size="xs" variant="outline" onClick={() => change(m.id, { action: "reportStatus", reportStatus: "VERIFIED" })}>Verify report</Button>}
+              {canRelease && !m.releasedToPatientAt && ["VERIFIED", "AMENDED"].includes(m.reportStatus) && <Button size="xs" onClick={() => change(m.id, { action: "release", confirmProtected: m.sensitivity === "SPECIALLY_PROTECTED" })}>{m.sensitivity === "SPECIALLY_PROTECTED" ? "Confirm policy & release protected file" : "Release"}</Button>}
+              {canRelease && m.releasedToPatientAt && <Button size="xs" variant="outline" onClick={() => change(m.id, { action: "revoke" })}>Revoke release</Button>}
             </li>
           ))}</ul>
         )}

@@ -11,6 +11,7 @@ import { DOWNLOAD_URL_TTL_SECONDS, presignDownload, presignView } from "@/lib/st
 const getSchema = z.object({ mode: z.enum(["view", "download"]).default("view") });
 const patchSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("release"), confirmProtected: z.boolean().optional() }),
+  z.object({ action: z.literal("revoke") }),
   z.object({ action: z.literal("reportStatus"), reportStatus: z.enum(["UNREPORTED", "PRELIMINARY", "VERIFIED", "AMENDED"]), reportingClinician: z.string().trim().max(160).optional() }),
   z.object({ action: z.literal("delete"), reason: z.string().trim().min(5).max(500) }),
 ]);
@@ -21,6 +22,7 @@ export const GET = withAuth<{ id: string }>(null, async (req, { user, params }) 
   const { mode } = parseQuery(req, getSchema);
   const media = await prisma.medicalMedia.findFirst({ where: { id: parseId((await params).id), facilityId: access.facility.id, deletedAt: null } });
   if (!media) throw notFound("File not found");
+  if (media.scanStatus === "INFECTED") throw forbidden("This file was rejected by the malware scanner");
   if (media.sensitivity === "SPECIALLY_PROTECTED" && !hasPermission(access, "REVIEW_DOCUMENTS")) throw forbidden("This record is specially protected");
   const preview = formatByKey(media.formatKey)?.preview ?? "none";
   const inline = mode === "view" && ["image", "pdf", "video", "audio"].includes(preview);
@@ -36,20 +38,35 @@ export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }
   const body = await parseBody(req, patchSchema);
   const media = await prisma.medicalMedia.findFirst({ where: { id, facilityId: access.facility.id, deletedAt: null } });
   if (!media) throw notFound("File not found");
+  if (media.sensitivity === "SPECIALLY_PROTECTED" && !hasPermission(access, "REVIEW_DOCUMENTS")) throw forbidden("This record is specially protected");
   const need = (p: Parameters<typeof hasPermission>[1]) => { if (!hasPermission(access, p)) throw forbidden("Your role does not allow this action"); };
+  const update = async (data: Parameters<typeof prisma.medicalMedia.updateMany>[0]["data"]) => {
+    const changed = await prisma.medicalMedia.updateMany({
+      where: {
+        id, facilityId: access.facility.id, deletedAt: null,
+        reportStatus: media.reportStatus, releasedToPatientAt: media.releasedToPatientAt,
+        scanStatus: media.scanStatus, sensitivity: media.sensitivity,
+      }, data,
+    });
+    if (!changed.count) throw conflict("This file changed in the meantime — reload and try again");
+  };
 
   if (body.action === "release") {
     need("RELEASE_DOCUMENTS");
     if (media.releasedToPatientAt) throw conflict("Already released");
+    if (media.scanStatus === "INFECTED") throw forbidden("This file was rejected by the malware scanner");
     if (media.reportStatus !== "VERIFIED" && media.reportStatus !== "AMENDED") throw badRequest("Only verified results can be released to the patient");
     if (media.sensitivity === "SPECIALLY_PROTECTED" && body.confirmProtected !== true) throw badRequest("Confirm release of a specially protected record complies with policy");
-    await prisma.medicalMedia.update({ where: { id }, data: { releasedToPatientAt: new Date() } });
+    await update({ releasedToPatientAt: new Date() });
+  } else if (body.action === "revoke") {
+    need("RELEASE_DOCUMENTS");
+    await update({ releasedToPatientAt: null });
   } else if (body.action === "reportStatus") {
     need("REVIEW_DOCUMENTS");
-    await prisma.medicalMedia.update({ where: { id }, data: { reportStatus: body.reportStatus, ...(body.reportingClinician ? { reportingClinician: body.reportingClinician } : {}) } });
+    await update({ reportStatus: body.reportStatus, ...(!["VERIFIED", "AMENDED"].includes(body.reportStatus) ? { releasedToPatientAt: null } : {}), ...(body.reportingClinician ? { reportingClinician: body.reportingClinician } : {}) });
   } else {
     need("APPROVE_DOCUMENTS");
-    await prisma.medicalMedia.update({ where: { id }, data: { deletedAt: new Date(), releasedToPatientAt: null } });
+    await update({ deletedAt: new Date(), releasedToPatientAt: null });
   }
   await auditHis(access, `HIS_MEDIA_${body.action.toUpperCase()}`, "MedicalMedia", id, req, { patientId: media.patientId, details: body.action === "delete" ? { reason: body.reason } : {} });
   return NextResponse.json({ ok: true });

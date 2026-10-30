@@ -45,24 +45,32 @@ export const PUT = withAuth<{ id: string }>(null, async (req, { user, params }) 
   if (template.retiredAt) throw conflict("This template is retired");
 
   const source = template.sourceCode ? catalogueEntry(template.sourceCode)?.definition ?? null : null;
-  const definition = carryLocks(source, parseDefinition(body.definition));
-  if (source) {
-    const problems = lockedViolations(source, definition);
+  const previous = parseDefinition(draft.definition);
+  const definition = carryLocks(previous, carryLocks(source, parseDefinition(body.definition)));
+  for (const baseline of [source, previous]) {
+    if (!baseline) continue;
+    const problems = lockedViolations(baseline, definition);
     if (problems.length) throw badRequest(problems.join("; "));
   }
 
-  await prisma.$transaction([
-    prisma.clinicalDocumentTemplateVersion.update({ where: { id: draft.id }, data: { definition, editedById: user.id, changeNote: body.changeNote ?? draft.changeNote } }),
-    prisma.clinicalDocumentTemplate.update({
-      where: { id: template.id },
+  await prisma.$transaction(async (tx) => {
+    const parent = await tx.clinicalDocumentTemplate.updateMany({
+      where: { id: template.id, facilityId: access.facility.id, updatedAt: template.updatedAt },
       data: {
+        updatedAt: new Date(),
         ...(body.name ? { name: body.name } : {}),
         ...(body.description !== undefined ? { description: body.description } : {}),
         ...(body.departments ? { departments: body.departments } : {}),
         ...(body.specialty !== undefined ? { specialty: body.specialty } : {}),
       },
-    }),
-  ]);
+    });
+    if (!parent.count) throw conflict("The template changed in the meantime — reload and try again");
+    const saved = await tx.clinicalDocumentTemplateVersion.updateMany({
+      where: { id: draft.id, status: "DRAFT", updatedAt: draft.updatedAt },
+      data: { definition, editedById: user.id, changeNote: body.changeNote ?? draft.changeNote },
+    });
+    if (!saved.count) throw conflict("This version changed or was submitted — reload and try again");
+  });
   await auditHis(access, "HIS_TEMPLATE_DRAFT_SAVED", "ClinicalDocumentTemplate", template.id, req, { details: { version: draft.version } });
   return NextResponse.json({ ok: true, version: draft.version });
 });

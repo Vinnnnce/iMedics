@@ -8,6 +8,7 @@ import { resolveFormat } from "@/lib/his/media-formats";
 import { stagingPrefix } from "@/lib/his/media-storage";
 import { UPLOAD_URL_TTL_SECONDS, presignUpload } from "@/lib/storage";
 import { newObjectKey } from "@/lib/uploads";
+import { mediaVisibility } from "@/lib/his/visibility";
 
 const presignSchema = z.object({
   patientId: z.string().uuid(),
@@ -26,7 +27,7 @@ export const GET = withAuth(null, async (req, { user }) => {
   const q = parseQuery(req, listSchema);
   if (q.patientId) await assertPatientLinked(access.facility.id, q.patientId);
   const media = await prisma.medicalMedia.findMany({
-    where: { facilityId: access.facility.id, deletedAt: null, ...(q.patientId ? { patientId: q.patientId } : {}), ...(q.category ? { category: q.category as never } : {}) },
+    where: { facilityId: access.facility.id, deletedAt: null, ...mediaVisibility(access.permissions.includes("REVIEW_DOCUMENTS")), ...(q.patientId ? { patientId: q.patientId } : {}), ...(q.category ? { category: q.category as never } : {}) },
     orderBy: { createdAt: "desc" },
     take: 200,
     select: {

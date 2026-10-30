@@ -9,7 +9,7 @@ import { DOWNLOAD_URL_TTL_SECONDS, presignDownload } from "@/lib/storage";
 export const GET = withAuth<{ id: string }>(["PATIENT"], async (req, { user, params }) => {
   const id = parseId((await params).id);
   const patient = await prisma.patient.findFirst({ where: { userId: user.id, deletedAt: null }, select: { id: true } });
-  const media = patient ? await prisma.medicalMedia.findFirst({ where: { id, patientId: patient.id, deletedAt: null, releasedToPatientAt: { not: null } } }) : null;
+  const media = patient ? await prisma.medicalMedia.findFirst({ where: { id, patientId: patient.id, deletedAt: null, releasedToPatientAt: { not: null }, reportStatus: { in: ["VERIFIED", "AMENDED"] }, scanStatus: { not: "INFECTED" } } }) : null;
   if (!media) throw notFound("File not found");
   const url = await presignDownload(media.storageKey, media.fileName);
   await writeAudit({ userId: user.id, actorRole: user.role, patientId: media.patientId, facilityId: media.facilityId, action: "PATIENT_MEDIA_DOWNLOADED", resourceType: "MedicalMedia", resourceId: media.id, req });

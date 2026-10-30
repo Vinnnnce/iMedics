@@ -10,6 +10,16 @@ import { formatNumber } from "./numbering";
 const consent = catalogueEntry(catalogue().find((e) => e.groupCode === "F")!.code)!;
 
 describe("system catalogue", () => {
+  it("includes surgical consents without shifting existing surgical catalogue codes", () => {
+    const surgery = catalogue().filter((e) => e.groupCode === "E");
+    expect(surgery).toHaveLength(34);
+    expect(surgery[0].name).toBe("Preoperative assessment");
+    expect(surgery[29].name).toBe("Postoperative discharge instructions");
+    expect(surgery.slice(30).map((e) => e.name)).toEqual(["Anesthesia consent", "Surgical consent", "Procedure-specific informed consent", "Biopsy request and consent"]);
+    for (const entry of surgery.slice(30)) {
+      expect(entry.definition.signatures.filter((s) => s.required).map((s) => s.role)).toEqual(["PATIENT", "CLINICIAN_OBTAINING_CONSENT"]);
+    }
+  });
   it("covers groups A–P with valid definitions and unique codes", () => {
     const all = catalogue();
     expect(new Set(all.map((e) => e.groupCode))).toEqual(new Set("ABCDEFGHIJKLMNOP".split("")));

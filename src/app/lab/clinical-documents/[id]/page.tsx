@@ -5,6 +5,7 @@ import { requireHisPage } from "@/lib/his/page";
 import { buildDocumentView, documentInclude } from "@/lib/his/documents";
 import { prisma } from "@/lib/prisma";
 import { writeAudit } from "@/lib/audit";
+import { mediaVisibility } from "@/lib/his/visibility";
 
 export default async function ClinicalDocumentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -17,6 +18,12 @@ export default async function ClinicalDocumentPage({ params }: { params: Promise
   }
   await writeAudit({ userId: user.id, actorRole: user.role, facilityId: facility.id, patientId: doc.patientId, action: "HIS_DOCUMENT_VIEWED", resourceType: "ClinicalDocument", resourceId: doc.id });
   const view = await buildDocumentView(doc);
+  const mediaOptions = await prisma.medicalMedia.findMany({
+    where: { facilityId: facility.id, patientId: doc.patientId, deletedAt: null, scanStatus: { not: "INFECTED" }, ...mediaVisibility(can("REVIEW_DOCUMENTS")) },
+    select: { id: true, fileName: true, mimeType: true, sensitivity: true },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
   return (
     <div className="mx-auto max-w-4xl space-y-4 px-4 md:px-0">
       <nav aria-label="Breadcrumb" className="text-xs text-muted-foreground"><Link href="/lab/clinical-documents" className="hover:underline">Medical documents</Link> / <Link href={`/lab/patients/${view.patient.id}`} className="hover:underline">{view.patient.name}</Link> / {view.documentNumber}</nav>
@@ -24,7 +31,7 @@ export default async function ClinicalDocumentPage({ params }: { params: Promise
         <h1 className="text-2xl font-bold">{view.title}</h1>
         <p className="text-sm text-muted-foreground">{view.documentNumber} · rev {view.revision} · {view.groupTitle} · {view.patient.name} ({view.patient.caseNumber}) · author {view.author.name}{view.releasedToPatientAt ? " · released to patient" : ""}</p>
       </div>
-      <DocumentEditor view={view} isAuthor={doc.authorId === user.id} perms={{ author: can("AUTHOR_DOCUMENTS"), review: can("REVIEW_DOCUMENTS"), sign: can("SIGN_DOCUMENTS"), approve: can("APPROVE_DOCUMENTS"), release: can("RELEASE_DOCUMENTS") }} />
+      <DocumentEditor key={doc.id} view={view} mediaOptions={mediaOptions} isAuthor={doc.authorId === user.id} perms={{ author: can("AUTHOR_DOCUMENTS"), review: can("REVIEW_DOCUMENTS"), sign: can("SIGN_DOCUMENTS"), approve: can("APPROVE_DOCUMENTS"), release: can("RELEASE_DOCUMENTS") }} />
     </div>
   );
 }

@@ -1,5 +1,15 @@
 # I-Medics audit checks
 
+## Medic1905-update HIS acceptance checks
+- Preserve the current homepage, emergency education, public directories and authentication entry points.
+- Hospital templates: adopt/customize, save draft, submit, independently approve, publish and create a new version; concurrent saves must not mutate a submitted/published version.
+- Locked fields cannot be hidden behind new conditions, have their validation weakened, or lose mandatory signature roles through alternatives.
+- Document workflow: save, submit, independent review/signature, finalize, release, PDF and amendment. Required patient-linked image/attachment references must resolve within the same hospital and patient.
+- Protected records must be excluded from unauthorized worklists, portfolios, media lists and package exports as well as direct reads and workflow actions.
+- Uploads: only an explicit CLEAN scanner result is clean; scanner failures and corrupt bytes must not leave an accessible final object.
+- Draft edits made during an in-flight save must remain dirty; save/submit and autosave must not race.
+- Run unit/API regressions, Prisma validation, lint, typecheck and a migration-free production build. Authenticated browser journeys require configured Clerk, Postgres, storage and synthetic test accounts; do not claim them verified from mocks.
+
 ## Baseline and merge
 - Production homepage and emergency centre opened in cloud browser before edits.
 - Audit branch is an ancestor of main: no merge needed.

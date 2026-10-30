@@ -6,6 +6,7 @@ import { assertPatientLinked, requireHisAccess } from "@/lib/his/access";
 import { auditHis } from "@/lib/his/audit";
 import { buildDocumentView, documentInclude } from "@/lib/his/documents";
 import { renderDocumentsPdf } from "@/lib/his/pdf";
+import { assertDocumentReadable } from "@/lib/his/visibility";
 
 export const runtime = "nodejs";
 
@@ -29,6 +30,7 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
     orderBy: { createdAt: "asc" },
   });
   if (docs.length !== body.documentIds.length) throw badRequest("Only finalized documents of this patient can be exported");
+  for (const doc of docs) assertDocumentReadable(doc, user.id, access.permissions.includes("REVIEW_DOCUMENTS"));
   const views = await Promise.all(docs.map(buildDocumentView));
   const bytes = await renderDocumentsPdf(views, { manifestTitle: `Medical records package · authorization ${body.authorizationReference}` });
   await prisma.clinicalDocumentEvent.createMany({ data: docs.map((d) => ({ documentId: d.id, action: "EXPORTED", actorId: user.id, note: body.authorizationReference })) });

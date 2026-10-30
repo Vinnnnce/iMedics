@@ -70,6 +70,8 @@ export const CATALOGUE_GROUPS: CatalogueGroup[] = [
     "Recovery room observation", "Post-anesthesia care record", "Postoperative orders", "Postoperative progress note", "Postoperative complications record",
     "Wound and drain care plan", "Procedure and manipulation record", "Sedation assessment and monitoring", "Local anesthesia procedure record",
     "Minor surgery record", "Endoscopy and interventional procedure report", "Surgical debrief", "Postoperative discharge instructions",
+    // Append only: source codes use array positions; never shift existing codes.
+    "Anesthesia consent", "Surgical consent", "Procedure-specific informed consent", "Biopsy request and consent",
   ] },
   { code: "F", title: "Informed consent and patient agreements", kinds: ["HOSPITAL", "DIAGNOSTIC_CENTRE", "LABORATORY"], items: [
     "General consent to examination and treatment", "Informed consent for surgery", "Anesthesia consent", "Sedation consent", "Invasive procedure consent",
@@ -231,6 +233,7 @@ function lab(name: string): TemplateDefinition {
         f("interpretation", "Interpretation / comments"),
         f("critical", "Critical result communicated", "checkbox"),
         f("criticalDetails", "Critical result communication (to whom, when, read-back)"),
+        f("sourceReport", "Supporting laboratory report", "attachment"),
       ]),
     ],
     signatures: [{ ...AUTHOR, label: "Laboratory scientist / authorized laboratory professional" }, { ...VERIFIER, label: "Verifying pathologist or laboratory physician" }, HEAD],
@@ -251,6 +254,7 @@ function imaging(): TemplateDefinition {
       sec("report", "Report", [
         req("indication", "Clinical indication"), req("technique", "Technique"), f("comparison", "Comparison studies"),
         req("findings", "Findings"), req("impression", "Impression"), f("recommendations", "Recommendations"),
+        f("sourceStudy", "Source study or supporting report", "attachment"),
       ]),
       sec("critical", "Critical findings communication", [
         f("criticalFinding", "Critical finding present", "checkbox"),
@@ -284,7 +288,7 @@ function endoscopy(): TemplateDefinition {
   return {
     sections: [
       sec("procedure", "Procedure", [req("indication", "Indication"), f("sedation", "Sedation and monitoring"), f("extent", "Extent of examination", "text")]),
-      sec("report", "Report", [req("findings", "Findings"), req("impression", "Impression"), f("biopsies", "Biopsy and specimen details"), f("complications", "Complications"), f("followUp", "Follow-up recommendations")]),
+      sec("report", "Report", [req("findings", "Findings"), req("impression", "Impression"), f("biopsies", "Biopsy and specimen details"), f("complications", "Complications"), f("followUp", "Follow-up recommendations"), f("procedureImage", "Procedure image", "image")]),
     ],
     signatures: [{ ...AUTHOR, label: "Endoscopist" }, COSIGN],
     workflow: { requiresReview: false, independentReview: true },
@@ -356,7 +360,7 @@ function clinical(name: string, groupCode: string): TemplateDefinition {
 }
 
 function definitionFor(groupCode: string, name: string): TemplateDefinition {
-  if (groupCode === "F") return consent(name);
+  if (groupCode === "F" || (groupCode === "E" && /consent/i.test(name))) return consent(name);
   if (groupCode === "G") return lab(name);
   if (groupCode === "H") return imaging();
   if (groupCode === "I") return physiological();

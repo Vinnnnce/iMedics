@@ -9,7 +9,7 @@ export default async function MediaPage() {
         <h1 className="text-2xl font-bold">Diagnostic media &amp; patient files</h1>
         <p className="mt-1 text-sm text-muted-foreground">Files are validated by real file signature, checksummed, stored privately and served through expiring links. Every view and download is audited.</p>
       </div>
-      <MediaUploader canUpload={can("UPLOAD_MEDIA")} canRelease={can("RELEASE_DOCUMENTS")} />
+      <MediaUploader canUpload={can("UPLOAD_MEDIA")} canRelease={can("RELEASE_DOCUMENTS")} canReview={can("REVIEW_DOCUMENTS")} />
     </div>
   );
 }

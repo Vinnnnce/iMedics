@@ -8,6 +8,7 @@ import { auditHis, documentEvent } from "@/lib/his/audit";
 import { groupAllowedForKind } from "@/lib/his/catalogue";
 import { formatNumber, nextSequence } from "@/lib/his/numbering";
 import { parseDefinition, validateContent } from "@/lib/his/template-schema";
+import { documentVisibility } from "@/lib/his/visibility";
 
 const STATUSES = ["DRAFT", "PENDING_REVIEW", "PENDING_SIGNATURE", "FINAL", "AMENDED", "ENTERED_IN_ERROR"] as const;
 
@@ -36,6 +37,7 @@ export const GET = withAuth(null, async (req, { user }) => {
   const documents = await prisma.clinicalDocument.findMany({
     where: {
       facilityId: access.facility.id,
+      AND: [documentVisibility(user.id, access.permissions.includes("REVIEW_DOCUMENTS"))],
       ...(q.patientId ? { patientId: q.patientId } : {}),
       ...(q.status ? { status: q.status } : {}),
       ...(q.groupCode ? { groupCode: q.groupCode } : {}),

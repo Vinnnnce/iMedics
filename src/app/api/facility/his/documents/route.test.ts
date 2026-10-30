@@ -63,6 +63,39 @@ describe("HIS documents API", () => {
     expect(res.status).toBe(403);
   });
 
+  it("excludes other authors' specially protected records even when searching", async () => {
+    asRole("NURSE");
+    vi.mocked(prisma.clinicalDocument.findMany).mockResolvedValue([]);
+    const res = await GET(req("/api/facility/his/documents?q=private"), { params: Promise.resolve({}) } as never);
+    expect(res.status).toBe(200);
+    expect(prisma.clinicalDocument.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        AND: [{ OR: [{ sensitivity: { not: "SPECIALLY_PROTECTED" } }, { authorId: (USER as { id: string }).id }] }],
+        OR: expect.any(Array),
+      }),
+    }));
+  });
+
+  it("prevents workflow actions on another author's protected document", async () => {
+    asRole("NURSE");
+    vi.mocked(prisma.clinicalDocument.findFirst).mockResolvedValue({
+      id: DOC, sensitivity: "SPECIALLY_PROTECTED", authorId: "another-author", status: "PENDING_SIGNATURE",
+    } as never);
+    const res = await ACTION(req(`/api/facility/his/documents/${DOC}/actions`, { method: "POST", body: { action: "sign", role: "AUTHOR" } }), { params: Promise.resolve({ id: DOC }) } as never);
+    expect(res.status).toBe(403);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("requires the author to use an independent reviewer/verifier signatory", async () => {
+    vi.mocked(prisma.clinicalDocument.findFirst).mockResolvedValue({
+      id: DOC, authorId: (USER as { id: string }).id, status: "PENDING_SIGNATURE",
+      templateVersion: { definition: { sections: [{ id: "s", title: "S", fields: [] }], signatures: [{ role: "VERIFIER", label: "Verifier", required: true }], workflow: { independentReview: true } } },
+    } as never);
+    const res = await ACTION(req(`/api/facility/his/documents/${DOC}/actions`, { method: "POST", body: { action: "sign", role: "VERIFIER" } }), { params: Promise.resolve({ id: DOC }) } as never);
+    expect(res.status).toBe(403);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it("never edits a finalized document", async () => {
     vi.mocked(prisma.clinicalDocument.findFirst).mockResolvedValue({ id: DOC, status: "FINAL", authorId: USER, patientId: PATIENT, templateVersion: { definition: { sections: [{ id: "a", title: "A", fields: [] }] } } } as never);
     const res = await PUT(req(`/api/facility/his/documents/${DOC}`, { method: "PUT", body: { content: {} } }), { params: Promise.resolve({ id: DOC }) } as never);
