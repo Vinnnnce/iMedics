@@ -217,6 +217,14 @@ export function Navbar({ children }: { children: React.ReactNode }) {
   // Anonymous RSC prefetches of protected routes redirect to Clerk's external
   // sign-in domain and fail CORS. Only real navigation should start sign-in.
   const navigationPrefetch = user ? undefined : false;
+  const anonymousNavigation = (href: string) => (event: { preventDefault: () => void }) => {
+    if (!user) {
+      event.preventDefault();
+      // A document navigation lets Clerk redirect to its hosted sign-in page
+      // without an RSC fetch crossing origins and failing CORS first.
+      window.location.assign(href);
+    }
+  };
   const pathname = usePathname();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -498,6 +506,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
                       searchResults.map((result, i) => (
                         <Link
                           prefetch={navigationPrefetch}
+                          onNavigate={anonymousNavigation(result.href)}
                           key={i}
                           href={result.href}
                           onClick={() => { setSearchOpen(false); setSearchQuery(""); setMobileSearchOpen(false); }}
@@ -560,7 +569,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
           </button>
 
           {/* Logo — Medic1905 wordmark (white chip keeps it legible in dark mode) */}
-          <Link prefetch={navigationPrefetch} href="/dashboard" className="flex shrink-0 items-center rounded-lg transition-opacity hover:opacity-80" aria-label="Medic1905 home">
+          <Link prefetch={navigationPrefetch} onNavigate={anonymousNavigation("/dashboard")} href="/dashboard" className="flex shrink-0 items-center rounded-lg transition-opacity hover:opacity-80" aria-label="Medic1905 home">
             <Image
               src="/medic1905-logo.png"
               alt="Medic1905"
@@ -623,16 +632,17 @@ export function Navbar({ children }: { children: React.ReactNode }) {
 
             {/* User avatar or sign in */}
             {user ? (
-              <Link prefetch={navigationPrefetch} href="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity" aria-label="Your profile">
+              <Link prefetch={navigationPrefetch} onNavigate={anonymousNavigation("/profile")} href="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity" aria-label="Your profile">
                 <NavbarAvatar me={me} user={user} />
               </Link>
             ) : (
               <div className="flex items-center gap-2">
-                <Link prefetch={navigationPrefetch} href="/auth/login" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors hidden sm:inline">
+                <Link prefetch={navigationPrefetch} onNavigate={anonymousNavigation("/auth/login")} href="/auth/login" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors hidden sm:inline">
                   Sign In
                 </Link>
                 <Link
                   prefetch={navigationPrefetch}
+                  onNavigate={anonymousNavigation("/auth/signup")}
                   href="/auth/signup"
                   className="pill-btn bg-foreground text-background px-4 py-2 text-sm hidden sm:inline-block"
                 >
@@ -700,6 +710,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
             return (
               <Link
                 prefetch={navigationPrefetch}
+                onNavigate={anonymousNavigation(item.href)}
                 key={`${item.label}-${index}`}
                 href={item.href}
                 title={sidebarCollapsed ? item.label : undefined}
@@ -753,6 +764,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
                 return (
                   <Link
                     prefetch={navigationPrefetch}
+                    onNavigate={anonymousNavigation(item.href)}
                     key={`${item.label}-${index}`}
                     href={item.href}
                     onClick={() => setMobileSidebarOpen(false)}
@@ -780,6 +792,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
           return (
             <Link
               prefetch={navigationPrefetch}
+              onNavigate={anonymousNavigation(item.href)}
               key={`${item.label}-${index}`}
               href={item.href}
               className={`bottom-nav-item ${active ? "active" : ""}`}
