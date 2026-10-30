@@ -10,9 +10,13 @@ All 823 tests passed locally across 105 files with real PostgreSQL, including th
 
 See [HIS Implementation Phase Status](HIS_PHASE_STATUS.md) for explicit remaining implementation work and [Disposable HIS Acceptance](HIS_ACCEPTANCE.md) for staging configuration, provisioning, short-lived sessions and safe deactivation. This is continued implementation, not complete production signoff for the full PDF.
 
+The implementation was pushed as [c33d4df](https://github.com/Vinnnnce/iMedics/commit/c33d4dff2b931217973bb2dd8cd1c041357a102e). Vercel reported a [successful deployment](https://vercel.com/quolib/i-medics/8ZRTmp3ELSiTLpKEviBpWc32vQob); the public homepage, emergency, login and signup entry pages returned HTTP 200 at desktop/mobile widths with no horizontal overflow or JavaScript page errors. Protected clinical journeys remain unverified live.
+
+Two additive migrations introduce nullable test-account expiry and write-time clinical identity/link/history guards. They do not drop tables, rename columns, change existing types or rewrite historical clinical content. Local migration and real-DB checks passed; production rollout uses the existing authorized GitHub/Vercel build path, not direct production SQL in this session. The deployed database was not separately inspected or row-counted through an authenticated connection.
+
 This update implements an incremental clinical-document and diagnostic-media workstream from the supplied 56-page Medic1905-update.pdf. It is not a claim that the entire multi-hospital specification is production-complete. The existing Next.js, Clerk, Prisma/Postgres, facility permissions, audit, private S3 and notification architecture is retained.
 
-## Changes in this update
+## Previous update changes (e40d346)
 
 - **Patient-linked attachments and images:** template fields now select actual diagnostic-media UUIDs instead of displaying a placeholder. Draft save, submission and finalization verify hospital, patient, deletion state, infection state, MIME compatibility and sensitivity. Required references must be present. Lab, imaging and endoscopy catalogue defaults include supporting-file fields; persisted hospital versions are unchanged. PDF/print exports identify the reference, explicitly state the file is not embedded, and do not disclose storage keys or signed URLs. File access and patient release remain separate.
 - **Surgical catalogue completion:** four missing Group E entries are appended: Anesthesia consent, Surgical consent, Procedure-specific informed consent, and Biopsy request and consent. Appending preserves the source codes of existing entries. They use the consent structure with locked disclosure fields, patient/representative and consenting-clinician signatories. Wording and emergency/incapacity handling still require local clinical and legal validation.
