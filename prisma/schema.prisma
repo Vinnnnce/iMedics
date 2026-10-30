@@ -3188,6 +3188,35 @@ model MedicalMedia {
   @@map("medical_media")
 }
 
+/// A resumable S3 multipart session for one large diagnostic upload. Sessions
+/// expire; abandoned ones are aborted by the cleanup job so no orphaned parts
+/// or storage charges remain. The staging key keeps the patient scoping used by
+/// every other upload path.
+model MedicalMediaUploadSession {
+  id                String    @id @default(uuid()) @db.Uuid
+  facilityId        String    @map("facility_id") @db.Uuid
+  patientId         String    @map("patient_id") @db.Uuid
+  fileName          String    @map("file_name") @db.VarChar(200)
+  mimeType          String    @map("mime_type") @db.VarChar(100)
+  formatKey         String    @map("format_key") @db.VarChar(30)
+  declaredSizeBytes BigInt    @map("declared_size_bytes")
+  declaredSha256    String    @map("declared_sha256") @db.VarChar(64)
+  storageKey        String    @unique @map("storage_key")
+  s3UploadId        String    @map("s3_upload_id") @db.VarChar(200)
+  partSizeBytes     BigInt    @map("part_size_bytes")
+  partsTotal        Int       @map("parts_total")
+  uploadedById      String    @map("uploaded_by_id") @db.Uuid
+  /// ACTIVE while the client may still upload parts; COMPLETED or ABANDONED afterwards.
+  status            String    @default("ACTIVE") @db.VarChar(16)
+  expiresAt         DateTime  @map("expires_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@index([facilityId, status])
+  @@index([status, expiresAt])
+  @@map("medical_media_upload_session")
+}
+
 /// A snapshot of a consultation report taken just before it was amended.
 /// Revision N holds the content that was current as revision N.
 model ConsultationRevision {

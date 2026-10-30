@@ -1,10 +1,15 @@
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
   CopyObjectCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListPartsCommand,
   PutObjectCommand,
   S3Client,
+  UploadPartCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ApiError, badRequest } from "./errors";
@@ -169,5 +174,65 @@ export async function deleteObject(key: string): Promise<void> {
     await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
   } catch (error) {
     console.error("Failed to delete object:", key, error);
+  }
+}
+
+/**
+ * Resumable multipart transfer for large diagnostic studies. Sessions are
+ * created server-side, parts are uploaded directly from the browser through
+ * short-lived presigned URLs, and completion is verified from the storage
+ * service's own part list — never from client-supplied ETags.
+ */
+export const PART_URL_TTL_SECONDS = 3600;
+
+export async function createMultipartUpload(key: string, contentType: string): Promise<string> {
+  const { client, bucket } = getStorage();
+  const result = await client.send(new CreateMultipartUploadCommand({ Bucket: bucket, Key: key, ContentType: contentType }));
+  if (!result.UploadId) throw badRequest("Storage refused the upload. Please retry the file.");
+  return result.UploadId;
+}
+
+export async function presignPartUpload(key: string, uploadId: string, partNumber: number): Promise<string> {
+  const { client, bucket } = getStorage();
+  return getSignedUrl(
+    client,
+    new UploadPartCommand({ Bucket: bucket, Key: key, UploadId: uploadId, PartNumber: partNumber }),
+    { expiresIn: PART_URL_TTL_SECONDS },
+  );
+}
+
+/** The parts the storage service actually holds, for resume and completion. */
+export async function listUploadedParts(key: string, uploadId: string): Promise<{ partNumber: number; etag: string; sizeBytes: number }[]> {
+  const { client, bucket } = getStorage();
+  const parts: { partNumber: number; etag: string; sizeBytes: number }[] = [];
+  let marker: number | undefined;
+  for (;;) {
+    const page = await client.send(new ListPartsCommand({ Bucket: bucket, Key: key, UploadId: uploadId, ...(marker === undefined ? {} : { PartNumberMarker: String(marker) }) }));
+    for (const part of page.Parts ?? []) {
+      if (part.PartNumber && part.ETag) parts.push({ partNumber: part.PartNumber, etag: part.ETag, sizeBytes: part.Size ?? 0 });
+    }
+    if (!page.IsTruncated || page.NextPartNumberMarker === undefined) break;
+    marker = Number(page.NextPartNumberMarker);
+  }
+  return parts.sort((a, b) => a.partNumber - b.partNumber);
+}
+
+export async function completeMultipartUpload(key: string, uploadId: string, parts: { partNumber: number; etag: string }[]): Promise<void> {
+  const { client, bucket } = getStorage();
+  if (parts.length === 0) throw badRequest("No upload parts were received. Please retry the file.");
+  await client.send(new CompleteMultipartUploadCommand({
+    Bucket: bucket,
+    Key: key,
+    UploadId: uploadId,
+    MultipartUpload: { Parts: [...parts].sort((a, b) => a.partNumber - b.partNumber).map((p) => ({ PartNumber: p.partNumber, ETag: p.etag })) },
+  }));
+}
+
+export async function abortMultipartUpload(key: string, uploadId: string): Promise<void> {
+  const { client, bucket } = getStorage();
+  try {
+    await client.send(new AbortMultipartUploadCommand({ Bucket: bucket, Key: key, UploadId: uploadId }));
+  } catch (error) {
+    console.error("Failed to abort multipart upload:", key, error);
   }
 }

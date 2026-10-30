@@ -1,5 +1,9 @@
 # iMedics HIS Update Handoff
 
+## Resumable multipart uploads, storage quotas and session cleanup
+
+The next workstream closes the remaining diagnostic-media gap: true resumable multipart transfer, facility storage quotas and abandoned-session cleanup. Files at or above `HIS_MULTIPART_THRESHOLD_BYTES` (default 64 MB) open a `MedicalMediaUploadSession` (additive migration `20261031230000_his_multipart_sessions`) and upload through presigned part URLs; part URLs are issued in batches on demand, and a retried file skips the parts the storage service already holds. Completion is verified server-side from the storage service's own part list — contiguous part numbers, full-size non-final parts, exact declared total — never from client-supplied ETags, then runs the same signature/checksum/scan/registration tail as the single-PUT path (shared in `src/lib/his/media-record.ts`). The presign route refuses uploads that would exceed the facility quota (`HIS_MEDIA_QUOTA_BYTES`, default 20 GB) with 403; a failed session-row insert aborts the storage multipart upload, and a failed final verification abandons the session and aborts storage. `GET /api/cron/media-upload-sessions` (CRON_SECRET-guarded, idempotent) aborts expired sessions hourly. New tests cover part sizing, quota admission/refusal, session state validation, part-list verification and the three routes; browser retry now resumes instead of restarting the file.
+
 ## Continued implementation and disposable acceptance
 
 The continued update adds isolated two-hospital/20-user provisioning, app-enforced expiry, synthetic notification suppression, a live acceptance runner, DB tenant/patient write guards, immutable finalized content/payer history, transactional clinical audit/outbox, clinical-only critical acknowledgements, all 18 structured specialty defaults, protected FHIR export and bounded patient-bound bulk uploads.

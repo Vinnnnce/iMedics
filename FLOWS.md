@@ -38,6 +38,13 @@
 - On an anonymous production visit, protected sidebar/header/bottom links must not issue speculative RSC requests redirected to Clerk's external sign-in domain. Inspect console errors as well as JavaScript page errors; clicking a protected route must still initiate sign-in.
 - Homepage service/rating cards, carousel/banner CTAs, specialties and footer links must also disable prefetch. Protected destinations use full-page navigation; public pages retain ordinary navigation. Check mobile and desktop after network idle and scrolling, plus a real protected-link click. Modified clicks, new tabs, downloads and caller-canceled clicks retain their native behavior.
 
+## Resumable multipart media uploads
+- Large studies (at or above `HIS_MULTIPART_THRESHOLD_BYTES`, default 64 MB) open a multipart session: the presign response returns the session id, part size and the first batch of presigned part URLs; further parts are presigned on demand.
+- Completion is verified from the storage service's own part list — contiguous part numbers, every non-final part the full part size, the total exactly the declared size — never from client-supplied ETags.
+- A retried file resumes: already-stored parts are skipped and only the missing parts are re-uploaded. Abandoned or expired sessions are aborted by `GET /api/cron/media-upload-sessions` so no orphaned parts remain.
+- The facility storage quota (`HIS_MEDIA_QUOTA_BYTES`, default 20 GB) is checked at presign time; uploads that would exceed it are refused with 403.
+- Small files keep the single presigned-PUT path; both paths share the same verification and registration tail (signature, checksum, optional malware scan, metadata row, audit).
+
 ## Disposable acceptance and continued PDF implementation
 - Plan mode creates no users. Local mode creates database-only fixtures that cannot authenticate to Clerk. Clerk mode creates two unpublished synthetic hospitals and 20 distinct expiring identities.
 - Provisioning refuses production, real-patient databases, live Clerk keys and unallowlisted app/database hosts.

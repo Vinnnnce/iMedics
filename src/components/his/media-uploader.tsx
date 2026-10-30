@@ -7,7 +7,9 @@ import { PatientIdentify, type IdentifiedPatient } from "./patient-identify";
 import { api, inputClass } from "./use-api";
 
 interface UploadMetadata { category: string; examinationType: string; examinationAt: string; modality: string; bodySite: string; accessionNumber: string; orderingClinician: string; reportingClinician: string; reportStatus: string; sensitivity: string }
-interface Item { id: string; file: File; patientId: string; patientCaseNumber: string; metadata: UploadMetadata; state: "queued" | "hashing" | "uploading" | "verifying" | "done" | "error"; progress: number; error?: string; allowDuplicate?: boolean }
+/** A resumable multipart session started for this file; kept so a retry resumes instead of restarting. */
+interface MultipartSession { sessionId: string; partSizeBytes: number; partsTotal: number }
+interface Item { id: string; file: File; patientId: string; patientCaseNumber: string; metadata: UploadMetadata; state: "queued" | "hashing" | "uploading" | "verifying" | "done" | "error"; progress: number; error?: string; allowDuplicate?: boolean; multipart?: MultipartSession }
 interface MediaRow { id: string; category: keyof typeof MEDIA_CATEGORY_LABEL; examinationType: string; fileName: string; sizeBytes: number; reportStatus: string; sensitivity: string; scanStatus: string; releasedToPatientAt: string | null; createdAt: string; patient: { firstName: string; lastName: string; caseNumber: string } }
 
 const MIME_BY_EXT: Record<string, string> = { dcm: "application/dicom", dicom: "application/dicom", hl7: "application/hl7-v2", json: "application/fhir+json", xml: "application/xml", scp: "application/octet-stream", ecg: "application/octet-stream", csv: "text/csv", txt: "text/plain", wav: "audio/wav", mp3: "audio/mpeg", mov: "video/quicktime", m4v: "video/mp4", tif: "image/tiff", tiff: "image/tiff" };
@@ -30,6 +32,12 @@ function put(url: string, file: File, type: string, onProgress: (p: number) => v
     xhr.onerror = () => reject(new Error("Network error during upload"));
     xhr.send(file);
   });
+}
+
+/** Upload one multipart part slice; each part gets its own short timeout. */
+async function putPart(url: string, blob: Blob): Promise<void> {
+  const res = await fetch(url, { method: "PUT", body: blob, signal: AbortSignal.timeout(15 * 60_000) });
+  if (!(res.status >= 200 && res.status < 300)) throw new Error(`Storage rejected an upload part (${res.status})`);
 }
 
 /** Bulk drag-and-drop diagnostic upload with checksum, progress, retry and metadata. */
@@ -63,12 +71,53 @@ export function MediaUploader({ canUpload, canRelease, canReview = false }: { ca
       update(id, { state: "hashing", error: undefined, progress: 0 });
       const hash = await sha256(file);
       const type = mimeOf(file);
-      const presign = await api<{ key: string; uploadUrl: string }>("/api/facility/his/media", { body: { patientId, fileName: file.name, mimeType: type, sizeBytes: file.size, sha256: hash, allowDuplicate: item.allowDuplicate ?? false } });
-      update(id, { state: "uploading" });
-      await put(presign.uploadUrl, file, type, (p) => update(id, { progress: p }));
+      const confirmBody = { patientId, fileName: file.name, mimeType: type, sha256: hash, category: metadata.category, examinationType: metadata.examinationType || file.name, examinationAt: metadata.examinationAt ? new Date(metadata.examinationAt).toISOString() : null, modality: metadata.modality || null, bodySite: metadata.bodySite || null, accessionNumber: metadata.accessionNumber || null, orderingClinician: metadata.orderingClinician || null, reportingClinician: metadata.reportingClinician || null, reportStatus: metadata.reportStatus, sensitivity: metadata.sensitivity };
+
+      let session = item.multipart;
+      if (session) {
+        // Resume: parts the storage service already holds are skipped, so a
+        // retry after a dropped connection continues where it stopped.
+        update(id, { state: "uploading" });
+      } else {
+        const presign = await api<{ mode?: string; key: string; uploadUrl?: string; session?: MultipartSession }>("/api/facility/his/media", { body: { patientId, fileName: file.name, mimeType: type, sizeBytes: file.size, sha256: hash, allowDuplicate: item.allowDuplicate ?? false } });
+        if (presign.mode === "MULTIPART" && presign.session) {
+          session = presign.session;
+          update(id, { state: "uploading", multipart: session });
+        } else {
+          update(id, { state: "uploading" });
+          await put(presign.uploadUrl!, file, type, (p) => update(id, { progress: p }));
+          update(id, { state: "verifying" });
+          await api("/api/facility/his/media/confirm", { body: { ...confirmBody, key: presign.key } });
+          update(id, { state: "done", progress: 100 });
+          void load();
+          return;
+        }
+      }
+
+      // Multipart path: upload in parts, fetching presigned part URLs in
+      // batches and skipping parts storage already holds (resume).
+      const { sessionId, partSizeBytes, partsTotal } = session;
+      const partUrls = new Map<number, string>();
+      const uploaded = new Set<number>();
+      const partUrl = async (partNumber: number): Promise<string> => {
+        if (!partUrls.has(partNumber)) {
+          const batch = await api<{ parts: { partNumber: number; url: string }[]; uploaded: { partNumber: number; sizeBytes: number }[] }>(`/api/facility/his/media/multipart/${sessionId}/parts`, { body: { partNumbers: Array.from({ length: Math.min(partsTotal - partNumber + 1, 100) }, (_, i) => partNumber + i) } });
+          for (const part of batch.parts) partUrls.set(part.partNumber, part.url);
+          for (const part of batch.uploaded) uploaded.add(part.partNumber);
+        }
+        const url = partUrls.get(partNumber);
+        if (!url) throw new Error("The upload session expired. Start the upload again.");
+        return url;
+      };
+      for (let partNumber = 1; partNumber <= partsTotal; partNumber += 1) {
+        if (uploaded.has(partNumber)) continue;
+        const start = (partNumber - 1) * partSizeBytes;
+        await putPart(await partUrl(partNumber), file.slice(start, Math.min(start + partSizeBytes, file.size)));
+        update(id, { progress: Math.round((partNumber / partsTotal) * 100) });
+      }
       update(id, { state: "verifying" });
-      await api("/api/facility/his/media/confirm", { body: { key: presign.key, patientId, fileName: file.name, mimeType: type, sha256: hash, category: metadata.category, examinationType: metadata.examinationType || file.name, examinationAt: metadata.examinationAt ? new Date(metadata.examinationAt).toISOString() : null, modality: metadata.modality || null, bodySite: metadata.bodySite || null, accessionNumber: metadata.accessionNumber || null, orderingClinician: metadata.orderingClinician || null, reportingClinician: metadata.reportingClinician || null, reportStatus: metadata.reportStatus, sensitivity: metadata.sensitivity } });
-      update(id, { state: "done", progress: 100 });
+      await api(`/api/facility/his/media/multipart/${sessionId}/complete`, { body: { ...confirmBody, sizeBytes: file.size } });
+      update(id, { state: "done", progress: 100, multipart: undefined });
       void load();
     } catch (e) { update(id, { state: "error", error: e instanceof Error ? e.message : "Upload failed" }); }
     finally { running.current.delete(id); }
@@ -128,7 +177,7 @@ export function MediaUploader({ canUpload, canRelease, canReview = false }: { ca
             Drag &amp; drop files here, or click to choose (PDF, DOC/DOCX, XLS/XLSX, CSV/TXT, JPEG, PNG, TIFF, DICOM, MP4/MOV, WAV/MP3, HL7 v2, FHIR)
             <input type="file" multiple accept={ACCEPT_ATTRIBUTE} className="sr-only" disabled={!patient} onChange={(e) => e.target.files && addFiles(e.target.files)} data-testid="input-media-files" />
           </label>
-          <p className="text-xs text-muted-foreground">Up to 20 files per batch, with two simultaneous uploads. Each file keeps the patient and metadata selected when it was added. Retry restarts that file; resumable multipart transfer is not enabled.</p>
+          <p className="text-xs text-muted-foreground">Up to 20 files per batch, with two simultaneous uploads. Each file keeps the patient and metadata selected when it was added. Large files transfer in resumable parts: retrying continues from the parts already stored instead of restarting the file.</p>
           <ul className="space-y-1 text-xs">{items.map((it) => (
             <li key={it.id} className="flex flex-wrap items-center gap-2">
               <span className="min-w-0 flex-1 truncate">{it.file.name}</span>
