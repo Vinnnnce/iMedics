@@ -7,6 +7,18 @@ import { usePathname } from "next/navigation";
 import { useMe } from "@/lib/use-me";
 import { useUser } from "@clerk/nextjs";
 import { useTheme } from "@/components/theme-provider";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail,
+} from "@/components/ui/sidebar";
 import { Footer } from "@/components/layout/footer";
 import { ADMIN_LINKS } from "@/components/admin/admin-links";
 import { NotificationCenter } from "@/components/shared/notification-center";
@@ -686,66 +698,81 @@ export function Navbar({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Content row: sidebar beside main content, below the full-width header */}
-      <div className="flex flex-1 min-h-[calc(100vh-4rem)]">
+      {/* Content row: shadcn sidebar beside main content, below the full-width header.
+          The sidebar state stays in localStorage ("medic1905.sidebar.collapsed") and
+          drives the SidebarProvider in controlled mode; Ctrl/Cmd+B toggles it too. */}
+      <SidebarProvider
+        open={!sidebarCollapsed}
+        onOpenChange={(open) => {
+          setSidebarCollapsed(!open);
+          window.localStorage.setItem("medic1905.sidebar.collapsed", open ? "0" : "1");
+        }}
+        className="flex-1 w-full"
+        style={{ minHeight: "calc(100vh - 4rem)" }}
+      >
       {/* Desktop Sidebar (collapsible to an icon rail) */}
-      <aside
-        className={`desktop-sidebar shrink-0 border-r border-border bg-sidebar flex-col sticky top-16 h-[calc(100vh-4rem)] transition-[width] ${
-          sidebarCollapsed ? "w-16" : "w-64"
-        }`}
+      <Sidebar
+        collapsible="icon"
         data-testid="desktop-sidebar"
         data-collapsed={sidebarCollapsed}
+        style={{ top: "4rem", height: "calc(100vh - 4rem)" }}
       >
-        <button
-          onClick={toggleSidebar}
-          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-expanded={!sidebarCollapsed}
-          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          data-testid="button-sidebar-toggle"
-          className="mx-3 mt-4 flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <PanelLeftClose className={`h-4 w-4 transition-transform ${sidebarCollapsed ? "rotate-180" : ""}`} />
-        </button>
-        <nav className="flex-1 space-y-1 p-3 overflow-y-auto pt-3" aria-label="Main navigation">
-          {visibleNavItems.map((item, index) => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
-            return (
-              <Link
-                prefetch={navigationPrefetch}
-                onNavigate={anonymousNavigation(item.href)}
-                key={`${item.label}-${index}`}
-                href={item.href}
-                title={sidebarCollapsed ? item.label : undefined}
-                aria-label={item.label}
-                className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
-                  sidebarCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
-                } ${
-                  active
-                    ? "bg-foreground/10 text-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className={sidebarCollapsed ? "sr-only" : ""}>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        <SidebarHeader>
+          <button
+            onClick={toggleSidebar}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!sidebarCollapsed}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            data-testid="button-sidebar-toggle"
+            className="mx-3 mt-4 flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <PanelLeftClose className={`h-4 w-4 transition-transform ${sidebarCollapsed ? "rotate-180" : ""}`} />
+          </button>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarMenu>
+              {visibleNavItems.map((item, index) => {
+                const Icon = item.icon;
+                const active = isActive(item.href);
+                return (
+                  <SidebarMenuItem key={`${item.label}-${index}`}>
+                    <SidebarMenuButton
+                      isActive={active}
+                      tooltip={item.label}
+                      aria-label={item.label}
+                      render={
+                        <Link
+                          prefetch={navigationPrefetch}
+                          onNavigate={anonymousNavigation(item.href)}
+                          href={item.href}
+                        />
+                      }
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroup>
+        </SidebarContent>
 
-        <div className="border-t border-border p-4 shrink-0">
-          <p className={`text-xs text-muted-foreground ${sidebarCollapsed ? "sr-only" : ""}`}>
+        <SidebarFooter>
+          <p className="text-xs text-muted-foreground">
             Medic1905 is a platform only, not a medical provider. AI content is informational.
           </p>
-        </div>
-      </aside>
+        </SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
 
       {/* Main content column */}
       <div className="flex-1 flex flex-col min-w-0">
         <main className="flex-1 p-4 md:p-6 has-bottom-nav">{children}</main>
         <Footer />
       </div>
-      </div>
+      </SidebarProvider>
 
       {/* Mobile sidebar overlay — above the bottom navigation so the backdrop covers it and the last links stay reachable */}
       {mobileSidebarOpen && (
