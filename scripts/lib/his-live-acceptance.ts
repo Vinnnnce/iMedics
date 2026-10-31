@@ -14,6 +14,9 @@ const checks = [
   "Other-patient denial", "Other-hospital denial", "Unsafe upload rejection", "Consent ceremony",
   "Amendment preserves original", "Insurance change preserves encounter", "Emergency and planned boards",
   "Backend role enforcement", "Protected image viewing", "Critical audit records", "Existing-feature browser regression",
+  "Nursing observation recording", "Care task lifecycle and completion stamp",
+  "Medication orders with configured interaction and allergy alerts", "MAR administration recording",
+  "E-prescribing outbox boundary",
 ];
 
 export async function runLiveAcceptance(manifest: AcceptanceManifest, db: PrismaClient, clerk: ClerkApi, file: string) {
@@ -174,6 +177,75 @@ export async function runLiveAcceptance(manifest: AcceptanceManifest, db: Prisma
       assert(count === 1, "Authoritative finalization audit was missing or duplicated");
     });
     await check(18, async () => { throw new Blocked("Run the authenticated desktop/mobile browser regression checklist; HTTP/DB checks do not establish browser acceptance."); });
+    await check(19, async () => {
+      const response = await call("nurse", "/api/facility/his/nursing/observations", "POST", {
+        patientId: facility().patientId, observationType: "TEMPERATURE", value: "36.8",
+      });
+      assert(response.status === 201, `Observation recording returned HTTP ${response.status}`);
+      const row = await db.nursingObservation.findFirstOrThrow({ where: { facilityId: facility().id, patientId: facility().patientId, observationType: "TEMPERATURE" } });
+      assert(row.unit === "°C" && row.value === "36.8" && row.recordedById === user("nurse").userId, "Observation was not unit-annotated and attributed to the nurse");
+    });
+    await check(20, async () => {
+      const created = await call("nurse", "/api/facility/his/nursing/tasks", "POST", { patientId: facility().patientId, title: "SYNTHETIC acceptance care task" });
+      assert(created.status === 201, `Task creation returned HTTP ${created.status}`);
+      const taskId = (await created.json() as { task: { id: string } }).task.id;
+      assert((await call("nurse", `/api/facility/his/nursing/tasks/${taskId}`, "PATCH", { status: "IN_PROGRESS" })).status === 200, "Task start failed");
+      assert((await call("nurse", `/api/facility/his/nursing/tasks/${taskId}`, "PATCH", { status: "COMPLETED" })).status === 200, "Task completion failed");
+      const task = await db.nursingTask.findUniqueOrThrow({ where: { id: taskId } });
+      assert(task.status === "COMPLETED" && task.completedAt !== null, "Completion did not stamp the time");
+    });
+    let aspirinOrderId = "";
+    await check(21, async () => {
+      // The hospital configures its own rule and formulary entry (synthetic).
+      const rule = await call("pharmacist", "/api/facility/his/interaction-rules", "POST", {
+        medicationA: "Aspirin", medicationB: "Warfarin", severity: "WARNING", description: "SYNTHETIC acceptance rule; hospital-configured example",
+      });
+      assert(rule.status === 201, `Interaction rule creation returned HTTP ${rule.status}`);
+      const formulary = await call("pharmacist", "/api/facility/his/formulary", "POST", { medicationName: "Aspirin", strength: "100 mg" });
+      assert(formulary.status === 201, `Formulary entry creation returned HTTP ${formulary.status}`);
+      // Prescribe Aspirin, submit it, then prescribe Warfarin: the configured
+      // Aspirin+Warfarin rule must surface as an advisory interaction alert.
+      const aspirin = await call("author", "/api/facility/his/medication-orders", "POST", { patientId: facility().patientId, medicationName: "Aspirin", strength: "100 mg", dose: "1 tablet" });
+      assert(aspirin.status === 201, `Aspirin order creation returned HTTP ${aspirin.status}`);
+      const aspirinBody = await aspirin.json() as { order: { id: string }; formulary: { matched: boolean }; alerts: { kind: string }[] };
+      assert(aspirinBody.formulary.matched, "Formulary match was not reported");
+      aspirinOrderId = aspirinBody.order.id;
+      const submitted = await call("author", `/api/facility/his/medication-orders/${aspirinOrderId}`, "PATCH", { status: "SUBMITTED" });
+      assert(submitted.status === 200, `Aspirin submission returned HTTP ${submitted.status}`);
+      const warfarin = await call("author", "/api/facility/his/medication-orders", "POST", { patientId: facility().patientId, medicationName: "Warfarin", dose: "1 tablet" });
+      assert(warfarin.status === 201, `Warfarin order creation returned HTTP ${warfarin.status}`);
+      const warfarinBody = await warfarin.json() as { alerts: { kind: string; severity?: string }[] };
+      assert(warfarinBody.alerts.some((a) => a.kind === "INTERACTION" && a.severity === "WARNING"), "Configured interaction alert was not surfaced");
+      // Allergy visibility: prescribing a penicillin-family synthetic entry
+      // against the recorded Penicillin allergy must surface the allergy alert.
+      const penicillin = await call("author", "/api/facility/his/medication-orders", "POST", { patientId: facility().patientId, medicationName: "Penicillin G", dose: "1 vial" });
+      assert(penicillin.status === 201, `Penicillin order creation returned HTTP ${penicillin.status}`);
+      const penicillinBody = await penicillin.json() as { alerts: { kind: string; allergen?: string }[] };
+      assert(penicillinBody.alerts.some((a) => a.kind === "ALLERGY" && a.allergen === "Penicillin"), "Recorded allergy was not surfaced");
+    });
+    await check(22, async () => {
+      if (!aspirinOrderId) throw new Blocked("Medication order setup did not complete");
+      // MAR: the nurse administers the submitted order; the entry is attributed
+      // and timestamped, and staff without the permission are denied.
+      const administered = await call("nurse", `/api/facility/his/medication-orders/${aspirinOrderId}/administrations`, "POST", { status: "GIVEN", administeredDose: "1 tablet" });
+      assert(administered.status === 201, `MAR recording returned HTTP ${administered.status}`);
+      const row = await db.medicationAdministration.findFirstOrThrow({ where: { orderId: aspirinOrderId } });
+      assert(row.status === "GIVEN" && row.administeredById === user("nurse").userId && row.administeredAt !== null, "MAR entry was not attributed to the nurse");
+      const denied = await call("receptionist", `/api/facility/his/medication-orders/${aspirinOrderId}/administrations`, "POST", { status: "GIVEN" });
+      assert(denied.status === 403, `Receptionist MAR recording was not denied (HTTP ${denied.status})`);
+    });
+    await check(23, async () => {
+      if (!aspirinOrderId) throw new Blocked("Medication order setup did not complete");
+      // E-prescribing boundary: submission enqueued an outbound snapshot; with
+      // no external endpoint configured it stays PENDING — an honestly
+      // reported dependency, never a claimed live transmission.
+      const entry = await db.ePrescriptionOutbox.findFirst({ where: { orderId: aspirinOrderId } });
+      assert(entry !== null && entry.status === "PENDING", "Submission did not enqueue a pending outbound entry");
+      const queue = await call("pharmacist", "/api/facility/his/eprescribing");
+      assert(queue.status === 200, `Outbox listing returned HTTP ${queue.status}`);
+      const body = await queue.json() as { endpointConfigured: boolean };
+      assert(body.endpointConfigured === (Boolean(process.env.EPRESCRIBING_ENDPOINT)), "Outbox did not report the endpoint dependency honestly");
+    });
   } finally {
     const failures: string[] = [];
     for (const session of sessions.values()) {

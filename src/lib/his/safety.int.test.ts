@@ -66,10 +66,10 @@ describe.skipIf(!url)("HIS real-database safety and workflows", () => {
   }, 30000);
   afterAll(async () => { await prisma.$disconnect(); });
 
-  it("creates 20 expiring, unpublished synthetic accounts across two independent hospitals", async () => {
-    expect(manifest.users).toHaveLength(20);
+  it("creates 22 expiring, unpublished synthetic accounts across two independent hospitals", async () => {
+    expect(manifest.users).toHaveLength(22);
     expect(await prisma.labStaffProfile.count({ where: { id: { in: manifest.facilities.map((f) => f.id) }, isPublished: false } })).toBe(2);
-    expect(await prisma.user.count({ where: { id: { in: manifest.users.map((u) => u.userId) }, testAccountExpiresAt: { not: null } } })).toBe(20);
+    expect(await prisma.user.count({ where: { id: { in: manifest.users.map((u) => u.userId) }, testAccountExpiresAt: { not: null } } })).toBe(22);
   });
   it("lets an administrator create a custom template", async () => {
     await as("owner");

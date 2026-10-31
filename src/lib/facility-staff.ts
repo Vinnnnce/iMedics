@@ -39,6 +39,8 @@ export const FACILITY_PERMISSIONS = [
   "RECORD_NURSING", // Record nursing observations, care tasks and handovers
   "ORDER_MEDICATIONS", // Prescribe and submit medication orders
   "REVIEW_MEDICATIONS", // Review and dispense medication orders (pharmacy)
+  "ADMINISTER_MEDICATIONS", // Record medication administration (MAR entries)
+  "MANAGE_FORMULARY", // Configure the facility formulary and interaction rules
   "VIEW_ANALYTICS", // Aggregated operational dashboards
 ] as const;
 
@@ -81,7 +83,7 @@ const ROLE_PERMISSIONS: Record<FacilityStaffRole, readonly FacilityPermission[]>
   // Patient identification, sample collection, labelling.
   PHLEBOTOMIST: ["PROCESS_ORDERS"],
   // Patient care tasks, appointment support.
-  NURSE: ["PROCESS_ORDERS", "REGISTER_PATIENTS", "VIEW_PATIENT_DOCUMENTS", "AUTHOR_DOCUMENTS", "SIGN_DOCUMENTS", "MANAGE_ENCOUNTERS", "RECORD_NURSING"],
+  NURSE: ["PROCESS_ORDERS", "REGISTER_PATIENTS", "VIEW_PATIENT_DOCUMENTS", "AUTHOR_DOCUMENTS", "SIGN_DOCUMENTS", "MANAGE_ENCOUNTERS", "RECORD_NURSING", "ADMINISTER_MEDICATIONS"],
   // Imaging procedures, image upload, technical reports.
   RADIOGRAPHER: ["PROCESS_ORDERS", "ENTER_RESULTS", "AUTHOR_DOCUMENTS", "UPLOAD_MEDIA"],
   // Booking, patient registration, payments.
@@ -101,7 +103,7 @@ const ROLE_PERMISSIONS: Record<FacilityStaffRole, readonly FacilityPermission[]>
     "AUTHOR_DOCUMENTS", "REVIEW_DOCUMENTS", "SIGN_DOCUMENTS", "RELEASE_DOCUMENTS", "UPLOAD_MEDIA",
   ],
   // Medication reconciliation, stewardship and pharmacy records.
-  PHARMACIST: ["VIEW_PATIENT_DOCUMENTS", "AUTHOR_DOCUMENTS", "SIGN_DOCUMENTS", "REVIEW_MEDICATIONS"],
+  PHARMACIST: ["VIEW_PATIENT_DOCUMENTS", "AUTHOR_DOCUMENTS", "SIGN_DOCUMENTS", "REVIEW_MEDICATIONS", "MANAGE_FORMULARY"],
   // Operative and procedural documentation.
   SURGEON: [
     "MANAGE_BOOKINGS", "REGISTER_PATIENTS", "MANAGE_REFERRALS", "VIEW_PATIENT_DOCUMENTS",

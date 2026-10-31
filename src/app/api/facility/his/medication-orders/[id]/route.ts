@@ -5,6 +5,7 @@ import { withAuth, parseBody, parseId } from "@/lib/api";
 import { forbidden, notFound } from "@/lib/errors";
 import { hasPermission, requireHisAccess } from "@/lib/his/access";
 import { auditHis } from "@/lib/his/audit";
+import { buildEPrescriptionPayload } from "@/lib/his/medication-safety";
 import { validateMedicationTransition, transitionRequiresReview, type MedicationStatus } from "@/lib/his/nursing";
 
 const patchSchema = z.object({
@@ -20,7 +21,10 @@ export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }
   const access = await requireHisAccess(user, null, req, ["HOSPITAL"]);
   const id = parseId((await params).id);
   const body = await parseBody(req, patchSchema);
-  const order = await prisma.medicationOrder.findFirst({ where: { id, facilityId: access.facility.id } });
+  const order = await prisma.medicationOrder.findFirst({
+    where: { id, facilityId: access.facility.id },
+    include: { patient: { select: { caseNumber: true } } },
+  });
   if (!order) throw notFound("Medication order not found");
 
   const status = body.status as MedicationStatus;
@@ -45,6 +49,26 @@ export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }
       ...(status === "DISPENSED" ? { dispensedAt: now } : {}),
     },
   });
+
+  // E-prescribing integration boundary: submission enqueues an outbound
+  // snapshot. Delivery requires a configured external endpoint; without one the
+  // entry stays PENDING as a documented dependency — never a claimed transmission.
+  if (status === "SUBMITTED") {
+    const payload = buildEPrescriptionPayload({
+      orderId: order.id,
+      facilityId: access.facility.id,
+      patientId: order.patientId,
+      caseNumber: order.patient.caseNumber,
+      order: {
+        medicationName: order.medicationName, strength: order.strength, dose: order.dose, route: order.route,
+        frequency: order.frequency, duration: order.duration, notes: order.notes,
+        prescriberId: order.prescriberId, status,
+      },
+    });
+    await prisma.ePrescriptionOutbox.create({
+      data: { facilityId: access.facility.id, orderId: order.id, status: "PENDING", payload: payload as never },
+    });
+  }
   await auditHis(access, "HIS_MEDICATION_ORDER_STATUS", "MedicationOrder", id, req, {
     patientId: order.patientId,
     details: { from: order.status, to: status, reason: body.reason ?? null },

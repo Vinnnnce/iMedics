@@ -1,5 +1,5 @@
 /** Used by the CLI only; never imported by an authentication or HTTP route. */
-export const ACCEPTANCE_ROLES = ["owner", "author", "reviewer", "nurse", "lab", "radiologist", "records", "insurance", "receptionist", "patient"] as const;
+export const ACCEPTANCE_ROLES = ["owner", "author", "reviewer", "nurse", "pharmacist", "lab", "radiologist", "records", "insurance", "receptionist", "patient"] as const;
 export type AcceptanceRole = typeof ACCEPTANCE_ROLES[number];
 export type AcceptanceHospital = "a" | "b";
 

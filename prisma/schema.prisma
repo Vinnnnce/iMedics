@@ -171,6 +171,10 @@ model LabStaffProfile {
   nursingTasks            NursingTask[]              @relation("NursingTaskFacility")
   nursingHandovers        NursingHandover[]          @relation("NursingHandoverFacility")
   medicationOrders        MedicationOrder[]          @relation("MedicationOrderFacility")
+  medicationAdministrations MedicationAdministration[] @relation("MedicationAdministrationFacility")
+  formularyItems          FormularyItem[]            @relation("FormularyItemFacility")
+  interactionRules        MedicationInteractionRule[] @relation("MedicationInteractionRuleFacility")
+  ePrescriptionOutbox     EPrescriptionOutbox[]       @relation("EPrescriptionOutboxFacility")
   id                      String                  @id @default(uuid()) @db.Uuid
   userId                  String                  @unique @map("user_id") @db.Uuid
   laboratoryName          String?                 @map("laboratory_name")
@@ -310,6 +314,7 @@ model Patient {
   nursingTasks      NursingTask[]        @relation("NursingTaskPatient")
   nursingHandovers  NursingHandover[]    @relation("NursingHandoverPatient")
   medicationOrders  MedicationOrder[]    @relation("MedicationOrderPatient")
+  medicationAdministrations MedicationAdministration[] @relation("MedicationAdministrationPatient")
   id                String               @id @default(uuid()) @db.Uuid
   caseNumber        String               @unique @map("case_number")
   userId            String?              @unique @map("user_id") @db.Uuid
@@ -3319,10 +3324,107 @@ model MedicationOrder {
 
   facility       LabStaffProfile @relation("MedicationOrderFacility", fields: [facilityId], references: [id])
   patient        Patient         @relation("MedicationOrderPatient", fields: [patientId], references: [id])
+  administrations MedicationAdministration[] @relation("MedicationAdministrationOrder")
+  ePrescriptions  EPrescriptionOutbox[]      @relation("EPrescriptionOutboxOrder")
 
   @@index([facilityId, status])
   @@index([facilityId, patientId, createdAt(sort: Desc)])
   @@map("medication_order")
+}
+
+/// MAR entry: one recorded administration (or documented non-administration)
+/// against a medication order. Each entry is attributed, timestamped and
+/// append-only; it never changes the order itself.
+model MedicationAdministration {
+  id               String    @id @default(uuid()) @db.Uuid
+  facilityId       String    @map("facility_id") @db.Uuid
+  patientId        String    @map("patient_id") @db.Uuid
+  orderId          String    @map("order_id") @db.Uuid
+  encounterId      String?   @map("encounter_id") @db.Uuid
+  status           String    @db.VarChar(16)
+  administeredDose String?   @map("administered_dose") @db.VarChar(100)
+  route            String?   @db.VarChar(40)
+  notes            String?   @db.VarChar(500)
+  administeredById String    @map("administered_by_id") @db.Uuid
+  administeredAt   DateTime  @map("administered_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  facility       LabStaffProfile @relation("MedicationAdministrationFacility", fields: [facilityId], references: [id])
+  patient        Patient         @relation("MedicationAdministrationPatient", fields: [patientId], references: [id])
+  order          MedicationOrder @relation("MedicationAdministrationOrder", fields: [orderId], references: [id])
+
+  @@index([facilityId, patientId, administeredAt(sort: Desc)])
+  @@index([orderId, administeredAt])
+  @@map("medication_administration")
+}
+
+/// Facility formulary: the medications this hospital stocks, with an optional
+/// high-alert marker. Entries are configured by the hospital's own staff; the
+/// application makes no clinical claim about any entry.
+model FormularyItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  facilityId      String   @map("facility_id") @db.Uuid
+  medicationName  String   @map("medication_name") @db.VarChar(160)
+  strength        String?  @db.VarChar(60)
+  form            String?  @db.VarChar(60)
+  defaultRoute    String?  @map("default_route") @db.VarChar(40)
+  highAlert       Boolean  @default(false) @map("high_alert")
+  active          Boolean  @default(true)
+  notes           String?  @db.VarChar(500)
+  createdById     String   @map("created_by_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  facility       LabStaffProfile @relation("FormularyItemFacility", fields: [facilityId], references: [id])
+
+  @@unique([facilityId, medicationName, strength])
+  @@index([facilityId, active])
+  @@map("formulary_item")
+}
+
+/// A facility-configured interaction rule between two medications. Rules are
+/// data entered by the hospital's own clinical staff — the matching engine
+/// only reports configured pairs and severity; it never invents rules or
+/// recommends dosing.
+model MedicationInteractionRule {
+  id           String   @id @default(uuid()) @db.Uuid
+  facilityId   String   @map("facility_id") @db.Uuid
+  medicationA  String   @map("medication_a") @db.VarChar(160)
+  medicationB  String   @map("medication_b") @db.VarChar(160)
+  severity     String   @db.VarChar(16)
+  description  String   @db.VarChar(500)
+  active       Boolean  @default(true)
+  createdById  String   @map("created_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  facility     LabStaffProfile @relation("MedicationInteractionRuleFacility", fields: [facilityId], references: [id])
+
+  @@index([facilityId, medicationA])
+  @@index([facilityId, medicationB])
+  @@map("medication_interaction_rule")
+}
+
+/// Outbound e-prescribing integration boundary. Submitting an order enqueues a
+/// snapshot here; delivery requires an explicitly configured external endpoint
+/// (EPRESCRIBING_ENDPOINT). Without it, entries remain PENDING and the
+/// dependency is documented — no live transmission is claimed.
+model EPrescriptionOutbox {
+  id         String    @id @default(uuid()) @db.Uuid
+  facilityId String    @map("facility_id") @db.Uuid
+  orderId    String    @map("order_id") @db.Uuid
+  status     String    @default("PENDING") @db.VarChar(16)
+  attempts   Int       @default(0)
+  lastError  String?   @map("last_error") @db.VarChar(500)
+  sentAt     DateTime? @map("sent_at")
+  payload    Json
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  facility   LabStaffProfile @relation("EPrescriptionOutboxFacility", fields: [facilityId], references: [id])
+  order      MedicationOrder @relation("EPrescriptionOutboxOrder", fields: [orderId], references: [id])
+
+  @@index([facilityId, status])
+  @@map("e_prescription_outbox")
 }
 
 /// A snapshot of a consultation report taken just before it was amended.

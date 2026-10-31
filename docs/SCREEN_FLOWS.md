@@ -370,7 +370,8 @@
 - **Observations section:** type dropdown (registry: temperature °C, pulse bpm, BP mmHg, SpO2, weight, height, pain, glucose, intake/output), value input with unit label, optional "taken at" timestamp (defaults to now), notes → "Record observation" writes with author + timestamp; log table lists type, value+unit, recorded time, notes
 - **Care tasks section:** add task with title, instructions, optional due time → starts as "Due"; status chip + buttons per allowed transition (Start, Complete, Defer, Escalate; deferred/escalated tasks offer reopen)
 - **Handover section:** summary textarea + "Record handover" attaches the patient's currently open tasks; history lists handovers with time and attached-task count
-- Permission notes: users without RECORD_NURSING see the chart read-only
+- **MAR section:** lists the patient's medication orders; on a live order, nurses with ADMINISTER_MEDICATIONS record administration — outcome (given with dose / refused / held with reason / not given with reason) + "administered at" timestamp (defaults to now) → appended to the per-order administration log (author, time, outcome); entries are never edited or deleted
+- Permission notes: users without RECORD_NURSING see the chart read-only; MAR recording requires ADMINISTER_MEDICATIONS
 - Navigation: back to HIS hub via header link; no patient search by name anywhere
 
 ## 4. Pharmacist Journey: HIS Hub → Pharmacy Worklist
@@ -381,5 +382,9 @@
 - Prescribers (ORDER_MEDICATIONS) get the new-order form: medication, strength, dose, route, frequency, duration, notes → "Create order" saves as Draft
 - Each order card shows medication + strength, patient identity, dose/route/frequency/duration, recorded allergies (red), prescriber notes, timestamps, status chip
 - Workflow buttons per status: Draft → "Submit to pharmacy"; Submitted → "Mark reviewed"; Reviewed → "Dispense"; Dispensed → "Mark completed"; "Cancel" (prescriber's own orders only). Review/dispense buttons are hidden/disabled without REVIEW_MEDICATIONS
-- Permission notes: the system shows allergies for visibility but performs no interaction checking and suggests no dosing
+- **Safety alerts:** creating an order returns advisory alerts shown inline — interaction matches against this hospital's own configured rules, allergy matches against the patient's recorded allergens, and the formulary match (high-alert flagged). Alerts never block the workflow and include no dosing advice
+- **Formulary section (MANAGE_FORMULARY):** add entries (name, strength/form, high-alert flag); retired entries are restorable, never deleted
+- **Interaction rules section (MANAGE_FORMULARY):** add pairs (medication A + B, severity, description); self-pairs and duplicates are rejected; rules are the hospital's own configuration
+- **E-prescribing section:** submitting an order enqueues an outbound snapshot in the outbox; the queue lists status (PENDING without a configured endpoint) and honestly reports `endpointConfigured: false` — no live transmission is claimed
+- Permission notes: the system shows allergies and advisory alerts for visibility; it invents no rules and suggests no dosing
 - Navigation: back to HIS hub via header link

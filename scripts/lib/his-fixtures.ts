@@ -18,7 +18,7 @@ export interface AcceptanceManifest {
 }
 
 const roles: Record<string, FacilityStaffRole> = {
-  owner: "OWNER", author: "DOCTOR", reviewer: "DEPARTMENT_HEAD", nurse: "NURSE", lab: "LAB_SCIENTIST",
+  owner: "OWNER", author: "DOCTOR", reviewer: "DEPARTMENT_HEAD", nurse: "NURSE", pharmacist: "PHARMACIST", lab: "LAB_SCIENTIST",
   radiologist: "RADIOLOGIST", records: "MEDICAL_RECORDS_OFFICER", insurance: "INSURANCE_OFFICER", receptionist: "RECEPTIONIST",
 };
 
@@ -67,6 +67,8 @@ export async function createAcceptanceFixtures(
         userId: users.find((u) => u.role === "patient")!.userId, caseNumber,
         firstName: "Synthetic", lastName: `Acceptance ${hospital.toUpperCase()}`, dateOfBirth: new Date("1990-01-01T00:00:00Z"), gender: "OTHER",
       } });
+      // Recorded allergies for the pharmacy safety checks (synthetic values).
+      await tx.medicalHistory.create({ data: { patientId: patient.id, allergies: ["Penicillin"] } });
       const encounterIds: string[] = [];
       for (const [suffix, type, priority] of [["ED", "EMERGENCY_DEPARTMENT", "EMERGENCY"], ["OP", "SCHEDULED_OUTPATIENT", "ELECTIVE"]] as const) {
         const encounter = await tx.encounter.create({ data: {

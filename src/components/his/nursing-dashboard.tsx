@@ -28,14 +28,20 @@ const openTaskCount = (raw: string[] | string): number => {
   return Array.isArray(ids) ? ids.length : 0;
 };
 
+interface OrderRow { id: string; medicationName: string; strength: string | null; dose: string | null; route: string | null; frequency: string | null; status: string }
+interface AdministrationRow { id: string; status: string; administeredDose: string | null; route: string | null; notes: string | null; administeredAt: string; order: { medicationName: string; strength: string | null } }
+
 /** Nursing workstation: identify a patient, then record observations, manage
- *  care tasks and write shift handovers. Entries are timestamped, unit-annotated
- *  and attributed; the app never interprets clinical values. */
-export function NursingDashboard({ canRecord }: { canRecord: boolean }) {
+ *  care tasks, administer medications (MAR) and write shift handovers. Entries
+ *  are timestamped, unit-annotated and attributed; the app never interprets
+ *  clinical values. */
+export function NursingDashboard({ canRecord, canAdminister }: { canRecord: boolean; canAdminister: boolean }) {
   const [patient, setPatient] = useState<IdentifiedPatient | null>(null);
   const [observations, setObservations] = useState<ObservationRow[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [handovers, setHandovers] = useState<HandoverRow[]>([]);
+  const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [administrations, setAdministrations] = useState<AdministrationRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -50,17 +56,25 @@ export function NursingDashboard({ canRecord }: { canRecord: boolean }) {
   const [taskDueAt, setTaskDueAt] = useState("");
   // Handover form
   const [handoverSummary, setHandoverSummary] = useState("");
+  // MAR form (per order, keyed by order id)
+  const [marStatus, setMarStatus] = useState("GIVEN");
+  const [marDose, setMarDose] = useState("");
+  const [marNotes, setMarNotes] = useState("");
 
   const reload = useCallback(async (patientId: string) => {
     try {
-      const [obs, tsk, hnd] = await Promise.all([
+      const [obs, tsk, hnd, ords, adm] = await Promise.all([
         api<{ observations: ObservationRow[] }>(`/api/facility/his/nursing/observations?patientId=${patientId}`),
         api<{ tasks: TaskRow[] }>(`/api/facility/his/nursing/tasks?patientId=${patientId}`),
         api<{ handovers: HandoverRow[] }>(`/api/facility/his/nursing/handover?patientId=${patientId}`),
+        api<{ orders: OrderRow[] }>(`/api/facility/his/medication-orders?patientId=${patientId}`),
+        api<{ administrations: AdministrationRow[] }>(`/api/facility/his/medication-orders/administrations?patientId=${patientId}`),
       ]);
       setObservations(obs.observations);
       setTasks(tsk.tasks);
       setHandovers(hnd.handovers);
+      setOrders(ords.orders);
+      setAdministrations(adm.administrations);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load the nursing chart");
     }
@@ -208,6 +222,65 @@ export function NursingDashboard({ canRecord }: { canRecord: boolean }) {
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      <section className="space-y-3 rounded-lg border p-4">
+        <h2 className="font-semibold">Medication administration (MAR)</h2>
+        {orders.filter((o) => o.status !== "DRAFT" && o.status !== "CANCELLED").length === 0 ? (
+          <p className="text-sm text-muted-foreground">No administrable medication orders for this patient.</p>
+        ) : (
+          <ul className="space-y-2" data-testid="list-mar-orders">
+            {orders.filter((o) => o.status !== "DRAFT" && o.status !== "CANCELLED").map((o) => (
+              <li key={o.id} className="rounded-lg border p-2">
+                <p className="text-sm font-medium">{o.medicationName}{o.strength ? ` ${o.strength}` : ""}</p>
+                <p className="text-xs text-muted-foreground">{[o.dose, o.route, o.frequency].filter(Boolean).join(" · ") || "—"} · order status {o.status.toLowerCase()}</p>
+                {canAdminister && (
+                  <form className="mt-2 flex flex-wrap items-end gap-2" onSubmit={(e) => {
+                    e.preventDefault();
+                    void run(async () => {
+                      await api(`/api/facility/his/medication-orders/${o.id}/administrations`, {
+                        body: { status: marStatus, ...(marDose.trim() ? { administeredDose: marDose.trim() } : {}), ...(marNotes.trim() ? { notes: marNotes.trim() } : {}) },
+                      });
+                      setMarDose(""); setMarNotes("");
+                    }, marStatus === "GIVEN" ? "Administration recorded" : `${marStatus.toLowerCase()} recorded`);
+                  }}>
+                    <label className="text-xs">Outcome
+                      <select className={inputClass} value={marStatus} onChange={(e) => setMarStatus(e.target.value)} data-testid={`select-mar-status-${o.id}`}>
+                        <option value="GIVEN">Given</option>
+                        <option value="HELD">Held</option>
+                        <option value="REFUSED">Refused by patient</option>
+                        <option value="OMITTED">Omitted</option>
+                      </select>
+                    </label>
+                    <label className="text-xs">Dose given
+                      <input className={inputClass} value={marDose} onChange={(e) => setMarDose(e.target.value)} placeholder={o.dose ?? "e.g. 1 tablet"} maxLength={100} data-testid={`input-mar-dose-${o.id}`} />
+                    </label>
+                    <label className="text-xs">Notes
+                      <input className={inputClass} value={marNotes} onChange={(e) => setMarNotes(e.target.value)} maxLength={500} data-testid={`input-mar-notes-${o.id}`} />
+                    </label>
+                    <Button type="submit" size="sm" data-testid={`button-record-mar-${o.id}`}>Record</Button>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {administrations.length > 0 && (
+          <table className="w-full text-sm" data-testid="table-administrations">
+            <thead><tr className="border-b text-left text-xs uppercase text-muted-foreground"><th className="py-1.5 pr-2">Medication</th><th className="pr-2">Outcome</th><th className="pr-2">Dose</th><th className="pr-2">At</th><th>Notes</th></tr></thead>
+            <tbody>
+              {administrations.map((a) => (
+                <tr key={a.id} className="border-b last:border-0">
+                  <td className="py-1.5 pr-2">{a.order.medicationName}{a.order.strength ? ` ${a.order.strength}` : ""}</td>
+                  <td className="pr-2">{a.status}</td>
+                  <td className="pr-2">{a.administeredDose ?? "—"}</td>
+                  <td className="pr-2">{fmt(a.administeredAt)}</td>
+                  <td className="text-muted-foreground">{a.notes ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </section>
 

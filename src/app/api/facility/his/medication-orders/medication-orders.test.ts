@@ -13,6 +13,9 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     medicationOrder: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     medicalHistory: { findMany: vi.fn() },
+    medicationInteractionRule: { findMany: vi.fn() },
+    formularyItem: { findMany: vi.fn() },
+    ePrescriptionOutbox: { create: vi.fn() },
   },
 }));
 
@@ -35,6 +38,11 @@ beforeEach(() => {
   vi.mocked(requireUser).mockResolvedValue({ id: "doctor-1", role: "DOCTOR", status: "ACTIVE", onboardingComplete: true, deletedAt: null } as never);
   vi.mocked(requireHisAccess).mockResolvedValue({ facility: { id: "hospital-a" }, user: { id: "doctor-1", role: "DOCTOR" }, permissions: ["ORDER_MEDICATIONS", "VIEW_PATIENT_DOCUMENTS"] } as never);
   vi.mocked(assertPatientLinked).mockResolvedValue(undefined);
+  // Default empty safety context for order creation (alerts/formulary lookups).
+  vi.mocked(prisma.medicationOrder.findMany).mockResolvedValue([] as never);
+  vi.mocked(prisma.medicalHistory.findMany).mockResolvedValue([] as never);
+  vi.mocked(prisma.medicationInteractionRule.findMany).mockResolvedValue([] as never);
+  vi.mocked(prisma.formularyItem.findMany).mockResolvedValue([] as never);
 });
 
 describe("creating medication orders", () => {

@@ -4,6 +4,28 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
 import { assertPatientLinked, requireHisAccess } from "@/lib/his/access";
 import { auditHis } from "@/lib/his/audit";
+import { checkAllergy, checkInteractions } from "@/lib/his/medication-safety";
+
+/** Safety context for a new order: the patient's other active medications,
+ *  allergies, the facility's configured rules and the formulary match. */
+async function safetyContext(facilityId: string, patientId: string, medicationName: string) {
+  const [otherOrders, histories, rules, formulary] = await Promise.all([
+    prisma.medicationOrder.findMany({
+      where: { facilityId, patientId, status: { in: ["SUBMITTED", "REVIEWED", "DISPENSED", "COMPLETED"] } },
+      select: { medicationName: true },
+    }),
+    prisma.medicalHistory.findMany({ where: { patientId }, select: { allergies: true } }),
+    prisma.medicationInteractionRule.findMany({ where: { facilityId, active: true } }),
+    prisma.formularyItem.findMany({ where: { facilityId, medicationName, active: true } }),
+  ]);
+  const allergies = histories.flatMap((h) => (Array.isArray(h.allergies) ? h.allergies : []));
+  return {
+    otherMedications: otherOrders.map((o) => o.medicationName),
+    allergies,
+    rules,
+    formulary: { matched: formulary.length > 0, highAlert: formulary.some((f) => f.highAlert) },
+  };
+}
 
 const createSchema = z.object({
   patientId: z.string().uuid(),
@@ -57,6 +79,12 @@ export const POST = withAuth(null, async (req, { user }) => {
   const access = await requireHisAccess(user, "ORDER_MEDICATIONS", req, ["HOSPITAL"]);
   const body = await parseBody(req, createSchema);
   await assertPatientLinked(access.facility.id, body.patientId);
+  const safety = await safetyContext(access.facility.id, body.patientId, body.medicationName);
+  const allergyAlert = checkAllergy(body.medicationName, safety.allergies);
+  const alerts = [
+    ...checkInteractions(body.medicationName, safety.otherMedications, safety.rules),
+    ...(allergyAlert ? [allergyAlert] : []),
+  ];
   const order = await prisma.medicationOrder.create({
     data: {
       facilityId: access.facility.id,
@@ -75,7 +103,9 @@ export const POST = withAuth(null, async (req, { user }) => {
   });
   await auditHis(access, "HIS_MEDICATION_ORDER_CREATED", "MedicationOrder", order.id, req, {
     patientId: body.patientId,
-    details: { medicationName: body.medicationName, status: "DRAFT" },
+    details: { medicationName: body.medicationName, status: "DRAFT", alerts: alerts.length },
   });
-  return NextResponse.json({ order }, { status: 201 });
+  // Alerts are advisory: shown to the prescriber, never blocking. The formulary
+  // match is informational; the facility configures its own entries.
+  return NextResponse.json({ order, alerts, formulary: safety.formulary }, { status: 201 });
 });

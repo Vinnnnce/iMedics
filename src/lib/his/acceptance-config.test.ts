@@ -11,8 +11,8 @@ const env = {
 describe("disposable account safety", () => {
   it("creates disjoint two-hospital identities, without real delivery addresses", () => {
     const rows = acceptanceRoster("accept2026");
-    expect(rows).toHaveLength(20);
-    expect(new Set(rows.map((r) => r.email)).size).toBe(20);
+    expect(rows).toHaveLength(22);
+    expect(new Set(rows.map((r) => r.email)).size).toBe(22);
     expect(rows.every((r) => r.email.endsWith("+clerk_test@example.com"))).toBe(true);
   });
   it("rejects invalid namespace injection", () => {
