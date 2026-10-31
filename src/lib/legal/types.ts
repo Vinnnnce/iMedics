@@ -1,11 +1,11 @@
 import type { AccountType, Role } from "@prisma/client";
 
 /**
- * The account audiences the legal policies are tailored to. The five account
+ * The account audiences the legal policies are tailored to. The six account
  * types users register with (Patient, Doctor, Hospital, Laboratory, Diagnostic
- * Centre) map to their own policy audience. Signed-out visitors, admins and
- * accounts with an unknown type get GENERAL, which shows every audience
- * section instead of silently defaulting to one type.
+ * Centre, Pharmacy) map to their own policy audience. Signed-out visitors,
+ * admins and accounts with an unknown type get GENERAL, which shows every
+ * audience section instead of silently defaulting to one type.
  */
 export const POLICY_AUDIENCES = [
   "GENERAL",
@@ -14,6 +14,7 @@ export const POLICY_AUDIENCES = [
   "HOSPITAL",
   "LABORATORY",
   "DIAGNOSTIC_CENTRE",
+  "PHARMACY",
 ] as const;
 
 export type PolicyAudience = (typeof POLICY_AUDIENCES)[number];
@@ -25,6 +26,7 @@ export const AUDIENCE_LABELS: Record<PolicyAudience, string> = {
   HOSPITAL: "Hospital",
   LABORATORY: "Laboratory",
   DIAGNOSTIC_CENTRE: "Diagnostic centre",
+  PHARMACY: "Pharmacy",
 };
 
 export interface PolicyUser {
@@ -51,6 +53,8 @@ export function policyAudienceFor(user: PolicyUser | null | undefined): PolicyAu
       return "LABORATORY";
     case "DIAGNOSTIC_CENTRE":
       return "DIAGNOSTIC_CENTRE";
+    case "PHARMACY":
+      return "PHARMACY";
     default:
       break;
   }

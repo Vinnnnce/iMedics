@@ -15,7 +15,7 @@ import {
   FlaskConical, Heart, Sparkles, User, Globe, HeartPulse,
   Calendar, FileText, Video, MessageSquare, Building2,
   ClipboardList, Upload, LayoutDashboard, ArrowRight, Receipt, Wallet, Tags, PanelLeftClose,
-  FolderOpen, BellRing, ShieldCheck, Settings, BedDouble, SearchCheck, Bell, Star, Briefcase,
+  FolderOpen, BellRing, ShieldCheck, Settings, BedDouble, SearchCheck, Bell, Star, Briefcase, Pill,
   type LucideIcon,
 } from "lucide-react";
 import type { Me, MeFacility } from "@/lib/use-me";
@@ -107,6 +107,7 @@ const KIND_MODULE_HREFS: Record<MeFacility["kind"], readonly string[]> = {
   HOSPITAL: ["/lab/admissions", "/lab/investigations", "/lab/critical-alerts", "/lab/documents", "/lab/document-templates", "/lab/referrals"],
   LABORATORY: ["/lab/orders", "/lab/specimens", "/lab/upload", "/lab/critical-alerts", "/lab/documents", "/lab/document-templates", "/lab/referrals"],
   DIAGNOSTIC_CENTRE: ["/lab/examinations", "/lab/documents", "/lab/document-templates", "/lab/referrals"],
+  PHARMACY: ["/lab/pharmacy", "/lab/documents", "/lab/document-templates", "/lab/referrals"],
 };
 
 const FACILITY_WEBSITE_ITEM: NavItem = { href: "/lab/website", label: "Our Website", icon: Globe, roles: ["FACILITY"], permission: "MANAGE_PROFILE" };
@@ -311,7 +312,9 @@ export function Navbar({ children }: { children: React.ReactNode }) {
           ? { href: "/lab/examinations", label: "Exams", icon: FileText, roles: [role] }
           : kind === "HOSPITAL"
             ? { href: "/lab/admissions", label: "Wards", icon: BedDouble, roles: [role] }
-            : { href: "/lab/orders", label: "Orders", icon: ClipboardList, roles: [role] },
+            : kind === "PHARMACY"
+              ? { href: "/lab/pharmacy", label: "Pharmacy", icon: Pill, roles: [role] }
+              : { href: "/lab/orders", label: "Orders", icon: ClipboardList, roles: [role] },
         { href: "/lab/documents", label: "Docs", icon: FolderOpen, roles: [role] },
         { href: "/settings", label: "Settings", icon: Settings, roles: [role] },
       ];

@@ -9,7 +9,7 @@ import { deliverEPrescription } from "@/lib/his/medication-safety";
 // stay PENDING until an external endpoint is configured (EPRESCRIBING_ENDPOINT);
 // that dependency is displayed, never hidden. No live transmission is claimed.
 export const GET = withAuth(null, async (req, { user }) => {
-  const access = await requireHisAccess(user, "REVIEW_MEDICATIONS", req, ["HOSPITAL"]);
+  const access = await requireHisAccess(user, "REVIEW_MEDICATIONS", req, ["HOSPITAL", "PHARMACY"]);
   const outbox = await prisma.ePrescriptionOutbox.findMany({
     where: { facilityId: access.facility.id },
     orderBy: { createdAt: "desc" },
@@ -26,7 +26,7 @@ export const GET = withAuth(null, async (req, { user }) => {
 // Requires REVIEW_MEDICATIONS. Each attempt updates attempts/lastError and,
 // on success, stamps sentAt and marks SENT.
 export const POST = withAuth(null, async (req, { user }) => {
-  const access = await requireHisAccess(user, "REVIEW_MEDICATIONS", req, ["HOSPITAL"]);
+  const access = await requireHisAccess(user, "REVIEW_MEDICATIONS", req, ["HOSPITAL", "PHARMACY"]);
   const pending = await prisma.ePrescriptionOutbox.findMany({
     where: { facilityId: access.facility.id, status: "PENDING" },
     take: 50,

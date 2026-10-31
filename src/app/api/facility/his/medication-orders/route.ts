@@ -43,7 +43,7 @@ const createSchema = z.object({
 // the facility-wide worklist. Each entry carries the patient's recorded
 // allergies so the reviewer sees them; no automatic interaction checking.
 export const GET = withAuth(null, async (req, { user }) => {
-  const access = await requireHisAccess(user, "VIEW_PATIENT_DOCUMENTS", req);
+  const access = await requireHisAccess(user, "VIEW_PATIENT_DOCUMENTS", req, ["HOSPITAL", "PHARMACY"]);
   const params = new URL(req.url).searchParams;
   const patientId = params.get("patientId") ?? undefined;
   const status = params.get("status") ?? undefined;

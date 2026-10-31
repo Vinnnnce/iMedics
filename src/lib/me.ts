@@ -38,7 +38,7 @@ async function facilityContext(
 
   const kind =
     facility.kind ??
-    (accountType === "HOSPITAL" || accountType === "LABORATORY" || accountType === "DIAGNOSTIC_CENTRE"
+    (accountType === "HOSPITAL" || accountType === "LABORATORY" || accountType === "DIAGNOSTIC_CENTRE" || accountType === "PHARMACY"
       ? accountType
       : null);
   if (!kind) return null;

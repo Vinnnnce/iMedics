@@ -111,7 +111,7 @@ export function VerificationBadge({ status }: { status: string | null }) {
 }
 
 export const ROLE_LABEL: Record<string, string> = { PATIENT: "Patient", DOCTOR: "Doctor", LAB_SCIENTIST: "Facility", ADMIN: "Administrator" };
-export const TYPE_LABEL: Record<string, string> = { PATIENT: "Patient", DOCTOR: "Doctor", LABORATORY: "Laboratory", DIAGNOSTIC_CENTRE: "Diagnostic centre", HOSPITAL: "Hospital" };
+export const TYPE_LABEL: Record<string, string> = { PATIENT: "Patient", DOCTOR: "Doctor", LABORATORY: "Laboratory", DIAGNOSTIC_CENTRE: "Diagnostic centre", HOSPITAL: "Hospital", PHARMACY: "Pharmacy" };
 
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (

@@ -22,7 +22,7 @@ import { prisma } from "@/lib/prisma";
 import { parseWebsiteLayout } from "@/lib/website/blocks";
 
 interface PortfolioPageInput {
-  directory: "hospitals" | "laboratories" | "diagnostic-centres";
+  directory: "hospitals" | "laboratories" | "diagnostic-centres" | "pharmacies";
   slug: string;
 }
 

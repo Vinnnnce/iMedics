@@ -13,7 +13,7 @@ const patchSchema = z.object({
 // PATCH /api/facility/his/formulary/[id] — retire or restore a formulary entry.
 // Entries are never deleted: history must remain explainable.
 export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }) => {
-  const access = await requireHisAccess(user, "MANAGE_FORMULARY", req, ["HOSPITAL"]);
+  const access = await requireHisAccess(user, "MANAGE_FORMULARY", req, ["HOSPITAL", "PHARMACY"]);
   const id = parseId((await params).id);
   const body = await parseBody(req, patchSchema);
   const item = await prisma.formularyItem.findFirst({ where: { id, facilityId: access.facility.id } });

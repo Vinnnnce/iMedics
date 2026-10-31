@@ -10,7 +10,7 @@ const patchSchema = z.object({ action: z.enum(["deactivate", "reactivate"]) });
 
 // PATCH /api/facility/his/interaction-rules/[id] — retire or restore a rule.
 export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }) => {
-  const access = await requireHisAccess(user, "MANAGE_FORMULARY", req, ["HOSPITAL"]);
+  const access = await requireHisAccess(user, "MANAGE_FORMULARY", req, ["HOSPITAL", "PHARMACY"]);
   const id = parseId((await params).id);
   const body = await parseBody(req, patchSchema);
   const rule = await prisma.medicationInteractionRule.findFirst({ where: { id, facilityId: access.facility.id } });

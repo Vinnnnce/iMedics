@@ -216,6 +216,14 @@ export function facilitySuggestions(state: FacilitySuggestionState): Suggestion[
         cta: "Open bookings",
       });
       break;
+    case "PHARMACY":
+      items.push({
+        title: "Work the medication queue",
+        description: "Review, dispense and track medication orders from submission to completion.",
+        href: "/lab/pharmacy",
+        cta: "Open pharmacy",
+      });
+      break;
     default:
       break;
   }

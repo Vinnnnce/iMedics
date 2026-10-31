@@ -10,7 +10,7 @@ import { loadHomepageAds, type HomepageAds } from "@/lib/home/home-ads";
 /** Revalidate this tag after any change that affects the public homepage. */
 export const HOME_CACHE_TAG = "homepage";
 const REVALIDATE_SECONDS = 300;
-const FACILITY_KINDS: readonly TopRatedFacilityType[] = ["HOSPITAL", "LABORATORY", "DIAGNOSTIC_CENTRE"];
+const FACILITY_KINDS: readonly TopRatedFacilityType[] = ["HOSPITAL", "LABORATORY", "DIAGNOSTIC_CENTRE", "PHARMACY"];
 
 export interface HomepageData extends HomepageAds {
   topDoctors: TopRatedDoctor[];

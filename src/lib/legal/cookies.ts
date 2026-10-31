@@ -106,4 +106,16 @@ export const COOKIES_AUDIENCES: AudienceSection[] = [
       },
     ],
   },
+  {
+    audience: "PHARMACY",
+    sections: [
+      {
+        id: "pharmacy-cookies",
+        heading: "For pharmacies",
+        paragraphs: [
+          "Session cookies keep pharmacy staff signed in to the dispensing workflow. Access to patient data is controlled by staff roles, not cookies. Sign out of shared workstations when finished.",
+        ],
+      },
+    ],
+  },
 ];

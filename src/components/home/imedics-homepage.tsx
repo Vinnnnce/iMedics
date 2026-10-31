@@ -52,7 +52,7 @@ export interface TopRatedDoctor {
   ratingCount: number;
 }
 
-export type TopRatedFacilityType = "HOSPITAL" | "LABORATORY" | "DIAGNOSTIC_CENTRE";
+export type TopRatedFacilityType = "HOSPITAL" | "LABORATORY" | "DIAGNOSTIC_CENTRE" | "PHARMACY";
 
 export interface TopRatedFacility {
   id: string;
@@ -67,6 +67,7 @@ const FACILITY_TYPE_ROUTES: Record<TopRatedFacilityType, { directory: string; pr
   HOSPITAL: { directory: "/hospitals", profile: "/hospitals", label: "Hospital", plural: "hospitals" },
   LABORATORY: { directory: "/laboratories", profile: "/laboratories", label: "Laboratory", plural: "laboratories" },
   DIAGNOSTIC_CENTRE: { directory: "/diagnostic-centres", profile: "/diagnostic-centres", label: "Diagnostic centre", plural: "diagnostic centres" },
+  PHARMACY: { directory: "/pharmacies", profile: "/pharmacies", label: "Pharmacy", plural: "pharmacies" },
 };
 
 interface RatingCardData {

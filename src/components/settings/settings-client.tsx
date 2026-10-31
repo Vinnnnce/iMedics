@@ -20,7 +20,7 @@ import { apiClient } from "@/lib/api-client";
 const field = "h-9 w-full rounded-lg border border-input bg-background px-2 text-sm";
 const LANGUAGES = [["en", "English"], ["fr", "Français"], ["es", "Español"], ["ru", "Русский"]] as const;
 const KIND_LABEL: Record<MeFacility["kind"], string> = {
-  HOSPITAL: "Hospital", LABORATORY: "Laboratory", DIAGNOSTIC_CENTRE: "Diagnostic centre",
+  HOSPITAL: "Hospital", LABORATORY: "Laboratory", DIAGNOSTIC_CENTRE: "Diagnostic centre", PHARMACY: "Pharmacy",
 };
 
 interface Section {

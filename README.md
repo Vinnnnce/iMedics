@@ -1,6 +1,6 @@
 # Medic1905
 
-Telemedicine and medical-records web app for patients, doctors and laboratory staff.
+Telemedicine and medical-records web app for patients, doctors, healthcare facilities and pharmacy staff.
 
 **Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · shadcn/ui · Prisma 7 · Neon Postgres · Clerk · S3-compatible storage (Cloudflare R2 / AWS S3) · Kimi K3 (doctor-side AI assistance) · Vitest · Vercel.
 
@@ -72,15 +72,29 @@ Also add a scheduled job that calls `GET /api/cron/appointment-reminders` every 
 
 Mini-websites for facilities, structured prescriptions with clinical-safety checks, patient document storage, medication reminders, inactivity-based welfare monitoring, a public emergency/CPR learning centre and the collapsible desktop sidebar are documented in [docs/PLATFORM_FEATURES.md](docs/PLATFORM_FEATURES.md), including the medication-reference policy (RxNav/RxNorm, free, no API key) and the limits of inactivity monitoring.
 
-## Hospital, laboratory & diagnostic-centre modules
+## Hospital, laboratory, diagnostic-centre & pharmacy modules
 
-Three integrated modules with a server-enforced organization access matrix:
+Three integrated modules with a server-enforced organization access matrix
+(plus a standalone **pharmacy** account type — see below):
 hospital admissions with progress notes, transfers and discharge epicrises;
 laboratory specimen management (accessioning, rejection with documented
 reasons, recollection) and an extended order workflow; diagnostic examination
 reports with verification, signing and traceable amendments; critical-result
 alerts with acknowledgement; and customizable medical-document templates. See
 [docs/MODULES.md](docs/MODULES.md).
+
+## Pharmacy module
+
+A **pharmacy** is a sixth account type (`PHARMACY` on `User.accountType` /
+`FacilityKind`), registered through the same wizard as the other facility
+types and verified by an admin before it goes live. Pharmacies get the
+medication workflow only (`KIND_MODULES.PHARMACY = ["PHARMACY"]`): review,
+dispense and track medication orders; manage the formulary and the
+pharmacy-configured interaction rules (advisory alerts only — the system
+never automates dispensing decisions). Portal page: `/lab/pharmacy`. A
+public directory lives at `/pharmacies`. Hospitals keep the same in-hospital
+pharmacy module; standalone pharmacies get the same tools scoped to their own
+facility.
 
 ## Hospital Information System (HIS)
 

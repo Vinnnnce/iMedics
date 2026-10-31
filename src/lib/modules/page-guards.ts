@@ -28,7 +28,9 @@ export async function currentFacilityKind(): Promise<{ facilityId: string; kind:
   });
   const at = owner?.accountType;
   const kind: FacilityKindValue | null =
-    at === "HOSPITAL" || at === "LABORATORY" || at === "DIAGNOSTIC_CENTRE" ? at : null;
+    at === "HOSPITAL" || at === "LABORATORY" || at === "DIAGNOSTIC_CENTRE" || at === "PHARMACY"
+      ? at
+      : null;
   return { facilityId: facility.id, kind };
 }
 

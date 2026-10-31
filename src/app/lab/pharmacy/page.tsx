@@ -2,7 +2,7 @@ import { PharmacyDashboard } from "@/components/his/pharmacy-dashboard";
 import { requireHisPage } from "@/lib/his/page";
 
 export default async function PharmacyPage() {
-  const { can } = await requireHisPage("VIEW_PATIENT_DOCUMENTS", ["HOSPITAL"]);
+  const { can } = await requireHisPage("VIEW_PATIENT_DOCUMENTS", ["HOSPITAL", "PHARMACY"]);
   return (
     <div className="mx-auto max-w-5xl space-y-4 px-4 md:px-0">
       <div>

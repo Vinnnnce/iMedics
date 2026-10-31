@@ -196,3 +196,30 @@ migration is additive.
 - Clinical validation of critical thresholds per test is configured by the
   laboratory at result entry; catalogue-level default bounds can be seeded
   later.
+
+## Module 04 — Pharmacy Management (standalone pharmacies)
+
+A standalone pharmacy is a facility account (`PHARMACY`) registered through
+the same wizard as the other facility types and verified by an admin before
+it goes live. Its access is scoped to the medication workflow only
+(`KIND_MODULES.PHARMACY = ["PHARMACY"]`):
+
+- Portal page: `/lab/pharmacy` (worklist and patient-order modes).
+- Medication orders: review → dispense → completion, with facility-scoped
+  queries and audited transitions. Prescribers submit; pharmacies review and
+  dispense. Dispensing decisions always remain with licensed pharmacists —
+  the platform records them, it never automates them.
+- Formulary: the medicine catalogue (name, strength, notes) with
+  retire/restore instead of deletion so history stays explainable.
+- Interaction rules: pharmacy-configured pairs surfaced to reviewers as
+  advisory alerts only.
+- E-prescribing outbox: outbound queue entries shown with their delivery
+  status; delivery requires a configured external endpoint and is never
+  claimed otherwise.
+- The same module remains available to hospitals (in-hospital pharmacy);
+  standalone pharmacies see only their own facility's data — enforced by the
+  server on every request, not by hiding links.
+
+Public presence: verified pharmacies are listed in the `/pharmacies`
+directory and can appear among the homepage's top-rated facilities once they
+accumulate reviews.

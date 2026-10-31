@@ -18,7 +18,7 @@ const patchSchema = z.object({
 // and dispensing require the pharmacy permission. Every move is audited with
 // its reason; the order snapshot (prescriber, patient, medication) never changes.
 export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }) => {
-  const access = await requireHisAccess(user, null, req, ["HOSPITAL"]);
+  const access = await requireHisAccess(user, null, req, ["HOSPITAL", "PHARMACY"]);
   const id = parseId((await params).id);
   const body = await parseBody(req, patchSchema);
   const order = await prisma.medicationOrder.findFirst({

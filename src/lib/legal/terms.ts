@@ -228,4 +228,18 @@ export const TERMS_AUDIENCES: AudienceSection[] = [
       },
     ],
   },
+  {
+    audience: "PHARMACY",
+    sections: [
+      {
+        id: "pharmacy-responsibilities",
+        heading: "For pharmacies",
+        paragraphs: [
+          "Pharmacy accounts represent registered pharmacies. You confirm that your pharmacy is registered with the Pharmacists Council of Nigeria (PCN) as required by the Pharmacists Council of Nigeria Act, operates under the supervision of licensed pharmacists, and holds the licences required for the products and services you list.",
+          "Your professional obligations include: safe dispensing under the supervision of licensed pharmacists; accurate medication records; secure handling of patient information; and confidentiality under the National Health Act 2014, the PCN code of ethics and the Nigeria Data Protection Act 2023.",
+          "The platform lets prescribers submit medication orders and lets your pharmacy review, dispense and track them. Dispensing decisions remain yours and are never automated by the platform; the system only records and communicates them.",
+        ],
+      },
+    ],
+  },
 ];

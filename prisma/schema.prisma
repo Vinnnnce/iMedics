@@ -253,6 +253,7 @@ enum FacilityKind {
   LABORATORY
   DIAGNOSTIC_CENTRE
   HOSPITAL
+  PHARMACY
 }
 
 model DoctorSchedule {
@@ -1205,6 +1206,7 @@ enum AccountType {
   LABORATORY
   DIAGNOSTIC_CENTRE
   HOSPITAL
+  PHARMACY
 }
 
 enum Gender {
@@ -1864,6 +1866,7 @@ enum ProviderType {
   HOSPITAL
   LABORATORY
   DIAGNOSTIC_CENTRE
+  PHARMACY
 }
 
 enum SubaccountStatus {

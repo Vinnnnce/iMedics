@@ -6,7 +6,7 @@
 export interface MeFacility {
   id: string;
   name: string | null;
-  kind: "HOSPITAL" | "LABORATORY" | "DIAGNOSTIC_CENTRE";
+  kind: "HOSPITAL" | "LABORATORY" | "DIAGNOSTIC_CENTRE" | "PHARMACY";
   facilityRole: string;
   permissions: readonly string[];
 }

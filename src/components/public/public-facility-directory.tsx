@@ -7,7 +7,7 @@ import { initials } from "@/lib/format";
 import { PublicFooter } from "@/components/home/public-footer";
 
 interface DirectoryPageProps {
-  directory: "hospitals" | "laboratories" | "diagnostic-centres";
+  directory: "hospitals" | "laboratories" | "diagnostic-centres" | "pharmacies";
   typeLabel: string;
   pluralLabel: string;
   searchPlaceholder: string;

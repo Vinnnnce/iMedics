@@ -16,7 +16,7 @@ const createSchema = z.object({
 
 // GET /api/facility/his/formulary?active=1 — the facility formulary.
 export const GET = withAuth(null, async (req, { user }) => {
-  const access = await requireHisAccess(user, "VIEW_PATIENT_DOCUMENTS", req);
+  const access = await requireHisAccess(user, "VIEW_PATIENT_DOCUMENTS", req, ["HOSPITAL", "PHARMACY"]);
   const params = new URL(req.url).searchParams;
   const items = await prisma.formularyItem.findMany({
     where: {
@@ -32,7 +32,7 @@ export const GET = withAuth(null, async (req, { user }) => {
 // POST /api/facility/his/formulary — add a formulary entry (pharmacy-configured;
 // the application makes no clinical claim about any entry).
 export const POST = withAuth(null, async (req, { user }) => {
-  const access = await requireHisAccess(user, "MANAGE_FORMULARY", req, ["HOSPITAL"]);
+  const access = await requireHisAccess(user, "MANAGE_FORMULARY", req, ["HOSPITAL", "PHARMACY"]);
   const body = await parseBody(req, createSchema);
   const existing = await prisma.formularyItem.findFirst({
     where: { facilityId: access.facility.id, medicationName: body.medicationName, strength: body.strength ?? null },

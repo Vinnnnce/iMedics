@@ -15,7 +15,7 @@ const createSchema = z.object({
 
 // GET /api/facility/his/interaction-rules — the facility's configured rules.
 export const GET = withAuth(null, async (req, { user }) => {
-  const access = await requireHisAccess(user, "VIEW_PATIENT_DOCUMENTS", req);
+  const access = await requireHisAccess(user, "VIEW_PATIENT_DOCUMENTS", req, ["HOSPITAL", "PHARMACY"]);
   const rules = await prisma.medicationInteractionRule.findMany({
     where: { facilityId: access.facility.id },
     orderBy: { createdAt: "desc" },
@@ -27,7 +27,7 @@ export const GET = withAuth(null, async (req, { user }) => {
 // POST /api/facility/his/interaction-rules — configure a rule. Rules are
 // hospital-entered data; the engine reports them verbatim and invents nothing.
 export const POST = withAuth(null, async (req, { user }) => {
-  const access = await requireHisAccess(user, "MANAGE_FORMULARY", req, ["HOSPITAL"]);
+  const access = await requireHisAccess(user, "MANAGE_FORMULARY", req, ["HOSPITAL", "PHARMACY"]);
   const body = await parseBody(req, createSchema);
   const { medicationA, medicationB, severity } = validateInteractionRule(body.medicationA, body.medicationB, body.severity);
   const existing = await prisma.medicationInteractionRule.findFirst({
