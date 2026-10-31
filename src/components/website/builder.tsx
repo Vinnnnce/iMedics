@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import Link from "next/link";
 import {
   GripVertical, ChevronUp, ChevronDown, Plus, Trash2, Save, Rocket, Eye, EyeOff,
   Pencil, Copy,
@@ -49,23 +50,28 @@ const BLOCK_LABELS: Record<WebsiteBlockType, string> = {
   faq: "FAQ",
 };
 
-export function WebsiteBuilder({ facility }: { facility: { name: string; phone: string | null; email: string | null; address: string | null; city: string | null; state: string | null; operatingHours: string | null } }) {
+export function WebsiteBuilder({ facility }: { facility: { id: string; slug: string | null; directory: string; isPublic: boolean; name: string; phone: string | null; email: string | null; address: string | null; city: string | null; state: string | null; operatingHours: string | null } }) {
   const [website, setWebsite] = useState<WebsiteState | null>(null);
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const [addOnCatalog, setAddOnCatalog] = useState<AddOnInfo[]>([]);
   const [blocks, setBlocks] = useState<WebsiteBlock[]>([]);
   const [addOns, setAddOns] = useState<string[]>([]);
+  const [templateKey, setTemplateKey] = useState("medical-centre");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<"editor" | "preview">("editor");
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const endpoint = `/facility/website?facilityId=${encodeURIComponent(facility.id)}`;
   const dragIndex = useRef<number | null>(null);
 
-  useEffect(() => {
-    apiClient.get<{ website: WebsiteState; templates: TemplateInfo[]; addOns: AddOnInfo[] }>("/api/facility/website")
+  const load = useCallback(() => {
+    return apiClient.get<{ website: WebsiteState; templates: TemplateInfo[]; addOns: AddOnInfo[] }>(endpoint)
       .then((data) => {
         setWebsite(data.website);
+        setTemplateKey(data.website.template);
         setTemplates(data.templates);
         setAddOnCatalog(data.addOns);
         const layout = data.website.draftLayout as WebsiteLayout | null;
@@ -73,11 +79,12 @@ export function WebsiteBuilder({ facility }: { facility: { name: string; phone: 
         setAddOns(data.website.addOns ?? []);
         setSelectedId(layout?.blocks?.[0]?.id ?? null);
       })
-      .catch(() => toast.error("Could not load your website"))
+      .catch((error) => setLoadError(error instanceof Error ? error.message : "Could not load your website. Check your connection and retry."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [endpoint]);
+  useEffect(() => { void load(); }, [load]);
 
-  const dirty = useMemo(() => JSON.stringify(blocks) !== JSON.stringify((website?.draftLayout as WebsiteLayout | null)?.blocks ?? []) || JSON.stringify(addOns) !== JSON.stringify(website?.addOns ?? []), [blocks, addOns, website]);
+  const dirty = useMemo(() => templateKey !== (website?.template ?? "medical-centre") || JSON.stringify(blocks) !== JSON.stringify((website?.draftLayout as WebsiteLayout | null)?.blocks ?? []) || JSON.stringify(addOns) !== JSON.stringify(website?.addOns ?? []), [blocks, addOns, website, templateKey]);
 
   const availableBlocks = useMemo(
     () => WEBSITE_BLOCK_TYPES.filter((t) => {
@@ -89,17 +96,20 @@ export function WebsiteBuilder({ facility }: { facility: { name: string; phone: 
 
   const saveDraft = useCallback(async () => {
     setSaving(true);
+    setFeedback("");
     try {
-      const body = { layout: { version: 1, blocks }, addOns };
-      const data = await apiClient.put<{ website: { draftSavedAt: string | null } }>("/api/facility/website", body);
-      setWebsite((w) => (w ? { ...w, draftLayout: { version: 1, blocks }, addOns, draftSavedAt: data.website.draftSavedAt } : w));
+      const body = { template: templateKey, layout: { version: 1, blocks }, addOns };
+      const data = await apiClient.put<{ website: { draftSavedAt: string | null } }>(endpoint, body);
+      setWebsite((w) => (w ? { ...w, template: templateKey, draftLayout: { version: 1, blocks }, addOns, draftSavedAt: data.website.draftSavedAt } : w));
       toast.success("Draft saved. Changes are not public until you publish.");
+      setFeedback("Draft saved. Changes are not public until you publish.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not save the draft");
+      setFeedback(error instanceof Error ? error.message : "Could not save the draft. Retry without leaving this page.");
     } finally {
       setSaving(false);
     }
-  }, [blocks, addOns]);
+  }, [blocks, addOns, endpoint, templateKey]);
 
   const publish = useCallback(async () => {
     if (dirty) {
@@ -107,29 +117,34 @@ export function WebsiteBuilder({ facility }: { facility: { name: string; phone: 
       return;
     }
     setPublishing(true);
+    setFeedback("");
     try {
-      const data = await apiClient.post<{ website: { publishedAt: string } }>("/api/facility/website", {});
+      const data = await apiClient.post<{ website: { publishedAt: string } }>(endpoint, {});
       setWebsite((w) => (w ? { ...w, publishedAt: data.website.publishedAt } : w));
       toast.success("Your website is live.");
+      setFeedback("Website sections published. Open your public website to review them.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not publish");
+      setFeedback(error instanceof Error ? error.message : "Could not publish. Please retry.");
     } finally {
       setPublishing(false);
     }
-  }, [dirty]);
+  }, [dirty, endpoint]);
 
   const applyTemplate = (key: string) => {
     const template = templates.find((t) => t.key === key);
     if (!template) return;
-    setAddOns(template.blocks.flatMap((b) => {
+    setTemplateKey(key);
+    setAddOns([...new Set(template.blocks.flatMap((b) => {
       const addon = WEBSITE_ADDONS.find((a) => a.blocks.includes(b as never));
       return addon ? [addon.key] : [];
-    }));
+    }))]);
     setBlocks(template.blocks.map((b) => newWebsiteBlock(b as WebsiteBlockType)));
     setSelectedId(null);
   };
 
   const addBlock = (type: WebsiteBlockType) => {
+    if (blocks.length >= 40) { toast.error("You can add up to 40 sections."); return; }
     const block = newWebsiteBlock(type);
     setBlocks((b) => [...b, block]);
     setSelectedId(block.id);
@@ -141,6 +156,7 @@ export function WebsiteBuilder({ facility }: { facility: { name: string; phone: 
   };
 
   const duplicateBlock = (id: string) => {
+    if (blocks.length >= 40) { toast.error("You can add up to 40 sections."); return; }
     const block = blocks.find((b) => b.id === id);
     if (!block) return;
     const copy = newWebsiteBlock(block.type, block.settings);
@@ -167,12 +183,14 @@ export function WebsiteBuilder({ facility }: { facility: { name: string; phone: 
 
   const selected = blocks.find((b) => b.id === selectedId) ?? null;
 
-  if (loading) return <p className="text-sm text-muted-foreground">Loading your website builder…</p>;
+  if (loading) return <p role="status" className="text-sm text-muted-foreground">Loading your website builder…</p>;
+  if (loadError) return <div className="space-y-3"><h1 className="text-xl font-bold">Facility website unavailable</h1><p role="alert">{loadError}</p><Button onClick={() => { setLoading(true); setLoadError(""); void load(); }}>Retry loading website</Button><Link href="/lab/dashboard" className="block underline">Back to dashboard</Link></div>;
 
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 space-y-5 break-words">
+      <Link href="/lab/dashboard" className="text-sm underline">Back to dashboard</Link>
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex-1 min-w-0">
+        <div className="w-full min-w-0 sm:w-auto sm:flex-1">
           <h1 className="text-2xl font-bold">Facility website</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Build your public homepage. Drafts stay private until you publish.
@@ -187,13 +205,16 @@ export function WebsiteBuilder({ facility }: { facility: { name: string; phone: 
             <TabsTrigger value="preview"><Eye aria-hidden="true" className="h-3.5 w-3.5" /> Live preview</TabsTrigger>
           </TabsList>
         </Tabs>
-        <Button onClick={saveDraft} disabled={saving || !dirty} data-testid="button-save-draft">
+        <Button onClick={saveDraft} disabled={saving || publishing || !dirty} data-testid="button-save-draft">
           <Save aria-hidden="true" className="h-4 w-4" /> {saving ? "Saving…" : dirty ? "Save draft" : "Saved"}
         </Button>
-        <Button variant="default" onClick={publish} disabled={publishing || dirty || !website} data-testid="button-publish">
+        <Button variant="default" onClick={publish} disabled={publishing || saving || dirty || !website} data-testid="button-publish">
           <Rocket aria-hidden="true" className="h-4 w-4" /> {publishing ? "Publishing…" : "Publish"}
         </Button>
       </div>
+      {feedback && <p role="status" className="rounded-lg border border-border p-3 text-sm">{feedback}</p>}
+      {dirty && <p className="text-sm text-muted-foreground">Unsaved changes. Save your draft before publishing.</p>}
+      {facility.isPublic && facility.slug ? <Link href={`/${facility.directory}/${facility.slug}`} target="_blank" rel="noopener noreferrer" className="inline-block text-sm underline">Open public website (new tab)</Link> : <p className="text-sm text-muted-foreground">Your facility profile must be verified and publicly listed before these sections can go live.</p>}
 
       {tab === "preview" ? (
         <Card className="beeline-card">
@@ -203,7 +224,7 @@ export function WebsiteBuilder({ facility }: { facility: { name: string; phone: 
               <FacilityWebsiteRenderer
                 layout={{ version: 1, blocks }}
                 facility={{
-                  id: "preview",
+                  id: facility.id,
                   laboratoryName: facility.name,
                   addressLine: facility.address,
                   city: facility.city,
@@ -213,14 +234,14 @@ export function WebsiteBuilder({ facility }: { facility: { name: string; phone: 
                   operatingHours: facility.operatingHours,
                   logoUrl: null,
                 }}
-                directory="hospitals"
-                slug="preview"
+                directory={facility.directory}
+                slug={facility.slug ?? ""}
               />
             </div>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
+        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
           {/* Block list */}
           <div className="space-y-4">
             <Card className="beeline-card">
@@ -239,16 +260,16 @@ export function WebsiteBuilder({ facility }: { facility: { name: string; phone: 
                       onDrop={() => onDrop(index)}
                       className={`rounded-lg border p-2 ${selectedId === block.id ? "border-ring" : "border-border"} ${block.hidden ? "opacity-50" : ""}`}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="cursor-grab text-muted-foreground" aria-hidden="true"><GripVertical className="h-4 w-4" /></span>
                         <button
-                          className="flex-1 text-left text-sm font-medium"
+                          className="min-w-24 flex-1 text-left text-sm font-medium"
                           onClick={() => setSelectedId(block.id)}
                           aria-label={`Edit ${BLOCK_LABELS[block.type]} section`}
                         >
                           {index + 1}. {BLOCK_LABELS[block.type]}
                         </button>
-                        <div className="flex items-center gap-1">
+                        <div className="flex flex-wrap items-center gap-1">
                           <Button variant="ghost" size="sm" aria-label={`Move ${BLOCK_LABELS[block.type]} up`}
                             onClick={() => setBlocks((b) => moveBlock(b, index, -1))} disabled={index === 0}>
                             <ChevronUp className="h-4 w-4" />

@@ -10,12 +10,14 @@ export const FACILITY_TYPE_DIRECTORY: Record<
   HOSPITAL: "hospitals",
   LABORATORY: "laboratories",
   DIAGNOSTIC_CENTRE: "diagnostic-centres",
+  PHARMACY: "pharmacies",
 };
 
 export const DIRECTORY_TYPE_LABEL: Record<string, string> = {
   hospitals: "Hospital",
   laboratories: "Laboratory",
   "diagnostic-centres": "Diagnostic centre",
+  pharmacies: "Pharmacy",
 };
 
 /** The directory slug for a facility account type, or null for non-facility types. */
@@ -209,6 +211,8 @@ function directoryAccountType(directory: string): AccountType | null {
       return "LABORATORY";
     case "diagnostic-centres":
       return "DIAGNOSTIC_CENTRE";
+    case "pharmacies":
+      return "PHARMACY";
     default:
       return null;
   }

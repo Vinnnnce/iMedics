@@ -20,7 +20,7 @@ export default async function PatientCaseFilePage() {
   if (!patient) notFound();
 
   const [careTeam, history] = await Promise.all([
-    prisma.patientAssignment.findMany({
+    prisma.patientAssignment.findMany({ take: 100,
       where: { patientId: patient.id, status: "ACTIVE" },
       include: { doctor: { select: { specialty: true, user: { select: { name: true } } } } },
     }),

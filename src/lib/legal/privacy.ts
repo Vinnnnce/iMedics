@@ -242,4 +242,22 @@ export const PRIVACY_AUDIENCES: AudienceSection[] = [
       },
     ],
   },
+  {
+    audience: "PHARMACY",
+    sections: [
+      {
+        id: "pharmacy-privacy",
+        heading: "For pharmacies",
+        paragraphs: [
+          "As a pharmacy account you process patient data for medication orders and dispensing:",
+        ],
+        bullets: [
+          "You see the patient details attached to the medication orders you review and dispense, for the purpose of safe dispensing only.",
+          "Dispensing is a controlled workflow (review, dispense, completion). Patients and prescribers see the status you record. Dispensing decisions remain with your licensed pharmacists.",
+          "Confidentiality and security duties under the National Health Act 2014, the PCN code of ethics, and the NDPA 2023 apply to your use of the platform.",
+          "Staff credential data is used for verification and rostering only, with the consent of the staff concerned.",
+        ],
+      },
+    ],
+  },
 ];

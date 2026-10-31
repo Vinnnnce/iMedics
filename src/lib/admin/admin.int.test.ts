@@ -5,6 +5,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/server", () => ({ after: (fn: () => unknown) => void fn() }));
+vi.mock("@clerk/nextjs/server", () => ({ clerkClient: async () => ({ users: { getUserList: async () => ({ data: [], totalCount: 0 }) } }) }));
 
 const url = process.env.TEST_DATABASE_URL;
 if (url) process.env.DATABASE_URL = url;
@@ -78,15 +79,9 @@ describe.skipIf(!url)("admin console", () => {
   afterAll(async () => {
     if (!m) return;
     const p = m.prisma;
-    await p.payment.deleteMany({ where: { OR: [{ payerId: { in: created } }, { payeeId: { in: created } }] } });
-    await p.appointment.deleteMany({ where: { doctor: { userId: { in: created } } } });
-    await p.auditLog.deleteMany({ where: { userId: { in: created } } });
-    await p.verificationReview.deleteMany({ where: { userId: { in: created } } });
-    await p.notification.deleteMany({ where: { userId: { in: created } } });
-    await p.doctorProfile.deleteMany({ where: { userId: { in: created } } });
-    await p.labStaffProfile.deleteMany({ where: { userId: { in: created } } });
-    await p.patient.deleteMany({ where: { userId: { in: created } } });
-    await p.user.deleteMany({ where: { id: { in: created } } });
+    // Audit and payment/outbox history is intentionally retained, including in
+    // the disposable CI database. Never disable append-only protections.
+    await p.user.updateMany({ where: { id: { in: created } }, data: { status: "SUSPENDED", deletedAt: new Date() } });
     await p.$disconnect();
   });
 

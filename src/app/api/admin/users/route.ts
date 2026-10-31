@@ -43,6 +43,7 @@ function roleForAccountType(accountType: AccountType | null): Role | null {
     case "LABORATORY":
     case "DIAGNOSTIC_CENTRE":
     case "HOSPITAL":
+    case "PHARMACY":
       return "LAB_SCIENTIST";
     default:
       return null;

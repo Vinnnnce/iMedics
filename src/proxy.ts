@@ -16,6 +16,9 @@ const isPublicRoute = createRouteMatcher([
   "/hospitals(.*)",
   "/laboratories(.*)",
   "/diagnostic-centres(.*)",
+  // Public news and podcasts (shown once the feature is switched on).
+  "/news(.*)",
+  "/podcasts(.*)",
   // Public facility reviews (approved patient ratings) shown on public
   // facility profiles; writes are still authenticated inside the route.
   "/api/facility-reviews(.*)",
@@ -25,6 +28,8 @@ const isPublicRoute = createRouteMatcher([
   // Profile photos / facility logos shown on public pages. The route itself
   // only serves image objects attached to an account (see /api/profile-images).
   "/api/profile-images/(.*)",
+  // Images uploaded by admins for ads, news and podcasts; the route only serves attached images.
+  "/api/site-media/(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

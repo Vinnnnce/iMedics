@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { PublicEntryLink as Link } from "@/components/shared/public-entry-link";
 import {
   Calendar, ChevronLeft, ChevronRight, FlaskConical, FolderOpen, HeartPulse,
   Pause, Play, Sparkles, Stethoscope, type LucideIcon,
@@ -25,8 +25,7 @@ const AUTO_ADVANCE_MS = 6000;
  * component. When the admin content manager has active HOMEPAGE_CAROUSEL ads
  * they replace the built-in slides. Auto-advances, pauses on hover/focus and
  * via an explicit pause control, honours prefers-reduced-motion, and supports
- * an optional image per slide (rendered in grayscale to keep the monochrome
- * system; a failed image falls back to the slide icon).
+ * an optional image per slide (a failed image falls back to the slide icon).
  */
 export function HomeAdsCarousel({ slides }: { slides?: readonly ImedicsHomeSlide[] }) {
   const [rawIndex, setRawIndex] = useState(0);
@@ -148,25 +147,34 @@ export function HomeAdsCarousel({ slides }: { slides?: readonly ImedicsHomeSlide
   );
 }
 
-/** One slide: icon or image, text, and the call-to-action. */
+/** True for absolute http(s) destinations, which must open in a new tab. */
+function isExternal(href: string): boolean {
+  return /^https?:\/\//i.test(href);
+}
+
+/** One slide: image or icon, text, and the call-to-action. */
 function Slide({ slide, active }: { slide: ImedicsHomeSlide; active: boolean }) {
   const [imageBroken, setImageBroken] = useState(false);
   const Icon = SLIDE_ICONS[slide.icon];
+  const showImage = Boolean(slide.image) && !imageBroken;
+  const ctaClass =
+    "shrink-0 rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold transition-colors hover:border-foreground/50 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
   return (
     <div
       aria-hidden={!active}
       className="flex w-full shrink-0 flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
     >
-      <div className="flex min-w-0 items-start gap-4 sm:max-w-xl">
-        {slide.image && !imageBroken ? (
-          // eslint-disable-next-line @next/next/no-img-element -- dynamic slide images
+      <div className="flex min-w-0 flex-col gap-4 sm:max-w-xl sm:flex-row sm:items-start">
+        {showImage ? (
+          // eslint-disable-next-line @next/next/no-img-element -- admin-provided remote images
           <img
             src={slide.image}
             alt=""
             loading="lazy"
+            decoding="async"
             onError={() => setImageBroken(true)}
-            className="h-12 w-12 shrink-0 rounded-lg bg-muted object-cover grayscale"
+            className="h-32 w-full shrink-0 rounded-lg bg-muted object-cover sm:h-24 sm:w-40"
           />
         ) : (
           <span
@@ -181,15 +189,22 @@ function Slide({ slide, active }: { slide: ImedicsHomeSlide; active: boolean }) 
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{slide.description}</p>
         </div>
       </div>
-      {slide.ctaHref && slide.ctaLabel && (
-        <Link
-          href={slide.ctaHref}
-          tabIndex={active ? 0 : -1}
-          className="shrink-0 rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold transition-colors hover:border-foreground/50 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        >
-          {slide.ctaLabel}
-        </Link>
-      )}
+      {slide.ctaHref && slide.ctaLabel &&
+        (isExternal(slide.ctaHref) ? (
+          <a
+            href={slide.ctaHref}
+            target="_blank"
+            rel="noopener noreferrer sponsored"
+            tabIndex={active ? 0 : -1}
+            className={ctaClass}
+          >
+            {slide.ctaLabel}
+          </a>
+        ) : (
+          <Link href={slide.ctaHref} tabIndex={active ? 0 : -1} className={ctaClass}>
+            {slide.ctaLabel}
+          </Link>
+        ))}
     </div>
   );
 }

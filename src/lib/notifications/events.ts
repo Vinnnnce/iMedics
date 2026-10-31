@@ -35,6 +35,7 @@ export type NotificationEvent =
   | { kind: "SUBSCRIPTION_UPDATED" }
   | { kind: "DISPUTE_UPDATED"; paymentId: string }
   | { kind: "CONSULTATION_AVAILABLE" }
+  | { kind: "CONSULTATION_AMENDED"; consultationId: string }
   | { kind: "REVIEW_SUBMITTED"; reviewId: string }
   | { kind: "REVIEW_RESPONSE"; reviewId: string }
   | { kind: "VERIFICATION_UPDATED" }
@@ -60,7 +61,9 @@ export type NotificationEvent =
   | { kind: "CRITICAL_ALERT_ACKNOWLEDGED"; alertId: string }
   | { kind: "CRITICAL_ALERT_ESCALATED"; alertId: string; level: number }
   | { kind: "INVESTIGATION_UPDATED"; orderId: string }
-  | { kind: "DIAGNOSTIC_REPORT_READY"; bookingId: string };
+  | { kind: "DIAGNOSTIC_REPORT_READY"; bookingId: string }
+  | { kind: "CLINICAL_DOCUMENT_ACTION_NEEDED"; documentId: string; step: "REVIEW" | "SIGNATURE" }
+  | { kind: "CLINICAL_DOCUMENT_RELEASED"; documentId: string };
 
 export interface RenderedNotification {
   type: NotificationType;
@@ -88,7 +91,7 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
     case "WELFARE_ALERT_ACKNOWLEDGED":
       return { type: "WELFARE_ALERT", title: "Welfare alert acknowledged", body: "The welfare alert has been acknowledged. No further action is needed unless you agreed otherwise.", href: `/welfare/${event.alertId}`, data: { alertId: event.alertId } };
     case "DOCUMENT_SHARE_GRANTED":
-      return { type: "DOCUMENT_SHARE", title: "A document was shared with you", body: "A patient shared a medical document with you. Sign in to view it.", href: "/doctor/records", data: { documentId: event.documentId } };
+      return { type: "DOCUMENT_SHARE", title: "A document was shared with you", body: "A patient shared a medical document with you. Sign in to view it.", href: "/doctor/case-reports?tab=documents", data: { documentId: event.documentId } };
     case "PREVENTIVE_CARE_DUE":
       return { type: "SYSTEM", title: "Preventive care reminder", body: "A preventive-care check is due. Sign in to review it.", href: "/dashboard", data: { taskId: event.taskId } };
     case "DOCUMENT_SHARED":
@@ -101,6 +104,8 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
       return { type: "PAYMENT", title: "Payment dispute updated", body: "There is an update about a payment dispute. Sign in to review it.", href: `/payments/${event.paymentId}`, data: { paymentId: event.paymentId } };
     case "CONSULTATION_AVAILABLE":
       return { type: "APPOINTMENT", title: "Consultation available", body: "A consultation update is available in your account.", href: "/doctor/consultations", data: {} };
+    case "CONSULTATION_AMENDED":
+      return { type: "SYSTEM", title: "Consultation report updated", body: "Your doctor updated a consultation report. Sign in to read the latest version.", href: "/patient/consult", data: { consultationId: event.consultationId } };
     case "REVIEW_SUBMITTED":
       return { type: "SYSTEM", title: "New review received", body: "A patient has left a review. Sign in to read it.", href: "/doctor/dashboard", data: { reviewId: event.reviewId } };
     case "REVIEW_RESPONSE":
@@ -332,6 +337,22 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
         body: "A finalized diagnostic report is available for an examination you referred. Sign in to view it.",
         href: role === "LAB_SCIENTIST" ? "/lab/examinations" : role === "DOCTOR" ? "/doctor/lab-requests" : "/facilities/investigations",
         data: { bookingId: event.bookingId },
+      };
+    case "CLINICAL_DOCUMENT_ACTION_NEEDED":
+      return {
+        type: "CLINICAL_DOCUMENT",
+        title: event.step === "REVIEW" ? "Document awaiting review" : "Document awaiting signature",
+        body: "A clinical document needs your attention. Sign in to view it.",
+        href: `/lab/clinical-documents/${event.documentId}`,
+        data: { documentId: event.documentId },
+      };
+    case "CLINICAL_DOCUMENT_RELEASED":
+      return {
+        type: "CLINICAL_DOCUMENT",
+        title: "New report available",
+        body: "Your care team has released a document to your record. Sign in to view it.",
+        href: "/patient/case-reports?tab=documents",
+        data: { documentId: event.documentId },
       };
   }
 }

@@ -29,3 +29,5 @@ next-env.d.ts
 # prisma generated output
 /prisma/generated
 build.db
+/qa/feature-audit/dist/
+/qa/his-acceptance/

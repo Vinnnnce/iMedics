@@ -43,7 +43,10 @@ export const GET = withAuth(["PATIENT", "DOCTOR", "ADMIN"], async (req, { user }
     },
     orderBy: { createdAt: "desc" },
     take: 100,
-    include: { shares: { where: { revokedAt: null }, include: { sharedWithUser: { select: { id: true, name: true, role: true } } } } },
+    include: {
+      shares: { where: { revokedAt: null }, include: { sharedWithUser: { select: { id: true, name: true, role: true } } } },
+      facilityShares: { where: { revokedAt: null }, select: { id: true, facility: { select: { id: true, laboratoryName: true } } } },
+    },
   });
   return NextResponse.json({ documents });
 });

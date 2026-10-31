@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { EMERGENCY_MODULES, EMERGENCY_BANNER, GUIDELINE_SOURCE, LAST_REVIEWED } from "@/lib/emergency/content";
 import { EmergencyIllustration } from "@/components/emergency/illustrations";
+import { EmergencyEducation } from "./emergency-education";
 
 const PROGRESS_KEY = "medic1905.emergency.progress";
 
@@ -40,7 +41,7 @@ export function EmergencyCentre() {
       <div className="flex items-start gap-3 rounded-xl border-2 border-destructive/40 bg-destructive/10 p-4" role="alert">
         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
         <div>
-          <p className="font-semibold text-destructive">{EMERGENCY_BANNER.title}</p>
+          <p className="font-semibold text-foreground">{EMERGENCY_BANNER.title}</p>
           <p className="mt-1 text-sm text-muted-foreground">{EMERGENCY_BANNER.body}</p>
         </div>
       </div>
@@ -66,11 +67,11 @@ export function EmergencyCentre() {
             aria-label="Search emergency topics"
           />
         </div>
-        <Tabs value={track} onValueChange={(v) => setTrack(v as "ALL" | "BLS" | "ALS")}>
-          <TabsList>
-            <TabsTrigger value="ALL">All</TabsTrigger>
-            <TabsTrigger value="BLS">Basic life support</TabsTrigger>
-            <TabsTrigger value="ALS">Advanced (professionals)</TabsTrigger>
+        <Tabs className="min-w-0 max-w-full" value={track} onValueChange={(v) => setTrack(v as "ALL" | "BLS" | "ALS")}>
+          <TabsList className="h-auto max-w-full flex-wrap">
+            <TabsTrigger className="h-auto min-h-9 whitespace-normal" value="ALL">All</TabsTrigger>
+            <TabsTrigger className="h-auto min-h-9 whitespace-normal" value="BLS">Basic life support</TabsTrigger>
+            <TabsTrigger className="h-auto min-h-9 whitespace-normal" value="ALS">Advanced (professionals)</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -81,13 +82,18 @@ export function EmergencyCentre() {
           <span>
             You have completed {doneCount} of {EMERGENCY_MODULES.length} modules
           </span>
-          <div className="ml-auto flex items-center gap-1" aria-hidden="true">
+          <div className="ml-auto flex w-full max-w-full items-center gap-1 sm:w-auto" aria-hidden="true">
             {Array.from({ length: EMERGENCY_MODULES.length }).map((_, i) => (
               <span key={i} className={`h-1.5 w-4 rounded-full ${completed.includes(EMERGENCY_MODULES[i].id) ? "bg-emerald-500" : "bg-muted"}`} />
             ))}
           </div>
         </CardContent>
       </Card>
+
+      <nav aria-label="Emergency education sections" className="flex flex-wrap gap-4 text-sm font-semibold text-primary underline">
+        <a className="inline-flex min-h-11 items-center" href="#emergency-guides-title">Illustrated first-aid guides</a>
+        <a className="inline-flex min-h-11 items-center" href="#emergency-videos-title">Educational videos</a>
+      </nav>
 
       <div className="space-y-3">
         {modules.length === 0 && (
@@ -127,6 +133,7 @@ export function EmergencyCentre() {
         BLS modules ({blsCount}) are suitable for everyone. ALS modules are intended for appropriately trained healthcare professionals.
         Advanced interventions, medications and rhythm-specific algorithms must never be attempted without certified training.
       </p>
+      <EmergencyEducation />
     </div>
   );
 }

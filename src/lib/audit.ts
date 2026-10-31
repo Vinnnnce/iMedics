@@ -1,5 +1,6 @@
 import type { Prisma, Role } from "@prisma/client";
 import { prisma } from "./prisma";
+import { safeErrorMetadata } from "./safe-error";
 
 interface AuditInput {
   userId?: string | null;
@@ -34,6 +35,6 @@ export async function writeAudit(input: AuditInput): Promise<void> {
       },
     });
   } catch (error) {
-    console.error("Audit log write failed:", error);
+    console.error("Audit log write failed:", safeErrorMetadata(error));
   }
 }

@@ -24,6 +24,7 @@ const registerSchema = z.object({
     "laboratory",
     "diagnostic_centre",
     "hospital",
+    "pharmacy",
   ]),
   termsAccepted: z.literal(true, {
     error: "You must accept the terms to continue",
@@ -61,7 +62,7 @@ const registerSchema = z.object({
   affiliation: text,
   biography: text,
 
-  // Laboratory / diagnostic centre / hospital
+  // Laboratory / diagnostic centre / hospital / pharmacy
   organisationName: text,
   organisationType: text,
   cacRegistrationNumber: text,
@@ -82,6 +83,7 @@ const ACCOUNT_TYPES: Record<
   laboratory: "LABORATORY",
   diagnostic_centre: "DIAGNOSTIC_CENTRE",
   hospital: "HOSPITAL",
+  pharmacy: "PHARMACY",
 };
 
 const toInt = (value?: string) => {
@@ -230,7 +232,9 @@ export const POST = withAuth(
               ? { kind: "HOSPITAL" }
               : accountType === "DIAGNOSTIC_CENTRE"
                 ? { kind: "DIAGNOSTIC_CENTRE" }
-                : { kind: "LABORATORY" }),
+                : accountType === "PHARMACY"
+                  ? { kind: "PHARMACY" }
+                  : { kind: "LABORATORY" }),
           },
         });
       }

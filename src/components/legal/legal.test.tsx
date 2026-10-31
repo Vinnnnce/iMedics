@@ -20,6 +20,7 @@ describe("policy audience resolution", () => {
     expect(policyAudienceFor({ accountType: "HOSPITAL" })).toBe("HOSPITAL");
     expect(policyAudienceFor({ accountType: "LABORATORY" })).toBe("LABORATORY");
     expect(policyAudienceFor({ accountType: "DIAGNOSTIC_CENTRE" })).toBe("DIAGNOSTIC_CENTRE");
+    expect(policyAudienceFor({ accountType: "PHARMACY" })).toBe("PHARMACY");
   });
 
   it("falls back to the role when the account type is missing", () => {
@@ -36,10 +37,10 @@ describe("policy audience resolution", () => {
 });
 
 describe("legal content invariants", () => {
-  it("covers all five account audiences in every policy", () => {
+  it("covers all six account audiences in every policy", () => {
     for (const audiences of [TERMS_AUDIENCES, PRIVACY_AUDIENCES, COOKIES_AUDIENCES]) {
       expect(audiences.map((a) => a.audience).sort()).toEqual(
-        ["DIAGNOSTIC_CENTRE", "DOCTOR", "HOSPITAL", "LABORATORY", "PATIENT"],
+        ["DIAGNOSTIC_CENTRE", "DOCTOR", "HOSPITAL", "LABORATORY", "PATIENT", "PHARMACY"],
       );
     }
   });

@@ -36,6 +36,7 @@ import {
   FlaskConical,
   Building2,
   Hospital,
+  Pill,
   Microscope,
   Upload,
   ArrowRight,
@@ -52,7 +53,13 @@ import {
 type Step = "loading" | "terms" | "account-type" | "registration" | "pending";
 
 type AccountType =
-  "patient" | "doctor" | "laboratory" | "diagnostic_centre" | "hospital" | null;
+  | "patient"
+  | "doctor"
+  | "laboratory"
+  | "diagnostic_centre"
+  | "hospital"
+  | "pharmacy"
+  | null;
 
 type UploadedDoc = {
   /** Which requirement this file satisfies, e.g. "mdcn_certificate". */
@@ -586,7 +593,8 @@ export default function PostSignupRedirect() {
     if (
       accountType === "laboratory" ||
       accountType === "diagnostic_centre" ||
-      accountType === "hospital"
+      accountType === "hospital" ||
+      accountType === "pharmacy"
     ) {
       if (!profileImage)
         errors.profileImage = "An organisation logo is required";
@@ -693,7 +701,8 @@ export default function PostSignupRedirect() {
   const isOrganisation =
     accountType === "laboratory" ||
     accountType === "diagnostic_centre" ||
-    accountType === "hospital";
+    accountType === "hospital" ||
+    accountType === "pharmacy";
   const requiresVerification = accountType === "doctor" || isOrganisation;
 
   // Step definitions for progress stepper
@@ -1130,6 +1139,14 @@ export default function PostSignupRedirect() {
             color: "text-muted-foreground",
             bgColor: "bg-muted",
           },
+          {
+            value: "pharmacy",
+            label: "Pharmacy",
+            desc: "Dispense prescriptions, manage stock and formulary",
+            icon: Pill,
+            color: "text-muted-foreground",
+            bgColor: "bg-muted",
+          },
         ],
       },
     ];
@@ -1282,6 +1299,7 @@ export default function PostSignupRedirect() {
               {accountType === "diagnostic_centre" &&
                 "Diagnostic Centre Registration"}
               {accountType === "hospital" && "Hospital Registration"}
+              {accountType === "pharmacy" && "Pharmacy Registration"}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               {requiresVerification
@@ -1672,7 +1690,9 @@ export default function PostSignupRedirect() {
                             ? "Laboratory"
                             : accountType === "diagnostic_centre"
                               ? "Diagnostic Centre"
-                              : "Hospital"
+                              : accountType === "pharmacy"
+                                ? "Pharmacy"
+                                : "Hospital"
                         }
                         readOnly
                         className="rounded-lg bg-muted"

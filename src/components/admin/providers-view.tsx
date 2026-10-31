@@ -28,6 +28,7 @@ const TYPE_LABELS: Record<string, string> = {
   HOSPITAL: "Hospital",
   LABORATORY: "Laboratory",
   DIAGNOSTIC_CENTRE: "Diagnostic centre",
+  PHARMACY: "Pharmacy",
 };
 
 /** The provider verification workflow: onboarding checklist, verification state and settlement subaccount. */

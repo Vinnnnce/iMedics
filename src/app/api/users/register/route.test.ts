@@ -180,6 +180,29 @@ describe("POST /api/users/register (onboarding)", () => {
     );
   });
 
+  it("registers a pharmacy as a pending facility with the PHARMACY kind", async () => {
+    const key = ownedImageKey();
+    const response = await invoke({
+      ...basePayload(),
+      accountType: "pharmacy",
+      organisationName: "Test Pharmacy Ltd",
+      cacRegistrationNumber: "CAC-54321",
+      facilityLicenseNumber: "PHARM-24680",
+      profileImageKey: key,
+    });
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      status: "PENDING",
+      requiresVerification: true,
+    });
+    const userData = prismaTx.user.update.mock.calls[0][0].data;
+    expect(userData.accountType).toBe("PHARMACY");
+    const profileData = prismaTx.labStaffProfile.create.mock.calls[0][0].data;
+    expect(profileData.kind).toBe("PHARMACY");
+    expect(profileData.facilityLicenseNumber).toBe("PHARM-24680");
+  });
+
   it("rejects an image key owned by someone else", async () => {
     const response = await invoke({
       ...basePayload(),

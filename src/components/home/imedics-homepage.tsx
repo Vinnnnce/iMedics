@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
+import { PublicEntryLink as Link } from "@/components/shared/public-entry-link";
 import {
-  Building2, Calendar, ChevronDown, ClipboardList, FileText, FlaskConical, FolderOpen,
+  Calendar, ChevronDown, FileText, Mic, Newspaper, FlaskConical, FolderOpen,
   HeartPulse, Menu, MessageCircle, Moon, Sparkles, Stethoscope, Star, Sun, X,
   type LucideIcon,
 } from "lucide-react";
@@ -20,6 +20,10 @@ import {
 export interface ImedicsHomeAd {
   title: string;
   content: string;
+  /** Optional https image shown with the ad. */
+  imageUrl?: string | null;
+  /** Optional https destination; opens in a new tab when set. */
+  linkUrl?: string | null;
 }
 
 const SERVICE_ICONS: Record<ImedicsServiceCard["icon"], LucideIcon> = {
@@ -48,7 +52,7 @@ export interface TopRatedDoctor {
   ratingCount: number;
 }
 
-export type TopRatedFacilityType = "HOSPITAL" | "LABORATORY" | "DIAGNOSTIC_CENTRE";
+export type TopRatedFacilityType = "HOSPITAL" | "LABORATORY" | "DIAGNOSTIC_CENTRE" | "PHARMACY";
 
 export interface TopRatedFacility {
   id: string;
@@ -59,11 +63,76 @@ export interface TopRatedFacility {
   ratingCount: number;
 }
 
-const FACILITY_TYPE_ROUTES: Record<TopRatedFacilityType, { directory: string; profile: string; label: string }> = {
-  HOSPITAL: { directory: "/hospitals", profile: "/hospitals", label: "Hospital" },
-  LABORATORY: { directory: "/laboratories", profile: "/laboratories", label: "Laboratory" },
-  DIAGNOSTIC_CENTRE: { directory: "/diagnostic-centres", profile: "/diagnostic-centres", label: "Diagnostic centre" },
+const FACILITY_TYPE_ROUTES: Record<TopRatedFacilityType, { directory: string; profile: string; label: string; plural: string }> = {
+  HOSPITAL: { directory: "/hospitals", profile: "/hospitals", label: "Hospital", plural: "hospitals" },
+  LABORATORY: { directory: "/laboratories", profile: "/laboratories", label: "Laboratory", plural: "laboratories" },
+  DIAGNOSTIC_CENTRE: { directory: "/diagnostic-centres", profile: "/diagnostic-centres", label: "Diagnostic centre", plural: "diagnostic centres" },
+  PHARMACY: { directory: "/pharmacies", profile: "/pharmacies", label: "Pharmacy", plural: "pharmacies" },
 };
+
+interface RatingCardData {
+  id: string;
+  href: string;
+  name: string;
+  subtitle: string;
+  ratingAvg: number;
+  ratingCount: number;
+}
+
+/** One rated group (doctors, or one facility type) with an honest empty state. */
+function RatingGroup({
+  heading, browseHref, browseLabel, emptyText, cards,
+}: {
+  heading: string;
+  browseHref: string;
+  browseLabel: string;
+  emptyText: string;
+  cards: RatingCardData[];
+}) {
+  return (
+    <div className="mt-6">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold">{heading}</h3>
+        <Link
+          href={browseHref}
+          className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+        >
+          {browseLabel}
+        </Link>
+      </div>
+      {cards.length > 0 ? (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {cards.map(card => (
+            <Link
+              key={card.id}
+              href={card.href}
+              data-testid={`link-top-rated-${card.id}`}
+              className="flex flex-col rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/50 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <span className="flex items-center gap-1" aria-label={`Rated ${card.ratingAvg.toFixed(1)} out of 5 from ${card.ratingCount} reviews`}>
+                {Array.from({ length: 5 }, (_, i) => (
+                  <Star
+                    key={i}
+                    aria-hidden="true"
+                    className={`h-3.5 w-3.5 ${i < Math.round(card.ratingAvg) ? "fill-foreground text-foreground" : "text-muted-foreground/40"}`}
+                  />
+                ))}
+                <span className="ml-1 text-xs font-semibold">{card.ratingAvg.toFixed(1)}</span>
+              </span>
+              <span className="mt-2 truncate text-sm font-semibold">{card.name}</span>
+              <span className="mt-0.5 text-xs text-muted-foreground">{card.subtitle}</span>
+              <span className="mt-1 text-[11px] text-muted-foreground">
+                {card.ratingCount} patient {card.ratingCount === 1 ? "review" : "reviews"}
+              </span>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground">{emptyText}</p>
+      )}
+    </div>
+  );
+}
 
 function BrandMark({ className }: { className?: string }) {
   // Medic1905 logo with the background removed. In dark mode it sits on a
@@ -124,9 +193,10 @@ export function ImedicsHomepage({
         id: `ad-${i}`,
         title: ad.title,
         description: ad.content,
-        ctaHref: "/facilities",
-        ctaLabel: "Explore facilities",
+        ctaHref: ad.linkUrl || "/facilities",
+        ctaLabel: ad.linkUrl ? "Learn more" : "Explore facilities",
         icon: "sparkles",
+        image: ad.imageUrl ?? undefined,
       }))
     : undefined;
 
@@ -289,84 +359,70 @@ export function ImedicsHomepage({
           </div>
         </section>
 
-        {/* Patient ratings — real doctor aggregates from reviews; facility
-            ratings are not collected yet, so those cards say so honestly. */}
+        {/* Patient ratings — real aggregates from published reviews, shown
+            separately for doctors and each facility type. */}
         <section id="ratings" aria-labelledby="ratings-heading" className="mx-auto w-full max-w-5xl px-4 pt-12">
           <h2 id="ratings-heading" className="text-base font-semibold">Patient ratings</h2>
-          {topDoctors.length > 0 ? (
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {topDoctors.map(doctor => (
-                <Link
-                  key={doctor.id}
-                  href={`/doctors/${doctor.id}`}
-                  data-testid={`link-top-doctor-${doctor.id}`}
-                  className="flex flex-col rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/50 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                >
-                  <span className="flex items-center gap-1" aria-label={`Rated ${doctor.ratingAvg.toFixed(1)} out of 5 from ${doctor.ratingCount} reviews`}>
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <Star
-                        key={i}
-                        aria-hidden="true"
-                        className={`h-3.5 w-3.5 ${i < Math.round(doctor.ratingAvg) ? "fill-foreground text-foreground" : "text-muted-foreground/40"}`}
-                      />
-                    ))}
-                    <span className="ml-1 text-xs font-semibold">{doctor.ratingAvg.toFixed(1)}</span>
-                  </span>
-                  <span className="mt-2 text-sm font-semibold">{doctor.name}</span>
-                  <span className="mt-0.5 text-xs text-muted-foreground">{doctor.specialty ?? "Doctor"}</span>
-                  <span className="mt-1 text-[11px] text-muted-foreground">
-                    {doctor.ratingCount} patient {doctor.ratingCount === 1 ? "review" : "reviews"}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-3 text-xs text-muted-foreground">No published doctor ratings yet.</p>
-          )}
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            {topFacilities.length > 0 && topFacilities.map(facility => {
-              const route = FACILITY_TYPE_ROUTES[facility.type];
-              const href = facility.slug ? `${route.profile}/${facility.slug}` : route.directory;
-              return (
-                <Link
-                  key={facility.id}
-                  href={href}
-                  data-testid={`link-top-facility-${facility.id}`}
-                  className="flex flex-col rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/50 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                >
-                  <span className="flex items-center gap-1" aria-label={`Rated ${facility.ratingAvg.toFixed(1)} out of 5 from ${facility.ratingCount} reviews`}>
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <Star
-                        key={i}
-                        aria-hidden="true"
-                        className={`h-3.5 w-3.5 ${i < Math.round(facility.ratingAvg) ? "fill-foreground text-foreground" : "text-muted-foreground/40"}`}
-                      />
-                    ))}
-                    <span className="ml-1 text-xs font-semibold">{facility.ratingAvg.toFixed(1)}</span>
-                  </span>
-                  <span className="mt-2 truncate text-sm font-semibold">{facility.name}</span>
-                  <span className="mt-0.5 text-xs text-muted-foreground">{route.label}</span>
-                  <span className="mt-1 text-[11px] text-muted-foreground">
-                    {facility.ratingCount} patient {facility.ratingCount === 1 ? "review" : "reviews"}
-                  </span>
-                </Link>
-              );
-            })}
+
+          <RatingGroup
+            heading="Top-rated doctors"
+            browseHref="/doctors"
+            browseLabel="Browse doctors"
+            emptyText="No published doctor ratings yet."
+            cards={topDoctors.map(doctor => ({
+              id: doctor.id,
+              href: `/doctors/${doctor.id}`,
+              name: doctor.name,
+              subtitle: doctor.specialty ?? "Doctor",
+              ratingAvg: doctor.ratingAvg,
+              ratingCount: doctor.ratingCount,
+            }))}
+          />
+
+          {(Object.keys(FACILITY_TYPE_ROUTES) as TopRatedFacilityType[]).map(type => {
+            const route = FACILITY_TYPE_ROUTES[type];
+            return (
+              <RatingGroup
+                key={type}
+                heading={`Top-rated ${route.plural}`}
+                browseHref={route.directory}
+                browseLabel={`Browse ${route.plural}`}
+                emptyText={`No published ${route.plural} ratings yet.`}
+                cards={topFacilities
+                  .filter(facility => facility.type === type)
+                  .map(facility => ({
+                    id: facility.id,
+                    href: facility.slug ? `${route.profile}/${facility.slug}` : route.directory,
+                    name: facility.name,
+                    subtitle: route.label,
+                    ratingAvg: facility.ratingAvg,
+                    ratingCount: facility.ratingCount,
+                  }))}
+              />
+            );
+          })}
+        </section>
+
+        {/* News and podcasts: the pages show "coming soon" until the feature is switched on. */}
+        <section aria-labelledby="media-heading" className="mx-auto w-full max-w-5xl px-4 pt-12">
+          <h2 id="media-heading" className="text-base font-semibold">News and podcasts</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {[
-              { href: "/hospitals", label: "Hospitals", icon: Building2 },
-              { href: "/laboratories", label: "Laboratories", icon: FlaskConical },
-              { href: "/diagnostic-centres", label: "Diagnostic centres", icon: ClipboardList },
-            ].map(item => (
+              { href: "/news", title: "Health news", text: "Updates and guidance from the Medic1905 team.", icon: Newspaper },
+              { href: "/podcasts", title: "Podcasts", text: "Conversations with doctors and care teams.", icon: Mic },
+            ].map(({ href, title, text, icon: Icon }) => (
               <Link
-                key={item.href}
-                href={item.href}
-                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/50 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                key={href}
+                href={href}
+                className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/50 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
-                <span className="flex items-center gap-3">
-                  <item.icon aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{item.label}</span>
+                <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+                  <Icon className="h-5 w-5" />
                 </span>
-                <span className="text-xs text-muted-foreground">Browse</span>
+                <span>
+                  <span className="block text-sm font-semibold">{title}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">{text}</span>
+                </span>
               </Link>
             ))}
           </div>

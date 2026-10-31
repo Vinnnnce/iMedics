@@ -7,6 +7,8 @@ import { clinicInstant, clinicToday } from "@/lib/clinic-time";
 import { resolveFacilityForPortalUser } from "@/lib/facility-auth";
 import { SuggestionsCard } from "@/components/shared/suggestions-card";
 import { facilitySuggestions } from "@/lib/suggestions";
+import { ProfileCompletenessCard } from "@/components/shared/profile-completeness-card";
+import { facilityCompleteness } from "@/lib/profile-completeness";
 
 /** Credentials expiring within 90 days (or already expired) for the facility. */
 async function credentialAlertCount(facilityId: string): Promise<number> {
@@ -18,7 +20,7 @@ async function facilityKindOf(profile: { id: string; kind: string | null; userId
   if (profile.kind) return profile.kind;
   const owner = await prisma.user.findUnique({ where: { id: profile.userId }, select: { accountType: true } });
   const at = owner?.accountType;
-  return at === "HOSPITAL" || at === "LABORATORY" || at === "DIAGNOSTIC_CENTRE" ? at : null;
+  return at === "HOSPITAL" || at === "LABORATORY" || at === "DIAGNOSTIC_CENTRE" || at === "PHARMACY" ? at : null;
 }
 
 /** Admissions discharged within the last 7 days. */
@@ -60,6 +62,7 @@ export default async function LabDashboardPage() {
     inpatients, pendingLabInvestigations, criticalToAcknowledge, recentDischarges,
     newLabRequests, specimensToReceive, recollectionsNeeded, labCriticalOpen,
     newReferrals, reportsAwaitingInterpretation, reportsAwaitingVerification, reportsAwaitingDelivery,
+    ordersToReview, dispensedToday, activeFormulary,
   ] = await Promise.all([
     prisma.admission.count({ where: { facilityId, status: "ACTIVE" } }),
     prisma.labOrder.count({ where: { requestingFacilityId: facilityId, status: { in: ["ORDERED", "ACCEPTED", "SPECIMEN_PENDING", "IN_PROGRESS", "AWAITING_VERIFICATION"] } } }),
@@ -73,6 +76,9 @@ export default async function LabDashboardPage() {
     prisma.diagnosticReport.count({ where: { facilityId, status: "DRAFT" } }),
     prisma.diagnosticReport.count({ where: { facilityId, status: "AWAITING_VERIFICATION" } }),
     prisma.diagnosticReport.count({ where: { facilityId, status: { in: ["FINALIZED", "AMENDED"] } } }),
+    prisma.medicationOrder.count({ where: { facilityId, status: "SUBMITTED" } }),
+    prisma.medicationOrder.count({ where: { facilityId, status: "DISPENSED", dispensedAt: { gte: clinicInstant(today, 0) } } }),
+    prisma.formularyItem.count({ where: { facilityId, active: true } }),
   ]);
 
   const moduleStats =
@@ -97,7 +103,24 @@ export default async function LabDashboardPage() {
               { label: "Reports awaiting verification", value: reportsAwaitingVerification, icon: SearchCheck, href: "/lab/examinations" },
               { label: "Finalized awaiting delivery", value: reportsAwaitingDelivery, icon: Activity, href: "/lab/examinations" },
             ]
-          : [];
+          : kind === "PHARMACY"
+            ? [
+                { label: "Orders to review", value: ordersToReview, icon: ClipboardList, href: "/lab/pharmacy" },
+                { label: "Dispensed today", value: dispensedToday, icon: Activity, href: "/lab/pharmacy" },
+                { label: "Active formulary entries", value: activeFormulary, icon: FileText, href: "/lab/pharmacy" },
+                { label: "Orders in progress", value: inProgress, icon: SearchCheck, href: "/lab/pharmacy" },
+              ]
+            : [];
+
+  const completeness = facilityCompleteness({
+    logoUrl: profile.logoUrl,
+    about: profile.about,
+    operatingHours: profile.operatingHours,
+    addressLine: profile.addressLine,
+    city: profile.city,
+    serviceCount: activeServices,
+    isPublished: profile.isPublished,
+  });
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -105,6 +128,7 @@ export default async function LabDashboardPage() {
         <h1 className="text-2xl font-bold">Lab Dashboard</h1>
         <p className="mt-1 text-sm text-muted-foreground">Orders and results at a glance</p>
       </div>
+      <ProfileCompletenessCard completeness={completeness} title="Complete your public page" />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {stats.map((s) => (
           <Link key={s.label} href={s.href}>
@@ -122,7 +146,14 @@ export default async function LabDashboardPage() {
       {moduleStats.length > 0 && (
         <>
           <h2 className="text-lg font-semibold">
-            {kind === "HOSPITAL" ? "Hospital" : kind === "LABORATORY" ? "Laboratory" : "Diagnostic centre"} module
+            {kind === "HOSPITAL"
+              ? "Hospital"
+              : kind === "LABORATORY"
+                ? "Laboratory"
+                : kind === "PHARMACY"
+                  ? "Pharmacy"
+                  : "Diagnostic centre"}{" "}
+            module
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {moduleStats.map((s) => (

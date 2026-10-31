@@ -25,6 +25,8 @@ export function facilityFaqs(accountType: AccountType | null | undefined): FaqIt
       return FAQS.LABORATORY;
     case "DIAGNOSTIC_CENTRE":
       return FAQS.DIAGNOSTIC_CENTRE;
+    case "PHARMACY":
+      return FAQS.PHARMACY;
     default:
       return [];
   }
@@ -35,12 +37,12 @@ export const FAQS: Record<PolicyAudience, FaqItem[]> = {
     {
       question: "What is Medic1905?",
       answer:
-        "Medic1905 is a Nigerian telemedicine platform that connects patients with verified doctors, hospitals, laboratories and diagnostic centres. You can find a provider, book a consultation (video, chat or in person), order laboratory tests, receive diagnostic reports and manage a secure health record.",
+        "Medic1905 is a Nigerian telemedicine platform that connects patients with verified doctors, hospitals, laboratories, diagnostic centres and pharmacies. You can find a provider, book a consultation (video, chat or in person), order laboratory tests, receive diagnostic reports and manage a secure health record.",
     },
     {
       question: "Who can register?",
       answer:
-        "Five account types: patients, doctors, hospitals, laboratories and diagnostic centres. Doctors must be registered with the Medical and Dental Council of Nigeria (MDCN); facilities must be registered organisations with the licences required for their services. Providers are verified by our team before they are listed.",
+        "Six account types: patients, doctors, hospitals, laboratories, diagnostic centres and pharmacies. Doctors must be registered with the Medical and Dental Council of Nigeria (MDCN); facilities must be registered organisations with the licences required for their services. Providers are verified by our team before they are listed.",
     },
     {
       question: "How do you verify doctors and facilities?",
@@ -201,6 +203,33 @@ export const FAQS: Record<PolicyAudience, FaqItem[]> = {
       question: "How are we paid?",
       answer:
         "Patients pay for investigations through the platform. The commission is deducted and your share is settled through the payment gateway's payout arrangements.",
+    },
+  ],
+  PHARMACY: [
+    {
+      question: "What do we need to register?",
+      answer:
+        "Register a pharmacy account with your organisation's CAC registration and pharmacy licence details. Pharmacies must be registered with the Pharmacists Council of Nigeria (PCN) and operate under the supervision of licensed pharmacists.",
+    },
+    {
+      question: "How does the medication workflow work?",
+      answer:
+        "Prescribers submit medication orders and your pharmacy reviews, dispenses and tracks them from submission to completion. Dispensing decisions always remain with your licensed pharmacists — the platform records and communicates them, it never automates them.",
+    },
+    {
+      question: "Can we manage our medicine catalogue?",
+      answer:
+        "Yes. Your formulary lists the medications and strengths you stock, and your own interaction rules are surfaced to reviewers as advisory alerts. Retired entries stay on record so history remains explainable.",
+    },
+    {
+      question: "What are our data protection duties?",
+      answer:
+        "You see only the patient details attached to orders you handle, for safe dispensing. Keep patient information confidential and secure under the National Health Act 2014, the PCN code of ethics and the Nigeria Data Protection Act 2023.",
+    },
+    {
+      question: "How are we paid?",
+      answer:
+        "Patients pay for your services through the platform. The commission is deducted and your share is settled through the payment gateway's payout arrangements.",
     },
   ],
 };

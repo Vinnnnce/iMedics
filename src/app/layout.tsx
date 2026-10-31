@@ -4,6 +4,8 @@ import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { Navbar } from "@/components/layout/navbar";
 import { ThemeProvider } from "@/components/theme-provider";
+import { MeProvider } from "@/lib/use-me";
+import { getNavMe } from "@/lib/me";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -22,7 +24,8 @@ export const metadata: Metadata = {
  */
 const themeInitScript = `try{var s=localStorage.getItem("imedics.theme");var d=s?s==="system"?window.matchMedia("(prefers-color-scheme: dark)").matches:s==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;var c=document.documentElement.classList;c.remove("dark","light");c.add(d?"dark":"light");}catch(e){}`;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const me = await getNavMe();
   return (
     <ClerkProvider>
       {/* suppressHydrationWarning: the theme-init script below mutates the
@@ -31,7 +34,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <body className="min-h-full flex flex-col bg-background text-foreground">
           <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
           <ThemeProvider>
-            <Navbar>{children}</Navbar>
+            <MeProvider initialMe={me}>
+              <Navbar>{children}</Navbar>
+            </MeProvider>
           </ThemeProvider>
         </body>
       </html>

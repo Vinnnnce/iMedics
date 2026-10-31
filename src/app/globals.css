@@ -92,9 +92,9 @@
   --sidebar-ring: #FFFFFF;
 }
 
-/* Light Mode */
+/* Light Mode — white background by default */
 .light {
-  --background: #F5F5F7;
+  --background: #FFFFFF;
   --foreground: #111111;
   --card: #FFFFFF;
   --card-foreground: #111111;
@@ -338,14 +338,9 @@
   color: var(--foreground);
 }
 
-/* Desktop sidebar */
-.desktop-sidebar {
-  display: none;
-}
+/* Bottom navigation is a mobile-only pattern; the desktop sidebar ships its own
+   responsive visibility classes (hidden md:block) via the shadcn sidebar. */
 @media (min-width: 768px) {
-  .desktop-sidebar {
-    display: flex;
-  }
   .bottom-nav {
     display: none;
   }

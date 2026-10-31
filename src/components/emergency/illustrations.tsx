@@ -7,6 +7,15 @@
 import type { ReactNode } from "react";
 
 const ILLUSTRATIONS: Record<string, ReactNode> = {
+  // Original schematic extensions to the existing project illustration set.
+  // Recognition/equipment only: not procedural medical demonstrations.
+  bleeding: <><path d="M12 63h72v14H12z" /><rect x="37" y="58" width="23" height="23" rx="2" /><path d="M48 13v31m-8-8 8 8 8-8" className="text-destructive" /><path d="M37 66h23m-23 7h23" /></>,
+  stroke: <><circle cx="33" cy="30" r="16" /><path d="M26 28h1m12 0h1m-15 11 9-2 8 6M15 72V60l18-10 19 10 14 10" /><path className="text-destructive" d="M60 16h25v25H70l-7 8V41h-3zM66 24h12m-12 8h9" /></>,
+  "heart-attack": <><path d="M47 74 16 46C-2 24 27 5 47 27 67 5 96 24 78 46Z" /><path className="text-destructive" d="M48 36v20m0 7v1" /></>,
+  choking: <><circle cx="29" cy="24" r="12" /><path d="M12 76V53q17-18 34 0v23M12 65l12-23m22 23L34 42" /><circle cx="73" cy="48" r="9" /><rect x="61" y="61" width="24" height="19" rx="8" /><path className="text-destructive" d="M52 21v49" /></>,
+  "road-safety": <><path className="text-destructive" d="m8 59 18-33 18 33zM26 40v8m0 4v1" /><path d="M47 66V49h8l10-16h15l10 16v17zM5 83h86" /><circle cx="57" cy="69" r="6" /><circle cx="80" cy="69" r="6" /></>,
+  burns: <><path d="M14 15h25v13h20v13H28V28H14zM10 73h74v12H10z" /><path className="text-destructive" d="M44 49v15m10-15v15m10-15v15" strokeDasharray="3 4" /></>,
+  ambulance: <><path d="M9 68V29h47v13h19l12 15v20H9z" /><path d="M63 49h9l8 10H63zM31 22h13" /><circle cx="27" cy="77" r="9" /><circle cx="71" cy="77" r="9" /><path className="text-destructive" d="m35 39-5 12 10-3-5 12" /></>,
   // Recognising cardiac arrest — collapsed person with an alert above.
   "recognise-arrest": (
     <>
@@ -183,22 +192,27 @@ const ILLUSTRATIONS: Record<string, ReactNode> = {
 export function EmergencyIllustration({
   id,
   className,
+  label,
 }: {
   id: string;
   className?: string;
+  label?: string;
 }) {
   const art = ILLUSTRATIONS[id] ?? ILLUSTRATIONS["als-concepts"];
   return (
     <svg
       viewBox="0 0 96 96"
       className={className}
-      aria-hidden="true"
+      aria-hidden={label ? undefined : true}
+      role={label ? "img" : undefined}
+      aria-label={label}
       fill="none"
       stroke="currentColor"
       strokeWidth={2.5}
       strokeLinecap="round"
       strokeLinejoin="round"
     >
+      {label && <title>{label}</title>}
       {art}
     </svg>
   );
