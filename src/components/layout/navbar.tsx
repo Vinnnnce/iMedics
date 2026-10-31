@@ -49,6 +49,7 @@ const PATIENT_NAV: NavItem[] = [
   { href: "/payments", label: "Payments", icon: Receipt, roles: ["PATIENT"] },
   { href: "/patient/results", label: "Lab Results", icon: FlaskConical, roles: ["PATIENT"] },
   { href: "/patient/case-file", label: "Case File", icon: FileText, roles: ["PATIENT"] },
+  { href: "/patient/case-reports", label: "Case Reports", icon: ClipboardList, roles: ["PATIENT"] },
   { href: "/patient/history", label: "Case History", icon: ClipboardList, roles: ["PATIENT"] },
   { href: "/patient/prescriptions", label: "Prescriptions", icon: FileText, roles: ["PATIENT"] },
   { href: "/patient/records", label: "My Records", icon: FolderOpen, roles: ["PATIENT"] },
@@ -69,7 +70,7 @@ const DOCTOR_NAV: NavItem[] = [
   { href: "/doctor/lab-requests", label: "Lab Requests", icon: FlaskConical, roles: ["DOCTOR"] },
   { href: "/doctor/diagnostics", label: "Clinical Notes", icon: Heart, roles: ["DOCTOR"] },
   { href: "/doctor/prescriptions", label: "Prescriptions", icon: FileText, roles: ["DOCTOR"] },
-  { href: "/doctor/records", label: "Patient Records", icon: FolderOpen, roles: ["DOCTOR"] },
+  { href: "/doctor/case-reports", label: "Case Reports", icon: FolderOpen, roles: ["DOCTOR"] },
   { href: "/doctor/ai-tools", label: "AI Review", icon: Sparkles, roles: ["DOCTOR"] },
   { href: "/doctor/schedule", label: "Schedule", icon: Calendar, roles: ["DOCTOR"] },
   { href: "/doctor/fees", label: "Fees", icon: Tags, roles: ["DOCTOR"] },
@@ -86,8 +87,9 @@ const DOCTOR_NAV: NavItem[] = [
  * (requireModulePage in lib/modules/page-guards.ts) — these links only decide
  * what is worth showing. Items map to the module pages that exist today:
  * /lab/admissions, /lab/investigations, /lab/orders, /lab/specimens,
- * /lab/examinations, /lab/critical-alerts, /lab/documents,
- * /lab/document-templates and /lab/referrals.
+ * /lab/examinations, /lab/critical-alerts, /lab/case-reports (with the
+ * documents and document templates features inside it as tabs)
+ * and /lab/referrals.
  */
 const FACILITY_MODULE_ITEMS: NavItem[] = [
   // Hospital documents: admissions, investigations, critical alerts.
@@ -101,9 +103,9 @@ const FACILITY_MODULE_ITEMS: NavItem[] = [
   { href: "/lab/examinations", label: "Examinations", icon: FileText, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
   // Critical-result alerts (hospital and laboratory kinds only).
   { href: "/lab/critical-alerts", label: "Critical Alerts", icon: Bell, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
-  // Documents shared by every facility kind.
-  { href: "/lab/documents", label: "Documents", icon: FolderOpen, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
-  { href: "/lab/document-templates", label: "Document Templates", icon: FileText, roles: ["FACILITY"], permission: "MANAGE_DOCUMENT_TEMPLATES" },
+  // Case reports: clinical documents the facility issued, with the patient
+  // documents and document templates inside it as tabs.
+  { href: "/lab/case-reports", label: "Case Reports", icon: FolderOpen, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
   { href: "/lab/referrals", label: "Referrals", icon: Briefcase, roles: ["FACILITY"], permission: "MANAGE_REFERRALS" },
 ];
 
@@ -116,10 +118,10 @@ const FACILITY_DASHBOARD_ITEM: NavItem = {
 };
 
 const KIND_MODULE_HREFS: Record<MeFacility["kind"], readonly string[]> = {
-  HOSPITAL: ["/lab/admissions", "/lab/investigations", "/lab/critical-alerts", "/lab/documents", "/lab/document-templates", "/lab/referrals"],
-  LABORATORY: ["/lab/orders", "/lab/specimens", "/lab/upload", "/lab/critical-alerts", "/lab/documents", "/lab/document-templates", "/lab/referrals"],
-  DIAGNOSTIC_CENTRE: ["/lab/examinations", "/lab/documents", "/lab/document-templates", "/lab/referrals"],
-  PHARMACY: ["/lab/pharmacy", "/lab/documents", "/lab/document-templates", "/lab/referrals"],
+  HOSPITAL: ["/lab/admissions", "/lab/investigations", "/lab/critical-alerts", "/lab/case-reports", "/lab/referrals"],
+  LABORATORY: ["/lab/orders", "/lab/specimens", "/lab/upload", "/lab/critical-alerts", "/lab/case-reports", "/lab/referrals"],
+  DIAGNOSTIC_CENTRE: ["/lab/examinations", "/lab/case-reports", "/lab/referrals"],
+  PHARMACY: ["/lab/pharmacy", "/lab/case-reports", "/lab/referrals"],
 };
 
 const FACILITY_WEBSITE_ITEM: NavItem = { href: "/lab/website", label: "Our Website", icon: Globe, roles: ["FACILITY"], permission: "MANAGE_PROFILE" };
@@ -327,7 +329,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
             : kind === "PHARMACY"
               ? { href: "/lab/pharmacy", label: "Pharmacy", icon: Pill, roles: [role] }
               : { href: "/lab/orders", label: "Orders", icon: ClipboardList, roles: [role] },
-        { href: "/lab/documents", label: "Docs", icon: FolderOpen, roles: [role] },
+        { href: "/lab/case-reports?tab=documents", label: "Docs", icon: FolderOpen, roles: [role] },
         { href: "/settings", label: "Settings", icon: Settings, roles: [role] },
       ];
       return items;
@@ -399,8 +401,8 @@ export function Navbar({ children }: { children: React.ReactNode }) {
           s.category === "users" && n.href.includes("users") ||
           s.category === "payments" && n.href.includes("payments") ||
           s.category === "content" && n.href.includes("content") ||
-          s.category === "documents" && n.href.includes("documents") ||
-          s.category === "templates" && n.href.includes("templates") ||
+          s.category === "documents" && (n.href.includes("documents") || n.href.includes("case-reports")) ||
+          s.category === "templates" && (n.href.includes("templates") || n.href.includes("case-reports")) ||
           s.category === "bookings" && n.href.includes("bookings") ||
           s.category === "reviews" && n.href.includes("reviews") ||
           s.category === "consultations" && n.href.includes("consultations")

@@ -16,7 +16,9 @@ describe("role-aware navigation", () => {
     expect(getRoleNavigation(role)[0].href).toBe(ROLE_POLICY[role].dashboard);
     expect(getBottomNavigation(role)[0].href).toBe(ROLE_POLICY[role].dashboard);
     for (const item of [...getRoleNavigation(role), ...getBottomNavigation(role)]) {
-      expect(existsSync(path.join(process.cwd(), "src/app", item.href, "page.tsx")), item.href).toBe(true);
+      // Tab links carry a ?tab= query; the route itself is what must exist.
+      const route = item.href.split("?")[0];
+      expect(existsSync(path.join(process.cwd(), "src/app", route, "page.tsx")), item.href).toBe(true);
     }
   });
 });

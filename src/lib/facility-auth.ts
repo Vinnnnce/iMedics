@@ -140,3 +140,34 @@ export function assertSameFacility(
 ): void {
   if (!recordFacilityId || recordFacilityId !== facilityId) throw notFound(`${what} not found`);
 }
+
+/**
+ * Effective facility permissions for a portal page.
+ *
+ * Facility owners (the account creator) are linked to their facility through a
+ * LabStaffProfile rather than a FacilityStaff membership — treat them as OWNER.
+ * Invited staff get the union of their active memberships' role permissions.
+ * Used by the /lab pages that check permissions directly instead of going
+ * through resolveFacilityAccess (which expects a backfilled owner membership).
+ */
+export async function resolveFacilityPermissions(
+  user: User,
+  facilityId: string,
+): Promise<{ role: FacilityStaffRole; permissions: readonly FacilityPermission[] }> {
+  const own = await prisma.labStaffProfile.findUnique({
+    where: { userId: user.id },
+    select: { id: true },
+  });
+  if (own && own.id === facilityId) {
+    return { role: "OWNER", permissions: permissionsForRole("OWNER") };
+  }
+  const memberships = await prisma.facilityStaff.findMany({
+    where: { userId: user.id, facilityId, status: { in: ["ACTIVE", "ON_LEAVE"] } },
+    select: { facilityRole: true },
+  });
+  const permissions = new Set<FacilityPermission>();
+  for (const membership of memberships) {
+    for (const permission of permissionsForRole(membership.facilityRole)) permissions.add(permission);
+  }
+  return { role: memberships[0]?.facilityRole ?? "FACILITY_MANAGER", permissions: [...permissions] };
+}

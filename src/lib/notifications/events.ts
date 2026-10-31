@@ -91,7 +91,7 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
     case "WELFARE_ALERT_ACKNOWLEDGED":
       return { type: "WELFARE_ALERT", title: "Welfare alert acknowledged", body: "The welfare alert has been acknowledged. No further action is needed unless you agreed otherwise.", href: `/welfare/${event.alertId}`, data: { alertId: event.alertId } };
     case "DOCUMENT_SHARE_GRANTED":
-      return { type: "DOCUMENT_SHARE", title: "A document was shared with you", body: "A patient shared a medical document with you. Sign in to view it.", href: "/doctor/records", data: { documentId: event.documentId } };
+      return { type: "DOCUMENT_SHARE", title: "A document was shared with you", body: "A patient shared a medical document with you. Sign in to view it.", href: "/doctor/case-reports?tab=documents", data: { documentId: event.documentId } };
     case "PREVENTIVE_CARE_DUE":
       return { type: "SYSTEM", title: "Preventive care reminder", body: "A preventive-care check is due. Sign in to review it.", href: "/dashboard", data: { taskId: event.taskId } };
     case "DOCUMENT_SHARED":
@@ -351,7 +351,7 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
         type: "CLINICAL_DOCUMENT",
         title: "New report available",
         body: "Your care team has released a document to your record. Sign in to view it.",
-        href: "/patient/documents",
+        href: "/patient/case-reports?tab=documents",
         data: { documentId: event.documentId },
       };
   }
