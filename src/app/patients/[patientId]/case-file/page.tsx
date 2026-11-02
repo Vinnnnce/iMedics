@@ -2,11 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft, FolderOpen, Stethoscope, FlaskConical, FileText, BedDouble,
-  Briefcase, ClipboardList, HeartPulse,
+  Briefcase, ClipboardList, HeartPulse, FileSignature, Image as ImageIcon, Activity,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import { requirePageRole } from "@/lib/guards";
 import { findAccessiblePatient } from "@/lib/access";
@@ -40,7 +40,7 @@ export default async function PatientCaseFilePage({ params }: { params: Promise<
 
   const [
     latestHistory, histories, consultations, labResults, prescriptions,
-    admissions, careCases, referrals,
+    admissions, careCases, referrals, clinicalDocuments, media, nursingObservations,
   ] = await Promise.all([
     prisma.medicalHistory.findFirst({ where: { patientId: patient.id }, orderBy: { createdAt: "desc" } }),
     prisma.medicalHistory.findMany({ where: { patientId: patient.id }, orderBy: { createdAt: "desc" }, take: 10 }),
@@ -65,6 +65,27 @@ export default async function PatientCaseFilePage({ params }: { params: Promise<
     prisma.admission.findMany({ where: { patientId: patient.id }, orderBy: { admissionDate: "desc" }, take: 10 }),
     prisma.careCase.findMany({ where: { patientId: patient.id }, orderBy: { createdAt: "desc" }, take: 10 }),
     prisma.facilityReferral.findMany({ where: { patientId: patient.id }, orderBy: { createdAt: "desc" }, take: 10 }),
+    // Agreements, consent and other clinical documents released to the
+    // patient (same visibility rule as the patient portal — drafts and
+    // unreleased records are never exposed outside the facility module).
+    prisma.clinicalDocument.findMany({
+      where: { patientId: patient.id, releasedToPatientAt: { not: null }, status: { in: ["FINAL", "AMENDED"] } },
+      orderBy: { finalizedAt: "desc" },
+      take: 10,
+      select: { id: true, documentNumber: true, title: true, status: true, finalizedAt: true, facility: { select: { laboratoryName: true } } },
+    }),
+    // Diagnostic examinations and imaging released to the patient.
+    prisma.medicalMedia.findMany({
+      where: { patientId: patient.id, releasedToPatientAt: { not: null }, deletedAt: null },
+      orderBy: { examinationAt: "desc" },
+      take: 10,
+      select: { id: true, category: true, examinationType: true, examinationAt: true, reportStatus: true, facility: { select: { laboratoryName: true } } },
+    }),
+    prisma.nursingObservation.findMany({
+      where: { patientId: patient.id },
+      orderBy: { recordedAt: "desc" },
+      take: 8,
+    }),
   ]);
 
   const bmi = calculateBMI(patient.height, patient.weight);
@@ -227,6 +248,87 @@ export default async function PatientCaseFilePage({ params }: { params: Promise<
                 </p>
               </div>
               <Badge variant={a.status === "ACTIVE" ? "default" : "secondary"} className="rounded-lg">{a.status}</Badge>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Agreements, consent and other clinical documents */}
+      <Card className="beeline-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <FileSignature className="h-4 w-4" /> Agreements & clinical documents
+          </CardTitle>
+          <CardDescription>
+            Consent forms, agreements and other clinical documents released for this patient.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {clinicalDocuments.length === 0 && <p className="text-sm text-muted-foreground">No documents released to the patient yet.</p>}
+          {clinicalDocuments.map((d) => (
+            <div key={d.id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3 text-sm">
+              <div>
+                <p className="font-medium">{d.title}</p>
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-mono">{d.documentNumber}</span>
+                  {d.facility.laboratoryName ? ` — ${d.facility.laboratoryName}` : ""}
+                  {d.finalizedAt ? ` — finalised ${formatDate(d.finalizedAt)}` : ""}
+                </p>
+              </div>
+              <Badge variant={d.status === "FINAL" ? "default" : "secondary"} className="shrink-0 rounded-lg">
+                {d.status === "FINAL" ? "Final" : "Amended"}
+              </Badge>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Diagnostic examinations and imaging */}
+      <Card className="beeline-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <ImageIcon className="h-4 w-4" /> Diagnostic examinations & imaging
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {media.length === 0 && <p className="text-sm text-muted-foreground">No diagnostic examinations on file.</p>}
+          {media.map((m) => (
+            <div key={m.id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3 text-sm">
+              <div>
+                <p className="font-medium">{m.examinationType}</p>
+                <p className="text-xs text-muted-foreground">
+                  {m.category}
+                  {m.facility.laboratoryName ? ` — ${m.facility.laboratoryName}` : ""}
+                  {m.examinationAt ? ` — ${formatDate(m.examinationAt)}` : ""}
+                </p>
+              </div>
+              <Badge variant={m.reportStatus === "VERIFIED" ? "default" : "secondary"} className="shrink-0 rounded-lg">
+                {m.reportStatus}
+              </Badge>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Nursing observations */}
+      <Card className="beeline-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Activity className="h-4 w-4" /> Nursing observations
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {nursingObservations.length === 0 && <p className="text-sm text-muted-foreground">No nursing observations recorded.</p>}
+          {nursingObservations.map((n) => (
+            <div key={n.id} className="flex items-center justify-between gap-3 text-sm">
+              <div>
+                <p className="font-medium capitalize">{n.observationType.replace(/_/g, " ").toLowerCase()}</p>
+                <p className="text-xs text-muted-foreground">{formatClinicDateTime(n.recordedAt)}{n.notes ? ` — ${n.notes}` : ""}</p>
+              </div>
+              <span className="shrink-0 text-sm font-medium">
+                {n.value}
+                {n.unit ? ` ${n.unit}` : ""}
+              </span>
             </div>
           ))}
         </CardContent>
