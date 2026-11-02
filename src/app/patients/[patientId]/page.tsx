@@ -18,6 +18,7 @@ import { apiClient } from "@/lib/api-client";
 import {
   ArrowLeft,
   FileText,
+  FolderOpen,
   Phone,
   MapPin,
   User,
@@ -92,12 +93,22 @@ export default function PatientDetailPage() {
             Case: <span className="font-mono">{patient.caseNumber}</span>
           </p>
         </div>
-        <Link href={`/patients/${patientId}/history`}>
-          <Button className="gap-1.5" data-testid="button-view-history">
-            <FileText className="h-4 w-4" />
-            Medical History
-          </Button>
-        </Link>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Link href={`/patients/${patientId}/history`}>
+            <Button className="gap-1.5" variant="outline" data-testid="button-view-history">
+              <FileText className="h-4 w-4" />
+              Medical History
+            </Button>
+          </Link>
+          {/* The unified electronic case file — every consultation, lab result,
+              prescription, admission and referral for this patient. */}
+          <Link href={`/patients/${patientId}/case-file`}>
+            <Button className="gap-1.5" data-testid="button-open-case-file">
+              <FolderOpen className="h-4 w-4" />
+              Open Patient Case File
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
