@@ -12,6 +12,7 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -28,6 +29,7 @@ import {
   Calendar, FileText, Video, MessageSquare, Building2,
   ClipboardList, Upload, LayoutDashboard, ArrowRight, Receipt, Wallet, Tags, PanelLeftClose,
   FolderOpen, BellRing, ShieldCheck, Settings, BedDouble, SearchCheck, Bell, Star, Briefcase, Pill,
+  BarChart3, Activity, IdCard, CreditCard,
   type LucideIcon,
 } from "lucide-react";
 import type { Me, MeFacility } from "@/lib/use-me";
@@ -39,6 +41,19 @@ type NavItem = {
   roles: string[];
   /** Facility permission required to see this link. Owners always see it. */
   permission?: string;
+};
+
+/**
+ * A labelled group of links rendered as one sidebar section. The doctor and
+ * facility menus are grouped so each account type sees exactly its own
+ * workspace structure; a null label renders the items without a heading
+ * (patient and admin menus).
+ */
+type NavSection = {
+  label: string | null;
+  items: NavItem[];
+  /** Facility kinds allowed to see this section at all. */
+  kinds?: MeFacility["kind"][];
 };
 
 const PATIENT_NAV: NavItem[] = [
@@ -61,55 +76,59 @@ const PATIENT_NAV: NavItem[] = [
   { href: "/profile", label: "Profile", icon: User, roles: ["PATIENT"] },
 ];
 
-const DOCTOR_NAV: NavItem[] = [
-  { href: "/doctor/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["DOCTOR"] },
-  { href: "/doctor/patients", label: "My Patients", icon: Users, roles: ["DOCTOR"] },
-  { href: "/doctor/booking-requests", label: "Booking Requests", icon: Calendar, roles: ["DOCTOR"] },
-  { href: "/doctor/consultations", label: "Consultations", icon: ClipboardList, roles: ["DOCTOR"] },
-  { href: "/doctor/chat", label: "Chat", icon: MessageSquare, roles: ["DOCTOR"] },
-  { href: "/doctor/lab-requests", label: "Lab Requests", icon: FlaskConical, roles: ["DOCTOR"] },
-  { href: "/doctor/diagnostics", label: "Clinical Notes", icon: Heart, roles: ["DOCTOR"] },
-  { href: "/doctor/prescriptions", label: "Prescriptions", icon: FileText, roles: ["DOCTOR"] },
-  { href: "/doctor/case-reports", label: "Case Reports", icon: FolderOpen, roles: ["DOCTOR"] },
-  { href: "/doctor/ai-tools", label: "AI Review", icon: Sparkles, roles: ["DOCTOR"] },
-  { href: "/doctor/schedule", label: "Schedule", icon: Calendar, roles: ["DOCTOR"] },
-  { href: "/doctor/fees", label: "Fees", icon: Tags, roles: ["DOCTOR"] },
-  { href: "/payments", label: "Payments", icon: Wallet, roles: ["DOCTOR"] },
-  { href: "/doctor/admit", label: "Care Roster", icon: Building2, roles: ["DOCTOR"] },
-  { href: "/emergency", label: "Emergency", icon: HeartPulse, roles: ["DOCTOR"] },
-  { href: "/settings", label: "Settings", icon: Settings, roles: ["DOCTOR"] },
-  { href: "/doctor/profile", label: "My Profile", icon: User, roles: ["DOCTOR"] },
+/**
+ * The doctor's simplified interface: four main sections — the Doctor
+ * Dashboard (with the clinical workflows grouped underneath it), AI Tools,
+ * and the account section. Doctors never see facility administration; every
+ * link still resolves to the doctor portal routes only.
+ */
+const DOCTOR_SECTIONS: NavSection[] = [
+  {
+    label: "Doctor Dashboard",
+    items: [
+      { href: "/doctor/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["DOCTOR"] },
+      { href: "/doctor/patients", label: "My Patients", icon: Users, roles: ["DOCTOR"] },
+      { href: "/doctor/booking-requests", label: "Appointments", icon: Calendar, roles: ["DOCTOR"] },
+      { href: "/doctor/consultations", label: "Consultations", icon: ClipboardList, roles: ["DOCTOR"] },
+      { href: "/doctor/chat", label: "Messages", icon: MessageSquare, roles: ["DOCTOR"] },
+      { href: "/doctor/lab-requests", label: "Lab Requests", icon: FlaskConical, roles: ["DOCTOR"] },
+      { href: "/doctor/diagnostics", label: "Clinical Notes", icon: Heart, roles: ["DOCTOR"] },
+      { href: "/doctor/prescriptions", label: "Prescriptions", icon: FileText, roles: ["DOCTOR"] },
+      { href: "/doctor/case-reports", label: "Case Reports", icon: FolderOpen, roles: ["DOCTOR"] },
+      { href: "/doctor/schedule", label: "Schedule", icon: Calendar, roles: ["DOCTOR"] },
+      { href: "/doctor/admit", label: "Care Roster", icon: Building2, roles: ["DOCTOR"] },
+      { href: "/doctor/fees", label: "Fees", icon: Tags, roles: ["DOCTOR"] },
+      { href: "/doctor/services", label: "Services", icon: Briefcase, roles: ["DOCTOR"] },
+      { href: "/doctor/portfolio", label: "Portfolio", icon: FolderOpen, roles: ["DOCTOR"] },
+      { href: "/doctor/analytics", label: "Analytics", icon: BarChart3, roles: ["DOCTOR"] },
+      { href: "/doctor/subscription", label: "Subscription", icon: CreditCard, roles: ["DOCTOR"] },
+      { href: "/payments", label: "Payments & Earnings", icon: Wallet, roles: ["DOCTOR"] },
+      { href: "/emergency", label: "Emergency", icon: HeartPulse, roles: ["DOCTOR"] },
+    ],
+  },
+  {
+    label: "AI Tools",
+    items: [
+      { href: "/doctor/ai-tools", label: "AI Review", icon: Sparkles, roles: ["DOCTOR"] },
+    ],
+  },
+  {
+    label: "Account",
+    items: [
+      { href: "/settings", label: "Settings", icon: Settings, roles: ["DOCTOR"] },
+      { href: "/doctor/profile", label: "My Profile", icon: User, roles: ["DOCTOR"] },
+    ],
+  },
 ];
 
 /**
- * The hospital / laboratory / diagnostic-centre modules. Each page enforces the
- * facility kind and the caller's facility membership server-side
- * (requireModulePage in lib/modules/page-guards.ts) — these links only decide
- * what is worth showing. Items map to the module pages that exist today:
- * /lab/admissions, /lab/investigations, /lab/orders, /lab/specimens,
- * /lab/examinations, /lab/critical-alerts, /lab/case-reports (with the
- * documents and document templates features inside it as tabs)
- * and /lab/referrals.
+ * The facility administration environment: grouped modules shown per the
+ * registered facility type. Each page still enforces the facility kind and
+ * the caller's facility membership server-side (requireModulePage in
+ * lib/modules/page-guards.ts) — these links only decide what is worth
+ * showing. Sections with `kinds` appear only for those facility types, so a
+ * standalone laboratory never sees hospital departments and vice versa.
  */
-const FACILITY_MODULE_ITEMS: NavItem[] = [
-  // Hospital documents: admissions, investigations, critical alerts.
-  { href: "/lab/admissions", label: "Admissions", icon: BedDouble, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
-  { href: "/lab/investigations", label: "Investigations", icon: SearchCheck, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
-  // Laboratory workflows: the order queue, specimens and result upload.
-  { href: "/lab/orders", label: "Lab Orders", icon: ClipboardList, roles: ["FACILITY"], permission: "PROCESS_ORDERS" },
-  { href: "/lab/specimens", label: "Specimens", icon: FlaskConical, roles: ["FACILITY"], permission: "PROCESS_ORDERS" },
-  { href: "/lab/upload", label: "Upload Results", icon: Upload, roles: ["FACILITY"], permission: "ENTER_RESULTS" },
-  // Diagnostic-centre workflows: examinations and reports.
-  { href: "/lab/examinations", label: "Examinations", icon: FileText, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
-  // Critical-result alerts (hospital and laboratory kinds only).
-  { href: "/lab/critical-alerts", label: "Critical Alerts", icon: Bell, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
-  // Case reports: clinical documents the facility issued, with the patient
-  // documents and document templates inside it as tabs.
-  { href: "/lab/case-reports", label: "Case Reports", icon: FolderOpen, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
-  { href: "/lab/referrals", label: "Referrals", icon: Briefcase, roles: ["FACILITY"], permission: "MANAGE_REFERRALS" },
-];
-
-/** Which module links apply to a facility kind (mirrors the page guards). */
 const FACILITY_DASHBOARD_ITEM: NavItem = {
   href: "/lab/dashboard",
   label: "Facility Dashboard",
@@ -117,27 +136,110 @@ const FACILITY_DASHBOARD_ITEM: NavItem = {
   roles: ["FACILITY"],
 };
 
-const KIND_MODULE_HREFS: Record<MeFacility["kind"], readonly string[]> = {
-  HOSPITAL: ["/lab/admissions", "/lab/investigations", "/lab/critical-alerts", "/lab/case-reports", "/lab/referrals"],
-  LABORATORY: ["/lab/orders", "/lab/specimens", "/lab/upload", "/lab/critical-alerts", "/lab/case-reports", "/lab/referrals"],
-  DIAGNOSTIC_CENTRE: ["/lab/examinations", "/lab/case-reports", "/lab/referrals"],
-  PHARMACY: ["/lab/pharmacy", "/lab/case-reports", "/lab/referrals"],
-};
-
 const FACILITY_WEBSITE_ITEM: NavItem = { href: "/lab/website", label: "Our Website", icon: Globe, roles: ["FACILITY"], permission: "MANAGE_PROFILE" };
 
-const LAB_NAV: NavItem[] = [
-  { href: "/lab/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["LAB_SCIENTIST"] },
-  ...FACILITY_MODULE_ITEMS,
-  { href: "/lab/bookings", label: "Bookings", icon: Calendar, roles: ["LAB_SCIENTIST"], permission: "MANAGE_BOOKINGS" },
-  { href: "/lab/services", label: "Services & Prices", icon: Tags, roles: ["LAB_SCIENTIST"], permission: "MANAGE_SERVICES" },
-  { href: "/lab/reviews", label: "Reviews", icon: Star, roles: ["LAB_SCIENTIST"], permission: "MANAGE_PROFILE" },
-  { href: "/lab/users", label: "Patient Lookup", icon: Users, roles: ["LAB_SCIENTIST"], permission: "REGISTER_PATIENTS" },
-  FACILITY_WEBSITE_ITEM,
-  { href: "/emergency", label: "Emergency", icon: HeartPulse, roles: ["LAB_SCIENTIST"] },
-  { href: "/payments", label: "Payments", icon: Wallet, roles: ["LAB_SCIENTIST"] },
-  { href: "/settings", label: "Settings", icon: Settings, roles: ["LAB_SCIENTIST"] },
-  { href: "/profile", label: "Profile", icon: User, roles: ["LAB_SCIENTIST"] },
+const FACILITY_SECTIONS: NavSection[] = [
+  {
+    label: "Facility Dashboard",
+    items: [FACILITY_DASHBOARD_ITEM],
+  },
+  {
+    label: "Facility Services",
+    items: [
+      { href: "/lab/services", label: "Services & Prices", icon: Tags, roles: ["FACILITY"], permission: "MANAGE_SERVICES" },
+      { href: "/lab/bookings", label: "Service Bookings", icon: Calendar, roles: ["FACILITY"], permission: "MANAGE_BOOKINGS" },
+      { href: "/lab/reviews", label: "Reviews", icon: Star, roles: ["FACILITY"], permission: "MANAGE_PROFILE" },
+      FACILITY_WEBSITE_ITEM,
+    ],
+  },
+  {
+    label: "Laboratory",
+    kinds: ["HOSPITAL", "LABORATORY"],
+    items: [
+      { href: "/lab/orders", label: "Lab Orders", icon: ClipboardList, roles: ["FACILITY"], permission: "PROCESS_ORDERS" },
+      { href: "/lab/specimens", label: "Specimens", icon: FlaskConical, roles: ["FACILITY"], permission: "PROCESS_ORDERS" },
+      { href: "/lab/upload", label: "Upload Results", icon: Upload, roles: ["FACILITY"], permission: "ENTER_RESULTS" },
+    ],
+  },
+  {
+    label: "Pharmacy",
+    kinds: ["HOSPITAL", "PHARMACY"],
+    items: [
+      { href: "/lab/pharmacy", label: "Medication Orders", icon: Pill, roles: ["FACILITY"], permission: "REVIEW_MEDICATIONS" },
+    ],
+  },
+  {
+    label: "Diagnostic Centre",
+    kinds: ["HOSPITAL", "DIAGNOSTIC_CENTRE"],
+    items: [
+      { href: "/lab/examinations", label: "Examinations", icon: FileText, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
+      { href: "/lab/media", label: "Diagnostic Media", icon: Upload, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
+    ],
+  },
+  {
+    label: "Clinical Operations",
+    kinds: ["HOSPITAL"],
+    items: [
+      { href: "/lab/admissions", label: "Admissions", icon: BedDouble, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
+      { href: "/lab/encounters", label: "Encounters & Queues", icon: Activity, roles: ["FACILITY"], permission: "MANAGE_ENCOUNTERS" },
+      { href: "/lab/investigations", label: "Investigations", icon: SearchCheck, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
+      { href: "/lab/critical-alerts", label: "Critical Alerts", icon: Bell, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
+    ],
+  },
+  {
+    label: "Medical Documents",
+    items: [
+      { href: "/lab/clinical-documents", label: "Clinical Documents", icon: FileText, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
+      { href: "/lab/document-templates", label: "Document Templates", icon: FileText, roles: ["FACILITY"], permission: "MANAGE_DOCUMENT_TEMPLATES" },
+      { href: "/lab/case-reports", label: "Case Reports", icon: FolderOpen, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
+      { href: "/lab/referrals", label: "Referrals", icon: Briefcase, roles: ["FACILITY"], permission: "MANAGE_REFERRALS" },
+    ],
+  },
+  {
+    label: "Our Patients",
+    items: [
+      { href: "/lab/users", label: "Patient Lookup", icon: Users, roles: ["FACILITY"], permission: "REGISTER_PATIENTS" },
+    ],
+  },
+  {
+    label: "Our Nurses",
+    kinds: ["HOSPITAL"],
+    items: [
+      { href: "/lab/nursing", label: "Nursing", icon: HeartPulse, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
+    ],
+  },
+  {
+    label: "Our Staff",
+    items: [
+      { href: "/lab/staff", label: "Staff Management", icon: Users, roles: ["FACILITY"], permission: "MANAGE_STAFF" },
+      { href: "/lab/credentials", label: "Staff Credentials", icon: ShieldCheck, roles: ["FACILITY"], permission: "MANAGE_CREDENTIALS" },
+    ],
+  },
+  {
+    label: "Administration",
+    kinds: ["HOSPITAL"],
+    items: [
+      { href: "/lab/his", label: "Hospital System", icon: Building2, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
+      { href: "/lab/hospital-settings", label: "Hospital Settings", icon: Settings, roles: ["FACILITY"], permission: "MANAGE_HOSPITAL_SETTINGS" },
+      { href: "/lab/his-analytics", label: "Analytics", icon: BarChart3, roles: ["FACILITY"], permission: "VIEW_ANALYTICS" },
+      { href: "/lab/insurance", label: "Payer Classification", icon: Wallet, roles: ["FACILITY"], permission: "MANAGE_INSURANCE" },
+    ],
+  },
+  {
+    label: "Cashier & Billing",
+    items: [
+      { href: "/payments", label: "Payments & Earnings", icon: Wallet, roles: ["FACILITY"] },
+    ],
+  },
+  {
+    label: "Account",
+    items: [
+      { href: "/emergency", label: "Emergency", icon: HeartPulse, roles: ["FACILITY"] },
+      { href: "/lab/me", label: "My Staff Profile", icon: IdCard, roles: ["FACILITY"] },
+      { href: "/settings", label: "Settings", icon: Settings, roles: ["FACILITY"] },
+      { href: "/profile", label: "Profile", icon: User, roles: ["FACILITY"] },
+    ],
+  },
 ];
 
 const BOTTOM_NAV_ITEMS = [
@@ -213,14 +315,6 @@ const ADMIN_CHIPS: FilterChip[] = [
   { label: "Verifications", value: "verification" },
 ];
 
-/** Shared by every facility user: the only non-module links they need. */
-const FACILITY_COMMON_NAV: NavItem[] = [
-  { href: "/emergency", label: "Emergency", icon: HeartPulse, roles: ["FACILITY"] },
-  { href: "/payments", label: "Payments", icon: Wallet, roles: ["FACILITY"] },
-  { href: "/settings", label: "Settings", icon: Settings, roles: ["FACILITY"] },
-  { href: "/profile", label: "Profile", icon: User, roles: ["FACILITY"] },
-];
-
 const ADMIN_NAV: NavItem[] = [
   ...ADMIN_LINKS.map((l) => ({ href: l.href, label: l.label, icon: l.icon, roles: ["ADMIN"] })),
   { href: "/settings", label: "Settings", icon: Settings, roles: ["ADMIN"] },
@@ -278,34 +372,52 @@ export function Navbar({ children }: { children: React.ReactNode }) {
     // Every account type gets exactly its own menu: nothing from another
     // role's workspace is ever mixed in.
     if (role === "ADMIN") return ADMIN_NAV;
+    if (role === "DOCTOR") return DOCTOR_SECTIONS.flatMap((s) => s.items);
 
     const facility = me?.facility ?? null;
-    let items: NavItem[];
-    if (role === "DOCTOR") items = DOCTOR_NAV;
-    else if (role === "LAB_SCIENTIST") items = LAB_NAV;
-    else if (facility) {
-      // Facility staff whose platform role is PATIENT: workspace links only.
-      items = [FACILITY_DASHBOARD_ITEM, ...FACILITY_MODULE_ITEMS, ...FACILITY_COMMON_NAV, FACILITY_WEBSITE_ITEM];
-    } else items = PATIENT_NAV;
-
-    return items.filter((item) => {
-      if (!item.roles.includes("FACILITY")) return item.roles.includes(role);
-      if (!facility) return false;
-      // Common facility links (no permission, not a module) always show.
-      const isModule = item.href.startsWith("/lab/") && item.href !== "/lab/dashboard" && item.href !== "/lab/website";
-      if (isModule && !KIND_MODULE_HREFS[facility.kind].includes(item.href)) return false;
-      if (
-        facility.facilityRole !== "OWNER" &&
-        item.permission &&
-        !facility.permissions.includes(item.permission)
-      ) {
-        return false;
-      }
-      return true;
-    }).map((item) => item.href === "/lab/website" && facility
-      ? { ...item, href: `/lab/website?facilityId=${encodeURIComponent(facility.id)}` }
-      : item);
+    if (role === "LAB_SCIENTIST" || (role === "PATIENT" && facility)) {
+      return FACILITY_SECTIONS
+        // Sections gated by facility kind appear only for the registered
+        // facility type — standalone labs never see hospital departments.
+        // Without a resolved facility every section stays visible and the
+        // server-side page guards decide.
+        .filter((section) => !section.kinds || !facility || section.kinds.includes(facility.kind))
+        .flatMap((section) =>
+          section.items
+            .filter((item) => {
+              if (
+                facility &&
+                facility.facilityRole !== "OWNER" &&
+                item.permission &&
+                !facility.permissions.includes(item.permission)
+              ) {
+                return false;
+              }
+              return true;
+            })
+            .map((item) => item.href === "/lab/website" && facility
+              ? { ...item, href: `/lab/website?facilityId=${encodeURIComponent(facility.id)}` }
+              : item),
+        );
+    }
+    return PATIENT_NAV;
   }, [role, me]);
+  /** Grouped for the sidebar and mobile drawer: one section per heading. */
+  const navSections = useMemo(() => {
+    if (role === "ADMIN") return [{ label: null, items: ADMIN_NAV }];
+    if (role === "DOCTOR") return DOCTOR_SECTIONS;
+    const facility = me?.facility ?? null;
+    if (role === "LAB_SCIENTIST" || (role === "PATIENT" && facility)) {
+      return FACILITY_SECTIONS
+        .filter((section) => !section.kinds || !facility || section.kinds.includes(facility.kind))
+        .map((section) => ({
+          label: section.label,
+          items: visibleNavItems.filter((item) => section.items.some((s) => s.href === item.href.split("?")[0])),
+        }))
+        .filter((section) => section.items.length > 0);
+    }
+    return [{ label: null, items: PATIENT_NAV }];
+  }, [role, me, visibleNavItems]);
   const navItems = visibleNavItems;
   const bottomNav = useMemo(() => {
     if (role === "ADMIN") {
@@ -732,33 +844,38 @@ export function Navbar({ children }: { children: React.ReactNode }) {
           </button>
         </SidebarHeader>
         <SidebarContent>
-          <SidebarGroup>
-            <SidebarMenu>
-              {visibleNavItems.map((item, index) => {
-                const Icon = item.icon;
-                const active = isActive(item.href);
-                return (
-                  <SidebarMenuItem key={`${item.label}-${index}`}>
-                    <SidebarMenuButton
-                      isActive={active}
-                      tooltip={item.label}
-                      aria-label={item.label}
-                      render={
-                        <Link
-                          prefetch={navigationPrefetch}
-                          onNavigate={anonymousNavigation(item.href)}
-                          href={item.href}
-                        />
-                      }
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroup>
+          {navSections.map((section, sectionIndex) => (
+            <SidebarGroup key={section.label ?? "main"}>
+              {section.label && (
+                <SidebarGroupLabel data-testid={`sidebar-section-${section.label}`}>{section.label}</SidebarGroupLabel>
+              )}
+              <SidebarMenu>
+                {section.items.map((item, index) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.href);
+                  return (
+                    <SidebarMenuItem key={`${item.label}-${sectionIndex}-${index}`}>
+                      <SidebarMenuButton
+                        isActive={active}
+                        tooltip={item.label}
+                        aria-label={item.label}
+                        render={
+                          <Link
+                            prefetch={navigationPrefetch}
+                            onNavigate={anonymousNavigation(item.href)}
+                            href={item.href}
+                          />
+                        }
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroup>
+          ))}
         </SidebarContent>
 
         <SidebarFooter>
@@ -789,28 +906,37 @@ export function Navbar({ children }: { children: React.ReactNode }) {
               </div>
               <span className="text-base font-bold text-foreground">Medic1905</span>
             </div>
-            <nav className="space-y-1 p-3 pb-20">
-              {visibleNavItems.map((item, index) => {
-                const Icon = item.icon;
-                const active = isActive(item.href);
-                return (
-                  <Link
-                    prefetch={navigationPrefetch}
-                    onNavigate={anonymousNavigation(item.href)}
-                    key={`${item.label}-${index}`}
-                    href={item.href}
-                    onClick={() => setMobileSidebarOpen(false)}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                      active
-                        ? "bg-foreground/10 text-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
-                  </Link>
-                );
-              })}
+            <nav className="space-y-4 p-3 pb-20">
+              {navSections.map((section, sectionIndex) => (
+                <div key={section.label ?? "main"} className="space-y-1">
+                  {section.label && (
+                    <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {section.label}
+                    </p>
+                  )}
+                  {section.items.map((item, index) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.href);
+                    return (
+                      <Link
+                        prefetch={navigationPrefetch}
+                        onNavigate={anonymousNavigation(item.href)}
+                        key={`${item.label}-${sectionIndex}-${index}`}
+                        href={item.href}
+                        onClick={() => setMobileSidebarOpen(false)}
+                        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                          active
+                            ? "bg-foreground/10 text-foreground"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              ))}
             </nav>
           </div>
         </div>

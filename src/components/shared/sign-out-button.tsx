@@ -20,7 +20,10 @@ export function SignOutButton() {
       ]);
     } catch { /* Browser cleanup must not prevent session revocation. */ }
     finally { if (timer) clearTimeout(timer); }
-    try { await signOut({ redirectUrl: "/auth/login" }); }
+    // Logout always returns the user to the public Medic1905 landing page.
+    // Clerk revokes the session server-side; the middleware keeps every
+    // protected route (pages and APIs) behind authentication afterwards.
+    try { await signOut({ redirectUrl: "/" }); }
     catch { toast.error("Could not sign out. Please reconnect and try again."); }
     finally { setPending(false); }
   }

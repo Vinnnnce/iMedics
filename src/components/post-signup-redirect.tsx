@@ -1995,7 +1995,7 @@ export default function PostSignupRedirect() {
             <Button
               variant="outline"
               className="flex-1 rounded-lg"
-              onClick={() => signOut({ redirectUrl: "/auth/login" })}
+              onClick={() => signOut({ redirectUrl: "/" })}
             >
               Sign Out
             </Button>
