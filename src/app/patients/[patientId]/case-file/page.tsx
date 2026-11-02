@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft, FolderOpen, Stethoscope, FlaskConical, FileText, BedDouble,
-  Briefcase, ClipboardList, HeartPulse, FileSignature, Image as ImageIcon, Activity,
+  Briefcase, ClipboardList, HeartPulse, FileSignature, Image as ImageIcon, Activity, FileDown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { requirePageRole } from "@/lib/guards";
 import { findAccessiblePatient } from "@/lib/access";
 import { ageFromDob, formatClinicDateTime, formatDate } from "@/lib/format";
 import { calculateBMI } from "@/lib/bmi";
+import { writeAudit } from "@/lib/audit";
 
 /** Pull display text out of the loosely-structured JSON lists on a medical history. */
 function labels(value: unknown, keys: string[]): string[] {
@@ -88,6 +89,16 @@ export default async function PatientCaseFilePage({ params }: { params: Promise<
     }),
   ]);
 
+  // Every case-file view is recorded in the platform audit trail.
+  await writeAudit({
+    userId: user.id,
+    actorRole: user.role,
+    patientId: patient.id,
+    action: "PATIENT_CASE_FILE_VIEWED",
+    resourceType: "Patient",
+    resourceId: patient.id,
+  });
+
   const bmi = calculateBMI(patient.height, patient.weight);
   const allergies = labels(latestHistory?.allergies, ["allergen", "name"]);
   const conditions = labels(latestHistory?.pastHistory, ["diagnosis", "condition", "name"]);
@@ -111,9 +122,20 @@ export default async function PatientCaseFilePage({ params }: { params: Promise<
             </p>
           </div>
         </div>
-        <Badge variant="outline" className="rounded-lg">
-          <FolderOpen className="h-3 w-3 mr-1" /> Longitudinal record
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="rounded-lg">
+            <FolderOpen className="h-3 w-3 mr-1" /> Longitudinal record
+          </Badge>
+          {/* Interoperability export: the case file as a FHIR R4 collection bundle. */}
+          <a
+            href={`/api/patients/${patient.id}/fhir`}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+            data-testid="link-export-fhir"
+          >
+            <FileDown className="h-3.5 w-3.5" />
+            Export FHIR
+          </a>
+        </div>
       </div>
 
       {/* A. Patient identification and medical summary */}
