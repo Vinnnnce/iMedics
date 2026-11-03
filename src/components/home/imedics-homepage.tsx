@@ -4,16 +4,18 @@ import { useState } from "react";
 import Image from "next/image";
 import { PublicEntryLink as Link } from "@/components/shared/public-entry-link";
 import {
-  Calendar, ChevronDown, FileText, Mic, Newspaper, FlaskConical, FolderOpen,
-  HeartPulse, Menu, MessageCircle, Moon, Sparkles, Stethoscope, Star, Sun, X,
-  type LucideIcon,
+  ArrowRight, Building2, Calendar, ChevronDown, FileText, FlaskConical, FolderOpen,
+  HeartPulse, Mail, Menu, MessageCircle, Mic, Moon, Newspaper, ShieldCheck,
+  Sparkles, Star, Stethoscope, Sun, X, type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { HomeAdsCarousel } from "@/components/home/home-ads-carousel";
 import { HomeSingleAdBanner } from "@/components/home/home-single-ad-banner";
 import {
-  IMEDICS_FAQS, IMEDICS_FEATURED_PANEL, IMEDICS_FOOTER_LINKS,
-  IMEDICS_HOW_IT_WORKS_STEPS, IMEDICS_SERVICE_CARDS, type ImedicsServiceCard, type ImedicsHomeSlide,
+  IMEDICS_AUDIENCES, IMEDICS_BENEFITS, IMEDICS_CONTACT, IMEDICS_FAQS,
+  IMEDICS_FEATURED_PANEL, IMEDICS_FOOTER_LINKS, IMEDICS_HOW_IT_WORKS_STEPS,
+  IMEDICS_IMAGE_CREDITS, IMEDICS_NAV_LINKS, IMEDICS_SERVICE_CARDS,
+  type ImedicsServiceCard, type ImedicsHomeSlide,
 } from "@/lib/home/imedics-home-content";
 
 /** A simple ad from the admin content manager (no clinical data, ever). */
@@ -36,13 +38,6 @@ const SERVICE_ICONS: Record<ImedicsServiceCard["icon"], LucideIcon> = {
   "heart-pulse": HeartPulse,
   sparkles: Sparkles,
 };
-
-const NAV_LINKS = [
-  { href: "#services", label: "Services" },
-  { href: "#ratings", label: "Ratings" },
-  { href: "#how-it-works", label: "How it works" },
-  { href: "#faq", label: "FAQ" },
-] as const;
 
 export interface TopRatedDoctor {
   id: string;
@@ -163,8 +158,9 @@ function ServiceCard({ card }: { card: ImedicsServiceCard }) {
       </span>
       <span className="mt-3 text-sm font-semibold">{card.title}</span>
       <span className="mt-1 text-xs leading-relaxed text-muted-foreground">{card.description}</span>
-      <span className="mt-3 text-[11px] font-medium text-muted-foreground">
-        {card.access === "public" ? "No account needed" : "Free account required"}
+      <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-primary">
+        {card.access === "public" ? "View more" : "Get started"}
+        <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
       </span>
     </Link>
   );
@@ -190,14 +186,14 @@ export function ImedicsHomepage({
   // plain promotional content and never carry clinical data.
   const adSlides: ImedicsHomeSlide[] | undefined = carouselAds
     ? carouselAds.map((ad, i) => ({
-        id: `ad-${i}`,
-        title: ad.title,
-        description: ad.content,
-        ctaHref: ad.linkUrl || "/facilities",
-        ctaLabel: ad.linkUrl ? "Learn more" : "Explore facilities",
-        icon: "sparkles",
-        image: ad.imageUrl ?? undefined,
-      }))
+      id: `ad-${i}`,
+      title: ad.title,
+      description: ad.content,
+      ctaHref: ad.linkUrl || "/facilities",
+      ctaLabel: ad.linkUrl ? "Learn more" : "Explore facilities",
+      icon: "sparkles",
+      image: ad.imageUrl ?? undefined,
+    }))
     : undefined;
 
   return (
@@ -209,15 +205,15 @@ export function ImedicsHomepage({
             <BrandMark className="h-10" />
           </Link>
 
-          <nav className="hidden items-center gap-6 md:flex" aria-label="Primary">
-            {NAV_LINKS.map(link => (
-              <a
-                key={link.href}
+          <nav className="hidden items-center gap-4 md:flex xl:gap-5" aria-label="Primary">
+            {IMEDICS_NAV_LINKS.map(link => (
+              <Link
+                key={link.href + link.label}
                 href={link.href}
-                className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+                className={`text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring ${link.compactOnly ? "hidden xl:inline" : ""}`}
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
           </nav>
 
@@ -267,15 +263,15 @@ export function ImedicsHomepage({
             className="border-t border-border bg-background px-4 py-3 md:hidden"
           >
             <ul className="flex flex-col">
-              {NAV_LINKS.map(link => (
-                <li key={link.href}>
-                  <a
+              {IMEDICS_NAV_LINKS.map(link => (
+                <li key={link.href + link.label}>
+                  <Link
                     href={link.href}
                     onClick={() => setMenuOpen(false)}
                     className="block rounded-lg px-2 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                   >
                     {link.label}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -300,16 +296,45 @@ export function ImedicsHomepage({
       </header>
 
       <main className="flex-1 pb-16">
-        {/* Welcome area — deliberately compact; the service grid is the page */}
+        {/* Hero — what Medic1905 is, with one primary action. */}
         <section aria-labelledby="welcome-heading" className="mx-auto w-full max-w-5xl px-4 pb-8 pt-10 md:pt-14">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Welcome to Medic1905</p>
-          <h1 id="welcome-heading" className="mt-2 text-3xl font-bold leading-tight tracking-tight md:text-4xl">
-            Healthcare, all in one place.
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-            Discover medical resources, explore healthcare services, and find the information you
-            need to take your next step with confidence.
-          </p>
+          <div className="grid items-center gap-8 md:grid-cols-2">
+            <div>
+              <h1 id="welcome-heading" className="text-3xl font-bold leading-tight tracking-tight md:text-4xl">
+                Healthcare, all in one place.
+              </h1>
+              <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground md:text-base">
+                Medic1905 connects you with verified doctors, hospitals, laboratories and diagnostic
+                centres. Find a provider, book a visit, and follow your results, prescriptions and
+                case file — all in one secure place.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Link
+                  href="/doctors"
+                  data-testid="link-hero-find-doctor"
+                  className="rounded-full bg-foreground px-5 py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
+                  Find a doctor
+                </Link>
+                <Link
+                  href="/auth/signup"
+                  className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
+                  Create a free account
+                </Link>
+              </div>
+            </div>
+            <div className="relative mx-auto aspect-[4/3] w-full max-w-md overflow-hidden rounded-2xl md:aspect-[4/5]">
+              <Image
+                src="/home/hero-consultation.jpg"
+                alt="A doctor speaking with a patient during a video consultation"
+                fill
+                priority
+                sizes="(max-width: 768px) 90vw, 40vw"
+                className="object-cover"
+              />
+            </div>
+          </div>
         </section>
 
         {/* Sliding highlights card */}
@@ -326,6 +351,61 @@ export function ImedicsHomepage({
           <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
             {IMEDICS_SERVICE_CARDS.map(card => (
               <ServiceCard key={card.href} card={card} />
+            ))}
+          </div>
+        </section>
+
+        {/* Audience sections — doctors, hospitals, laboratories, diagnostic
+            centres, pharmacies and patients, each with its own entry point. */}
+        <section id="for-patients" aria-labelledby="audiences-heading" className="mx-auto w-full max-w-5xl px-4 pt-12">
+          <h2 id="audiences-heading" className="text-base font-semibold">For every part of your care</h2>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {IMEDICS_AUDIENCES.map(audience => (
+              <div
+                key={audience.key}
+                data-testid={`card-audience-${audience.key}`}
+                className="flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-foreground/40 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring"
+              >
+                {audience.image ? (
+                  <div className="relative aspect-[16/10] w-full">
+                    <Image
+                      src={audience.image}
+                      alt={audience.imageAlt ?? audience.title}
+                      fill
+                      sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 30vw"
+                      className="object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex aspect-[16/10] w-full items-center justify-center bg-accent" aria-hidden="true">
+                    <Building2 className="h-10 w-10 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex flex-1 flex-col p-4">
+                  <h3 className="text-sm font-semibold">{audience.title}</h3>
+                  <p className="mt-1 flex-1 text-xs leading-relaxed text-muted-foreground">{audience.description}</p>
+                  <Link
+                    href={audience.href}
+                    className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                  >
+                    {audience.cta}
+                    <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Benefits and key features */}
+        <section id="features" aria-labelledby="features-heading" className="mx-auto w-full max-w-5xl px-4 pt-12">
+          <h2 id="features-heading" className="text-base font-semibold">Benefits and key features</h2>
+          <div className="mt-3 grid gap-6 md:grid-cols-2">
+            {IMEDICS_BENEFITS.map(benefit => (
+              <div key={benefit.title} className="rounded-xl bg-card p-4">
+                <h3 className="text-sm font-semibold">{benefit.title}</h3>
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{benefit.description}</p>
+              </div>
             ))}
           </div>
         </section>
@@ -461,6 +541,33 @@ export function ImedicsHomepage({
             ))}
           </div>
         </section>
+
+        {/* Contact and support */}
+        <section id="contact" aria-labelledby="contact-heading" className="mx-auto w-full max-w-5xl px-4 pt-12">
+          <div className="rounded-2xl border border-border bg-card p-6 md:flex md:items-center md:justify-between md:p-8">
+            <div className="max-w-xl">
+              <h2 id="contact-heading" className="text-lg font-bold tracking-tight">{IMEDICS_CONTACT.heading}</h2>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{IMEDICS_CONTACT.description}</p>
+              <a
+                href={`mailto:${IMEDICS_CONTACT.email}`}
+                className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
+              >
+                <Mail className="h-4 w-4" aria-hidden="true" />
+                {IMEDICS_CONTACT.email}
+              </a>
+            </div>
+            <div className="mt-5 flex flex-col items-start gap-3 md:mt-0 md:items-end">
+              <p className="text-xs text-muted-foreground">{IMEDICS_CONTACT.emergency.text}</p>
+              <Link
+                href={IMEDICS_CONTACT.emergency.href}
+                className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                <HeartPulse className="h-4 w-4 text-destructive" aria-hidden="true" />
+                {IMEDICS_CONTACT.emergency.cta}
+              </Link>
+            </div>
+          </div>
+        </section>
       </main>
 
       {/* Footer */}
@@ -473,6 +580,10 @@ export function ImedicsHomepage({
             <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
               A healthcare platform, not a medical provider. Doctors and facilities are responsible
               for clinical decisions; AI content is informational only.
+            </p>
+            <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+              Secure records · role-based access · full audit trail
             </p>
           </div>
           {IMEDICS_FOOTER_LINKS.map(group => (
@@ -495,6 +606,9 @@ export function ImedicsHomepage({
         </div>
         <div className="border-t border-border px-4 py-4 text-center text-xs text-muted-foreground">
           © 2026 Medic1905. All rights reserved.
+        </div>
+        <div className="px-4 pb-4 text-center text-[11px] leading-relaxed text-muted-foreground/70">
+          {IMEDICS_IMAGE_CREDITS.join(" · ")}
         </div>
       </footer>
     </div>

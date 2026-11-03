@@ -202,3 +202,67 @@ credentials; the deployed application itself is the reference.
 - Screenshots: see section 19.
 - Deployment: unchanged (Vercel auto-deploy from `main`; CI must be green).
   Environment variables as in .env.example.
+
+## Phase 10 — Case-file folder explorer and landing-page completion
+
+Follow-up pass closing the remaining specification gaps. No schema changes;
+no removals; all existing tests kept green (924 passing, 64 environment-
+dependent skipped).
+
+### Case-file folders (Parts 2B, 3A, 3B)
+
+- New `src/lib/case-file/folders.ts`: the twelve case-file folders from the
+  Patient Electronic Case File reference (Assessments & consultations, Clinical
+  summaries, Oncology records, Surgical & procedures, Consent & agreements,
+  Laboratory requests, Radiology & diagnostics, Blood transfusion,
+  Admissions & referrals, Safety & risk records, Mortality records, Other
+  medical documents) with a classifier mapping every clinical document to
+  exactly one folder from its HIS catalogue group (A–P) and title — so
+  hospital-customised templates classify without code changes.
+- New `src/components/case-file/case-file-explorer.tsx`: folder card grid
+  with live counts, document search, filters by folder, department and year,
+  newest/oldest sort, status indicators (Draft, Pending, Verified/Final,
+  Amended), author, department, encounter, date, and open/PDF links where
+  the viewer is authorised. The component receives already-access-checked
+  entries and never queries anything itself.
+- Patient view (`/patient/case-file`): now shows the released-documents
+  explorer below the profile — released FINAL/AMENDED hospital documents
+  (with open + PDF links), verified lab results, finalised consultation
+  reports, active/expired prescriptions, released verified diagnostics and
+  approved referrals. Drafts, blank forms and unreleased documents are never
+  queried, so they cannot appear. Patient case-file views are now also
+  audited (`PATIENT_CASE_FILE_VIEWED`).
+- Professional view (`/patients/[id]/case-file`): the same explorer sits
+  directly under the patient profile card, indexing every document type the
+  doctor view already showed (history entries, consultations incl. drafts,
+  lab results incl. pending, prescriptions, admissions, released clinical
+  documents with author/department/encounter, diagnostics, nursing
+  observations, referrals). All existing sections are preserved below it.
+
+### Landing page (Part 1)
+
+- Navigation now carries the full required category set: Home, About
+  Medic1905, For Doctors, For Hospitals, Laboratory, Diagnostic Centre,
+  Pharmacy, For Patients, Features, Contact Us, Login, Sign Up (responsive;
+  full set in the mobile menu).
+- New prominent two-column hero with a real healthcare photograph and
+  primary/secondary actions (Find a doctor / Create a free account).
+- Service cards now end in a View more / Get started action.
+- New audience sections for patients, doctors, hospitals, laboratories,
+  diagnostic centres and pharmacies — five with licensed photography from
+  Wikimedia Commons (credited in the footer), hospitals with a designed
+  field.
+- New benefits and key-features section (#features) and contact & support
+  section (#contact) with support email and the emergency guides link.
+- Footer gains the security summary and photography credits.
+- All imagery is free-licensed (CC BY 2.0, CC BY-SA 4.0, public domain),
+  downloaded from Wikimedia Commons, never presented as Medic1905's own.
+
+### Verification
+
+- `npm run lint`, `npm run typecheck`, `next build` and the full Vitest
+  suite pass locally; CI re-runs the same gates on push.
+- New unit tests: folder classification (pattern- and group-based, safe
+  fallbacks) and landing-page content (navigation targets real routes or
+  on-page anchors, one audience section per account type with existing
+  images, benefits and image credits).

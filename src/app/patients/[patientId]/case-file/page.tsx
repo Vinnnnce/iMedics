@@ -13,6 +13,8 @@ import { findAccessiblePatient } from "@/lib/access";
 import { ageFromDob, formatClinicDateTime, formatDate } from "@/lib/format";
 import { calculateBMI } from "@/lib/bmi";
 import { writeAudit } from "@/lib/audit";
+import { CaseFileExplorer, type CaseFileEntry } from "@/components/case-file/case-file-explorer";
+import { classifyCaseFileDocument } from "@/lib/case-file/folders";
 
 /** Pull display text out of the loosely-structured JSON lists on a medical history. */
 function labels(value: unknown, keys: string[]): string[] {
@@ -48,19 +50,19 @@ export default async function PatientCaseFilePage({ params }: { params: Promise<
     prisma.consultation.findMany({
       where: { patientId: patient.id },
       orderBy: { createdAt: "desc" },
-      take: 10,
+      take: 50,
       include: { doctor: { include: { user: { select: { name: true } } } } },
     }),
     prisma.labResult.findMany({
       where: { patientId: patient.id },
       orderBy: { createdAt: "desc" },
-      take: 10,
+      take: 50,
       include: { values: { take: 3 } },
     }),
     prisma.prescription.findMany({
       where: { patientId: patient.id },
       orderBy: { issuedAt: "desc" },
-      take: 10,
+      take: 50,
       include: { items: true, doctor: { include: { user: { select: { name: true } } } } },
     }),
     prisma.admission.findMany({ where: { patientId: patient.id }, orderBy: { admissionDate: "desc" }, take: 10 }),
@@ -72,8 +74,8 @@ export default async function PatientCaseFilePage({ params }: { params: Promise<
     prisma.clinicalDocument.findMany({
       where: { patientId: patient.id, releasedToPatientAt: { not: null }, status: { in: ["FINAL", "AMENDED"] } },
       orderBy: { finalizedAt: "desc" },
-      take: 10,
-      select: { id: true, documentNumber: true, title: true, status: true, finalizedAt: true, facility: { select: { laboratoryName: true } } },
+      take: 50,
+      select: { id: true, documentNumber: true, title: true, groupCode: true, department: true, status: true, finalizedAt: true, createdAt: true, author: { select: { name: true } }, encounter: { select: { id: true } }, facility: { select: { laboratoryName: true } } },
     }),
     // Diagnostic examinations and imaging released to the patient.
     prisma.medicalMedia.findMany({
@@ -103,6 +105,101 @@ export default async function PatientCaseFilePage({ params }: { params: Promise<
   const allergies = labels(latestHistory?.allergies, ["allergen", "name"]);
   const conditions = labels(latestHistory?.pastHistory, ["diagnosis", "condition", "name"]);
   const currentMedications = labels(latestHistory?.medications, ["name"]).slice(0, 8);
+
+  // Case-file entries feeding the organised folder explorer: every clinical
+  // document type this view already shows, classified into the twelve folders.
+  const caseEntries: CaseFileEntry[] = [
+    ...histories.map((h): CaseFileEntry => ({
+      id: h.id,
+      kind: "consultation",
+      title: h.chiefComplaint || "History entry",
+      folder: "assessments",
+      statusLabel: h.status === "COMPLETE" ? "Complete" : "Draft",
+      statusTone: h.status === "COMPLETE" ? "final" : "draft",
+      date: h.createdAt.toISOString(),
+      href: `/patients/${patient.id}/history`,
+    })),
+    ...consultations.map((c): CaseFileEntry => ({
+      id: c.id,
+      kind: "consultation",
+      title: c.chiefComplaint || "Consultation",
+      folder: "assessments",
+      statusLabel: c.status === "FINALIZED" ? "Finalised" : "Draft",
+      statusTone: c.status === "FINALIZED" ? "final" : "draft",
+      author: c.doctor.user.name,
+      date: c.createdAt.toISOString(),
+      href: `/patients/${patient.id}/timeline`,
+    })),
+    ...labResults.map((r): CaseFileEntry => ({
+      id: r.id,
+      kind: "lab",
+      title: r.panelType,
+      folder: "laboratory",
+      statusLabel: r.status === "VERIFIED" ? "Verified" : "Pending",
+      statusTone: r.status === "VERIFIED" ? "final" : "pending",
+      department: r.labName ?? undefined,
+      date: r.createdAt.toISOString(),
+    })),
+    ...prescriptions.map((p): CaseFileEntry => ({
+      id: p.id,
+      kind: "prescription",
+      title: p.items.map((i) => i.drugName).join(", ") || "Prescription",
+      folder: "other",
+      statusLabel: p.status === "ACTIVE" ? "Active" : p.status === "EXPIRED" ? "Expired" : "Discontinued",
+      statusTone: "final",
+      author: p.doctor.user.name,
+      date: p.issuedAt.toISOString(),
+    })),
+    ...admissions.map((a): CaseFileEntry => ({
+      id: a.id,
+      kind: "admission",
+      title: `Admission — ${formatDate(a.admissionDate)}`,
+      folder: "admissions",
+      statusLabel: a.status === "ACTIVE" ? "Active" : "Closed",
+      statusTone: a.status === "ACTIVE" ? "final" : "amended",
+      date: a.admissionDate.toISOString(),
+    })),
+    ...clinicalDocuments.map((d): CaseFileEntry => ({
+      id: d.id,
+      kind: "document",
+      title: d.title,
+      folder: classifyCaseFileDocument(d.groupCode, d.title),
+      statusLabel: d.status === "AMENDED" ? "Amended" : "Final",
+      statusTone: d.status === "AMENDED" ? "amended" : "final",
+      author: d.author?.name,
+      department: d.department ?? undefined,
+      encounter: d.encounter ? d.encounter.id.slice(0, 8) : undefined,
+      date: (d.finalizedAt ?? d.createdAt).toISOString(),
+    })),
+    ...media.map((m): CaseFileEntry => ({
+      id: m.id,
+      kind: "media",
+      title: m.examinationType,
+      folder: "radiology",
+      statusLabel: m.reportStatus === "VERIFIED" ? "Verified" : m.reportStatus === "AMENDED" ? "Amended" : "Pending",
+      statusTone: m.reportStatus === "VERIFIED" ? "final" : m.reportStatus === "AMENDED" ? "amended" : "pending",
+      department: m.facility.laboratoryName ?? "Diagnostic centre",
+      date: (m.examinationAt ?? new Date()).toISOString(),
+    })),
+    ...nursingObservations.map((n): CaseFileEntry => ({
+      id: n.id,
+      kind: "document",
+      title: n.observationType.replace(/_/g, " ").toLowerCase(),
+      folder: "admissions",
+      statusLabel: "Recorded",
+      statusTone: "final",
+      date: n.recordedAt.toISOString(),
+    })),
+    ...referrals.map((r): CaseFileEntry => ({
+      id: r.id,
+      kind: "referral",
+      title: r.serviceId ? "Service referral" : "Facility referral",
+      folder: "admissions",
+      statusLabel: r.status === "PENDING" ? "Pending" : r.status === "DECLINED" ? "Declined" : r.status === "FULFILLED" ? "Fulfilled" : "Accepted",
+      statusTone: r.status === "PENDING" ? "pending" : r.status === "DECLINED" ? "draft" : "final",
+      date: r.createdAt.toISOString(),
+    })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 md:px-0">
@@ -158,7 +255,12 @@ export default async function PatientCaseFilePage({ params }: { params: Promise<
         </CardContent>
       </Card>
 
-      {/* B. Medical history */}
+      {/* B. Organised case-file folders — the twelve-folder grid from the
+          case-file reference, with search, filters and sort over every
+          document this view is authorised to see. */}
+      <CaseFileExplorer entries={caseEntries} viewLabel="All clinical documents for this patient" />
+
+      {/* C. Medical history */}
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">

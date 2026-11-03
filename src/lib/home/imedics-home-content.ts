@@ -226,3 +226,153 @@ export const IMEDICS_FOOTER_LINKS: ReadonlyArray<{
     ],
   },
 ];
+
+/**
+ * Landing-page navigation, following the Beeline products-page layout
+ * approach: a small set of audience categories that mirror how the platform is
+ * actually used. Anchors (#…) target sections on this page; every other link
+ * targets a real route (validated below in the same spirit as the cards).
+ */
+export interface ImedicsNavLink {
+  label: string;
+  href: string;
+  /** Hide from the compact desktop bar (still shown in the mobile menu). */
+  compactOnly?: boolean;
+}
+
+export const IMEDICS_NAV_LINKS: readonly ImedicsNavLink[] = [
+  { label: "Home", href: "/" },
+  { label: "About Medic1905", href: "/about", compactOnly: true },
+  { label: "For Doctors", href: "/doctors" },
+  { label: "For Hospitals", href: "/hospitals", compactOnly: true },
+  { label: "Laboratory", href: "/laboratories" },
+  { label: "Diagnostic Centre", href: "/diagnostic-centres", compactOnly: true },
+  { label: "Pharmacy", href: "/pharmacies", compactOnly: true },
+  { label: "For Patients", href: "#for-patients" },
+  { label: "Features", href: "#features" },
+  { label: "Contact Us", href: "#contact" },
+];
+
+/** The six audience sections — one for each kind of Medic1905 account. */
+export interface ImedicsAudience {
+  key: "patients" | "doctors" | "hospitals" | "laboratories" | "diagnostics" | "pharmacies";
+  title: string;
+  description: string;
+  cta: string;
+  href: string;
+  /** Image in /public/home (omitted when the card uses a designed field). */
+  image?: string;
+  imageAlt?: string;
+}
+
+export const IMEDICS_AUDIENCES: readonly ImedicsAudience[] = [
+  {
+    key: "patients",
+    title: "For patients",
+    description: "Find a doctor, book visits, consult securely, and follow your results, prescriptions and case file in one place.",
+    cta: "Get started",
+    href: "/auth/signup",
+    image: "/home/patients-consultation.jpg",
+    imageAlt: "A doctor speaking with a patient during an online consultation",
+  },
+  {
+    key: "doctors",
+    title: "For doctors",
+    description: "A clinical workspace with your patients, consultations, AI-assisted analysis and clinical tools — independent or within a facility.",    cta: "Join as a doctor",
+    href: "/auth/signup",
+    image: "/home/doctors-workspace.jpg",
+    imageAlt: "A health professional organising medication beside a laptop",
+  },
+  {
+    key: "hospitals",
+    title: "For hospitals",
+    description: "Wards, doctors, nurses, laboratory, pharmacy, billing and administration in one hospital-grade workspace, with per-department permissions.",
+    cta: "List your hospital",
+    href: "/hospitals",
+  },
+  {
+    key: "laboratories",
+    title: "Laboratories",
+    description: "Receive requests, record and verify results, and release them straight to the patient's case file and doctor.",
+    cta: "Find a laboratory",
+    href: "/laboratories",
+    image: "/home/laboratory-centrifuge.jpg",
+    imageAlt: "A laboratory technician loading a sample into a centrifuge",
+  },
+  {
+    key: "diagnostics",
+    title: "Diagnostic centres",
+    description: "Manage diagnostic and imaging examinations, verify reports and share them securely with patients and referrers.",
+    cta: "Find a centre",
+    href: "/diagnostic-centres",
+    image: "/home/diagnostics-radiology.jpg",
+    imageAlt: "A modern diagnostic imaging suite with scanners",
+  },
+  {
+    key: "pharmacies",
+    title: "Pharmacies",
+    description: "Receive prescriptions from doctors, manage your formulary and serve patients from a dedicated pharmacy workspace.",
+    cta: "Find a pharmacy",
+    href: "/pharmacies",
+    image: "/home/pharmacy-team.jpg",
+    imageAlt: "Pharmacists at work in a pharmacy",
+  },
+];
+
+/** Key platform benefits — the #features section. */
+export interface ImedicsBenefit {
+  title: string;
+  description: string;
+}
+
+export const IMEDICS_BENEFITS: readonly ImedicsBenefit[] = [
+  {
+    title: "One central case file",
+    description: "Every consultation, result, prescription and document is stored in a single patient case file — not scattered across departments.",
+  },
+  {
+    title: "Verified doctors and facilities",
+    description: "Hospitals, laboratories, diagnostic centres and pharmacies are verified organisations; doctor credentials are checked at registration.",
+  },
+  {
+    title: "Results you can actually follow",
+    description: "Laboratory and diagnostic results appear in your account as soon as they are verified, with reference ranges and your doctor's interpretation.",
+  },
+  {
+    title: "Security by design",
+    description: "Role-based access, encrypted storage and a full audit trail: your record is only visible to the doctors you allow and the facilities treating you.",
+  },
+  {
+    title: "AI-assisted, doctor-checked",
+    description: "AI tools help with questions and analysis, while clinical decisions always remain with your doctors and facilities.",
+  },
+  {
+    title: "For organisations of every size",
+    description: "From an independent doctor's practice to a full hospital, each facility configures its own departments, staff and permissions.",
+  },
+];
+
+/** Contact and support information shown in the #contact section. */
+export const IMEDICS_CONTACT = {
+  heading: "Contact and support",
+  description:
+    "Questions about your account, booking, or listing a facility? Our support team replies within one business day.",
+  email: "support@medic1905.com",
+  emergency: {
+    text: "In an emergency, call your local emergency number immediately.",
+    cta: "Emergency & CPR guides",
+    href: "/emergency",
+  },
+} as const;
+
+/**
+ * Photography credits for the images used on the landing page (all from
+ * Wikimedia Commons under free licences). Rendered small in the footer.
+ */
+export const IMEDICS_IMAGE_CREDITS: readonly string[] = [
+  "Video consultation photographs by Shixart1985, CC BY 2.0, via Wikimedia Commons",
+  "Doctor workspace photograph by Shixart1985, CC BY 2.0, via Wikimedia Commons",
+  "Laboratory photograph by Goleisureintl, CC BY-SA 4.0, via Wikimedia Commons",
+  "Diagnostic imaging photograph by Goleisureintl, CC BY-SA 4.0, via Wikimedia Commons",
+  "Pharmacy photograph by Amy Urbina, public domain, via Wikimedia Commons",
+];
