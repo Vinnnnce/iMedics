@@ -5,7 +5,7 @@ import Image from "next/image";
 import { PublicEntryLink as Link } from "@/components/shared/public-entry-link";
 import {
   ArrowRight, Building2, Calendar, ChevronDown, FileText, FlaskConical, FolderOpen,
-  HeartPulse, Mail, Menu, MessageCircle, Mic, Moon, Newspaper, ShieldCheck,
+  HeartPulse, Mail, Menu, MessageCircle, Mic, Moon, Newspaper, Pill, ShieldCheck,
   Sparkles, Star, Stethoscope, Sun, X, type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
@@ -378,7 +378,11 @@ export function ImedicsHomepage({
                   </div>
                 ) : (
                   <div className="flex aspect-[16/10] w-full items-center justify-center bg-accent" aria-hidden="true">
-                    <Building2 className="h-10 w-10 text-muted-foreground" />
+                    {audience.key === "pharmacies" ? (
+                      <Pill className="h-10 w-10 text-muted-foreground" />
+                    ) : (
+                      <Building2 className="h-10 w-10 text-muted-foreground" />
+                    )}
                   </div>
                 )}
                 <div className="flex flex-1 flex-col p-4">

@@ -314,8 +314,6 @@ export const IMEDICS_AUDIENCES: readonly ImedicsAudience[] = [
     description: "Receive prescriptions from doctors, manage your formulary and serve patients from a dedicated pharmacy workspace.",
     cta: "Find a pharmacy",
     href: "/pharmacies",
-    image: "/home/pharmacy-team.jpg",
-    imageAlt: "Pharmacists at work in a pharmacy",
   },
 ];
 
@@ -374,5 +372,4 @@ export const IMEDICS_IMAGE_CREDITS: readonly string[] = [
   "Doctor workspace photograph by Shixart1985, CC BY 2.0, via Wikimedia Commons",
   "Laboratory photograph by Goleisureintl, CC BY-SA 4.0, via Wikimedia Commons",
   "Diagnostic imaging photograph by Goleisureintl, CC BY-SA 4.0, via Wikimedia Commons",
-  "Pharmacy photograph by Amy Urbina, public domain, via Wikimedia Commons",
 ];

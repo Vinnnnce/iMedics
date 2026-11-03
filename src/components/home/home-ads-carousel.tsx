@@ -91,7 +91,7 @@ export function HomeAdsCarousel({ slides }: { slides?: readonly ImedicsHomeSlide
         {total > 1 && (
           // The overlay only carries the buttons: it must not swallow clicks
           // on the slide's call-to-action underneath it.
-          <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center justify-between px-2">
+          <div className="pointer-events-none absolute inset-y-0 left-0 right-0 hidden items-center justify-between px-2 sm:flex">
             <button
               type="button"
               onClick={() => goTo(index - 1)}
