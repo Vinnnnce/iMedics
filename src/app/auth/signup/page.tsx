@@ -2,37 +2,7 @@
 
 import { SignUp } from "@clerk/nextjs";
 import Image from "next/image";
-
-const clerkAppearance = {
-  variables: {
-    colorBackground: "var(--card)",
-    colorText: "var(--foreground)",
-    colorTextSecondary: "var(--muted-foreground)",
-    colorInputText: "var(--foreground)",
-    colorInputBackground: "var(--muted)",
-    colorInputBorderColor: "var(--border)",
-    colorInputPlaceholder: "var(--muted-foreground)",
-    colorPrimary: "var(--foreground)",
-    colorPrimaryText: "var(--background)",
-    colorDanger: "var(--destructive)",
-    borderRadius: "0.5rem",
-  },
-  elements: {
-    card: "bg-transparent border-0 shadow-none",
-    headerTitle: "text-foreground",
-    headerSubtitle: "text-muted-foreground",
-    formButtonPrimary: "bg-foreground text-background font-semibold hover:opacity-90",
-    formFieldLabel: "text-foreground",
-    formFieldInput: "bg-muted border-border text-foreground placeholder:text-muted-foreground",
-    socialButtonsBlockButton: "border border-border text-foreground bg-secondary",
-    socialButtonsBlockButtonText: "text-foreground",
-    footerActionLink: "text-foreground underline",
-    alternativeMethodsBlockButtonArrow: "text-foreground",
-    dividerLine: "bg-border",
-    dividerText: "text-muted-foreground",
-    footer: "bg-transparent",
-  },
-};
+import { clerkAppearance } from "@/lib/clerk-appearance";
 
 export default function SignUpPage() {
   return (

@@ -235,6 +235,18 @@
   transform: translateY(-2px);
 }
 
+/* Clerk widget text (labels, footer tagline): Clerk's internal stylesheet
+   assumes a white background, so its grays vanish on the dark card. The
+   secondary texts (footer action, divider, "Secured by") get the muted
+   token via the appearance config's !important utilities and this rule;
+   the labels need the full foreground token. */
+.cl-formFieldLabel {
+  color: var(--foreground);
+}
+.cl-footer p {
+  color: var(--muted-foreground);
+}
+
 /* Module card — horizontal navigation card */
 .module-card {
   border-radius: 1rem;
