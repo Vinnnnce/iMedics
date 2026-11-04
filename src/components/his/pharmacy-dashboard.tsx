@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PatientIdentify, type IdentifiedPatient } from "./patient-identify";
+import { PharmacyInventory } from "./pharmacy-inventory";
 import { api, inputClass, textareaClass } from "./use-api";
 
 interface OrderRow {
@@ -53,7 +54,7 @@ interface OutboxRow { id: string; status: string; attempts: number; lastError: s
  *  against rules the hospital did not enter, recommends dosing or integrates
  *  live dispensing hardware. */
 export function PharmacyDashboard({ canOrder, canReview, canManageFormulary }: { canOrder: boolean; canReview: boolean; canManageFormulary: boolean }) {
-  const [mode, setMode] = useState<"worklist" | "patient">("worklist");
+  const [mode, setMode] = useState<"worklist" | "patient" | "inventory">("worklist");
   const [patient, setPatient] = useState<IdentifiedPatient | null>(null);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [filter, setFilter] = useState<string>("ACTIVE");
@@ -67,7 +68,9 @@ export function PharmacyDashboard({ canOrder, canReview, canManageFormulary }: {
   const [frequency, setFrequency] = useState("");
   const [duration, setDuration] = useState("");
   const [notes, setNotes] = useState("");
+  const [aiBusy, setAiBusy] = useState<string | null>(null);
   const [safetyAlerts, setSafetyAlerts] = useState<string[]>([]);
+  const [aiReviews, setAiReviews] = useState<Record<string, { reviewNotes: string; checksToConfirm: string[]; aiGenerated: boolean; disclaimer: string }>>({});
   // Formulary management
   const [formulary, setFormulary] = useState<FormularyRow[]>([]);
   const [fName, setFName] = useState("");
@@ -133,10 +136,13 @@ export function PharmacyDashboard({ canOrder, canReview, canManageFormulary }: {
       <div className="flex flex-wrap items-center gap-2">
         <Button variant={mode === "worklist" ? "default" : "outline"} size="sm" onClick={() => { setMode("worklist"); setPatient(null); }} data-testid="button-worklist">Facility worklist</Button>
         <Button variant={mode === "patient" ? "default" : "outline"} size="sm" onClick={() => setMode("patient")} data-testid="button-patient-view">Patient orders</Button>
+        <Button variant={mode === "inventory" ? "default" : "outline"} size="sm" onClick={() => setMode("inventory")} data-testid="button-inventory">Inventory & suppliers</Button>
         {mode === "patient" && patient && (
           <span className="text-sm text-muted-foreground">{patient.firstName} {patient.lastName} · Case {patient.caseNumber}</span>
         )}
       </div>
+
+      {mode === "inventory" && <PharmacyInventory />}
 
       {mode === "patient" && !patient && (
         <PatientIdentify onFound={setPatient} label="Open medication history" />
@@ -229,6 +235,32 @@ export function PharmacyDashboard({ canOrder, canReview, canManageFormulary }: {
                   </div>
                   <span className={`rounded-full px-2 py-0.5 text-xs ${statusClass(o.status)}`}>{STATUS_LABEL[o.status] ?? o.status}</span>
                 </div>
+                {canReview && (
+                  <div className="mt-2">
+                    <Button size="sm" variant="outline" data-testid={`button-ai-review-${o.id}`} disabled={aiBusy === o.id} onClick={() => void (async () => {
+                      setAiBusy(o.id);
+                      try {
+                        const data = await api<{ reviewNotes: string; checksToConfirm: string[]; aiGenerated: boolean; disclaimer: string }>("/api/facility/his/ai/pharmacy", { method: "POST", body: { medicationOrderId: o.id } });
+                        setAiReviews((prev) => ({ ...prev, [o.id]: data }));
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : "AI review failed");
+                      } finally {
+                        setAiBusy(null);
+                      }
+                    })()}>{aiBusy === o.id ? "Reviewing…" : "AI review draft"}</Button>
+                    {aiReviews[o.id] && (
+                      <div className="mt-2 rounded-lg border bg-muted/30 p-2 text-xs" data-testid={`ai-review-${o.id}`}>
+                        <p className="whitespace-pre-line">{aiReviews[o.id].reviewNotes}</p>
+                        {aiReviews[o.id].checksToConfirm.length > 0 && (
+                          <ul className="mt-1 list-disc pl-4">
+                            {aiReviews[o.id].checksToConfirm.map((c, i) => <li key={i}>{c}</li>)}
+                          </ul>
+                        )}
+                        <p className="mt-1 text-muted-foreground">{aiReviews[o.id].aiGenerated ? "AI-generated. " : ""}{aiReviews[o.id].disclaimer}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {(STATUS_FLOW[o.status] ?? []).length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
                     {(STATUS_FLOW[o.status] ?? []).map((next) => {

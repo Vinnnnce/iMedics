@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PatientIdentify, type IdentifiedPatient } from "./patient-identify";
+import { NursingAssessments } from "./nursing-assessments";
 import { api, inputClass, textareaClass } from "./use-api";
 import { OBSERVATION_TYPES } from "@/lib/his/observation-types";
 
@@ -122,6 +123,8 @@ export function NursingDashboard({ canRecord, canAdminister }: { canRecord: bool
       </div>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {notice && <p role="status" className="text-sm text-emerald-700">{notice}</p>}
+
+      <NursingAssessments patientId={patient.id} canRecord={canRecord} />
 
       <section className="space-y-3 rounded-lg border p-4">
         <h2 className="font-semibold">Observations</h2>

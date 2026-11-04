@@ -50,6 +50,65 @@ export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }
     },
   });
 
+  // Stock integration: dispensing consumes batches first-expiry-first-out.
+  // If no stock is tracked for this medication, dispensing still succeeds
+  // (the pharmacy may manage stock outside the platform).
+  if (status === "DISPENSED") {
+    const dispensed = await prisma.$transaction(async (tx) => {
+      const quantity = Math.max(1, Number.parseInt(order.duration ?? "1", 10) || 1);
+      let remaining = quantity;
+      const batches = await tx.pharmacyStockBatch.findMany({
+        where: {
+          facilityId: access.facility.id,
+          medicationName: order.medicationName,
+          quantity: { gt: 0 },
+          expiresAt: { gt: now },
+        },
+        orderBy: { expiresAt: "asc" },
+      });
+      for (const batch of batches) {
+        if (remaining <= 0) break;
+        const take = Math.min(batch.quantity, remaining);
+        await tx.pharmacyStockBatch.update({
+          where: { id: batch.id },
+          data: { quantity: { decrement: take } },
+        });
+        remaining -= take;
+      }
+      // Controlled medicines: every dispense enters the register.
+      const formulary = await tx.formularyItem.findFirst({
+        where: { facilityId: access.facility.id, medicationName: order.medicationName, controlled: true },
+        select: { controlled: true },
+      });
+      if (formulary?.controlled) {
+        await tx.controlledSubstanceEvent.create({
+          data: {
+            facilityId: access.facility.id,
+            medicationName: order.medicationName,
+            eventType: "DISPENSED",
+            quantity,
+            unit: order.strength ?? "units",
+            patientId: order.patientId,
+            staffId: user.id,
+            reference: `Order ${order.id.slice(0, 8)}`,
+          },
+        });
+      }
+      return { fullyCovered: remaining <= 0, tracked: batches.length > 0 };
+    });
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        facilityId: access.facility.id,
+        patientId: order.patientId,
+        action: "PHARMACY_STOCK_DISPENSED",
+        resourceType: "MedicationOrder",
+        resourceId: id,
+        details: dispensed,
+      },
+    });
+  }
+
   // E-prescribing integration boundary: submission enqueues an outbound
   // snapshot. Delivery requires a configured external endpoint; without one the
   // entry stays PENDING as a documented dependency — never a claimed transmission.

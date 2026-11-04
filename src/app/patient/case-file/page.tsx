@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CaseFileExplorer, type CaseFileEntry } from "@/components/case-file/case-file-explorer";
+import { PatientAssistant } from "@/components/patient/patient-assistant";
 import { prisma } from "@/lib/prisma";
 import { getPatientProfile, requirePageRole } from "@/lib/guards";
 import { writeAudit } from "@/lib/audit";
@@ -222,6 +223,8 @@ export default async function PatientCaseFilePage() {
       </Card>
 
       <CaseFileExplorer entries={entries} viewLabel="Released documents approved for you" />
+
+      <PatientAssistant />
     </div>
   );
 }

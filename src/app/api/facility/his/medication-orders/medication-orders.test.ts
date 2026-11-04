@@ -14,8 +14,12 @@ vi.mock("@/lib/prisma", () => ({
     medicationOrder: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     medicalHistory: { findMany: vi.fn() },
     medicationInteractionRule: { findMany: vi.fn() },
-    formularyItem: { findMany: vi.fn() },
+    formularyItem: { findMany: vi.fn(), findFirst: vi.fn() },
     ePrescriptionOutbox: { create: vi.fn() },
+    pharmacyStockBatch: { findMany: vi.fn(), update: vi.fn() },
+    controlledSubstanceEvent: { create: vi.fn() },
+    auditLog: { create: vi.fn() },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -97,7 +101,11 @@ describe("workflow transitions", () => {
 
   it("stamps the dispense time when dispensed", async () => {
     vi.mocked(requireHisAccess).mockResolvedValue({ facility: { id: "hospital-a" }, user: { id: "pharm-1", role: "PHARMACIST" }, permissions: ["REVIEW_MEDICATIONS"] } as never);
-    vi.mocked(prisma.medicationOrder.findFirst).mockResolvedValue({ id: ORDER_ID, status: "REVIEWED", patientId: PATIENT, prescriberId: "doctor-1" } as never);
+    vi.mocked(prisma.medicationOrder.findFirst).mockResolvedValue({ id: ORDER_ID, status: "REVIEWED", patientId: PATIENT, prescriberId: "doctor-1", medicationName: "Paracetamol", patient: { caseNumber: "CASE-1" } } as never);
+    // dispensing runs the FEFO stock transaction; no tracked batches here
+    vi.mocked(prisma.$transaction).mockImplementation(((fn: (tx: unknown) => unknown) => fn(prisma)) as never);
+    vi.mocked(prisma.pharmacyStockBatch.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.formularyItem.findFirst).mockResolvedValue(null as never);
     vi.mocked(prisma.medicationOrder.update).mockResolvedValue({ id: ORDER_ID, status: "DISPENSED" } as never);
     const res = await patchOrder(json("PATCH", "/api/facility/his/medication-orders/${ORDER_ID}", { status: "DISPENSED" }), ctx(ORDER_ID));
     expect(res.status).toBe(200);

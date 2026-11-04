@@ -2,7 +2,35 @@ import type { NextRequest } from "next/server";
 import type { FacilityStaffRole, LabStaffProfile, User } from "@prisma/client";
 import { prisma } from "./prisma";
 import { badRequest, forbidden, notFound } from "./errors";
-import { permissionsForRole, roleHasPermission, type FacilityPermission } from "./facility-staff";
+import { permissionsForRole, roleHasPermission, FACILITY_PERMISSIONS, type FacilityPermission } from "./facility-staff";
+
+/**
+ * Role defaults plus the facility's per-staff permission overrides
+ * ({ add: [...], remove: [...] }). Overrides are applied only when the
+ * membership's access level is CUSTOM; otherwise role defaults stand.
+ * Overriding can only grant permissions the facility admin selected from
+ * the known permission catalogue — never invent new ones.
+ */
+export function effectivePermissions(membership: {
+  facilityRole: FacilityStaffRole;
+  accessLevel: string;
+  permissionOverrides: unknown;
+}): readonly FacilityPermission[] {
+  const base = permissionsForRole(membership.facilityRole);
+  if (membership.accessLevel !== "CUSTOM") return base;
+  const raw = membership.permissionOverrides;
+  let add: string[] = [];
+  let remove: string[] = [];
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const o = raw as { add?: unknown; remove?: unknown };
+    if (Array.isArray(o.add)) add = o.add.filter((x): x is string => typeof x === "string");
+    if (Array.isArray(o.remove)) remove = o.remove.filter((x): x is string => typeof x === "string");
+  }
+  const set = new Set(base);
+  for (const p of add) if ((FACILITY_PERMISSIONS as readonly string[]).includes(p)) set.add(p as FacilityPermission);
+  for (const p of remove) set.delete(p as FacilityPermission);
+  return Array.from(set);
+}
 
 export interface FacilityAccess {
   user: User;
@@ -18,6 +46,8 @@ interface MembershipRow {
   facilityRole: FacilityStaffRole;
   status: string;
   userId: string | null;
+  accessLevel: string;
+  permissionOverrides: unknown;
   facility: LabStaffProfile;
 }
 
@@ -44,7 +74,7 @@ export async function requireFacilityAccess(
 
   const memberships: MembershipRow[] = await prisma.facilityStaff.findMany({
     where: { userId: user.id, status: { in: ["ACTIVE", "ON_LEAVE"] } },
-    select: { id: true, facilityRole: true, status: true, userId: true, facility: true },
+    select: { id: true, facilityRole: true, status: true, userId: true, accessLevel: true, permissionOverrides: true, facility: true },
   });
 
   if (memberships.length === 0) {
@@ -68,7 +98,8 @@ export async function requireFacilityAccess(
   if (options.requireVerified !== false && facility.verificationStatus !== "VERIFIED") {
     throw forbidden("This facility is not verified yet");
   }
-  if (permission && !roleHasPermission(membership.facilityRole, permission)) {
+  const effective = effectivePermissions(membership);
+  if (permission && !effective.includes(permission)) {
     throw forbidden("Your role does not allow this action");
   }
 
@@ -77,7 +108,7 @@ export async function requireFacilityAccess(
     facility,
     staffId: membership.id,
     facilityRole: membership.facilityRole,
-    permissions: permissionsForRole(membership.facilityRole),
+    permissions: effective,
   };
 }
 

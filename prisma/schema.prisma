@@ -70,6 +70,15 @@ model User {
   diagnosticReportVersions DiagnosticReportVersion[] @relation("DiagnosticReportVersionBy")
   diagnosticImagesUploaded DiagnosticImage[]       @relation("DiagnosticImageUploadedBy")
   criticalAlertsAcked     CriticalResultAlert[]    @relation("CriticalAlertAcknowledgedBy")
+  staffAccessGrantsGiven   StaffPatientAccess[]    @relation("StaffPatientAccessGrantedBy")
+  staffAccessGrantsRevoked StaffPatientAccess[]   @relation("StaffPatientAccessRevokedBy")
+  nursingAssessments       NursingAssessment[]    @relation("NursingAssessmentAssessor")
+  nursingCarePlansAuthored NursingCarePlan[]      @relation("NursingCarePlanAuthor")
+  equipmentMaintenance     LabEquipmentMaintenanceLog[] @relation("MaintenancePerformedBy")
+  qcRunsPerformed          LabQualityControlRun[]  @relation("QcPerformedBy")
+  pharmacyOrdersCreated     PharmacyPurchaseOrder[] @relation("PharmacyOrderCreatedBy")
+  controlledEventsCreated  ControlledSubstanceEvent[] @relation("ControlledEventCreatedBy")
+  aiUsageLogs              AiUsageLog[]           @relation("AiUsageLogUser")
 
   @@index([role])
   @@index([status])
@@ -228,6 +237,16 @@ model LabStaffProfile {
   staffMembers            FacilityStaff[]
   referrals               FacilityReferral[]
   accreditations          FacilityAccreditation[]
+  wards                   Ward[]                   @relation("WardFacility")
+  beds                    Bed[]                    @relation("BedFacility")
+  labEquipment            LabEquipment[]           @relation("LabEquipmentFacility")
+  labReagents             LabReagent[]             @relation("LabReagentFacility")
+  qcRuns                  LabQualityControlRun[]    @relation("LabQcRunFacility")
+  pharmacySuppliers       PharmacySupplier[]       @relation("PharmacySupplierFacility")
+  pharmacyPurchaseOrders  PharmacyPurchaseOrder[]  @relation("PharmacyPurchaseOrderFacility")
+  stockBatches            PharmacyStockBatch[]     @relation("PharmacyStockBatchFacility")
+  controlledEvents        ControlledSubstanceEvent[] @relation("ControlledEventFacility")
+  aiUsageLogs             AiUsageLog[]            @relation("AiUsageLogFacility")
   documentTemplates       FacilityDocumentTemplate[]
   issuedDocuments         PatientDocument[]         @relation("IssuingFacility")
   documentShares          DocumentFacilityShare[]   @relation("FacilityDocumentShares")
@@ -369,6 +388,14 @@ model Patient {
   /// Hospital admissions (Module 01).
   admissions        Admission[]
   criticalAlerts    CriticalResultAlert[]
+  /// Set for temporary records created in the emergency department before
+  /// identification; reconciled into a real record via case number + DOB.
+  unidentified      Boolean              @default(false) @map("unidentified")
+  staffAccessGrants StaffPatientAccess[] @relation("StaffPatientAccessPatient")
+  breakGlassAccesses BreakGlassAccess[]  @relation("BreakGlassPatient")
+  nursingAssessments NursingAssessment[] @relation("NursingAssessmentPatient")
+  carePlans         NursingCarePlan[]   @relation("NursingCarePlanPatient")
+  controlledEvents  ControlledSubstanceEvent[] @relation("ControlledEventPatient")
 
   @@index([lastName, firstName])
   @@index([deletedAt])
@@ -1520,6 +1547,27 @@ enum FacilityStaffStatus {
   TERMINATED
 }
 
+/// How widely a staff member may reach patient records inside their facility.
+/// LIMITED: only patients explicitly assigned via StaffPatientAccess.
+/// STANDARD: role defaults (care-relationship based).
+/// EXTENDED: STANDARD plus every patient in the assigned departments.
+/// FULL: every patient with a care relationship at this facility (never other facilities).
+/// CUSTOM: role defaults modified by the facility's per-staff permission overrides.
+enum StaffAccessLevel {
+  LIMITED
+  STANDARD
+  EXTENDED
+  FULL
+  CUSTOM
+}
+
+/// Why a staff member can reach a specific patient. TEMPORARY grants expire.
+enum StaffPatientAccessScope {
+  CARE_TEAM
+  DEPARTMENT
+  TEMPORARY
+}
+
 enum EmploymentType {
   FULL_TIME
   PART_TIME
@@ -1643,6 +1691,15 @@ model FacilityStaff {
   invitedById          String?              @map("invited_by_id") @db.Uuid
   acceptedAt           DateTime?            @map("accepted_at")
   /// Facility-controlled directory visibility. Publication also requires staff consent.
+  /// Facility-defined custom staff category label (e.g. "Sonographer", "Ward Manager").
+  customCategory       String?              @map("custom_category") @db.VarChar(120)
+  /// Patient-record reach inside this facility. See StaffAccessLevel docs.
+  accessLevel          StaffAccessLevel     @default(STANDARD) @map("access_level")
+  /// Extra department ids for EXTENDED access (facility's own departments only).
+  departmentIds        String[]             @default([]) @map("department_ids")
+  /// Per-staff permission overrides applied to the role defaults:
+  /// { "add": ["ENTER_RESULTS"], "remove": ["RELEASE_RESULTS"] } (CUSTOM access level).
+  permissionOverrides  Json                 @default("{}") @map("permission_overrides")
   publicProfileVisible Boolean              @default(false) @map("public_profile_visible")
   /// The staff member's own affirmative, revocable consent to appear on the public portfolio.
   profileConsent       Boolean              @default(false) @map("profile_consent")
@@ -1669,11 +1726,67 @@ model FacilityStaff {
   credentials          StaffCredential[]
   verifiedCredentials  StaffCredential[]    @relation("CredentialVerifiedBy")
   assignedBookings     FacilityBooking[]    @relation("BookingAssignedStaff")
+  patientAccessGrants  StaffPatientAccess[]
+  breakGlassAccesses   BreakGlassAccess[]
 
   @@unique([facilityId, email])
   @@index([facilityId, status])
   @@index([userId])
   @@map("facility_staff")
+}
+
+/// An explicit grant that lets a specific staff member reach a specific
+/// patient's records at this facility. Grants are facility-scoped, audited,
+/// optionally temporary, and can be revoked at any time. A staff account
+/// alone never implies access to every patient.
+model StaffPatientAccess {
+  id            String                  @id @default(uuid()) @db.Uuid
+  facilityId    String                  @map("facility_id") @db.Uuid
+  staffId       String                  @map("staff_id") @db.Uuid
+  patientId     String                  @map("patient_id") @db.Uuid
+  scope         StaffPatientAccessScope @default(CARE_TEAM)
+  justification String?                 @db.VarChar(500)
+  /// TEMPORARY grants expire; null means no expiry.
+  expiresAt     DateTime?
+  grantedById   String                  @map("granted_by_id") @db.Uuid
+  grantedAt     DateTime                @default(now()) @map("granted_at")
+  revokedAt     DateTime?
+  revokedById   String?                 @map("revoked_by_id") @db.Uuid
+
+  staff         FacilityStaff           @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  patient       Patient                 @relation("StaffPatientAccessPatient", fields: [patientId], references: [id], onDelete: Cascade)
+  grantedBy     User                    @relation("StaffPatientAccessGrantedBy", fields: [grantedById], references: [id])
+  revokedBy     User?                   @relation("StaffPatientAccessRevokedBy", fields: [revokedById], references: [id])
+
+  @@unique([staffId, patientId])
+  @@index([facilityId, staffId])
+  @@index([patientId])
+  @@map("staff_patient_access")
+}
+
+/// Emergency ("break-glass") access to a patient's records. Requires a
+/// mandatory justification, is time-limited, and every grant is audited and
+/// shown to compliance officers. Access ends at expiry or when closed.
+model BreakGlassAccess {
+  id             String    @id @default(uuid()) @db.Uuid
+  facilityId     String    @map("facility_id") @db.Uuid
+  staffId        String    @map("staff_id") @db.Uuid
+  patientId      String    @map("patient_id") @db.Uuid
+  /// Mandatory clinical or safety justification (minimum 20 characters).
+  justification   String    @db.VarChar(2000)
+  grantedAt      DateTime  @default(now()) @map("granted_at")
+  /// Hard expiry (default 4 hours from grant).
+  expiresAt      DateTime
+  closedAt       DateTime?
+  closedReason   String?   @db.VarChar(500)
+
+  staff          FacilityStaff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  patient        Patient       @relation("BreakGlassPatient", fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([facilityId, staffId])
+  @@index([patientId])
+  @@index([expiresAt])
+  @@map("break_glass_access")
 }
 
 model StaffCredential {
@@ -2390,6 +2503,8 @@ model Specimen {
   facilityId     String        @map("facility_id") @db.Uuid
   /// Facility-scoped accession number, e.g. "SPC-2026-000123".
   accessionNumber String       @map("accession_number")
+  /// Scanable barcode identifier for label printing (unique per facility).
+  barcode        String?      @map("barcode")
   specimenType   String?
   status         SpecimenStatus @default(PENDING_COLLECTION)
   collectedAt    DateTime?     @map("collected_at")
@@ -2465,6 +2580,9 @@ model Admission {
   admissionDate       DateTime     @map("admission_date")
   reason              String?
   initialAssessment  String?      @map("initial_assessment")
+  /// Current ward/bed when bed management is in use.
+  currentWardId   String?  @map("current_ward_id") @db.Uuid
+  currentBedId    String?  @map("current_bed_id") @db.Uuid
   workingDiagnosis    String?      @map("working_diagnosis")
   diagnosisCode       String?      @map("diagnosis_code")
   diagnosisName       String?      @map("diagnosis_name")
@@ -2492,6 +2610,8 @@ model Admission {
   transferredToFacility LabStaffProfile? @relation("AdmissionTransferredToFacility", fields: [transferredToFacilityId], references: [id])
   notes               AdmissionNote[]
   wardTransfers       WardTransfer[]
+  currentBed          Bed?         @relation("AdmissionCurrentBed")
+  bedReservedFor     Bed?         @relation("BedReservedForAdmission")
 
   @@index([facilityId, status])
   @@index([patientId, admissionDate(sort: Desc)])
@@ -2522,15 +2642,74 @@ model WardTransfer {
   admissionId  String   @map("admission_id") @db.Uuid
   fromWard    String?
   toWard      String
+  /// Bed records involved when bed management is in use.
+  fromBedId   String?  @map("from_bed_id") @db.Uuid
+  toBedId     String?  @map("to_bed_id") @db.Uuid
   reason      String?
   actorId     String   @map("actor_id") @db.Uuid
   transferredAt DateTime @map("transferred_at")
   createdAt    DateTime @default(now()) @map("created_at")
   admission    Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
   actor        User     @relation(fields: [actorId], references: [id])
+  fromBed      Bed?     @relation("WardTransferFromBed", fields: [fromBedId], references: [id], onDelete: SetNull)
+  toBed        Bed?     @relation("WardTransferToBed", fields: [toBedId], references: [id], onDelete: SetNull)
 
   @@index([admissionId, transferredAt])
   @@map("ward_transfers")
+}
+
+// ---------- Ward & bed management ----------
+
+/// A hospital ward configured by the facility. Beds belong to wards.
+model Ward {
+  id           String   @id @default(uuid()) @db.Uuid
+  facilityId   String   @map("facility_id") @db.Uuid
+  name         String
+  code         String?  @db.VarChar(40)
+  departmentId String?  @map("department_id") @db.Uuid
+  /// MALE | FEMALE | MIXED | PEDIATRIC | ISOLATION
+  genderPolicy String?  @db.VarChar(20)
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  beds Bed[]
+  facility   LabStaffProfile @relation("WardFacility", fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@unique([facilityId, name])
+  @@index([facilityId])
+  @@map("wards")
+}
+
+/// A physical bed. One active admission occupies a bed; reservations are
+/// time-limited; cleaning and maintenance states keep the lifecycle auditable.
+model Bed {
+  id                     String       @id @default(uuid()) @db.Uuid
+  facilityId             String       @map("facility_id") @db.Uuid
+  wardId                 String       @map("ward_id") @db.Uuid
+  label                  String
+  /// AVAILABLE | OCCUPIED | RESERVED | CLEANING | MAINTENANCE | ISOLATION
+  status                 String       @default("AVAILABLE") @db.VarChar(20)
+  /// Set while a bed is blocked for infection control.
+  isolationReason        String?      @db.VarChar(200)
+  reservedForAdmissionId String?      @unique @map("reserved_for_admission_id") @db.Uuid
+  reservedUntil          DateTime?    @map("reserved_until")
+  currentAdmissionId     String?      @unique @map("current_admission_id") @db.Uuid
+  cleanedAt              DateTime?    @map("cleaned_at")
+  notes                  String?
+  createdAt              DateTime     @default(now()) @map("created_at")
+  updatedAt              DateTime     @updatedAt @map("updated_at")
+
+  ward                   Ward         @relation(fields: [wardId], references: [id], onDelete: Cascade)
+  facility               LabStaffProfile @relation("BedFacility", fields: [facilityId], references: [id], onDelete: Cascade)
+  currentAdmission       Admission?  @relation("AdmissionCurrentBed", fields: [currentAdmissionId], references: [id])
+  reservedForAdmission   Admission?   @relation("BedReservedForAdmission", fields: [reservedForAdmissionId], references: [id])
+  transferFrom           WardTransfer[] @relation("WardTransferFromBed")
+  transferTo             WardTransfer[] @relation("WardTransferToBed")
+
+  @@unique([wardId, label])
+  @@index([facilityId, status])
+  @@map("beds")
 }
 
 // ---------- Module 03: diagnostic reports ----------
@@ -2992,6 +3171,19 @@ model Encounter {
   /// Payer coverage that applied to this encounter (history preserved even if the patient's classification changes).
   coverageId      String?                 @map("coverage_id") @db.Uuid
   payerCategory   PayerCategory?          @map("payer_category")
+  /// Emergency-department encounter (Module 04). Triage fields above apply.
+  isEmergency      Boolean                @default(false) @map("is_emergency")
+  /// AMBULANCE | WALK_IN | REFERRAL | TRANSFER
+  arrivalMode      String?                @map("arrival_mode") @db.VarChar(20)
+  referralSource   String?                @map("referral_source") @db.VarChar(160)
+  /// Set while the patient is unidentified; the record is reconciled later.
+  temporaryLabel   String?                @map("temporary_label") @db.VarChar(80)
+  /// Triage-scheduled reassessment time (clinical safety).
+  reassessmentDueAt DateTime?            @map("reassessment_due_at")
+  /// Initial emergency observations recorded at registration (JSON vitals).
+  initialObservations Json?               @map("initial_observations")
+  /// Known allergies captured during emergency registration.
+  knownAllergies    String?               @map("known_allergies")
   registeredAt    DateTime                @default(now()) @map("registered_at")
   statusChangedAt DateTime                @default(now()) @map("status_changed_at")
   closedAt        DateTime?               @map("closed_at")
@@ -3372,6 +3564,8 @@ model FormularyItem {
   form            String?  @db.VarChar(60)
   defaultRoute    String?  @map("default_route") @db.VarChar(40)
   highAlert       Boolean  @default(false) @map("high_alert")
+  /// Controlled medicine requiring register entries on receipt and dispensing.
+  controlled      Boolean  @default(false)
   active          Boolean  @default(true)
   notes           String?  @db.VarChar(500)
   createdById     String   @map("created_by_id") @db.Uuid
@@ -3535,4 +3729,317 @@ model ProfileReport {
   @@index([targetType, targetId])
   @@index([reporterId, targetType, targetId, status])
   @@map("profile_reports")
+}
+
+// ============================================================
+// Pharmacy inventory, suppliers and controlled-substance register
+// ============================================================
+
+model PharmacySupplier {
+  id           String   @id @default(uuid()) @db.Uuid
+  facilityId   String   @map("facility_id") @db.Uuid
+  name         String
+  contactName  String?  @map("contact_name")
+  email        String?
+  phone        String?
+  address      String?
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  facility     LabStaffProfile @relation("PharmacySupplierFacility", fields: [facilityId], references: [id], onDelete: Cascade)
+  orders       PharmacyPurchaseOrder[] @relation("SupplierOrders")
+  batches      PharmacyStockBatch[] @relation("SupplierBatches")
+
+  @@unique([facilityId, name])
+  @@map("pharmacy_suppliers")
+}
+
+model PharmacyPurchaseOrder {
+  id           String   @id @default(uuid()) @db.Uuid
+  facilityId   String   @map("facility_id") @db.Uuid
+  supplierId   String?  @map("supplier_id") @db.Uuid
+  /// DRAFT | SUBMITTED | RECEIVED | CANCELLED
+  status       String   @default("DRAFT")
+  reference    String?  @db.VarChar(60)
+  notes        String?
+  createdById  String   @map("created_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  facility     LabStaffProfile @relation("PharmacyPurchaseOrderFacility", fields: [facilityId], references: [id], onDelete: Cascade)
+  supplier     PharmacySupplier? @relation("SupplierOrders", fields: [supplierId], references: [id], onDelete: SetNull)
+  createdBy    User     @relation("PharmacyOrderCreatedBy", fields: [createdById], references: [id])
+  items        PharmacyPurchaseOrderItem[]
+
+  @@index([facilityId, status])
+  @@map("pharmacy_purchase_orders")
+}
+
+model PharmacyPurchaseOrderItem {
+  id               String  @id @default(uuid()) @db.Uuid
+  orderId          String  @map("order_id") @db.Uuid
+  medicationName   String  @map("medication_name") @db.VarChar(160)
+  strength         String? @db.VarChar(60)
+  form             String? @db.VarChar(60)
+  quantity         Int
+  unitCost         Decimal? @map("unit_cost") @db.Decimal(10, 2)
+  receivedQuantity Int      @default(0) @map("received_quantity")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  order            PharmacyPurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("pharmacy_purchase_order_items")
+}
+
+/// A physical batch (lot) of a medication in stock. Dispensing decrements
+/// batches first-expiry-first-out; expiry queries drive alerts.
+model PharmacyStockBatch {
+  id             String    @id @default(uuid()) @db.Uuid
+  facilityId     String   @map("facility_id") @db.Uuid
+  medicationName String    @map("medication_name") @db.VarChar(160)
+  strength       String?  @db.VarChar(60)
+  form           String?  @db.VarChar(60)
+  batchNumber    String    @map("batch_number") @db.VarChar(80)
+  quantity       Int
+  unitCost       Decimal? @map("unit_cost") @db.Decimal(10, 2)
+  expiresAt      DateTime  @map("expires_at")
+  supplierId     String?   @map("supplier_id") @db.Uuid
+  receivedAt     DateTime  @default(now()) @map("received_at")
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  facility       LabStaffProfile @relation("PharmacyStockBatchFacility", fields: [facilityId], references: [id], onDelete: Cascade)
+  supplier       PharmacySupplier? @relation("SupplierBatches", fields: [supplierId], references: [id], onDelete: SetNull)
+
+  @@unique([facilityId, medicationName, batchNumber])
+  @@index([facilityId, expiresAt])
+  @@map("pharmacy_stock_batches")
+}
+
+enum ControlledRegisterEventType {
+  RECEIVED
+  DISPENSED
+  DESTROYED
+  RETURNED
+  ADJUSTMENT
+}
+
+/// Legally required register entry for controlled medicines. Every receipt,
+/// dispense, destruction, return and adjustment is recorded with the acting
+/// staff member and, where applicable, the patient.
+model ControlledSubstanceEvent {
+  id             String                      @id @default(uuid()) @db.Uuid
+  facilityId    String                      @map("facility_id") @db.Uuid
+  medicationName String                      @map("medication_name") @db.VarChar(160)
+  eventType      ControlledRegisterEventType
+  quantity       Int
+  unit           String?                    @db.VarChar(30)
+  patientId      String?                     @map("patient_id") @db.Uuid
+  staffId        String                      @map("staff_id") @db.Uuid
+  reference      String?                     @db.VarChar(160)
+  notes          String?
+  createdAt      DateTime                    @default(now()) @map("created_at")
+
+  facility       LabStaffProfile             @relation("ControlledEventFacility", fields: [facilityId], references: [id], onDelete: Cascade)
+  patient        Patient?                    @relation("ControlledEventPatient", fields: [patientId], references: [id], onDelete: SetNull)
+  staff          User                        @relation("ControlledEventCreatedBy", fields: [staffId], references: [id])
+
+  @@index([facilityId, medicationName, createdAt])
+  @@map("controlled_substance_events")
+}
+
+// ============================================================
+// Laboratory equipment, reagents and quality control
+// ============================================================
+
+enum LabEquipmentStatus {
+  OPERATIONAL
+  MAINTENANCE
+  OUT_OF_SERVICE
+}
+
+model LabEquipment {
+  id               String           @id @default(uuid()) @db.Uuid
+  facilityId       String           @map("facility_id") @db.Uuid
+  name             String
+  kind             String?          @db.VarChar(80)
+  model            String?          @db.VarChar(120)
+  serialNumber     String?          @map("serial_number")
+  location         String?          @db.VarChar(120)
+  status           LabEquipmentStatus @default(OPERATIONAL)
+  lastServicedAt   DateTime?        @map("last_serviced_at")
+  nextServiceDueAt DateTime?        @map("next_service_due_at")
+  notes            String?
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  facility         LabStaffProfile  @relation("LabEquipmentFacility", fields: [facilityId], references: [id], onDelete: Cascade)
+  maintenanceLogs  LabEquipmentMaintenanceLog[]
+  qcRuns          LabQualityControlRun[]
+
+  @@index([facilityId, status])
+  @@map("lab_equipment")
+}
+
+enum MaintenanceType {
+  PREVENTIVE
+  CORRECTIVE
+  CALIBRATION
+}
+
+model LabEquipmentMaintenanceLog {
+  id            String        @id @default(uuid()) @db.Uuid
+  equipmentId   String        @map("equipment_id") @db.Uuid
+  type          MaintenanceType
+  performedAt   DateTime      @map("performed_at")
+  performedById  String       @map("performed_by_id") @db.Uuid
+  downtimeHours Decimal?      @map("downtime_hours") @db.Decimal(6, 1)
+  notes         String?
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  equipment     LabEquipment   @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  performedBy   User           @relation("MaintenancePerformedBy", fields: [performedById], references: [id])
+
+  @@index([equipmentId, performedAt])
+  @@map("lab_equipment_maintenance")
+}
+
+model LabReagent {
+  id                String   @id @default(uuid()) @db.Uuid
+  facilityId        String   @map("facility_id") @db.Uuid
+  name              String
+  manufacturer      String?  @db.VarChar(120)
+  lotNumber         String?  @map("lot_number") @db.VarChar(80)
+  quantity          Int
+  unit              String   @db.VarChar(30)
+  minStockLevel     Int      @default(0) @map("min_stock_level")
+  expiresAt         DateTime? @map("expires_at")
+  storageCondition  String?  @map("storage_condition") @db.VarChar(120)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  facility          LabStaffProfile @relation("LabReagentFacility", fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@index([facilityId, expiresAt])
+  @@map("lab_reagents")
+}
+
+enum QualityControlResult {
+  PASS
+  FAIL
+  WARNING
+}
+
+model LabQualityControlRun {
+  id           String               @id @default(uuid()) @db.Uuid
+  facilityId   String               @map("facility_id") @db.Uuid
+  equipmentId  String?              @map("equipment_id") @db.Uuid
+  testName     String?              @map("test_name") @db.VarChar(160)
+  controlName  String              @map("control_name")
+  expected     String?
+  observed     String
+  result       QualityControlResult
+  performedAt  DateTime             @map("performed_at")
+  performedById String              @map("performed_by_id") @db.Uuid
+  notes        String?
+  createdAt    DateTime             @default(now()) @map("created_at")
+
+  facility     LabStaffProfile      @relation("LabQcRunFacility", fields: [facilityId], references: [id], onDelete: Cascade)
+  equipment    LabEquipment?        @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  performedBy  User                 @relation("QcPerformedBy", fields: [performedById], references: [id])
+
+  @@index([facilityId, performedAt])
+  @@map("lab_quality_control_runs")
+}
+
+// ============================================================
+// Structured nursing assessments and care plans
+// ============================================================
+
+enum NursingAssessmentType {
+  FALL_RISK
+  PRESSURE_INJURY
+  WOUND_CARE
+  INTAKE_OUTPUT
+  GENERIC
+}
+
+/// Structured nursing assessment (fall risk, pressure injury, wound care,
+/// intake/output). `data` holds the validated questionnaire answers and
+/// `score` the computed risk score where the instrument provides one.
+model NursingAssessment {
+  id           String               @id @default(uuid()) @db.Uuid
+  facilityId   String               @map("facility_id") @db.Uuid
+  patientId    String               @map("patient_id") @db.Uuid
+  admissionId  String?              @map("admission_id") @db.Uuid
+  type         NursingAssessmentType
+  data         Json
+  score        Int?
+  notes        String?
+  assessedById String               @map("assessed_by_id") @db.Uuid
+  assessedAt   DateTime             @default(now()) @map("assessed_at")
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+
+  patient      Patient               @relation("NursingAssessmentPatient", fields: [patientId], references: [id], onDelete: Cascade)
+  assessedBy   User                  @relation("NursingAssessmentAssessor", fields: [assessedById], references: [id])
+
+  @@index([facilityId, patientId, assessedAt])
+  @@map("nursing_assessments")
+}
+
+/// Nursing care plan with goals and interventions. Status lifecycle:
+/// ACTIVE | COMPLETED | CANCELLED.
+model NursingCarePlan {
+  id            String   @id @default(uuid()) @db.Uuid
+  facilityId    String   @map("facility_id") @db.Uuid
+  patientId     String   @map("patient_id") @db.Uuid
+  admissionId   String?  @map("admission_id") @db.Uuid
+  goals         String
+  interventions Json
+  status        String   @default("ACTIVE")
+  createdById   String   @map("created_by_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  patient       Patient  @relation("NursingCarePlanPatient", fields: [patientId], references: [id], onDelete: Cascade)
+  createdBy     User     @relation("NursingCarePlanAuthor", fields: [createdById], references: [id])
+
+  @@index([facilityId, patientId, status])
+  @@map("nursing_care_plans")
+}
+
+// ============================================================
+// AI governance: usage audit log
+// ============================================================
+
+/// Every AI feature call is logged with the acting user, facility and
+/// patient references (ids only — clinical content stays out of logs),
+/// the provider/model used and the outcome. Reviewable by compliance.
+model AiUsageLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  facilityId  String?  @map("facility_id") @db.Uuid
+  patientId   String?  @map("patient_id") @db.Uuid
+  /// DOCTOR_ASSISTANT | NURSING_HANDOVER | PHARMACY_REVIEW | ADMIN_SUMMARY |
+  /// PATIENT_ASSISTANT | LAB_INTERPRETATION ...
+  feature     String   @db.VarChar(60)
+  provider    String   @db.VarChar(40)
+  model       String?
+  /// COMPLETED | ERROR | REJECTED
+  status      String   @db.VarChar(20)
+  /// References to the inputs used (encounter id, order id, ...). No PHI values.
+  inputRefs   Json     @default("[]")
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user        User     @relation("AiUsageLogUser", fields: [userId], references: [id])
+  facility    LabStaffProfile? @relation("AiUsageLogFacility", fields: [facilityId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([facilityId, createdAt])
+  @@map("ai_usage_logs")
 }

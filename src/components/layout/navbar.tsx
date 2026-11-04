@@ -31,6 +31,7 @@ import {
   FolderOpen, BellRing, ShieldCheck, Settings, BedDouble, SearchCheck, Bell, Star, Briefcase, Pill,
   BarChart3, Activity, IdCard, CreditCard,
   type LucideIcon,
+  Siren,
 } from "lucide-react";
 import type { Me, MeFacility } from "@/lib/use-me";
 
@@ -159,6 +160,7 @@ const FACILITY_SECTIONS: NavSection[] = [
       { href: "/lab/orders", label: "Lab Orders", icon: ClipboardList, roles: ["FACILITY"], permission: "PROCESS_ORDERS" },
       { href: "/lab/specimens", label: "Specimens", icon: FlaskConical, roles: ["FACILITY"], permission: "PROCESS_ORDERS" },
       { href: "/lab/upload", label: "Upload Results", icon: Upload, roles: ["FACILITY"], permission: "ENTER_RESULTS" },
+      { href: "/lab/lab-equipment", label: "Lab Equipment & QC", icon: FlaskConical, roles: ["FACILITY"], permission: "ENTER_RESULTS" },
     ],
   },
   {
@@ -180,8 +182,10 @@ const FACILITY_SECTIONS: NavSection[] = [
     label: "Clinical Operations",
     kinds: ["HOSPITAL"],
     items: [
-      { href: "/lab/admissions", label: "Admissions", icon: BedDouble, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
+      { href: "/lab/emergency", label: "Emergency Department", icon: Siren, roles: ["FACILITY"], permission: "MANAGE_ENCOUNTERS" },
       { href: "/lab/encounters", label: "Encounters & Queues", icon: Activity, roles: ["FACILITY"], permission: "MANAGE_ENCOUNTERS" },
+      { href: "/lab/admissions", label: "Admissions", icon: BedDouble, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
+      { href: "/lab/wards", label: "Wards & Beds", icon: BedDouble, roles: ["FACILITY"], permission: "MANAGE_ENCOUNTERS" },
       { href: "/lab/investigations", label: "Investigations", icon: SearchCheck, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
       { href: "/lab/critical-alerts", label: "Critical Alerts", icon: Bell, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },
     ],

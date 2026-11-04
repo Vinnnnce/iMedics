@@ -25,6 +25,7 @@ export async function createStaffInvitation(
     facilityRole: FacilityStaffRole;
     departmentId?: string | null;
     branchId?: string | null;
+    customCategory?: string | null;
     invitedById: string;
   },
   tx?: Prisma.TransactionClient,
@@ -52,6 +53,7 @@ export async function createStaffInvitation(
       facilityRole: input.facilityRole,
       departmentId: input.departmentId ?? null,
       branchId: input.branchId ?? null,
+      customCategory: input.customCategory ?? null,
       status: "INVITED",
       inviteToken,
       inviteExpiresAt: expiresAt,

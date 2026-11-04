@@ -1,4 +1,5 @@
 import { requireHisPage } from "@/lib/his/page";
+import { AiAdminSummary } from "@/components/his/ai-admin-summary";
 import { prisma } from "@/lib/prisma";
 import { PRIORITY_LABEL, TYPE_LABEL } from "@/lib/his/encounters";
 import { groupTitle } from "@/lib/his/catalogue";
@@ -57,6 +58,7 @@ export default async function HisAnalyticsPage() {
         <Table title="Diagnostic media by category" rows={media.map((r) => [MEDIA_CATEGORY_LABEL[r.category], r._count._all])} />
         <Table title="Template usage (top 10)" rows={templateUsage.map((t) => { const v = versions.find((x) => x.id === t.templateVersionId); return [v ? `${v.template.name} v${v.version}` : "—", t._count._all]; })} />
       </div>
+      <AiAdminSummary />
     </div>
   );
 }
