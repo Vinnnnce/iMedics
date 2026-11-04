@@ -1,6 +1,7 @@
 "use client";
 
 import { SignIn } from "@clerk/nextjs";
+import Image from "next/image";
 
 /**
  * Shared Clerk appearance for the auth pages.
@@ -46,12 +47,16 @@ export default function LoginPage() {
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-lg bg-foreground">
-            <svg viewBox="0 0 24 24" className="h-7 w-7 text-background" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M12 2v20M2 12h20" strokeLinecap="round" />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">Medic1905</h1>
+          {/* Medic1905 logo on a white chip so the blue wordmark stays legible in dark mode */}
+          <Image
+            src="/medic1905-logo.png"
+            alt="Medic1905"
+            width={465}
+            height={180}
+            priority
+            className="mx-auto mb-3 h-14 w-auto rounded-xl bg-white p-2 shadow-sm"
+          />
+          <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
           <p className="text-sm text-muted-foreground mt-1">Sign in to manage your care</p>
         </div>
 

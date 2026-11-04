@@ -340,6 +340,9 @@ export function Navbar({ children }: { children: React.ReactNode }) {
     }
   };
   const pathname = usePathname();
+  // Signed-out visitors get a clean, centred page: the sidebar and bottom nav
+  // only list authenticated destinations, so they stay hidden until sign-in.
+  const showNavChrome = Boolean(user);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -693,14 +696,16 @@ export function Navbar({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
         <div className="flex h-16 items-center justify-between gap-2 px-3 sm:gap-3 sm:px-4 md:px-6">
           {/* Mobile menu */}
-          <button
-            onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-            aria-label={mobileSidebarOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileSidebarOpen}
-            className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg hover:bg-muted"
-          >
-            {mobileSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          {showNavChrome && (
+            <button
+              onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+              aria-label={mobileSidebarOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileSidebarOpen}
+              className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg hover:bg-muted"
+            >
+              {mobileSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          )}
 
           {/* Logo — Medic1905 wordmark (white chip keeps it legible in dark mode) */}
           <Link prefetch={navigationPrefetch} onNavigate={anonymousNavigation("/dashboard")} href="/dashboard" className="flex shrink-0 items-center rounded-lg transition-opacity hover:opacity-80" aria-label="Medic1905 home">
@@ -829,7 +834,8 @@ export function Navbar({ children }: { children: React.ReactNode }) {
         className="flex-1 w-full"
         style={{ minHeight: "calc(100vh - 4rem)" }}
       >
-      {/* Desktop Sidebar (collapsible to an icon rail) */}
+      {/* Desktop Sidebar (collapsible to an icon rail) — authenticated users only */}
+      {showNavChrome && (
       <Sidebar
         collapsible="icon"
         data-testid="desktop-sidebar"
@@ -890,6 +896,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
+      )}
 
       {/* Main content column */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -899,7 +906,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
       </SidebarProvider>
 
       {/* Mobile sidebar overlay — above the bottom navigation so the backdrop covers it and the last links stay reachable */}
-      {mobileSidebarOpen && (
+      {showNavChrome && mobileSidebarOpen && (
         <div className="fixed inset-0 z-[60] md:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setMobileSidebarOpen(false)} />
           <div className="absolute left-0 top-0 bottom-0 w-72 bg-sidebar border-r border-border overflow-y-auto">
@@ -947,7 +954,8 @@ export function Navbar({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Mobile Bottom Navigation */}
+      {/* Mobile Bottom Navigation — authenticated users only */}
+      {showNavChrome && (
       <nav className="bottom-nav md:hidden" aria-label="Mobile bottom navigation">
         {bottomNav.map((item, index) => {
           const Icon = item.icon;
@@ -966,6 +974,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
           );
         })}
       </nav>
+      )}
     </div>
   );
 }
