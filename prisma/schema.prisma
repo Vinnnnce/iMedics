@@ -7,6 +7,9 @@ datasource db {
 }
 
 model User {
+  policyReceipts         PolicyReceipt[]
+  productTours           ProductTour[]
+  country                String?
   clinicalDocumentsAuthored ClinicalDocument[] @relation("ClinicalDocumentAuthor")
   id                     String                   @id @default(uuid()) @db.Uuid
   clerkId                String                   @unique @map("clerk_id")
@@ -84,6 +87,43 @@ model User {
   @@index([role])
   @@index([status])
   @@map("users")
+}
+
+/// Append-only snapshots preserve the exact text and status shown to a user.
+model PolicySnapshot {
+  version       String          @id
+  status        String
+  effectiveDate String?         @map("effective_date")
+  content       Json
+  createdAt     DateTime        @default(now()) @map("created_at")
+  receipts      PolicyReceipt[]
+  @@map("policy_snapshots")
+}
+
+model PolicyReceipt {
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @map("user_id") @db.Uuid
+  version     String
+  accountType String         @map("account_type")
+  kind        String
+  recordedAt  DateTime       @default(now()) @map("recorded_at")
+  user        User           @relation(fields: [userId], references: [id])
+  snapshot    PolicySnapshot @relation(fields: [version], references: [version])
+  @@unique([userId, version, kind])
+  @@index([userId, recordedAt])
+  @@map("policy_receipts")
+}
+
+model ProductTour {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tourKey   String   @map("tour_key")
+  status    String   @default("NOT_STARTED")
+  step      Int      @default(0)
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id])
+  @@unique([userId, tourKey])
+  @@map("product_tours")
 }
 
 model DoctorProfile {
@@ -171,6 +211,7 @@ model DoctorProfile {
 }
 
 model LabStaffProfile {
+  country                 String?
   hospitalSettings        HospitalSettings?          @relation("HospitalSettingsFacility")
   clinicalTemplates       ClinicalDocumentTemplate[] @relation("ClinicalTemplateFacility")
   clinicalDocuments       ClinicalDocument[]         @relation("ClinicalDocumentFacility")

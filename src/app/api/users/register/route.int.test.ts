@@ -17,6 +17,7 @@ import {
   it,
   vi,
 } from "vitest";
+import { POLICY_RELEASE } from "@/lib/legal/release";
 
 vi.mock("next/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/server")>()),
@@ -70,6 +71,8 @@ describe.skipIf(!url)("POST /api/users/register", () => {
 
   const basePayload = () => ({
     termsAccepted: true,
+    privacyAccepted: true,
+    policyVersion: POLICY_RELEASE.version,
     firstName: "Test",
     lastName: "User",
     gender: "other",
@@ -219,6 +222,7 @@ describe.skipIf(!url)("POST /api/users/register", () => {
         where: { userId: user.id },
       });
       expect(profile?.laboratoryName).toBe("Test Facility Ltd");
+      expect(profile?.country).toBe("NG");
       expect(profile?.facilityLicenseNumber).toBe("FAC-67890");
       expect(profile?.logoUrl).toBe(imageUrl(key));
       expect(profile?.verificationStatus).toBe("PENDING");

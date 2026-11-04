@@ -83,9 +83,9 @@ export interface AudienceSection {
 /** Shared metadata for all three policies (kept in one place to stay in sync). */
 export const LEGAL_META = {
   platformName: "Medic1905",
-  lastUpdated: "17 October 2026",
+  lastUpdated: "4 November 2026",
   /** Bumped whenever the policies materially change; recorded at registration. */
-  version: "2026-10.1",
+  version: "2026-11.1-draft",
   /**
    * Operator identity. These are deliberate placeholders: the operator's
    * registered entity name, CAC registration number and office address must

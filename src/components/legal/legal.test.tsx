@@ -143,7 +143,7 @@ describe("legal policy rendering", () => {
 
   it("uses a distinct version for the rewritten policies", () => {
     expect(LEGAL_META.version).not.toBe("2026-10");
-    expect(LEGAL_META.version).toMatch(/^2026-10\./);
+    expect(LEGAL_META.version).toMatch(/^2026-11\..*-draft$/);
   });
 });
 

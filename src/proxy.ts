@@ -16,6 +16,9 @@ const isPublicRoute = createRouteMatcher([
   "/hospitals(.*)",
   "/laboratories(.*)",
   "/diagnostic-centres(.*)",
+  "/doctors(.*)",
+  "/pharmacies(.*)",
+  "/facilities(.*)",
   // Public news and podcasts (shown once the feature is switched on).
   "/news(.*)",
   "/podcasts(.*)",

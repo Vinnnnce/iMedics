@@ -7,6 +7,8 @@ import { usePathname } from "next/navigation";
 import { useMe } from "@/lib/use-me";
 import { useUser } from "@clerk/nextjs";
 import { useTheme } from "@/components/theme-provider";
+import { optionalProcessingAllowed, COOKIE_CONSENT_EVENT } from "@/lib/cookie-consent";
+import { navigationFeatureEnabled } from "@/lib/navigation-features";
 import {
   Sidebar,
   SidebarContent,
@@ -23,6 +25,9 @@ import {
 import { Footer } from "@/components/layout/footer";
 import { ADMIN_LINKS } from "@/components/admin/admin-links";
 import { NotificationCenter } from "@/components/shared/notification-center";
+import { WebsiteTour } from "@/components/onboarding/website-tour";
+import { SignOutButton } from "@/components/shared/sign-out-button";
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import {
   Search, Sun, Moon, Menu, X, Home, Stethoscope, Users,
   FlaskConical, Heart, Sparkles, User, Globe, HeartPulse,
@@ -358,13 +363,16 @@ export function Navbar({ children }: { children: React.ReactNode }) {
 
   // Remember the sidebar preference across sessions (desktop only).
   useEffect(() => {
-    void Promise.resolve().then(() => {
-      setSidebarCollapsed(window.localStorage.getItem("medic1905.sidebar.collapsed") === "1");
-    });
+    const restore = () => {
+      try { if (optionalProcessingAllowed("preferences")) setSidebarCollapsed(window.localStorage.getItem("medic1905.sidebar.collapsed") === "1"); } catch { /* blocked browser storage */ }
+    };
+    void Promise.resolve().then(restore);
+    window.addEventListener(COOKIE_CONSENT_EVENT, restore);
+    return () => window.removeEventListener(COOKIE_CONSENT_EVENT, restore);
   }, []);
   const toggleSidebar = useCallback(() => {
     setSidebarCollapsed((collapsed) => {
-      window.localStorage.setItem("medic1905.sidebar.collapsed", collapsed ? "0" : "1");
+      try { if (optionalProcessingAllowed("preferences")) window.localStorage.setItem("medic1905.sidebar.collapsed", collapsed ? "0" : "1"); } catch { /* optional preference */ }
       return !collapsed;
     });
   }, []);
@@ -387,9 +395,8 @@ export function Navbar({ children }: { children: React.ReactNode }) {
       return FACILITY_SECTIONS
         // Sections gated by facility kind appear only for the registered
         // facility type — standalone labs never see hospital departments.
-        // Without a resolved facility every section stays visible and the
-        // server-side page guards decide.
-        .filter((section) => !section.kinds || !facility || section.kinds.includes(facility.kind))
+        // Without a resolved facility, no facility modules are displayed.
+        .filter((section) => facility && (!section.kinds || section.kinds.includes(facility.kind)))
         .flatMap((section) =>
           section.items
             .filter((item) => {
@@ -403,6 +410,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
               }
               return true;
             })
+            .filter((item) => Boolean(facility && navigationFeatureEnabled(item.href, facility.kind, facility.enabledModules)))
             .map((item) => item.href === "/lab/website" && facility
               ? { ...item, href: `/lab/website?facilityId=${encodeURIComponent(facility.id)}` }
               : item),
@@ -417,7 +425,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
     const facility = me?.facility ?? null;
     if (role === "LAB_SCIENTIST" || (role === "PATIENT" && facility)) {
       return FACILITY_SECTIONS
-        .filter((section) => !section.kinds || !facility || section.kinds.includes(facility.kind))
+        .filter((section) => facility && (!section.kinds || section.kinds.includes(facility.kind)))
         .map((section) => ({
           label: section.label,
           items: visibleNavItems.filter((item) => section.items.some((s) => s.href === item.href.split("?")[0])),
@@ -452,10 +460,10 @@ export function Navbar({ children }: { children: React.ReactNode }) {
         { href: "/lab/case-reports?tab=documents", label: "Docs", icon: FolderOpen, roles: [role] },
         { href: "/settings", label: "Settings", icon: Settings, roles: [role] },
       ];
-      return items;
+      return items.filter(item => visibleNavItems.some(visible => visible.href.split("?")[0] === item.href.split("?")[0]));
     }
     return BOTTOM_NAV_ITEMS.filter((item) => item.roles.includes(role));
-  }, [me?.facility, role]);
+  }, [me?.facility, role, visibleNavItems]);
   const suggestions =
     role === "ADMIN"
       ? ADMIN_SUGGESTIONS
@@ -617,8 +625,9 @@ export function Navbar({ children }: { children: React.ReactNode }) {
   // root page redirects them (only suspended accounts render there, with the
   // app chrome, which is the correct shell for them).
   if (pathname === "/" && !user) {
-    return <>{children}</>;
+    return <>{children}<div className="fixed bottom-4 right-4 z-50 rounded-xl border border-border bg-card"><WebsiteTour publicTour /></div></>;
   }
+  if (pathname.startsWith("/auth/login") || pathname.startsWith("/auth/signup") || pathname.startsWith("/auth/callback")) return <>{children}</>;
 
   // The AI search dropdown, shared by the desktop search bar and the mobile search row.
   const searchDropdown = searchOpen ? (
@@ -701,14 +710,14 @@ export function Navbar({ children }: { children: React.ReactNode }) {
               onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
               aria-label={mobileSidebarOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileSidebarOpen}
-              className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg hover:bg-muted"
+              className="md:hidden flex shrink-0 items-center justify-center h-11 w-11 rounded-lg hover:bg-muted"
             >
               {mobileSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           )}
 
           {/* Logo — Medic1905 wordmark (white chip keeps it legible in dark mode) */}
-          <Link prefetch={navigationPrefetch} onNavigate={anonymousNavigation("/dashboard")} href="/dashboard" className="flex shrink-0 items-center rounded-lg transition-opacity hover:opacity-80" aria-label="Medic1905 home">
+          <Link prefetch={navigationPrefetch} onNavigate={anonymousNavigation("/dashboard")} href="/dashboard" className={`${user ? "hidden sm:flex" : "flex"} shrink-0 items-center rounded-lg transition-opacity hover:opacity-80`} aria-label="Medic1905 home">
             <Image
               src="/medic1905-logo.png"
               alt="Medic1905"
@@ -719,6 +728,10 @@ export function Navbar({ children }: { children: React.ReactNode }) {
             />
           </Link>
 
+          {me && <nav aria-label="Current workspace" className="workspace-title">
+            <span className="hidden text-xs text-muted-foreground lg:block">{me.facility?.name ?? `${role === "DOCTOR" ? "Doctor" : role === "ADMIN" ? "Administration" : "Patient"} workspace`}</span>
+            <span className="font-medium">{navItems.find(item => isActive(item.href))?.label ?? (pathname.startsWith("/auth/callback") ? "Registration" : "Medic1905")}</span>
+          </nav>}
           {/* AI Search Bar (sm and up; on phones it collapses to a search icon) */}
           <div ref={searchWrapRef} className="relative hidden flex-1 max-w-xl mx-auto min-w-0 sm:block">
             <div className="ai-search-bar flex items-center gap-2 px-4 py-2">
@@ -727,6 +740,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
                 ref={searchRef}
                 type="text"
                 placeholder={searchPlaceholder}
+                aria-label="Search authorised workspace navigation"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setSearchOpen(true)}
@@ -751,29 +765,39 @@ export function Navbar({ children }: { children: React.ReactNode }) {
               onClick={() => setMobileSearchOpen(true)}
               aria-label="Search"
               data-testid="button-mobile-search"
-              className="flex sm:hidden h-9 w-9 items-center justify-center rounded-lg hover:bg-muted"
+              className={`${user ? "hidden" : "flex sm:hidden"} h-11 w-11 items-center justify-center rounded-lg hover:bg-muted`}
             >
               <Search className="h-5 w-5" />
             </button>
             <NotificationCenter enabled={Boolean(me)} />
+            <WebsiteTour links={me?.status === "ACTIVE" && me.onboardingComplete ? navItems : []} publicTour={!user} compact={Boolean(user)} />
             {/* Theme switch toggle */}
             <button
               onClick={toggleTheme}
               aria-label="Toggle theme"
               data-testid="button-theme-toggle"
-              className="rs-switch"
-              data-active={theme === "light"}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted"
+              aria-pressed={theme === "dark"}
             >
-              <span className="rs-switch-thumb flex items-center justify-center">
-                {theme === "dark" ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
+              <span className="flex items-center justify-center">
+                {theme === "dark" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
               </span>
             </button>
 
             {/* User avatar or sign in */}
             {user ? (
-              <Link prefetch={navigationPrefetch} onNavigate={anonymousNavigation("/profile")} href="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity" aria-label="Your profile">
-                <NavbarAvatar me={me} user={user} />
-              </Link>
+              <details className="relative">
+                <summary className="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-lg" aria-label="Open profile menu"><NavbarAvatar me={me} user={user} /></summary>
+                <div className="absolute right-0 top-full z-50 mt-2 grid min-w-56 gap-2 rounded-xl border border-border bg-popover p-3 shadow-lg">
+                  <p className="break-words px-2 text-sm font-semibold">{me?.name ?? "Your account"}</p>
+                  <button type="button" className="rounded-lg p-3 text-left text-sm hover:bg-muted sm:hidden" onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); setMobileSearchOpen(true); }}>Search workspace</button>
+                  <button type="button" className="rounded-lg p-3 text-left text-sm hover:bg-muted sm:hidden" onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); window.dispatchEvent(new Event("medic1905:tour")); }}>Help & Tour</button>
+                  <Link prefetch={navigationPrefetch} onNavigate={anonymousNavigation("/profile")} href="/profile" className="rounded-lg p-3 text-sm hover:bg-muted">My profile</Link>
+                  <Link prefetch={navigationPrefetch} onNavigate={anonymousNavigation("/settings")} href="/settings" className="rounded-lg p-3 text-sm hover:bg-muted">Account settings</Link>
+                  <Link prefetch={navigationPrefetch} onNavigate={anonymousNavigation("/legal/history")} href="/legal/history" className="rounded-lg p-3 text-sm hover:bg-muted">My policy history</Link>
+                  <SignOutButton />
+                </div>
+              </details>
             ) : (
               <div className="flex items-center gap-2">
                 <Link prefetch={navigationPrefetch} onNavigate={anonymousNavigation("/auth/login")} href="/auth/login" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors hidden sm:inline">
@@ -829,7 +853,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
         open={!sidebarCollapsed}
         onOpenChange={(open) => {
           setSidebarCollapsed(!open);
-          window.localStorage.setItem("medic1905.sidebar.collapsed", open ? "0" : "1");
+          try { if (optionalProcessingAllowed("preferences")) window.localStorage.setItem("medic1905.sidebar.collapsed", open ? "0" : "1"); } catch { /* optional preference */ }
         }}
         className="flex-1 w-full"
         style={{ minHeight: "calc(100vh - 4rem)" }}
@@ -906,10 +930,11 @@ export function Navbar({ children }: { children: React.ReactNode }) {
       </SidebarProvider>
 
       {/* Mobile sidebar overlay — above the bottom navigation so the backdrop covers it and the last links stay reachable */}
-      {showNavChrome && mobileSidebarOpen && (
-        <div className="fixed inset-0 z-[60] md:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileSidebarOpen(false)} />
-          <div className="absolute left-0 top-0 bottom-0 w-72 bg-sidebar border-r border-border overflow-y-auto">
+      {showNavChrome && (
+        <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+          <SheetContent side="left" className="z-[70] w-[min(320px,90vw)] overflow-y-auto bg-sidebar">
+            <SheetTitle className="sr-only">Workspace navigation</SheetTitle>
+            <SheetDescription className="sr-only">Modules available to your account. Escape closes this menu.</SheetDescription>
             <div className="flex h-16 items-center gap-2 border-b border-border px-6">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-foreground">
                 <svg viewBox="0 0 24 24" className="h-5 w-5 text-background" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -922,7 +947,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
               {navSections.map((section, sectionIndex) => (
                 <div key={section.label ?? "main"} className="space-y-1">
                   {section.label && (
-                    <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       {section.label}
                     </p>
                   )}
@@ -950,8 +975,8 @@ export function Navbar({ children }: { children: React.ReactNode }) {
                 </div>
               ))}
             </nav>
-          </div>
-        </div>
+          </SheetContent>
+        </Sheet>
       )}
 
       {/* Mobile Bottom Navigation — authenticated users only */}

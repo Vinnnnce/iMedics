@@ -9,6 +9,7 @@ export interface MeFacility {
   kind: "HOSPITAL" | "LABORATORY" | "DIAGNOSTIC_CENTRE" | "PHARMACY";
   facilityRole: string;
   permissions: readonly string[];
+  enabledModules?: readonly string[] | null;
 }
 
 export interface Me {

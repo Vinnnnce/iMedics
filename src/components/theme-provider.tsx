@@ -1,15 +1,18 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useSyncExternalStore } from "react";
+import { COOKIE_CONSENT_EVENT, optionalProcessingAllowed } from "@/lib/cookie-consent";
 
 export type ThemePreference = "dark" | "light" | "system";
 type EffectiveTheme = "dark" | "light";
 
 const THEME_STORAGE_KEY = "imedics.theme";
 const THEME_CHANGE_EVENT = "imedics:theme-change";
+let transientPreference: ThemePreference = "system";
 
 /** The stored preference ("system" follows the OS colour scheme). */
 function storedPreference(): ThemePreference {
+  if (!optionalProcessingAllowed("preferences")) return transientPreference;
   try {
     const value = window.localStorage.getItem(THEME_STORAGE_KEY);
     return value === "dark" || value === "light" || value === "system" ? value : "system";
@@ -61,18 +64,28 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const apply = useCallback((preference: ThemePreference) => {
+    transientPreference = preference;
     const next: EffectiveTheme =
       preference === "system" ? (systemPrefersDark() ? "dark" : "light") : preference;
     const root = document.documentElement;
     root.classList.remove("light", "dark");
     root.classList.add(next);
     try {
-      window.localStorage.setItem(THEME_STORAGE_KEY, preference);
+      if (optionalProcessingAllowed("preferences")) window.localStorage.setItem(THEME_STORAGE_KEY, preference);
     } catch {
       // Private browsing or blocked storage: the in-memory choice still works.
     }
     window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
   }, []);
+
+  useEffect(() => {
+    const onConsent = () => {
+      if (optionalProcessingAllowed("preferences")) apply(transientPreference);
+      else { try { localStorage.removeItem(THEME_STORAGE_KEY); } catch { /* optional */ } }
+    };
+    window.addEventListener(COOKIE_CONSENT_EVENT, onConsent);
+    return () => window.removeEventListener(COOKIE_CONSENT_EVENT, onConsent);
+  }, [apply]);
 
   const preference = useSyncExternalStore(
     subscribe,

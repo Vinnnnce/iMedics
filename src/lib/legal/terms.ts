@@ -137,7 +137,24 @@ export const TERMS_COMMON: PolicySection[] = [
     id: "changes",
     heading: "12. Changes to these Terms",
     paragraphs: [
-      "We may update these Terms from time to time. We will notify you of material changes by email or platform notification at least 30 days before they take effect. Continuing to use the Service after that date means you accept the updated Terms. The version you accepted at registration is recorded with your account.",
+      "Material changes require a new approved version and an explicit re-consent request in your account. Continuing to use the service is not treated by this implementation as acceptance. The operator must confirm notice periods, transitional access and consumer rights before publication. Immutable version snapshots and your dated acceptance records are available in My policy history. Draft acknowledgements are not recorded as acceptance of a published agreement.",
+    ],
+  },
+  {
+    id: "subscriptions",
+    heading: "Subscriptions and renewals",
+    paragraphs: [
+      "Where a paid facility or professional subscription is offered, the checkout or signed order must state the plan, enabled modules, billing period, price, taxes, payment method, renewal basis, cancellation procedure and any trial limits before purchase. This draft does not create an automatic renewal or authorise a charge. Any recurring payment requires the required payment mandate and applicable notice.",
+      "Plan changes, refunds, suspension for non-payment and termination effects must be set out in approved commercial terms. Clinically necessary retention and lawful access obligations do not disappear when a subscription ends. Do not promise permanent data storage, an uptime guarantee or an unoffered service level.",
+    ],
+  },
+  {
+    id: "operations-communications",
+    heading: "Availability, integrations and electronic approvals",
+    paragraphs: [
+      "The platform is software supporting independent healthcare providers; it is not itself a substitute for professional judgement or emergency services. Providers remain responsible for licensing, clinical assessments, prescriptions, documentation, supervision and patient safety. Electronic approvals must be performed only by the authorised professional and do not by themselves prove compliance with signature or prescribing law.",
+      "Maintenance, outages and third-party integrations may affect availability. Authentication, payments, messaging, storage, imaging and AI services may have their own terms and processing arrangements. The operator must verify and disclose actual providers and applicable contractual responsibilities before publication.",
+      "Service notices, verification and security communications may be delivered electronically using your registered contact details. Marketing communications require a separate applicable legal basis and an accessible opt-out; optional cookie consent is not consent to clinical record sharing or to marketing messages.",
     ],
   },
   {

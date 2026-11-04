@@ -19,13 +19,15 @@ export const COOKIES_COMMON: PolicySection[] = [
     id: "how-we-use-cookies",
     heading: "2. How this platform uses cookies",
     paragraphs: [
-      "We use cookies only where they are necessary for the Service to work, plus a small number of preference cookies. Under the Nigeria Data Protection Act 2023, cookies that are not strictly necessary require your consent. Specifically, we use:",
+      "This implementation keeps optional preference storage off until you choose it. Essential authentication and security storage supports the service you request. The operator must confirm the final cookie inventory and applicable consent requirements under the Nigeria Data Protection Act 2023 before this draft is published. The current categories are:",
     ],
     bullets: [
-      "Strictly necessary cookies — sign-in session and security tokens from our authentication provider (for example, session and sign-out states). Without these, you cannot sign in or use your account. No consent is needed because the Service cannot function without them.",
-      "Preference storage — for example, remembering your light or dark theme choice. It is kept on your device only and you can clear it in your browser at any time.",
+      "Strictly necessary cookies — sign-in session and security tokens from our authentication provider (for example, session and sign-out states). Without these, you cannot sign in or use your account. This implementation treats them as essential; the operator must confirm the applicable legal basis.",
+      "Registration tab drafts — session storage retains basic form answers while you complete account setup, excludes document files, and is cleared after successful submission. Closing the tab ends this draft storage. This requested signup function is separate from optional analytics or advertising.",
+      "Preference storage — light/dark theme and sidebar layout are remembered only after preference consent. Without that consent, choices work for the current page session. Consent choices themselves are stored locally for up to 180 days to respect your decision.",
+      "Analytics, performance and marketing — separate optional categories are available in Cookie settings. No analytics, advertising or performance-tracking integration is installed by this upgrade. A future integration must check its category before loading and update this inventory, vendor details, purposes and retention periods.",
       "Push and notification subscriptions — stored locally so security alerts, appointment and result notifications can reach you. You can turn these off in your device or account notification settings.",
-      "During payment, the licensed payment gateway (Paystack) may use cookies to protect the checkout against fraud. These are strictly necessary for processing your payment.",
+      "During a payment you request, the payment gateway (Paystack) may use storage to protect checkout against fraud. The operator must verify its actual categories, purposes and retention in the final provider inventory.",
     ],
     note: "We do not use advertising cookies, cross-site trackers, or third-party analytics cookies. We do not build advertising profiles from your health data.",
   },
@@ -33,7 +35,7 @@ export const COOKIES_COMMON: PolicySection[] = [
     id: "managing-cookies",
     heading: "3. Managing cookies",
     paragraphs: [
-      "You can control cookies through your browser settings: you can block all cookies, delete existing ones, or ask to be warned before they are set. Blocking strictly necessary cookies will prevent sign-in and may break parts of the Service. You can manage notification preferences inside the Service (Settings → Notifications) without touching your browser.",
+      "Open Cookie settings from any page to accept all categories, reject optional categories, customise individual choices or withdraw consent. Withdrawing preference consent removes saved theme/sidebar choices without signing you out. Blocking essential authentication cookies may prevent sign-in. Notification permissions are separate and can be managed in Settings or your browser.",
     ],
   },
   {

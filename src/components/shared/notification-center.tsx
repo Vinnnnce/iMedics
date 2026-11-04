@@ -78,7 +78,7 @@ export function NotificationCenter({ enabled }: { enabled: boolean }) {
   return (
     <>
       <Toaster position="top-right" theme={theme === "dark" ? "dark" : "light"} closeButton />
-      <Link href="/notifications" aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"} className="relative flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted">
+      <Link href="/notifications" aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"} className="relative flex h-11 w-11 items-center justify-center rounded-lg hover:bg-muted">
         <Bell className="h-5 w-5" />
         {unread > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white">

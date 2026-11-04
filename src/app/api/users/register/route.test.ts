@@ -34,6 +34,8 @@ const prismaTx = vi.hoisted(() => ({
   patient: { create: vi.fn() },
   doctorProfile: { create: vi.fn() },
   labStaffProfile: { create: vi.fn() },
+  policySnapshot: { findUnique: vi.fn(), createMany: vi.fn(), findUniqueOrThrow: vi.fn() },
+  policyReceipt: { createMany: vi.fn() },
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -45,6 +47,7 @@ vi.mock("@/lib/prisma", () => ({
 import { NextRequest } from "next/server";
 import { POST } from "./route";
 import { verifyFinalProfileImage } from "@/lib/profile-images";
+import { POLICY_RELEASE } from "@/lib/legal/release";
 
 const USER_ID = "11111111-2222-4333-8444-555555555555";
 
@@ -72,6 +75,8 @@ const invoke = (body: object) =>
 
 const basePayload = () => ({
   termsAccepted: true,
+  privacyAccepted: true,
+  policyVersion: POLICY_RELEASE.version,
   firstName: "Test",
   lastName: "User",
   gender: "other",
@@ -89,12 +94,35 @@ describe("POST /api/users/register (onboarding)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authMock.requireUser.mockResolvedValue(onboardingUser);
+    prismaTx.policySnapshot.findUnique.mockResolvedValue({ content: POLICY_RELEASE });
   });
 
   it("accepts an incomplete, pending account (no readiness catch-22)", async () => {
     const response = await invoke({ ...basePayload(), accountType: "patient" });
     expect(response.status).toBe(201);
     expect(prismaTx.user.update).toHaveBeenCalled();
+  });
+
+  it("requires explicit privacy acknowledgement and the current version", async () => {
+    for (const change of [{ privacyAccepted: false }, { policyVersion: "obsolete" }]) {
+      const response = await invoke({ ...basePayload(), accountType: "patient", ...change });
+      expect(response.status).toBe(400);
+    }
+    expect(prismaTx.user.update).not.toHaveBeenCalled();
+  });
+
+  it("records the draft acknowledgement, not a binding acceptance or health history", async () => {
+    expect((await invoke({ ...basePayload(), accountType: "patient", bloodGroup: "O+", allergies: "private" })).status).toBe(201);
+    expect(prismaTx.policyReceipt.createMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: [expect.objectContaining({ userId: USER_ID, accountType: "PATIENT", kind: "DRAFT_ACKNOWLEDGEMENT" })],
+    }));
+    const update = prismaTx.user.update.mock.calls[0][0].data;
+    expect(update.termsAcceptedAt).toBeUndefined();
+    expect(update.country).toBe("NG");
+    expect(update.language).toBe("en");
+    const patient = prismaTx.patient.create.mock.calls[0][0].data;
+    expect(patient.bloodGroup).toBeUndefined();
+    expect(patient.medicalHistories).toBeUndefined();
   });
 
   it("registers a patient when the wizard sends profileImageKey: null", async () => {

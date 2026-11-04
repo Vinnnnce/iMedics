@@ -6,6 +6,8 @@ import { withAuth, parseBody } from "@/lib/api";
 import { badRequest, conflict } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
 import { generateCaseNumber } from "@/lib/case-number";
+import { POLICY_RELEASE, policyCanBeAccepted } from "@/lib/legal/release";
+import { recordPolicyReceipt } from "@/lib/legal/record";
 import { notifyAdminsOfApplication } from "@/lib/admin/notify";
 import {
   isFinalProfileImageKey,
@@ -13,7 +15,7 @@ import {
   verifyFinalProfileImage,
 } from "@/lib/profile-images";
 
-const TERMS_VERSION = "2026-10";
+const TERMS_VERSION = POLICY_RELEASE.version;
 
 const text = z.string().trim().max(500).optional();
 
@@ -29,6 +31,10 @@ const registerSchema = z.object({
   termsAccepted: z.literal(true, {
     error: "You must accept the terms to continue",
   }),
+  privacyAccepted: z.literal(true, { error: "Review the privacy information before continuing" }),
+  policyVersion: z.literal(POLICY_RELEASE.version, { error: "Policies changed. Review the current version and try again." }),
+  country: z.string().trim().toUpperCase().regex(/^[A-Z]{2}$/, "Use a two-letter country code").default("NG"),
+  language: z.enum(["en", "ha", "ig", "yo"]).default("en"),
 
   // Identity (all account types)
   firstName: z.string().trim().min(1, "First name is required").max(80),
@@ -45,13 +51,6 @@ const registerSchema = z.object({
   city: text,
   state: text,
   occupation: text,
-  bloodGroup: text,
-  genotype: text,
-  allergies: text, // comma / newline separated
-  chronicConditions: text, // comma / newline separated
-  emergencyContactName: text,
-  emergencyContactRelationship: text,
-  emergencyContactPhone: text,
 
   // Doctor
   mdcnRegistrationNumber: text,
@@ -90,12 +89,6 @@ const toInt = (value?: string) => {
   const n = value ? Number.parseInt(value, 10) : NaN;
   return Number.isInteger(n) ? n : null;
 };
-
-const toList = (value?: string) =>
-  (value ?? "")
-    .split(/[,\n]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
 
 /**
  * POST /api/users/register — complete registration after sign-up.
@@ -153,24 +146,17 @@ export const POST = withAuth(
         data: {
           name,
           phone: data.phone,
+          country: data.country,
+          language: data.language,
           accountType,
           status: isPatient ? "ACTIVE" : "PENDING",
           onboardingComplete: true,
-          termsAcceptedAt: new Date(),
-          termsVersion: TERMS_VERSION,
+          ...(policyCanBeAccepted() ? { termsAcceptedAt: new Date(), termsVersion: TERMS_VERSION } : {}),
           ...(profileImageUrl ? { avatarUrl: profileImageUrl } : {}),
         },
       });
 
       if (isPatient) {
-        const allergies = toList(data.allergies).map((allergen) => ({
-          type: "unspecified",
-          allergen,
-        }));
-        const pastHistory = toList(data.chronicConditions).map((diagnosis) => ({
-          diagnosis,
-        }));
-
         await tx.patient.create({
           data: {
             caseNumber: generateCaseNumber(),
@@ -182,16 +168,9 @@ export const POST = withAuth(
             dateOfBirth: new Date(data.dateOfBirth),
             occupation: data.occupation,
             addressLine1: data.address,
+            country: data.country,
             city: data.city,
             state: data.state,
-            bloodGroup: data.bloodGroup,
-            genotype: data.genotype,
-            ecName: data.emergencyContactName,
-            ecRelationship: data.emergencyContactRelationship,
-            ecPhone: data.emergencyContactPhone,
-            ...(allergies.length || pastHistory.length
-              ? { medicalHistories: { create: { allergies, pastHistory } } }
-              : {}),
           },
         });
       } else if (accountType === "DOCTOR") {
@@ -202,7 +181,7 @@ export const POST = withAuth(
             dateOfBirth: new Date(data.dateOfBirth),
             gender,
             location:
-              [data.address, data.city, data.state]
+              [data.address, data.city, data.state, data.country]
                 .filter(Boolean)
                 .join(", ") || null,
             licenseNumber: data.mdcnLicenseNumber,
@@ -219,6 +198,7 @@ export const POST = withAuth(
           data: {
             userId: user.id,
             laboratoryName: data.organisationName,
+            country: data.country,
             position: data.organisationType,
             licenseIdNumber: data.facilityLicenseNumber,
             addressLine: data.address || null,
@@ -238,6 +218,7 @@ export const POST = withAuth(
           },
         });
       }
+      await recordPolicyReceipt(tx, user.id, accountType);
     });
 
     await writeAudit({

@@ -44,12 +44,16 @@ async function facilityContext(
   if (!kind) return null;
 
   const facilityRole = membership?.facilityRole ?? "OWNER";
+  const moduleSettings = kind === "HOSPITAL"
+    ? await prisma.hospitalSettings.findUnique({ where: { facilityId: facility.id }, select: { enabledModules: true } })
+    : null;
   return {
     id: facility.id,
     name: facility.laboratoryName,
     kind,
     facilityRole,
     permissions: permissionsForRole(facilityRole),
+    enabledModules: moduleSettings?.enabledModules ?? null,
   };
 }
 
