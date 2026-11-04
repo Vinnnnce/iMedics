@@ -19,7 +19,7 @@ const saveSchema = z.object({
 // GET /api/facility/his/documents/[id] — the document, its signatures and workflow trail.
 export const GET = withAuth<{ id: string }>(null, async (req, { user, params }) => {
   const access = await requireHisAccess(user, "VIEW_PATIENT_DOCUMENTS", req);
-  const doc = await loadFacilityDocument(access.facility.id, parseId((await params).id));
+  const doc = await loadFacilityDocument(access.facility.id, parseId((await params).id), user);
   if (doc.sensitivity === "SPECIALLY_PROTECTED" && doc.authorId !== user.id && !access.permissions.includes("REVIEW_DOCUMENTS")) {
     throw forbidden("This record is specially protected");
   }
@@ -31,7 +31,7 @@ export const GET = withAuth<{ id: string }>(null, async (req, { user, params }) 
 // validated against the template; required fields are enforced at submission.
 export const PUT = withAuth<{ id: string }>(null, async (req, { user, params }) => {
   const access = await requireHisAccess(user, "AUTHOR_DOCUMENTS", req);
-  const doc = await loadFacilityDocument(access.facility.id, parseId((await params).id));
+  const doc = await loadFacilityDocument(access.facility.id, parseId((await params).id), user);
   if (doc.status !== "DRAFT") throw conflict("Only drafts can be edited — finalized documents are corrected by amendment");
   if (doc.authorId !== user.id) throw forbidden("Only the author can edit this draft");
   const body = await parseBody(req, saveSchema);

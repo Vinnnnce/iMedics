@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 
 export const GET = withAuth<{ id: string }>(null, async (req, { user, params }) => {
   const access = await requireHisAccess(user, "VIEW_PATIENT_DOCUMENTS", req);
-  const doc = await loadFacilityDocument(access.facility.id, parseId((await params).id));
+  const doc = await loadFacilityDocument(access.facility.id, parseId((await params).id), user);
   assertDocumentReadable(doc, user.id, hasPermission(access, "REVIEW_DOCUMENTS"));
   if (!["FINAL", "AMENDED"].includes(doc.status)) throw conflict("Finalize this document before exporting it");
   const view = await buildDocumentView(doc);

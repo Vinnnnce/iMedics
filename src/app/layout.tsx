@@ -9,6 +9,10 @@ import { MeProvider } from "@/lib/use-me";
 import { getNavMe } from "@/lib/me";
 import { CookiePreferences } from "@/components/legal/cookie-preferences";
 import { PolicyConsentNotice } from "@/components/legal/policy-consent-notice";
+import { headers } from "next/headers";
+import { moduleForPath } from "@/lib/platform/policy";
+import { getCurrentUser } from "@/lib/auth";
+import { assertPlatformPolicy } from "@/lib/platform/access";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -29,6 +33,18 @@ const themeInitScript = `try{var p=JSON.parse(localStorage.getItem("medic1905.co
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const me = await getNavMe();
+  const requestedModule = moduleForPath((await headers()).get("x-medic-page-path") ?? "");
+  let restricted = false;
+  if (requestedModule) {
+    const user = await getCurrentUser();
+    if (user) {
+      try { await assertPlatformPolicy(user, "FEATURE", requestedModule, "VIEW", me?.facility?.id); }
+      catch (error) {
+        if (!(error instanceof Error) || !("status" in error) || error.status !== 403) throw error;
+        restricted = true;
+      }
+    }
+  }
   return (
     <ClerkProvider>
       {/* suppressHydrationWarning: the theme-init script below mutates the
@@ -38,7 +54,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
           <ThemeProvider>
             <MeProvider initialMe={me}>
-              <Navbar><PolicyConsentNotice />{children}</Navbar>
+              <Navbar><PolicyConsentNotice />{restricted ? <section role="alert" className="mx-auto max-w-2xl rounded-xl border bg-card p-6"><h1 className="text-xl font-semibold">Feature access restricted</h1><p className="mt-3 text-sm text-muted-foreground">This module is unavailable under the current platform policy, role or subscription. Your existing records have not been deleted. Contact your facility administrator for an access review.</p></section> : children}</Navbar>
               <CookiePreferences />
             </MeProvider>
           </ThemeProvider>

@@ -5,6 +5,7 @@ import { withAuth, parseBody, parseId } from "@/lib/api";
 import { notFound } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
 import { requireFacilityAccess, assertSameFacility } from "@/lib/facility-auth";
+import { controlAudit } from "@/lib/organization/security";
 
 const patchSchema = z.object({
   number: z.string().trim().min(1).max(80).optional(),
@@ -34,9 +35,14 @@ export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }
   if (!credential) throw notFound("Credential not found");
   assertSameFacility(credential.staff.facilityId, access.facility.id, "Credential");
 
-  const updated = await prisma.staffCredential.update({
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.staffCredential.update({
     where: { id },
     data: {
+      // A verified certificate cannot be replaced while retaining its approval.
+      verificationStatus: "PENDING_VERIFICATION",
+      verifiedAt: null,
+      verifiedById: null,
       ...(body.number !== undefined ? { number: body.number } : {}),
       ...(body.authority !== undefined ? { authority: body.authority } : {}),
       ...(body.issueDate !== undefined ? { issueDate: body.issueDate ?? null } : {}),
@@ -46,6 +52,10 @@ export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }
       ...(body.renewalStatus !== undefined ? { renewalStatus: body.renewalStatus } : {}),
     },
     select,
+    });
+    await tx.clinicalPrivilege.updateMany({ where: { credentialId: id, revokedAt: null }, data: { revokedAt: new Date() } });
+    await controlAudit(tx, user.id, access.facility.id, "STAFF_CREDENTIAL_REVIEW_RESET", id, { changes: Object.keys(body) });
+    return row;
   });
 
   await writeAudit({
@@ -66,10 +76,15 @@ export const DELETE = withAuth<{ id: string }>(null, async (req, { user, params 
   if (!credential) throw notFound("Credential not found");
   assertSameFacility(credential.staff.facilityId, access.facility.id, "Credential");
 
-  await prisma.staffCredential.delete({ where: { id } });
+  // Retain the professional evidence and historical grants rather than deleting history.
+  await prisma.$transaction(async (tx) => {
+    await tx.staffCredential.update({ where: { id }, data: { verificationStatus: "REJECTED", renewalStatus: "LAPSED" } });
+    await tx.clinicalPrivilege.updateMany({ where: { credentialId: id, revokedAt: null }, data: { revokedAt: new Date() } });
+    await controlAudit(tx, user.id, access.facility.id, "STAFF_CREDENTIAL_REVOKED", id, {});
+  });
 
   await writeAudit({
-    userId: user.id, actorRole: user.role, action: "STAFF_CREDENTIAL_DELETED",
+    userId: user.id, actorRole: user.role, action: "STAFF_CREDENTIAL_REVOKED",
     resourceType: "StaffCredential", resourceId: id,
     details: {}, facilityId: access.facility.id, req,
   });

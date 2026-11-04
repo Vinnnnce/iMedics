@@ -3,6 +3,9 @@ import type { FacilityStaffRole, LabStaffProfile, User } from "@prisma/client";
 import { prisma } from "./prisma";
 import { badRequest, forbidden, notFound } from "./errors";
 import { permissionsForRole, FACILITY_PERMISSIONS, type FacilityPermission } from "./facility-staff";
+import { assertClinicalPrivilege, filterClinicalPrivileges, REGULATED_PERMISSIONS } from "./organization/privileges";
+import { assertRequestPatientScope } from "./organization/patient-scope";
+import { assertPlatformPolicy, enforceRequestPolicy } from "./platform/access";
 
 /**
  * Role defaults plus the facility's per-staff permission overrides
@@ -16,7 +19,9 @@ export function effectivePermissions(membership: {
   accessLevel: string;
   permissionOverrides: unknown;
 }): readonly FacilityPermission[] {
+  if (membership.accessLevel === "NONE") return [];
   const base = permissionsForRole(membership.facilityRole);
+  if (membership.accessLevel === "READ_ONLY") return base.filter((p) => p.startsWith("VIEW_"));
   if (membership.accessLevel !== "CUSTOM") return base;
   const raw = membership.permissionOverrides;
   let add: string[] = [];
@@ -42,6 +47,9 @@ export interface FacilityAccess {
 }
 
 interface MembershipRow {
+  accessStartsAt?: Date | null;
+  accessExpiresAt?: Date | null;
+  departmentIds?: string[];
   id: string;
   facilityRole: FacilityStaffRole;
   status: string;
@@ -74,7 +82,7 @@ export async function requireFacilityAccess(
 
   const memberships: MembershipRow[] = await prisma.facilityStaff.findMany({
     where: { userId: user.id, status: { in: ["ACTIVE", "ON_LEAVE"] } },
-    select: { id: true, facilityRole: true, status: true, userId: true, accessLevel: true, permissionOverrides: true, facility: true },
+    select: { id: true, facilityRole: true, status: true, userId: true, accessLevel: true, permissionOverrides: true, accessStartsAt: true, accessExpiresAt: true, departmentIds: true, facility: true },
   });
 
   if (memberships.length === 0) {
@@ -94,13 +102,23 @@ export async function requireFacilityAccess(
   if (membership.status !== "ACTIVE") {
     throw forbidden("Your staff account is not active for this facility");
   }
+  if ((membership.accessStartsAt && membership.accessStartsAt > new Date()) || (membership.accessExpiresAt && membership.accessExpiresAt <= new Date())) throw forbidden("This facility membership is outside its access period");
   const { facility } = membership;
   if (options.requireVerified !== false && facility.verificationStatus !== "VERIFIED") {
     throw forbidden("This facility is not verified yet");
   }
   const effective = effectivePermissions(membership);
+  if (membership.accessLevel === "NONE") throw forbidden("Facility access has been revoked");
   if (permission && !effective.includes(permission)) {
     throw forbidden("Your role does not allow this action");
+  }
+  if (permission) await assertClinicalPrivilege(membership.id, permission);
+  if (req) {
+    await assertRequestPatientScope({ staffId: membership.id, facilityId: facility.id, accessLevel: membership.accessLevel ?? "STANDARD", departmentIds: membership.departmentIds ?? [] }, req);
+    await enforceRequestPolicy(user, req, facility.id);
+    const { moduleForPath } = await import("./platform/policy");
+    const featureModule = moduleForPath(new URL(req.url).pathname);
+    if (featureModule) await assertPlatformPolicy(user, "FEATURE", featureModule, req.method === "GET" ? "VIEW" : "EDIT", facility.id);
   }
 
   return {
@@ -108,7 +126,7 @@ export async function requireFacilityAccess(
     facility,
     staffId: membership.id,
     facilityRole: membership.facilityRole,
-    permissions: effective,
+    permissions: await filterClinicalPrivileges(membership.id, effective),
   };
 }
 
@@ -139,6 +157,7 @@ export async function resolveFacilityForPortalUser(user: User, facilityId?: stri
       select: { facility: true },
     });
     if (membership) return membership.facility;
+    throw forbidden("You are not an active staff member of that facility");
   }
   const own = await prisma.labStaffProfile.findUnique({ where: { userId: user.id } });
   if (own) return own;
@@ -189,16 +208,19 @@ export async function resolveFacilityPermissions(
     where: { userId: user.id },
     select: { id: true },
   });
-  if (own && own.id === facilityId) {
-    return { role: "OWNER", permissions: permissionsForRole("OWNER") };
-  }
   const memberships = await prisma.facilityStaff.findMany({
-    where: { userId: user.id, facilityId, status: { in: ["ACTIVE", "ON_LEAVE"] } },
-    select: { facilityRole: true },
+    where: { userId: user.id, facilityId, status: "ACTIVE", AND: [
+      { OR: [{ accessStartsAt: null }, { accessStartsAt: { lte: new Date() } }] },
+      { OR: [{ accessExpiresAt: null }, { accessExpiresAt: { gt: new Date() } }] },
+    ] },
+    select: { id: true, facilityRole: true, accessLevel: true, permissionOverrides: true },
   });
   const permissions = new Set<FacilityPermission>();
+  if (!memberships.length && own?.id === facilityId && !await prisma.facilityStaff.findFirst({ where: { userId: user.id, facilityId }, select: { id: true } })) {
+    return { role: "OWNER", permissions: permissionsForRole("OWNER").filter((p) => !REGULATED_PERMISSIONS.includes(p)) };
+  }
   for (const membership of memberships) {
-    for (const permission of permissionsForRole(membership.facilityRole)) permissions.add(permission);
+    for (const permission of await filterClinicalPrivileges(membership.id, effectivePermissions(membership))) permissions.add(permission);
   }
   return { role: memberships[0]?.facilityRole ?? "FACILITY_MANAGER", permissions: [...permissions] };
 }

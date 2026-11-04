@@ -46,9 +46,12 @@ const ROLE_LABELS_EXTRA: Record<string, string> = {
   INSURANCE_OFFICER: "Insurance officer", MEDICAL_RECORDS_OFFICER: "Medical records officer",
 };
 const ACCESS_LEVELS: { value: string; label: string; hint: string }[] = [
+  { value: "NONE", label: "No access", hint: "no facility access" },
+  { value: "READ_ONLY", label: "Read only", hint: "authorized view operations only" },
   { value: "LIMITED", label: "Limited", hint: "only patients explicitly assigned below" },
   { value: "STANDARD", label: "Standard", hint: "role defaults (care-relationship based)" },
   { value: "EXTENDED", label: "Extended", hint: "standard plus assigned departments" },
+  { value: "DEPARTMENT", label: "Department", hint: "assigned departments only" },
   { value: "FULL", label: "Full facility", hint: "all patients with a care relationship here" },
   { value: "CUSTOM", label: "Custom", hint: "role defaults plus permission overrides" },
 ];
@@ -68,6 +71,7 @@ function StaffAccessControl({ staffId, accessLevel, customCategory, canManageSta
   const [error, setError] = useState("");
   const [caseNumber, setCaseNumber] = useState("");
   const [scope, setScope] = useState("CARE_TEAM");
+  const [justification, setJustification] = useState("");
   const [message, setMessage] = useState("");
 
   const loadGrants = async () => {
@@ -103,11 +107,13 @@ function StaffAccessControl({ staffId, accessLevel, customCategory, canManageSta
     e.preventDefault();
     setError(""); setMessage("");
     try {
+      if (justification.trim().length < 15) throw new Error("Enter an access-change justification of at least 15 characters.");
       const lookup = await apiBase.get(`/facility/patients?n=${encodeURIComponent(caseNumber.trim().toUpperCase())}`) as { patient?: { id: string; firstName: string; lastName: string } };
       if (!lookup.patient) throw new Error("No patient matches that case number");
-      await apiBase.post(`/facility/staff/${staffId}/access`, { action: "GRANT", patientId: lookup.patient.id, scope });
+      await apiBase.post(`/facility/staff/${staffId}/access`, { action: "GRANT", patientId: lookup.patient.id, scope, justification: justification.trim() });
       setMessage(`Access granted to ${lookup.patient.firstName} ${lookup.patient.lastName}.`);
       setCaseNumber("");
+      setJustification("");
       await loadGrants();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed");
@@ -117,8 +123,10 @@ function StaffAccessControl({ staffId, accessLevel, customCategory, canManageSta
   const revoke = async (patientId: string) => {
     setError(""); setMessage("");
     try {
-      await apiBase.post(`/facility/staff/${staffId}/access`, { action: "REVOKE", patientId });
+      if (justification.trim().length < 15) throw new Error("Enter an access-change justification of at least 15 characters.");
+      await apiBase.post(`/facility/staff/${staffId}/access`, { action: "REVOKE", patientId, justification: justification.trim() });
       setMessage("Access revoked.");
+      setJustification("");
       await loadGrants();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed");
@@ -161,6 +169,10 @@ function StaffAccessControl({ staffId, accessLevel, customCategory, canManageSta
                 <option value="TEMPORARY">Temporary (24h)</option>
               </select>
             </div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <Label htmlFor={`grant-reason-${staffId}`}>Grant or revocation justification</Label>
+              <Input id={`grant-reason-${staffId}`} required minLength={15} maxLength={500} value={justification} onChange={(e) => setJustification(e.target.value)} placeholder="Reason for this access change" />
+            </div>
             <Button type="submit" variant="outline">Grant access</Button>
           </form>
           {grants === null ? <p className="text-xs text-muted-foreground">Loading assigned patients…</p> : grants.length === 0 ? (
@@ -178,6 +190,7 @@ function StaffAccessControl({ staffId, accessLevel, customCategory, canManageSta
           <p className="text-xs text-muted-foreground">
             A staff account alone never grants access to every patient. LIMITED staff reach only the patients assigned here;
             every assignment and revocation is audited.
+            Enter a fresh justification above before granting or revoking access.
           </p>
         </div>
       )}

@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { User } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { findAccessiblePatient } from "@/lib/access";
-import { permissionsForRole } from "@/lib/facility-staff";
+import { effectivePermissions } from "@/lib/facility-auth";
+import { getStaffMembership, assertStaffCanReachPatient } from "@/lib/staff-access";
 import { writeAudit } from "@/lib/audit";
 import type { AccessibleDocument } from "@/lib/documents/shared";
 
@@ -41,15 +42,18 @@ export async function facilitiesWithDocumentAccess(user: User): Promise<string[]
   const [own, memberships] = await Promise.all([
     prisma.labStaffProfile.findUnique({ where: { userId: user.id }, select: { id: true } }),
     prisma.facilityStaff.findMany({
-      where: { userId: user.id, status: { in: ["ACTIVE", "ON_LEAVE"] } },
-      select: { facilityId: true, facilityRole: true },
+      where: { userId: user.id, status: "ACTIVE", AND: [
+        { OR: [{ accessStartsAt: null }, { accessStartsAt: { lte: new Date() } }] },
+        { OR: [{ accessExpiresAt: null }, { accessExpiresAt: { gt: new Date() } }] },
+      ] },
+      select: { facilityId: true, facilityRole: true, accessLevel: true, permissionOverrides: true },
       take: 20,
     }),
   ]);
   const ids = new Set<string>();
   if (own) ids.add(own.id);
   for (const m of memberships) {
-    if (permissionsForRole(m.facilityRole).includes("VIEW_PATIENT_DOCUMENTS")) ids.add(m.facilityId);
+    if (effectivePermissions(m).includes("VIEW_PATIENT_DOCUMENTS")) ids.add(m.facilityId);
   }
   return [...ids];
 }
@@ -94,13 +98,17 @@ export async function findAccessibleDocument(user: User, documentId: string): Pr
   const facilityIds = await facilitiesWithDocumentAccess(user);
   if (facilityIds.length > 0) {
     if (document.issuingFacilityId && facilityIds.includes(document.issuingFacilityId)) {
+      await assertStaffCanReachPatient(await getStaffMembership(user, document.issuingFacilityId), document.patientId);
       return { document, canManage: false };
     }
     const facilityShare = await prisma.documentFacilityShare.findFirst({
       where: { documentId, facilityId: { in: facilityIds }, revokedAt: null },
-      select: { id: true },
+      select: { id: true, facilityId: true },
     });
-    if (facilityShare) return { document, canManage: false };
+    if (facilityShare) {
+      await assertStaffCanReachPatient(await getStaffMembership(user, facilityShare.facilityId), document.patientId);
+      return { document, canManage: false };
+    }
   }
 
   // An individual share to this user (read-only).

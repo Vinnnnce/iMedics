@@ -6,7 +6,89 @@ datasource db {
   provider = "postgresql"
 }
 
+/// Administrative authority is separate from the global ADMIN role and clinical privileges.
+model SuperAdminGrant {
+  userId     String    @id @map("user_id") @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  grantedBy  String    @map("granted_by")
+  reason     String
+  createdAt  DateTime  @default(now()) @map("created_at")
+  expiresAt  DateTime? @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  @@map("super_admin_grants")
+}
+
+model OrganizationPosition {
+  id           String   @id @default(uuid()) @db.Uuid
+  facilityId   String   @map("facility_id") @db.Uuid
+  departmentId String?  @map("department_id") @db.Uuid
+  department   FacilityDepartment? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  title        String
+  category     String
+  rank         Int      @default(0)
+  parentId     String?  @map("parent_id") @db.Uuid
+  parent       OrganizationPosition? @relation("PositionTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children     OrganizationPosition[] @relation("PositionTree")
+  active       Boolean  @default(true)
+  appointments StaffAppointment[]
+  createdAt    DateTime @default(now()) @map("created_at")
+  @@index([facilityId, departmentId])
+  @@map("organization_positions")
+}
+
+/// Appointment history never grants clinical permissions.
+model StaffAppointment {
+  id           String   @id @default(uuid()) @db.Uuid
+  facilityId   String   @map("facility_id") @db.Uuid
+  staffId      String   @map("staff_id") @db.Uuid
+  staff        FacilityStaff @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  positionId   String   @map("position_id") @db.Uuid
+  position     OrganizationPosition @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  kind         String   @default("SUBSTANTIVE")
+  effectiveAt  DateTime @map("effective_at")
+  endsAt       DateTime? @map("ends_at")
+  reason       String
+  createdById  String   @map("created_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+  @@index([facilityId, positionId, effectiveAt])
+  @@index([staffId, effectiveAt])
+  @@map("staff_appointments")
+}
+
+/// Append-only policy revisions; most recent revision of each key wins.
+model PlatformPolicy {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String
+  revision    Int
+  resource    String
+  kind        String
+  mode        String
+  rules       Json
+  reason      String
+  createdById String   @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  @@unique([key, revision])
+  @@index([kind, resource, createdAt])
+  @@map("platform_policies")
+}
+
+/// Database trigger supplies the serialised, SHA-256 chained evidence.
+model ControlAuditEvent {
+  sequence    BigInt   @id @default(autoincrement())
+  actorId     String   @map("actor_id") @db.Uuid
+  facilityId  String?  @map("facility_id") @db.Uuid
+  action      String
+  resourceId  String   @map("resource_id")
+  details     Json
+  occurredAt  DateTime @default(now()) @map("occurred_at")
+  previousHash String @default("") @map("previous_hash")
+  hash        String  @default("")
+  @@index([facilityId, occurredAt])
+  @@map("control_audit_events")
+}
+
 model User {
+  superAdminGrant        SuperAdminGrant?
   policyReceipts         PolicyReceipt[]
   productTours           ProductTour[]
   country                String?
@@ -1618,6 +1700,9 @@ enum FacilityStaffStatus {
 /// FULL: every patient with a care relationship at this facility (never other facilities).
 /// CUSTOM: role defaults modified by the facility's per-staff permission overrides.
 enum StaffAccessLevel {
+  NONE
+  READ_ONLY
+  DEPARTMENT
   LIMITED
   STANDARD
   EXTENDED
@@ -1717,6 +1802,15 @@ model FacilityBranch {
 }
 
 model FacilityDepartment {
+  code         String?
+  parentId     String?           @map("parent_id") @db.Uuid
+  parent       FacilityDepartment? @relation("DepartmentTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children     FacilityDepartment[] @relation("DepartmentTree")
+  deputyStaffId String?          @map("deputy_staff_id") @db.Uuid
+  deputyStaff  FacilityStaff?    @relation("DepartmentDeputy", fields: [deputyStaffId], references: [id], onDelete: SetNull)
+  active       Boolean           @default(true)
+  imageUrl     String?           @map("image_url")
+  positions    OrganizationPosition[]
   id           String            @id @default(uuid()) @db.Uuid
   facilityId   String            @map("facility_id") @db.Uuid
   name         String
@@ -1734,14 +1828,24 @@ model FacilityDepartment {
   services     FacilityService[]
 
   @@unique([facilityId, slug])
+  @@unique([facilityId, code])
   @@index([facilityId])
   @@map("facility_departments")
 }
 
 model FacilityStaff {
+  clinicalPrivileges   ClinicalPrivilege[]
+  accessStartsAt       DateTime?            @map("access_starts_at")
+  accessExpiresAt      DateTime?            @map("access_expires_at")
+  invitationState      String               @default("PENDING_ACCEPTANCE") @map("invitation_state")
+  reportsToId          String?              @map("reports_to_id") @db.Uuid
+  reportsTo            FacilityStaff?        @relation("StaffReporting", fields: [reportsToId], references: [id], onDelete: SetNull)
+  directReports        FacilityStaff[]       @relation("StaffReporting")
+  deputyDepartments    FacilityDepartment[]  @relation("DepartmentDeputy")
+  appointments         StaffAppointment[]
   id                   String               @id @default(uuid()) @db.Uuid
   facilityId           String               @map("facility_id") @db.Uuid
-  userId               String?              @unique @map("user_id") @db.Uuid
+  userId               String?              @map("user_id") @db.Uuid
   email                String               @db.VarChar(120)
   fullName             String               @map("full_name") @db.VarChar(120)
   facilityRole         FacilityStaffRole
@@ -1794,6 +1898,7 @@ model FacilityStaff {
   breakGlassAccesses   BreakGlassAccess[]
 
   @@unique([facilityId, email])
+  @@unique([facilityId, userId])
   @@index([facilityId, status])
   @@index([userId])
   @@map("facility_staff")
@@ -1854,6 +1959,7 @@ model BreakGlassAccess {
 }
 
 model StaffCredential {
+  clinicalPrivileges ClinicalPrivilege[]
   id                 String                       @id @default(uuid()) @db.Uuid
   staffId            String                       @map("staff_id") @db.Uuid
   type               StaffCredentialType
@@ -1878,6 +1984,22 @@ model StaffCredential {
   @@index([staffId])
   @@index([expiryDate])
   @@map("staff_credentials")
+}
+
+model ClinicalPrivilege {
+  id           String   @id @default(uuid()) @db.Uuid
+  staffId      String   @map("staff_id") @db.Uuid
+  staff        FacilityStaff @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  credentialId String   @map("credential_id") @db.Uuid
+  credential   StaffCredential @relation(fields: [credentialId], references: [id], onDelete: Restrict)
+  permission   String
+  grantedById  String   @map("granted_by_id") @db.Uuid
+  reason       String
+  startsAt     DateTime @default(now()) @map("starts_at")
+  expiresAt    DateTime @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  @@index([staffId, permission, expiresAt])
+  @@map("clinical_privileges")
 }
 
 model FacilityReferral {

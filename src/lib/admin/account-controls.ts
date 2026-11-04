@@ -3,6 +3,7 @@ import { prisma } from "../prisma";
 import { badRequest, conflict, notFound } from "../errors";
 import { queueNotification } from "../notifications/service";
 import { writeAudit } from "../audit";
+import { controlAudit } from "@/lib/organization/security";
 
 type Admin = { id: string; role: "ADMIN" };
 
@@ -28,9 +29,16 @@ export async function changeAccountStatus(admin: Admin, targetId: string, status
   }
 
   const restricting = status !== "ACTIVE";
-  await prisma.user.update({
+  await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('medic1905-admin-accounts'))::text`;
+    const current = await tx.user.findFirst({ where: { id: targetId, deletedAt: null }, select: { role: true, status: true } });
+    if (!current || current.role !== target.role || current.status !== target.status) throw conflict("Account changed; refresh before confirming");
+    if (current.role === "ADMIN" && status !== "ACTIVE" && !await tx.user.count({ where: { role: "ADMIN", status: "ACTIVE", deletedAt: null, id: { not: targetId } } })) throw conflict("This is the last active administrator");
+    await tx.user.update({
     where: { id: targetId },
     data: { status, statusReason: restricting ? reason!.trim() : null, statusChangedAt: new Date() },
+    });
+    await controlAudit(tx, admin.id, null, "ADMIN_CHANGED_STATUS", targetId, { from: target.status, to: status, reason: reason?.trim() ?? "Account reactivation" });
   });
 
   queueNotification(targetId, restricting ? { kind: "ACCOUNT_SUSPENDED" } : { kind: "ACCOUNT_RESTORED" }, { anyStatus: true });
@@ -56,20 +64,28 @@ async function roleWithoutAdmin(userId: string): Promise<Role> {
  * Grant or remove administrator access. Professional roles are only ever granted through verification, so this is
  * deliberately the only role change an admin can make by hand.
  */
-export async function setAdministrator(admin: Admin, targetId: string, makeAdmin: boolean, req?: Request) {
+export async function setAdministrator(admin: Admin, targetId: string, makeAdmin: boolean, req?: Request, reason?: string) {
   if (targetId === admin.id) throw badRequest("You cannot change your own administrator access");
   const target = await prisma.user.findFirst({ where: { id: targetId, deletedAt: null }, select: { id: true, role: true, status: true } });
   if (!target) throw notFound("User not found");
 
+  const fallback = makeAdmin ? "ADMIN" : await roleWithoutAdmin(targetId);
+  await prisma.$transaction(async (tx) => {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('medic1905-admin-accounts'))::text`;
+  const current = await tx.user.findFirst({ where: { id: targetId, deletedAt: null }, select: { role: true, status: true } });
+  if (!current || current.role !== target.role || current.status !== target.status) throw conflict("Account changed; refresh before confirming");
   if (makeAdmin) {
     if (target.role === "ADMIN") throw conflict("This user is already an administrator");
     if (target.status !== "ACTIVE") throw conflict("Only active accounts can become administrators");
-    await prisma.user.update({ where: { id: targetId }, data: { role: "ADMIN" } });
+    await tx.user.update({ where: { id: targetId }, data: { role: "ADMIN" } });
   } else {
     if (target.role !== "ADMIN") throw conflict("This user is not an administrator");
-    if ((await otherActiveAdmins(target.id)) === 0) throw conflict("This is the last active administrator");
-    await prisma.user.update({ where: { id: targetId }, data: { role: await roleWithoutAdmin(targetId) } });
+    if (!await tx.user.count({ where: { role: "ADMIN", status: "ACTIVE", deletedAt: null, id: { not: targetId } } })) throw conflict("This is the last active administrator");
+    await tx.user.update({ where: { id: targetId }, data: { role: fallback } });
+    await tx.superAdminGrant.updateMany({ where: { userId: targetId, revokedAt: null }, data: { revokedAt: new Date() } });
   }
+  await controlAudit(tx, admin.id, null, "ADMIN_CHANGED_ROLE", targetId, { administrator: makeAdmin, reason: reason ?? "Internal verified administrator role change" });
+  });
 
   await writeAudit({
     userId: admin.id, actorRole: "ADMIN", action: "ADMIN_CHANGED_ROLE", resourceType: "User", resourceId: targetId,

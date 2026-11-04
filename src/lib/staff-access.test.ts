@@ -21,6 +21,7 @@ vi.mock("@/lib/prisma", () => {
       clinicalDocument: make(),
       patientAssignment: make(),
       facilityDepartment: make(),
+      ward: make(),
       auditLog: make(),
     },
   };
@@ -113,6 +114,7 @@ describe("assertStaffCanReachPatient", () => {
     vi.mocked(prisma.staffPatientAccess.findFirst).mockResolvedValue(null as never);
     vi.mocked(prisma.breakGlassAccess.findFirst).mockResolvedValue(null as never);
     vi.mocked(prisma.facilityDepartment.findFirst).mockResolvedValue({ id: "dept-1" } as never);
+    vi.mocked(prisma.ward.findMany).mockResolvedValue([{ id: "ward-1" }] as never);
     vi.mocked(prisma.admission.findFirst).mockResolvedValue({ id: "adm-1" } as never);
     await expect(
       assertStaffCanReachPatient(membership({ accessLevel: "EXTENDED", departmentIds: ["dept-1"] }), "patient-1"),

@@ -6,15 +6,16 @@ import { writeAudit } from "@/lib/audit";
 import { redeemStaffInvitation } from "@/lib/facility-invitations";
 import { queueNotification } from "@/lib/notifications/service";
 
-const redeemSchema = z.object({ token: z.string().trim().min(20).max(64) });
+const redeemSchema = z.object({ token: z.string().trim().min(20).max(64), reject: z.boolean().default(false) });
 
 // POST /api/facility-invitations/redeem — a staff member accepts a facility
 // invitation with their own signed-in account. The account's email must match
 // the invited address exactly; the invitation is single-use and expires after 7 days.
 export const POST = withAuth(null, async (req, { user }) => {
-  const { token } = await parseBody(req, redeemSchema);
+  const { token, reject } = await parseBody(req, redeemSchema);
 
-  const staff = await redeemStaffInvitation(user, token);
+  const staff = await redeemStaffInvitation(user, token, reject);
+  if (reject) return NextResponse.json({ message: "Invitation rejected" });
   const facility = await prisma.labStaffProfile.findUniqueOrThrow({
     where: { id: staff.facilityId },
     select: { userId: true },

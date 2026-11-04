@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import type { FacilityStaffRole, StaffCredential } from "@prisma/client";
 
 export type { FacilityStaffRole };
@@ -109,11 +108,9 @@ const ROLE_PERMISSIONS: Record<FacilityStaffRole, readonly FacilityPermission[]>
     "MANAGE_BOOKINGS", "REGISTER_PATIENTS", "MANAGE_REFERRALS", "VIEW_PATIENT_DOCUMENTS",
     "AUTHOR_DOCUMENTS", "REVIEW_DOCUMENTS", "SIGN_DOCUMENTS", "RELEASE_DOCUMENTS", "MANAGE_ENCOUNTERS", "UPLOAD_MEDIA", "ORDER_MEDICATIONS",
   ],
-  // Clinical lead: co-signature/approval, template approval, analytics.
+  // Organisational leadership is not a professional qualification.
   DEPARTMENT_HEAD: [
-    "REGISTER_PATIENTS", "MANAGE_REFERRALS", "VIEW_PATIENT_DOCUMENTS", "VERIFY_RESULTS",
-    "AUTHOR_DOCUMENTS", "REVIEW_DOCUMENTS", "SIGN_DOCUMENTS", "APPROVE_DOCUMENTS", "RELEASE_DOCUMENTS",
-    "MANAGE_DOCUMENT_TEMPLATES", "MANAGE_ENCOUNTERS", "UPLOAD_MEDIA", "ORDER_MEDICATIONS", "VIEW_ANALYTICS",
+    "MANAGE_BOOKINGS", "VIEW_ANALYTICS",
   ],
   // Registration, records release and external record intake.
   MEDICAL_RECORDS_OFFICER: ["REGISTER_PATIENTS", "VIEW_PATIENT_DOCUMENTS", "RELEASE_DOCUMENTS", "UPLOAD_MEDIA", "MANAGE_ENCOUNTERS"],
@@ -185,7 +182,7 @@ export const ASSIGNABLE_ROLES: readonly FacilityStaffRole[] = [
 
 /** Single-use invite token (URL-safe). */
 export function generateInviteToken(): string {
-  return randomBytes(24).toString("hex");
+  return Array.from(globalThis.crypto.getRandomValues(new Uint8Array(24)), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export const INVITE_EXPIRY_DAYS = 7;

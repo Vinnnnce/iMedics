@@ -6,8 +6,10 @@ import { writeAudit } from "@/lib/audit";
 import { requireFacilityAccess } from "@/lib/facility-auth";
 import { slugifyFacility } from "@/lib/public-facilities";
 import { badRequest } from "@/lib/errors";
+import { validateOrganizationLinks, controlAudit } from "@/lib/organization/security";
 
 const select = {
+  code: true, parentId: true, deputyStaffId: true, active: true, imageUrl: true,
   id: true, name: true, slug: true, description: true, openingHours: true, equipment: true,
   leadStaffId: true, staff: { select: { id: true, fullName: true, professionalTitle: true, status: true } },
 } as const;
@@ -24,6 +26,10 @@ export const GET = withAuth(null, async (req, { user }) => {
 });
 
 const createSchema = z.object({
+  code: z.string().trim().min(1).max(30).nullish(),
+  parentId: z.string().uuid().nullish(),
+  deputyStaffId: z.string().uuid().nullish(),
+  imageUrl: z.string().url().max(500).nullish(),
   name: z.string().trim().min(2).max(120),
   description: z.string().trim().max(2000).nullish(),
   openingHours: z.string().trim().max(200).nullish(),
@@ -33,7 +39,7 @@ const createSchema = z.object({
 
 // POST /api/facility/departments
 export const POST = withAuth(null, async (req, { user }) => {
-  const access = await requireFacilityAccess(user, "MANAGE_PROFILE", req, { requireVerified: false });
+  const access = await requireFacilityAccess(user, "MANAGE_STAFF", req, { requireVerified: false });
   const input = await parseBody(req, createSchema);
 
   const slug = slugifyFacility(input.name);
@@ -44,7 +50,9 @@ export const POST = withAuth(null, async (req, { user }) => {
     if (!lead) throw badRequest("Lead staff member not found for this facility");
   }
 
-  const department = await prisma.facilityDepartment.create({
+  const department = await prisma.$transaction(async (tx) => {
+    await validateOrganizationLinks(tx, access.facility.id, input);
+    const row = await tx.facilityDepartment.create({
     data: {
       facilityId: access.facility.id,
       name: input.name,
@@ -53,8 +61,15 @@ export const POST = withAuth(null, async (req, { user }) => {
       openingHours: input.openingHours ?? null,
       equipment: input.equipment,
       leadStaffId: input.leadStaffId ?? null,
+      deputyStaffId: input.deputyStaffId ?? null,
+      parentId: input.parentId ?? null,
+      code: input.code ?? null,
+      imageUrl: input.imageUrl ?? null,
     },
     select,
+    });
+    await controlAudit(tx, user.id, access.facility.id, "FACILITY_DEPARTMENT_CREATED", row.id, { name: input.name });
+    return row;
   });
 
   await writeAudit({

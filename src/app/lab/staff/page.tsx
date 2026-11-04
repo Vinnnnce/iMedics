@@ -1,7 +1,8 @@
 import { StaffManager, BreakGlassPanel } from "@/components/lab/staff-manager";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireFacilityPortalPage } from "@/lib/guards";
-import { resolveFacilityForPortalUser } from "@/lib/facility-auth";
+import { resolveFacilityForPortalUser, resolveFacilityPermissions } from "@/lib/facility-auth";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { apiClient } from "@/lib/api-client";
 import { FACILITY_ROLE_LABEL } from "@/lib/facility-staff";
@@ -9,6 +10,8 @@ import { FACILITY_ROLE_LABEL } from "@/lib/facility-staff";
 export default async function LabStaffPage() {
   const user = await requireFacilityPortalPage();
   const profile = await resolveFacilityForPortalUser(user);
+  const effective = await resolveFacilityPermissions(user, profile.id);
+  if (!effective.permissions.includes("MANAGE_STAFF")) redirect("/lab/dashboard");
 
   const [staff, departments, branches] = await Promise.all([
     prisma.facilityStaff.findMany({
@@ -28,7 +31,7 @@ export default async function LabStaffPage() {
     prisma.facilityBranch.findMany({ where: { facilityId: profile.id }, select: { id: true, name: true } }),
   ]);
 
-  const canManageStaff = staff.some((s) => s.userId === user.id && s.facilityRole === "OWNER");
+  const canManageStaff = effective.permissions.includes("MANAGE_STAFF");
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 md:px-0">

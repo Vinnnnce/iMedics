@@ -30,3 +30,20 @@ The real route tests at `src/app/api/facility/website/route.test.ts` exercise th
 ## Still requires a configured test environment
 
 Sign in as a disposable facility owner and invited facility manager in the real application. Confirm the Our Website menu, edit/save/refresh, publish and inspect the actual public facility profile, then restore the test content. Repeat permission checks against a second real facility, and run the database-backed integration suites. No production facility data has been changed by this harness.
+
+## Organization and master-control components
+
+The same existing harness also imports the production `OrganizationManager`, `PlatformControl` and responsive `AdminNav` components. Generate their synthetic response fixtures using the real PostgreSQL acceptance suite, after migrating an isolated disposable test database:
+
+```sh
+ORG_TEST_DATABASE_URL='postgresql://.../medic1905_org_test' \
+  ORG_EXPORT_QA=1 npx vitest run src/lib/organization/organization.int.test.ts
+node scripts/build-feature-audit.mjs
+python3 -m http.server 4173 --directory qa/feature-audit/dist
+```
+
+Open `/?screen=organization` or `/?screen=master-control`. These screens intercept only their documented GET responses; form mutations are not mocked as successful. Test those mutations using the PostgreSQL acceptance suite or a configured authenticated staging environment instead.
+
+For theme QA, remove both `light` and `dark` from the HTML element before adding the desired class. Leaving the harness's initial `light` class present while merely adding `dark` does not switch the CSS variables and is not a valid dark-mode check.
+
+The viewport evidence, screenshots and limitations are recorded in `docs/organization-verification.md` and `docs/organization-responsive-results.json`. This component harness is not an authentication bypass or a separately deployed application.

@@ -1,3 +1,8 @@
+vi.mock("@/lib/organization/privileges", () => ({ assertClinicalPrivilege: vi.fn(), filterClinicalPrivileges: vi.fn(async (_id: string, permissions: readonly string[]) => [...permissions]) }));
+vi.mock("@/lib/organization/patient-scope", () => ({ assertRequestPatientScope: vi.fn() }));
+vi.mock("@/lib/organization/document-access", () => ({ assertScopedDocumentAccess: vi.fn() }));
+// Isolate legacy workflow tests from the separately integration-tested platform policy boundary.
+vi.mock("@/lib/platform/access", () => ({ enforceRequestPolicy: vi.fn(), assertPlatformPolicy: vi.fn() }));
 /**
  * Acceptance tests for the laboratory order workflow route (Module 02):
  * workflow transitions are validated server-side, finalized orders cannot be

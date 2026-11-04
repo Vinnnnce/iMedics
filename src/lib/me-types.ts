@@ -13,6 +13,7 @@ export interface MeFacility {
 }
 
 export interface Me {
+  blockedModules?: readonly string[];
   id: string;
   name: string;
   email: string;

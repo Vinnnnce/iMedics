@@ -20,6 +20,7 @@ export interface AdminLink {
  */
 export const ADMIN_LINKS: AdminLink[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
+  { href: "/admin/control", label: "Master control", icon: ShieldCheck },
   { href: "/admin/verifications", label: "Verifications", icon: ShieldCheck, badge: true },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/providers", label: "Providers", icon: Stethoscope },

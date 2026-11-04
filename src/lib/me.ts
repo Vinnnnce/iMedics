@@ -3,7 +3,10 @@ import type { User } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { permissionsForRole } from "@/lib/facility-staff";
+import { effectivePermissions } from "@/lib/facility-auth";
 import type { Me, MeFacility, MeResponse } from "@/lib/me-types";
+import { policyAllows, MODULES } from "@/lib/platform/policy";
+import { policyContext } from "@/lib/platform/access";
 
 /**
  * The user's facility context for navigation: their own facility profile, or
@@ -17,7 +20,7 @@ async function facilityContext(
   role: string,
   accountType: string | null,
 ): Promise<MeFacility | null> {
-  if (role !== "PATIENT" && role !== "LAB_SCIENTIST") return null;
+  if (!["PATIENT", "LAB_SCIENTIST", "DOCTOR"].includes(role)) return null;
   const [ownProfile, membership] = await Promise.all([
     prisma.labStaffProfile.findUnique({
       where: { userId },
@@ -27,6 +30,7 @@ async function facilityContext(
       where: { userId, status: "ACTIVE" },
       orderBy: { createdAt: "asc" },
       select: {
+        accessLevel: true, permissionOverrides: true,
         facilityRole: true,
         facility: { select: { id: true, laboratoryName: true, kind: true } },
       },
@@ -43,7 +47,7 @@ async function facilityContext(
       : null);
   if (!kind) return null;
 
-  const facilityRole = membership?.facilityRole ?? "OWNER";
+  const facilityRole = ownProfile ? "OWNER" : membership?.facilityRole ?? "OWNER";
   const moduleSettings = kind === "HOSPITAL"
     ? await prisma.hospitalSettings.findUnique({ where: { facilityId: facility.id }, select: { enabledModules: true } })
     : null;
@@ -52,7 +56,7 @@ async function facilityContext(
     name: facility.laboratoryName,
     kind,
     facilityRole,
-    permissions: permissionsForRole(facilityRole),
+    permissions: ownProfile ? permissionsForRole("OWNER") : membership ? effectivePermissions(membership) : [],
     enabledModules: moduleSettings?.enabledModules ?? null,
   };
 }
@@ -85,7 +89,11 @@ export async function loadMe(user: User): Promise<MeResponse> {
     facilityContext(user.id, user.role, user.accountType),
   ]);
 
+  const policies = await prisma.platformPolicy.findMany({ where: { kind: "FEATURE" }, orderBy: { revision: "desc" }, distinct: ["key"] });
+  const context = policies.length ? await policyContext(user, facility?.id) : null;
+  const blockedModules = context ? MODULES.filter((m) => policies.some((p) => (p.resource === m || p.resource === "*") && !policyAllows(p, context, "VIEW"))) : [];
   return {
+    blockedModules,
     id: user.id,
     name: user.name,
     email: user.email,

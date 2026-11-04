@@ -1,3 +1,8 @@
+vi.mock("@/lib/organization/privileges", () => ({ assertClinicalPrivilege: vi.fn(), filterClinicalPrivileges: vi.fn(async (_id: string, permissions: readonly string[]) => [...permissions]) }));
+vi.mock("@/lib/organization/patient-scope", () => ({ assertRequestPatientScope: vi.fn() }));
+vi.mock("@/lib/organization/document-access", () => ({ assertScopedDocumentAccess: vi.fn() }));
+// Legacy workflow unit scope; real policy checks run in organization.int.test.ts.
+vi.mock("@/lib/platform/access", () => ({ enforceRequestPolicy: vi.fn(), assertPlatformPolicy: vi.fn() }));
 /** Real route/authorization code, mocked Prisma. Not a live database test. */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/auth", () => ({ requireUser: vi.fn(), requireRole: vi.fn() }));

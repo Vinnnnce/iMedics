@@ -29,7 +29,10 @@ export interface StaffMembershipInfo {
 /** Load the caller's membership info for a facility (verified active). */
 export async function getStaffMembership(user: User, facilityId: string): Promise<StaffMembershipInfo> {
   const membership = await prisma.facilityStaff.findFirst({
-    where: { userId: user.id, facilityId, status: "ACTIVE" },
+    where: { userId: user.id, facilityId, status: "ACTIVE", AND: [
+      { OR: [{ accessStartsAt: null }, { accessStartsAt: { lte: new Date() } }] },
+      { OR: [{ accessExpiresAt: null }, { accessExpiresAt: { gt: new Date() } }] },
+    ] },
     select: { id: true, accessLevel: true, departmentIds: true },
   });
   if (!membership) throw forbidden("You are not an active staff member of that facility");
@@ -61,7 +64,7 @@ export async function hasActiveBreakGlass(facilityId: string, staffId: string, p
 
 /** Does the patient have any care relationship with this facility? */
 export async function patientLinkedToFacility(facilityId: string, patientId: string): Promise<boolean> {
-  const [encounter, admission, booking, order, coverage, doc, assignment] = await Promise.all([
+  const [encounter, admission, booking, order, coverage, doc] = await Promise.all([
     prisma.encounter.findFirst({ where: { facilityId, patientId }, select: { id: true } }),
     prisma.admission.findFirst({ where: { facilityId, patientId }, select: { id: true } }),
     prisma.facilityBooking.findFirst({ where: { patientId, service: { facilityId } }, select: { id: true } }),
@@ -71,9 +74,8 @@ export async function patientLinkedToFacility(facilityId: string, patientId: str
     }),
     prisma.payerCoverage.findFirst({ where: { facilityId, patientId }, select: { id: true } }),
     prisma.clinicalDocument.findFirst({ where: { facilityId, patientId }, select: { id: true } }),
-    prisma.patientAssignment.findFirst({ where: { patient: { id: patientId }, status: "ACTIVE" }, select: { id: true } }),
   ]);
-  return Boolean(encounter || admission || booking || order || coverage || doc || assignment);
+  return Boolean(encounter || admission || booking || order || coverage || doc);
 }
 
 /** Is the patient explicitly assigned to this staff member (live grant)? */
@@ -99,8 +101,10 @@ async function patientInStaffDepartments(facilityId: string, departmentIds: stri
     select: { id: true },
   });
   if (!dept) return false;
+  const wards = await prisma.ward.findMany({ where: { facilityId, departmentId: { in: departmentIds } }, select: { id: true } });
+  if (!wards.length) return false;
   const admission = await prisma.admission.findFirst({
-    where: { facilityId, patientId, status: "ACTIVE", currentWardId: { not: null } },
+    where: { facilityId, patientId, status: "ACTIVE", currentWardId: { in: wards.map((w) => w.id) } },
     select: { id: true },
   });
   return Boolean(admission);
@@ -117,6 +121,7 @@ export async function assertStaffCanReachPatient(
   patientId: string,
 ): Promise<void> {
   const { facilityId, staffId, accessLevel } = membership;
+  if (accessLevel === "NONE") throw notFound("Patient not found");
 
   // 1. Explicit per-staff grant (care team, department, temporary).
   if (await hasPatientGrant(facilityId, staffId, patientId)) return;
@@ -126,6 +131,10 @@ export async function assertStaffCanReachPatient(
 
   // 3. LIMITED staff reach nothing else.
   if (accessLevel === "LIMITED") throw notFound("Patient not found");
+  if (accessLevel === "DEPARTMENT") {
+    if (await patientInStaffDepartments(facilityId, membership.departmentIds, patientId)) return;
+    throw notFound("Patient not found");
+  }
 
   // 4. EXTENDED: also patients in the staff member's assigned departments.
   if (accessLevel === "EXTENDED") {

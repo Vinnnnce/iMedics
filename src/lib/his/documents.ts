@@ -5,6 +5,8 @@ import { FACILITY_ROLE_LABEL } from "@/lib/facility-staff";
 import { groupTitle } from "./catalogue";
 import { parseDefinition, sectionVisible, type DocumentContent, type TemplateDefinition } from "./template-schema";
 import { contentHash, missingSignatures, watermarkFor, STATUS_LABEL } from "./workflow";
+import type { User } from "@prisma/client";
+import { assertScopedDocumentAccess } from "@/lib/organization/document-access";
 
 export const documentInclude = {
   templateVersion: { select: { version: true, definition: true, template: { select: { id: true, name: true, code: true } } } },
@@ -21,9 +23,10 @@ export const documentInclude = {
 export type DocumentRow = Prisma.ClinicalDocumentGetPayload<{ include: typeof documentInclude }>;
 
 /** Load a document only when it belongs to the facility (cross-tenant ids are 404). */
-export async function loadFacilityDocument(facilityId: string, id: string): Promise<DocumentRow> {
+export async function loadFacilityDocument(facilityId: string, id: string, user: User): Promise<DocumentRow> {
   const doc = await prisma.clinicalDocument.findFirst({ where: { id, facilityId }, include: documentInclude });
   if (!doc) throw notFound("Document not found");
+  await assertScopedDocumentAccess(user, doc);
   return doc;
 }
 

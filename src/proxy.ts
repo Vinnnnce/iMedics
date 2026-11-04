@@ -36,10 +36,13 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (isPublicRoute(req)) return;
+  const forwarded = new Headers(req.headers);
+  forwarded.set("x-medic-page-path", req.nextUrl.pathname);
+  const next = () => NextResponse.next({ request: { headers: forwarded } });
+  if (isPublicRoute(req)) return next();
 
   const { userId } = await auth();
-  if (userId) return;
+  if (userId) return next();
 
   // API callers get a JSON 401; page visitors are redirected to sign in.
   if (req.nextUrl.pathname.startsWith("/api/")) {

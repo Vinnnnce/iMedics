@@ -21,7 +21,7 @@ export async function requirePageRole(...roles: Role[]) {
 
 /** Page guard for facility owners and users with an active facility membership. */
 export async function requireFacilityPortalPage() {
-  const user = await requirePageRole("PATIENT", "LAB_SCIENTIST");
+  const user = await requirePageRole("PATIENT", "LAB_SCIENTIST", "DOCTOR");
   if (user.role === "LAB_SCIENTIST") return user;
 
   const membership = await prisma.facilityStaff.findFirst({

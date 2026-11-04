@@ -5,7 +5,7 @@ import { withAuth, parseBody } from "@/lib/api";
 import { badRequest } from "@/lib/errors";
 import { writeAudit } from "@/lib/audit";
 import { requireFacilityAccess } from "@/lib/facility-auth";
-import { ASSIGNABLE_ROLES, FACILITY_ROLE_LABEL, type FacilityStaffRole } from "@/lib/facility-staff";
+import { ASSIGNABLE_ROLES, FACILITY_ROLE_LABEL, permissionsForRole, type FacilityStaffRole } from "@/lib/facility-staff";
 import { createStaffInvitation, sendStaffInvitationEmail } from "@/lib/facility-invitations";
 
 const inviteSchema = z.object({
@@ -18,6 +18,10 @@ const inviteSchema = z.object({
   departmentId: z.string().uuid().nullish(),
   branchId: z.string().uuid().nullish(),
   customCategory: z.string().trim().max(120).nullish(),
+  professionalTitle: z.string().trim().max(120).nullish(),
+  specialty: z.string().trim().max(160).nullish(),
+  employmentType: z.enum(["FULL_TIME", "PART_TIME", "LOCUM", "CONTRACT", "VOLUNTEER"]).nullish(),
+  expiryDays: z.number().int().min(1).max(30).default(7),
 });
 
 // GET /api/facility/staff — the facility's staff directory (management view).
@@ -47,8 +51,10 @@ export const POST = withAuth(null, async (req, { user }) => {
   const input = await parseBody(req, inviteSchema);
 
   if (!input.facilityRole) throw badRequest("Unsupported staff role");
+  if (access.facilityRole !== "OWNER" && permissionsForRole(input.facilityRole).some((p) => !access.permissions.includes(p))) throw badRequest("You cannot delegate permissions you do not hold");
 
   const invitation = await createStaffInvitation({
+    ...input,
     facilityId: access.facility.id,
     email: input.email,
     fullName: input.fullName,
@@ -59,12 +65,13 @@ export const POST = withAuth(null, async (req, { user }) => {
     invitedById: user.id,
   });
 
-  await sendStaffInvitationEmail({
+  let delivered = false;
+  try { await sendStaffInvitationEmail({
     to: input.email,
     facilityName: access.facility.laboratoryName ?? "your facility",
     redeemUrl: invitation.redeemUrl,
     inviterName: user.name,
-  });
+  }); delivered = true; } catch { /* Membership remains pending and can be resent; no false success. */ }
 
   await writeAudit({
     userId: user.id, actorRole: user.role, action: "FACILITY_STAFF_INVITED",
@@ -76,6 +83,7 @@ export const POST = withAuth(null, async (req, { user }) => {
     staffId: invitation.staffId,
     role: FACILITY_ROLE_LABEL[input.facilityRole],
     expiresAt: invitation.expiresAt,
-    message: `Invitation sent to ${input.email}. It expires in 7 days and can be used once.`,
+    delivered,
+    message: delivered ? `Invitation sent to ${input.email}.` : "Invitation saved, but email delivery failed. Configure the email provider and resend.",
   }, { status: 201 });
 });

@@ -9,6 +9,7 @@ import { useUser } from "@clerk/nextjs";
 import { useTheme } from "@/components/theme-provider";
 import { optionalProcessingAllowed, COOKIE_CONSENT_EVENT } from "@/lib/cookie-consent";
 import { navigationFeatureEnabled } from "@/lib/navigation-features";
+import { moduleForPath } from "@/lib/platform/policy";
 import {
   Sidebar,
   SidebarContent,
@@ -145,6 +146,10 @@ const FACILITY_DASHBOARD_ITEM: NavItem = {
 const FACILITY_WEBSITE_ITEM: NavItem = { href: "/lab/website", label: "Our Website", icon: Globe, roles: ["FACILITY"], permission: "MANAGE_PROFILE" };
 
 const FACILITY_SECTIONS: NavSection[] = [
+  {
+    label: "Organisation",
+    items: [{ href: "/lab/organization", label: "Workforce & Departments", icon: Users, roles: ["FACILITY"], permission: "MANAGE_STAFF" }],
+  },
   {
     label: "Facility Dashboard",
     items: [FACILITY_DASHBOARD_ITEM],
@@ -388,7 +393,8 @@ export function Navbar({ children }: { children: React.ReactNode }) {
     // Every account type gets exactly its own menu: nothing from another
     // role's workspace is ever mixed in.
     if (role === "ADMIN") return ADMIN_NAV;
-    if (role === "DOCTOR") return DOCTOR_SECTIONS.flatMap((s) => s.items);
+    const permitted = (href: string) => { const featureModule = moduleForPath(href); return !featureModule || !me?.blockedModules?.includes(featureModule); };
+    if (role === "DOCTOR") return [...DOCTOR_SECTIONS.flatMap((s) => s.items), ...(me?.facility ? [{ label: "Facility organisation", href: "/lab/organization", icon: Users }] : [])].filter((item) => permitted(item.href));
 
     const facility = me?.facility ?? null;
     if (role === "LAB_SCIENTIST" || (role === "PATIENT" && facility)) {
@@ -411,17 +417,18 @@ export function Navbar({ children }: { children: React.ReactNode }) {
               return true;
             })
             .filter((item) => Boolean(facility && navigationFeatureEnabled(item.href, facility.kind, facility.enabledModules)))
+            .filter((item) => permitted(item.href))
             .map((item) => item.href === "/lab/website" && facility
               ? { ...item, href: `/lab/website?facilityId=${encodeURIComponent(facility.id)}` }
               : item),
         );
     }
-    return PATIENT_NAV;
+    return PATIENT_NAV.filter((item) => permitted(item.href));
   }, [role, me]);
   /** Grouped for the sidebar and mobile drawer: one section per heading. */
   const navSections = useMemo(() => {
     if (role === "ADMIN") return [{ label: null, items: ADMIN_NAV }];
-    if (role === "DOCTOR") return DOCTOR_SECTIONS;
+    if (role === "DOCTOR") return [...DOCTOR_SECTIONS.map((s) => ({ ...s, items: s.items.filter((item) => visibleNavItems.some((v) => v.href === item.href)) })), ...(me?.facility ? [{ label: "Facility workspace", items: visibleNavItems.filter((v) => v.href === "/lab/organization") }] : [])];
     const facility = me?.facility ?? null;
     if (role === "LAB_SCIENTIST" || (role === "PATIENT" && facility)) {
       return FACILITY_SECTIONS

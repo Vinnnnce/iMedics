@@ -37,7 +37,7 @@ const schema = z.discriminatedUnion("action", [
 export const POST = withAuth<{ id: string }>(null, async (req, { user, params }) => {
   const access = await requireHisAccess(user, null, req);
   const body = await parseBody(req, schema);
-  const doc = await loadFacilityDocument(access.facility.id, parseId((await params).id));
+  const doc = await loadFacilityDocument(access.facility.id, parseId((await params).id), user);
   assertDocumentReadable(doc, user.id, hasPermission(access, "REVIEW_DOCUMENTS"));
   const def = parseDefinition(doc.templateVersion.definition);
   const action = body.action as DocumentAction;

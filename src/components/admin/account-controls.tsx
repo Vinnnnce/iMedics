@@ -33,12 +33,14 @@ export function AccountControls({ userId, name, status, role, statusReason, isSe
   const router = useRouter();
   const [action, setAction] = useState<Action | null>(null);
   const [reason, setReason] = useState("");
+  const [confirmation, setConfirmation] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const close = () => {
     setAction(null);
     setReason("");
+    setConfirmation("");
     setError("");
   };
 
@@ -47,7 +49,7 @@ export function AccountControls({ userId, name, status, role, statusReason, isSe
     setBusy(true);
     setError("");
     try {
-      await apiClient.patch(`/admin/users/${userId}`, action.kind === "status" ? { status: action.status, reason: reason || undefined } : { administrator: action.grant });
+      await apiClient.patch(`/admin/users/${userId}`, { ...(action.kind === "status" ? { status: action.status } : { administrator: action.grant }), reason, confirmation });
       close();
       router.refresh();
     } catch (e) {
@@ -57,7 +59,7 @@ export function AccountControls({ userId, name, status, role, statusReason, isSe
     }
   };
 
-  const needsReason = action?.kind === "status" && action.status !== "ACTIVE";
+  const needsReason = Boolean(action);
 
   return (
     <Card className="beeline-card">
@@ -111,13 +113,17 @@ export function AccountControls({ userId, name, status, role, statusReason, isSe
           {needsReason && (
             <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (required). This is recorded and shown to the user." className="min-h-24 rounded-lg" maxLength={500} aria-label="Reason" />
           )}
+          <label className="grid gap-2 text-sm">Type CONFIRM ACCOUNT CHANGE
+            <input className="min-h-11 rounded-lg border bg-background px-3" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} autoComplete="off" />
+          </label>
+          <p className="text-xs text-muted-foreground">An explicit Super Administrator grant and fresh multi-factor authentication are required.</p>
           {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="ghost" className="rounded-lg" onClick={close} disabled={busy}>Cancel</Button>
             <Button
               variant={action?.kind === "status" && action.status !== "ACTIVE" ? "destructive" : "default"}
               className="rounded-lg"
-              disabled={busy || (needsReason && reason.trim().length < 5)}
+              disabled={busy || reason.trim().length < 15 || confirmation !== "CONFIRM ACCOUNT CHANGE"}
               onClick={run}
             >
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -1,3 +1,5 @@
+// Isolate legacy workflow tests from the separately integration-tested platform policy boundary.
+vi.mock("@/lib/platform/access", () => ({ enforceRequestPolicy: vi.fn(), assertPlatformPolicy: vi.fn() }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 

@@ -1,5 +1,15 @@
 # Main flows and upgrade acceptance
 
+## Workforce and platform controls acceptance
+- Preserve public home, authentication, registration, patient/doctor/facility dashboards and clinical workflows.
+- Facility organisation: explicitly select a facility, create departments/subdepartments, assign leadership, create ranked positions, appoint staff and export the organisation chart.
+- Workforce: invite by email, accept/reject with verified identity, resend/cancel, change status, and retain separate memberships across facilities.
+- Permissions: show effective permission matrix, save overrides, reject cross-tenant department/manager IDs, revoke access immediately.
+- Platform: explicitly provisioned super administrator with fresh MFA can version feature/document policies with confirmation and reason. Ordinary admins cannot change policies.
+- Security: deny direct APIs when disabled, deny clinical privilege by rank alone, preserve signed records, atomic audit of new management mutations.
+- Responsive checks: desktop and 375px drawer, forms, tables, errors, empty states and dark theme.
+- Live authenticated flows require configured Clerk and PostgreSQL; do not simulate these as production evidence.
+
 ## Baseline inspected
 - Public homepage: existing directory/service links, theme switch, signup/login and legal footer.
 - Authentication: Clerk SignIn/SignUp embedded forms; hash routing; provider owns passwords, recovery, verification and sessions.

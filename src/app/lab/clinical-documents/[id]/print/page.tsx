@@ -5,6 +5,7 @@ import { requireHisPage } from "@/lib/his/page";
 import { buildDocumentView, documentInclude } from "@/lib/his/documents";
 import { prisma } from "@/lib/prisma";
 import { writeAudit } from "@/lib/audit";
+import { assertScopedDocumentAccess } from "@/lib/organization/document-access";
 
 export default async function PrintDocumentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,6 +13,7 @@ export default async function PrintDocumentPage({ params }: { params: Promise<{ 
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const doc = await prisma.clinicalDocument.findFirst({ where: { id, facilityId: facility.id }, include: documentInclude });
   if (!doc) notFound();
+  await assertScopedDocumentAccess(user, doc, "PRINT");
   if (doc.sensitivity === "SPECIALLY_PROTECTED" && doc.authorId !== user.id && !can("REVIEW_DOCUMENTS")) notFound();
   await writeAudit({ userId: user.id, actorRole: user.role, facilityId: facility.id, patientId: doc.patientId, action: "HIS_DOCUMENT_PRINT_VIEW", resourceType: "ClinicalDocument", resourceId: doc.id });
   const view = await buildDocumentView(doc);

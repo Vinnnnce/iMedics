@@ -4,6 +4,7 @@ import { DocumentEditor } from "@/components/his/document-editor";
 import { requireHisPage } from "@/lib/his/page";
 import { buildDocumentView, documentInclude } from "@/lib/his/documents";
 import { prisma } from "@/lib/prisma";
+import { assertScopedDocumentAccess } from "@/lib/organization/document-access";
 import { writeAudit } from "@/lib/audit";
 import { mediaVisibility } from "@/lib/his/visibility";
 
@@ -13,6 +14,7 @@ export default async function ClinicalDocumentPage({ params }: { params: Promise
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const doc = await prisma.clinicalDocument.findFirst({ where: { id, facilityId: facility.id }, include: documentInclude });
   if (!doc) notFound();
+  await assertScopedDocumentAccess(user, doc);
   if (doc.sensitivity === "SPECIALLY_PROTECTED" && doc.authorId !== user.id && !can("REVIEW_DOCUMENTS")) {
     return <p className="p-6 text-sm">This record is specially protected. Access is limited to its author and reviewing clinicians.</p>;
   }

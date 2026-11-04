@@ -1,3 +1,8 @@
+vi.mock("@/lib/organization/privileges", () => ({ assertClinicalPrivilege: vi.fn(), filterClinicalPrivileges: vi.fn(async (_id: string, permissions: readonly string[]) => [...permissions]) }));
+vi.mock("@/lib/organization/patient-scope", () => ({ assertRequestPatientScope: vi.fn() }));
+vi.mock("@/lib/organization/document-access", () => ({ assertScopedDocumentAccess: vi.fn() }));
+// Legacy workflow unit scope; real policy checks run in organization.int.test.ts.
+vi.mock("@/lib/platform/access", () => ({ enforceRequestPolicy: vi.fn(), assertPlatformPolicy: vi.fn() }));
 /**
  * Acceptance tests for diagnostic report actions (Module 03): finalization
  * snapshots the report as version 1, amendments require a reason and create a
