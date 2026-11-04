@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import type { FacilityStaffRole, LabStaffProfile, User } from "@prisma/client";
 import { prisma } from "./prisma";
 import { badRequest, forbidden, notFound } from "./errors";
-import { permissionsForRole, roleHasPermission, FACILITY_PERMISSIONS, type FacilityPermission } from "./facility-staff";
+import { permissionsForRole, FACILITY_PERMISSIONS, type FacilityPermission } from "./facility-staff";
 
 /**
  * Role defaults plus the facility's per-staff permission overrides

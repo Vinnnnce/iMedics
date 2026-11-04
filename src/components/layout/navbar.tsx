@@ -182,6 +182,7 @@ const FACILITY_SECTIONS: NavSection[] = [
     label: "Clinical Operations",
     kinds: ["HOSPITAL"],
     items: [
+      { href: "/lab/registration", label: "Registration & Admission", icon: ClipboardList, roles: ["FACILITY"], permission: "MANAGE_ENCOUNTERS" },
       { href: "/lab/emergency", label: "Emergency Department", icon: Siren, roles: ["FACILITY"], permission: "MANAGE_ENCOUNTERS" },
       { href: "/lab/encounters", label: "Encounters & Queues", icon: Activity, roles: ["FACILITY"], permission: "MANAGE_ENCOUNTERS" },
       { href: "/lab/admissions", label: "Admissions", icon: BedDouble, roles: ["FACILITY"], permission: "VIEW_PATIENT_DOCUMENTS" },

@@ -45,6 +45,7 @@ model User {
   notificationPrefs      NotificationPreference[]
   pushSubscriptions      PushSubscription[]
   documentsUploaded      PatientDocument[]        @relation("PatientDocumentUploaded")
+  registrationDrafts   RegistrationDraft[]     @relation("RegistrationDraftAuthor")
   facilityDocTemplates    FacilityDocumentTemplate[] @relation("FacilityDocumentTemplateAuthor")
   documentSharesReceived DocumentShare[]          @relation("DocumentShareRecipient")
   trustedContactAccount  TrustedContact[]         @relation("TrustedContactUser")
@@ -174,6 +175,7 @@ model LabStaffProfile {
   clinicalTemplates       ClinicalDocumentTemplate[] @relation("ClinicalTemplateFacility")
   clinicalDocuments       ClinicalDocument[]         @relation("ClinicalDocumentFacility")
   encounters              Encounter[]                @relation("EncounterFacility")
+  registrationDrafts     RegistrationDraft[]        @relation("RegistrationDraftFacility")
   payerCoverages          PayerCoverage[]            @relation("PayerCoverageFacility")
   medicalMedia            MedicalMedia[]             @relation("MedicalMediaFacility")
   nursingObservations     NursingObservation[]       @relation("NursingObservationFacility")
@@ -328,6 +330,7 @@ model DoctorLike {
 model Patient {
   clinicalDocuments ClinicalDocument[]   @relation("ClinicalDocumentPatient")
   encounters        Encounter[]          @relation("EncounterPatient")
+  registrationDrafts RegistrationDraft[] @relation("RegistrationDraftPatient")
   payerCoverages    PayerCoverage[]      @relation("PayerCoveragePatient")
   medicalMedia      MedicalMedia[]       @relation("MedicalMediaPatient")
   nursingObservations NursingObservation[] @relation("NursingObservationPatient")
@@ -391,6 +394,23 @@ model Patient {
   /// Set for temporary records created in the emergency department before
   /// identification; reconciled into a real record via case number + DOB.
   unidentified      Boolean              @default(false) @map("unidentified")
+  /// Contact details captured during registration (duplicate detection keys).
+  phone             String?              @db.VarChar(40)
+  altPhone          String?              @map("alt_phone") @db.VarChar(40)
+  email             String?              @db.VarChar(160)
+  preferredContactMethod String?         @map("preferred_contact_method") @db.VarChar(20)
+  /// Additional demographics captured by the registration workspace.
+  maritalStatus     String?              @map("marital_status") @db.VarChar(30)
+  nationality       String?              @db.VarChar(80)
+  preferredLanguage String?              @map("preferred_language") @db.VarChar(60)
+  identityNumber    String?              @map("identity_number") @db.VarChar(60)
+  identityVerified  Boolean              @default(false) @map("identity_verified")
+  insuranceNumber   String?              @map("insurance_number") @db.VarChar(80)
+  /// Guardian / authorised representative (required for minors or dependent adults).
+  guardianName      String?              @map("guardian_name") @db.VarChar(160)
+  guardianRelationship String?           @map("guardian_relationship") @db.VarChar(80)
+  guardianPhone     String?              @map("guardian_phone") @db.VarChar(40)
+  guardianAuthority String?              @map("guardian_authority") @db.VarChar(200)
   staffAccessGrants StaffPatientAccess[] @relation("StaffPatientAccessPatient")
   breakGlassAccesses BreakGlassAccess[]  @relation("BreakGlassPatient")
   nursingAssessments NursingAssessment[] @relation("NursingAssessmentPatient")
@@ -399,6 +419,9 @@ model Patient {
 
   @@index([lastName, firstName])
   @@index([deletedAt])
+  @@index([phone])
+  @@index([email])
+  @@index([identityNumber])
   @@map("patients")
 }
 
@@ -3106,6 +3129,37 @@ model FacilitySequence {
   @@map("facility_sequences")
 }
 
+enum RegistrationDraftStatus {
+  DRAFT
+  COMPLETED
+  DISCARDED
+}
+
+/// An incomplete registration workspace saved by authorised staff. The payload
+/// is the full stepper form state (JSON) so the form can evolve without schema
+/// churn. Completed drafts are retained for audit and traceability.
+model RegistrationDraft {
+  id          String               @id @default(uuid()) @db.Uuid
+  facilityId  String               @map("facility_id") @db.Uuid
+  createdById String               @map("created_by_id") @db.Uuid
+  status      RegistrationDraftStatus @default(DRAFT)
+  label       String               @db.VarChar(160)
+  payload     Json
+  /// Set once the draft is completed — traceability of the produced record.
+  patientId   String?              @map("patient_id") @db.Uuid
+  encounterId String?              @map("encounter_id") @db.Uuid
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+  facility    LabStaffProfile      @relation("RegistrationDraftFacility", fields: [facilityId], references: [id])
+  createdBy   User                 @relation("RegistrationDraftAuthor", fields: [createdById], references: [id])
+  patient     Patient?             @relation("RegistrationDraftPatient", fields: [patientId], references: [id], onDelete: SetNull)
+  encounter   Encounter?           @relation("RegistrationDraftEncounter", fields: [encounterId], references: [id], onDelete: SetNull)
+
+  @@index([facilityId, status])
+  @@index([createdById])
+  @@map("registration_drafts")
+}
+
 enum CarePriority {
   EMERGENCY
   URGENT
@@ -3182,6 +3236,9 @@ model Encounter {
   reassessmentDueAt DateTime?            @map("reassessment_due_at")
   /// Initial emergency observations recorded at registration (JSON vitals).
   initialObservations Json?               @map("initial_observations")
+  /// Consent acknowledgements captured at registration:
+  /// [{key,title,version,status,signedByRole,capturedByName,capturedAt,withdrawnAt}]
+  consents          Json?                  @map("consents")
   /// Known allergies captured during emergency registration.
   knownAllergies    String?               @map("known_allergies")
   registeredAt    DateTime                @default(now()) @map("registered_at")
@@ -3197,6 +3254,7 @@ model Encounter {
   events          EncounterStatusEvent[]
   documents       ClinicalDocument[]
   media           MedicalMedia[]
+  registrationDrafts RegistrationDraft[] @relation("RegistrationDraftEncounter")
 
   @@unique([facilityId, encounterNumber])
   @@index([facilityId, status])

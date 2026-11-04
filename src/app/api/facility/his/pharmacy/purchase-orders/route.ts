@@ -80,11 +80,6 @@ export const POST = withAuth(null, async (req, { user }) => {
   return NextResponse.json({ order }, { status: 201 });
 });
 
-const patchSchema = z.object({
-  action: z.enum(["SUBMIT", "RECEIVE", "CANCEL"]),
-  reason: z.string().trim().max(500).optional(),
-});
-
 // PATCH /api/facility/his/pharmacy/purchase-orders?id=... — lifecycle.
 // RECEIVING requires batch numbers + expiry dates per item and creates
 // the corresponding stock batches (and controlled-register entries).

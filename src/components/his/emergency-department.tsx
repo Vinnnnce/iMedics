@@ -71,7 +71,7 @@ function KpiCard({ label, value, accent, hint }: { label: string; value: number 
 }
 
 /** The clinical Emergency Department board. */
-export function EmergencyDepartment({ triageCategories, triageProtocol }: { triageCategories: string[]; triageProtocol: string | null }) {
+export function EmergencyDepartment({ triageCategories }: { triageCategories: string[]; triageProtocol: string | null }) {
   const [data, setData] = useState<BoardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -241,7 +241,7 @@ export function EmergencyDepartment({ triageCategories, triageProtocol }: { tria
               <label className="text-xs">Date of birth<input required type="date" className={inputClass} value={reconcileForm.dateOfBirth} onChange={(e) => setReconcileForm({ ...reconcileForm, dateOfBirth: e.target.value })} /></label>
               <Button type="submit" className="sm:col-span-3">Reconcile records</Button>
             </form>
-            <p className="mt-2 text-xs text-muted-foreground">All clinical activity recorded under the temporary record moves to the patient's real record. The temporary record is retired, never deleted.</p>
+            <p className="mt-2 text-xs text-muted-foreground">All clinical activity recorded under the temporary record moves to the patient&#39;s real record. The temporary record is retired, never deleted.</p>
           </CardContent>
         </Card>
       )}

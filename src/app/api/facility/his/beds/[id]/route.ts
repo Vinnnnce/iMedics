@@ -14,8 +14,6 @@ import { auditHis } from "@/lib/his/audit";
  * MAINTENANCE and ISOLATION are manual blocks with reasons.
  */
 
-const STATUSES = ["AVAILABLE", "OCCUPIED", "RESERVED", "CLEANING", "MAINTENANCE", "ISOLATION"] as const;
-
 const schema = z.object({
   action: z.enum([
     "RESERVE", "OCCUPY", "RELEASE", "MARK_CLEANED", "BLOCK_MAINTENANCE", "BLOCK_ISOLATION", "UNBLOCK",

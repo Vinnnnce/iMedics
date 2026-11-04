@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { badRequest, forbidden, notFound } from "@/lib/errors";
 import { requireFacilityAccess } from "@/lib/facility-auth";
-import { FACILITY_PERMISSIONS, type FacilityPermission } from "@/lib/facility-staff";
+import { FACILITY_PERMISSIONS } from "@/lib/facility-staff";
 import { auth } from "@clerk/nextjs/server";
 
 const STAFF_ACCESS_LEVELS = ["LIMITED", "STANDARD", "EXTENDED", "FULL", "CUSTOM"] as const;

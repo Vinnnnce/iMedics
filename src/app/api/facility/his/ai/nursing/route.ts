@@ -2,12 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
-import { badRequest, notFound } from "@/lib/errors";
 import { requireHisAccess } from "@/lib/his/access";
 import { enforceAiRateLimit } from "@/lib/ai/rate-limit";
 import { completeJson, AiUnavailableError } from "@/lib/ai/llm";
 import { logAiUsage } from "@/lib/ai/audit";
-import { ApiError } from "@/lib/errors";
 
 const schema = z.object({
   patientId: z.string().uuid(),
