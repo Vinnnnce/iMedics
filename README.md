@@ -67,6 +67,7 @@ Also add a scheduled job that calls `GET /api/cron/appointment-reminders` every 
 - **Notifications.** In-app (bell + pop-ups), email (Resend) and web push, with per-category preferences on the profile page. Messages never contain health details; they link back into the signed-in app.
 
 - **Admin console.** `/admin`: overview, a verification workspace showing everything an applicant submitted (details, documents, duplicate and plausibility checks, checklist, approve or reject with reasons), user directory and account controls, payments with refunds, audit log, and notices/ads. See [docs/ADMIN.md](docs/ADMIN.md).
+- **Super Admin Control Centre.** `/super-admin`: the platform-wide command centre — 26 sections in five control layers (governance, team & workforce, healthcare network, clinical & content, security & operations) with role- and attribute-based permissions enforced server-side, dual approval for privileged changes, hash-chained audit records, and clinical-record access kept as a separate, justified and audited boundary. See [docs/SUPER_ADMIN.md](docs/SUPER_ADMIN.md).
 
 ## Platform features
 

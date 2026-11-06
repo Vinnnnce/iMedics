@@ -1,6 +1,6 @@
 import {
   Activity, BadgeDollarSign, CreditCard, FileBarChart, GitCompareArrows, LayoutDashboard,
-  Flag, Megaphone, Newspaper, RotateCcw, ShieldCheck, Stethoscope, Users, type LucideIcon,
+  Flag, Megaphone, Newspaper, RotateCcw, ShieldCheck, ShieldPlus, Stethoscope, Users, type LucideIcon,
 } from "lucide-react";
 
 export interface AdminLink {
@@ -20,6 +20,7 @@ export interface AdminLink {
  */
 export const ADMIN_LINKS: AdminLink[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
+  { href: "/super-admin", label: "Super Admin console", icon: ShieldPlus, exact: true },
   { href: "/admin/control", label: "Master control", icon: ShieldCheck },
   { href: "/admin/verifications", label: "Verifications", icon: ShieldCheck, badge: true },
   { href: "/admin/users", label: "Users", icon: Users },
