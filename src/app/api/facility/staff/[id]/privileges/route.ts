@@ -25,7 +25,8 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
   const privilege = await prisma.$transaction(async (tx) => {
     const credential = await tx.staffCredential.findFirst({ where: { id: body.credentialId, staffId, verificationStatus: "VERIFIED", renewalStatus: { not: "LAPSED" }, staff: { facilityId: access.facility.id, status: "ACTIVE" }, OR: [{ expiryDate: null }, { expiryDate: { gte: body.expiresAt } }] } });
     if (!credential) throw forbidden("A verified credential valid for the entire privilege period is required");
-    const { confirmation: _, ...data } = body;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- API confirmation field, intentionally not persisted
+    const { confirmation, ...data } = body;
     const row = await tx.clinicalPrivilege.create({ data: { ...data, staffId, grantedById: user.id } });
     await controlAudit(tx, user.id, access.facility.id, "CLINICAL_PRIVILEGE_GRANTED", row.id, { permission: body.permission, staffId, reason: body.reason });
     return row;
