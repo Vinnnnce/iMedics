@@ -145,7 +145,9 @@ describe.skipIf(!url)("HIS real-database safety and workflows", () => {
     expect(signature.templateVersion).toBe(1);
     expect(signature.signedAt).toBeInstanceOf(Date);
     expect(signature.contentHash).toHaveLength(64);
-    expect(signature.registrationId).toBeNull();
+    // The author signs under a separately authorized clinical privilege backed by a
+    // verified synthetic credential, so the signature records that registration.
+    expect(signature.registrationId).toMatch(/^QA-/);
     expect(signature.attestedById).toBeNull();
   });
   it("preserves finalized content when starting an amendment", async () => {

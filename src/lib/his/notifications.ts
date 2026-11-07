@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { permissionsForRole } from "@/lib/facility-staff";
+import { effectivePermissions } from "@/lib/facility-auth";
 import { renderNotification, type NotificationEvent } from "@/lib/notifications/events";
 import { persistQueuedNotificationInTransaction } from "@/lib/notifications/outbox";
 
@@ -21,9 +21,15 @@ export async function queueDocumentWorkflowNotifications(tx: Prisma.TransactionC
     event = { kind: "CLINICAL_DOCUMENT_ACTION_NEEDED", documentId, step: "SIGNATURE" };
   } else {
     if (doc.status !== "PENDING_REVIEW") return;
-    const staff = await tx.facilityStaff.findMany({ where: { facilityId: doc.facilityId, status: "ACTIVE", userId: { not: null } }, select: { userId: true, facilityRole: true } });
+    const staff = await tx.facilityStaff.findMany({
+      where: { facilityId: doc.facilityId, status: "ACTIVE", userId: { not: null } },
+      // Resolve each member's real, effective permissions (role defaults plus
+      // any custom per-staff overrides) — a reviewer granted REVIEW_DOCUMENTS
+      // through an explicit custom access level must still be notified.
+      select: { userId: true, facilityRole: true, accessLevel: true, permissionOverrides: true },
+    });
     for (const member of staff) {
-      if (member.userId && member.userId !== actorId && permissionsForRole(member.facilityRole).includes("REVIEW_DOCUMENTS")) ids.add(member.userId);
+      if (member.userId && member.userId !== actorId && effectivePermissions(member).includes("REVIEW_DOCUMENTS")) ids.add(member.userId);
     }
     event = { kind: "CLINICAL_DOCUMENT_ACTION_NEEDED", documentId, step: "REVIEW" };
   }
