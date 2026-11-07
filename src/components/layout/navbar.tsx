@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useTheme } from "@/components/theme-provider";
 import { Menu, Moon, Sun, X } from "lucide-react";
+
+import { useTheme } from "@/components/theme-provider";
 
 const NAV_LINKS = [
   { href: "/services", label: "Services" },
@@ -16,50 +17,60 @@ const NAV_LINKS = [
 export function Navbar() {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const [mobileMenuPath, setMobileMenuPath] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
+
+  const mobileMenuOpen =
+    mobileMenuPath !== null && mobileMenuPath === pathname;
+
+  const closeMobileMenu = () => {
+    setMobileMenuPath(null);
+  };
+
+  const toggleMobileMenu = () => {
+    setMobileMenuPath((current) =>
+      current !== null && current === pathname ? null : pathname,
+    );
+  };
 
   useEffect(() => {
     const onScroll = () => {
-      const nextScrolled = window.scrollY > 8;
-
-      setScrolled((current) => {
-        if (current === nextScrolled) {
-          return current;
-        }
-
-        return nextScrolled;
-      });
+      setScrolled(window.scrollY > 8);
     };
 
     onScroll();
+
     window.addEventListener("scroll", onScroll, { passive: true });
 
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+    };
   }, []);
 
   useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
-    if (!mobileMenuOpen) return;
+    if (!mobileMenuOpen) {
+      return;
+    }
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setMobileMenuOpen(false);
+        setMobileMenuPath(null);
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
 
-    return () => window.removeEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, [mobileMenuOpen]);
 
-  const isActive = useCallback(
-    (href: string) => pathname === href || pathname.startsWith(`${href}/`),
-    [pathname],
-  );
+  const isActive = (href: string) =>
+    pathname === href || pathname?.startsWith(`${href}/`) === true;
+
+  const themeLabel =
+    theme === "dark" ? "Switch to light theme" : "Switch to dark theme";
 
   return (
     <header
@@ -79,7 +90,7 @@ export function Navbar() {
           <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-primary">
             <Image
               src="/logo.svg"
-              alt="Medic1905"
+              alt=""
               width={22}
               height={22}
               className="h-[22px] w-[22px] object-contain"
@@ -93,7 +104,10 @@ export function Navbar() {
         </Link>
 
         {/* Desktop navigation */}
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
+        <nav
+          className="hidden items-center gap-1 md:flex"
+          aria-label="Primary"
+        >
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
@@ -115,18 +129,14 @@ export function Navbar() {
           <button
             type="button"
             onClick={toggleTheme}
-            aria-label={
-              theme === "dark"
-                ? "Switch to light theme"
-                : "Switch to dark theme"
-            }
+            aria-label={themeLabel}
             data-testid="navbar-theme-toggle"
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             {theme === "dark" ? (
-              <Sun className="h-[18px] w-[18px]" />
+              <Sun className="h-[18px] w-[18px]" aria-hidden="true" />
             ) : (
-              <Moon className="h-[18px] w-[18px]" />
+              <Moon className="h-[18px] w-[18px]" aria-hidden="true" />
             )}
           </button>
 
@@ -144,24 +154,20 @@ export function Navbar() {
           <button
             type="button"
             onClick={toggleTheme}
-            aria-label={
-              theme === "dark"
-                ? "Switch to light theme"
-                : "Switch to dark theme"
-            }
+            aria-label={themeLabel}
             data-testid="navbar-theme-toggle-mobile"
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             {theme === "dark" ? (
-              <Sun className="h-[18px] w-[18px]" />
+              <Sun className="h-[18px] w-[18px]" aria-hidden="true" />
             ) : (
-              <Moon className="h-[18px] w-[18px]" />
+              <Moon className="h-[18px] w-[18px]" aria-hidden="true" />
             )}
           </button>
 
           <button
             type="button"
-            onClick={() => setMobileMenuOpen((open) => !open)}
+            onClick={toggleMobileMenu}
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-navigation"
             aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
@@ -169,49 +175,51 @@ export function Navbar() {
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             {mobileMenuOpen ? (
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5" aria-hidden="true" />
             ) : (
-              <Menu className="h-5 w-5" />
+              <Menu className="h-5 w-5" aria-hidden="true" />
             )}
           </button>
         </div>
       </div>
 
       {/* Mobile menu */}
-      {mobileMenuOpen && (
-        <div
-          id="mobile-navigation"
-          className="border-t border-border bg-background md:hidden"
+      <div
+        id="mobile-navigation"
+        hidden={!mobileMenuOpen}
+        className="border-t border-border bg-background md:hidden"
+      >
+        <nav
+          className="flex flex-col gap-1 px-4 py-4"
+          aria-label="Mobile"
         >
-          <nav className="flex flex-col gap-1 px-4 py-4" aria-label="Mobile">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                aria-current={isActive(link.href) ? "page" : undefined}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`rounded-xl px-4 py-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
-                  isActive(link.href)
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              aria-current={isActive(link.href) ? "page" : undefined}
+              onClick={closeMobileMenu}
+              className={`rounded-xl px-4 py-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+                isActive(link.href)
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              {link.label}
+            </Link>
+          ))}
 
-            <div className="mt-3 border-t border-border pt-3">
-              <Link
-                href="/auth/login"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex h-11 w-full items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              >
-                Login
-              </Link>
-            </div>
-          </nav>
-        </div>
-      )}
+          <div className="mt-3 border-t border-border pt-3">
+            <Link
+              href="/auth/login"
+              onClick={closeMobileMenu}
+              className="flex h-11 w-full items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              Login
+            </Link>
+          </div>
+        </nav>
+      </div>
     </header>
   );
 }
