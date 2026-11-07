@@ -44,7 +44,6 @@ const enabled = Boolean(process.env.SA_TEST_DATABASE_URL);
 describe.skipIf(!enabled)("Super Admin console: server-enforced access boundaries", () => {
   let supportUserId: string;
   let membershipId: string;
-  let grantId: string | null = null;
 
   beforeAll(async () => {
     const email = `sa-access-${randomUUID()}@medic1905.test`;
@@ -55,7 +54,7 @@ describe.skipIf(!enabled)("Super Admin console: server-enforced access boundarie
   });
 
   afterAll(async () => {
-    if (grantId) await prisma.superAdminGrant.delete({ where: { userId: supportUserId } }).catch(() => undefined);
+    await prisma.superAdminGrant.delete({ where: { userId: supportUserId } }).catch(() => undefined);
     await prisma.user.delete({ where: { id: supportUserId } }).catch(() => undefined);
     await prisma.$disconnect();
   });
