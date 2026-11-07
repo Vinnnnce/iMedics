@@ -1,45 +1,49 @@
 import Link from "next/link";
 import {
-  Apple, Facebook, Instagram, Linkedin, Mail, MapPin, Phone, Twitter, Youtube,
+  Apple, Download, Facebook, Instagram, Linkedin, Smartphone, Twitter, Youtube,
 } from "lucide-react";
 
-const FOOTER_LINK_GROUPS = [
+const FOOTER_NAVIGATION = [
   {
     heading: "Patients",
     links: [
       { label: "Find a doctor", href: "/doctors" },
-      { label: "Find a hospital", href: "/hospitals" },
       { label: "Find a laboratory", href: "/laboratories" },
-      { label: "Find a diagnostic centre", href: "/diagnostic-centres" },
+      { label: "Diagnostic centres", href: "/diagnostic-centres" },
       { label: "Find a pharmacy", href: "/pharmacies" },
+      { label: "Book appointment", href: "/doctors" },
     ],
   },
   {
     heading: "Providers",
     links: [
-      { label: "Register as a doctor", href: "/auth/signup" },
-      { label: "Register a facility", href: "/auth/signup" },
-      { label: "Provider dashboard", href: "/dashboard" },
+      { label: "For doctors", href: "/doctors/register" },
+      { label: "For hospitals", href: "/hospitals/register" },
+      { label: "For laboratories", href: "/laboratories/register" },
+      { label: "For pharmacies", href: "/pharmacies/register" },
       { label: "Subscription plans", href: "/pricing" },
-      { label: "Help centre", href: "/help" },
     ],
   },
   {
     heading: "Platform",
     links: [
+      { label: "Health records", href: "/dashboard" },
       { label: "Health news", href: "/news" },
       { label: "Podcasts", href: "/podcasts" },
-      { label: "Download app", href: "/app" },
+      { label: "Help centre", href: "/help" },
       { label: "Contact support", href: "/contact" },
-      { label: "Emergency support", href: "/emergency" },
     ],
   },
-];
-
-const LEGAL_LINKS = [
-  { label: "Privacy Policy", href: "/legal/privacy" },
-  { label: "Terms of Use", href: "/legal/terms" },
-  { label: "Cookies Policy", href: "/legal/cookies" },
+  {
+    heading: "Legal",
+    links: [
+      { label: "Privacy policy", href: "/legal/privacy" },
+      { label: "Terms of use", href: "/legal/terms" },
+      { label: "Cookies policy", href: "/legal/cookies" },
+      { label: "Accessibility", href: "/legal/accessibility" },
+      { label: "Report an issue", href: "/contact" },
+    ],
+  },
 ];
 
 const SOCIAL_LINKS = [
@@ -51,96 +55,53 @@ const SOCIAL_LINKS = [
 ];
 
 const APP_LINKS = [
-  {
-    label: "Download for iOS",
-    href: "#",
-    icon: Apple,
-  },
-  {
-    label: "Download for Android",
-    href: "#",
-    icon: SmartphoneIcon,
-  },
-  {
-    label: "Download for Windows",
-    href: "#",
-    icon: MonitorIcon,
-  },
+  { label: "iOS", href: "/app/ios" },
+  { label: "Android", href: "/app/android" },
+  { label: "Windows", href: "/app/windows" },
 ];
-
-function SmartphoneIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden="true"
-    >
-      <rect x="5" y="2" width="14" height="20" rx="2" />
-      <path d="M12 18h.01" />
-    </svg>
-  );
-}
-
-function MonitorIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden="true"
-    >
-      <rect x="2" y="3" width="20" height="14" rx="2" />
-      <path d="M8 21h8M12 17v4" />
-    </svg>
-  );
-}
 
 export function Footer() {
   return (
     <footer className="hidden border-t border-border bg-card md:block">
-      <div className="mx-auto w-full max-w-7xl px-6 py-12 lg:px-8">
+      <div className="mx-auto w-full max-w-7xl px-6 py-10 lg:px-8 lg:py-12">
+        {/* Top footer: brand, description, app download and social links */}
         <div className="grid gap-10 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
-          {/* Brand and contact */}
           <div>
             <Link
               href="/"
-              className="inline-flex items-center gap-2 rounded-lg transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              aria-label="Medic1905 home"
+              className="inline-flex items-center gap-2 rounded-lg text-xl font-extrabold tracking-tight transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
-              <span className="text-xl font-extrabold tracking-tight">
-                Medic<span className="text-primary">1905</span>
-              </span>
+              Medic<span className="text-primary">1905</span>
             </Link>
 
-            <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted-foreground">
-              Medic1905 connects patients with verified doctors, hospitals, laboratories, diagnostic
-              centres and pharmacies. Manage appointments, results, prescriptions and health records
-              in one secure place.
+            <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
+              A healthcare platform connecting patients with verified doctors, hospitals,
+              laboratories, diagnostic centres and pharmacies across Nigeria.
             </p>
 
-            <div className="mt-6 space-y-3 text-sm text-muted-foreground">
-              <a
-                href="mailto:support@medic1905.com"
-                className="inline-flex items-center gap-2 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              >
-                <Mail className="h-4 w-4" aria-hidden="true" />
-                support@medic1905.com
-              </a>
+            <p className="mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
+              <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+              Secure records · Role-based access
+            </p>
 
-              <p className="inline-flex items-center gap-2">
-                <Phone className="h-4 w-4" aria-hidden="true" />
-                +234 000 000 0000
+            <div className="mt-6">
+              <p className="text-sm font-semibold">Download the Medic1905 app</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Book care, follow results and manage your health records anywhere.
               </p>
 
-              <p className="inline-flex items-center gap-2">
-                <MapPin className="h-4 w-4" aria-hidden="true" />
-                Nigeria
-              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {APP_LINKS.map((app) => (
+                  <a
+                    key={app.label}
+                    href={app.href}
+                    className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  >
+                    <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
+                    {app.label}
+                  </a>
+                ))}
+              </div>
             </div>
 
             <div className="mt-6 flex flex-wrap items-center gap-2">
@@ -151,7 +112,7 @@ export function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={label}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 >
                   <Icon className="h-4 w-4" aria-hidden="true" />
                 </a>
@@ -160,19 +121,19 @@ export function Footer() {
           </div>
 
           {/* Link groups */}
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {FOOTER_LINK_GROUPS.map((group) => (
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {FOOTER_NAVIGATION.map((group) => (
               <nav key={group.heading} aria-label={group.heading}>
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {group.heading}
                 </h3>
 
-                <ul className="mt-4 space-y-3">
+                <ul className="mt-4 space-y-2.5">
                   {group.links.map((link) => (
-                    <li key={`${group.heading}-${link.href}-${link.label}`}>
+                    <li key={link.href + link.label}>
                       <Link
                         href={link.href}
-                        className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+                        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
                       >
                         {link.label}
                       </Link>
@@ -184,56 +145,53 @@ export function Footer() {
           </div>
         </div>
 
-        {/* App download */}
-        <div className="mt-10 flex flex-col gap-4 rounded-2xl border border-border bg-background p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-          <div>
-            <h3 className="text-base font-semibold">Get the Medic1905 app</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Book care, follow results and manage your health records wherever you are.
-            </p>
-          </div>
+        {/* Bottom bar: legal links and app download */}
+        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border pt-6 lg:flex-row">
+          <p className="text-center text-xs text-muted-foreground lg:text-left">
+            © 2026 Medic1905. Serving Nigeria. All rights reserved.
+          </p>
 
-          <div className="flex flex-wrap gap-3">
-            {APP_LINKS.map(({ label, href, icon: Icon }) => (
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 lg:justify-end">
+            <Link
+              href="/legal/privacy"
+              className="text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+            >
+              Privacy Policy
+            </Link>
+
+            <Link
+              href="/legal/terms"
+              className="text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+            >
+              Terms of Use
+            </Link>
+
+            <Link
+              href="/legal/cookies"
+              className="text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+            >
+              Cookies Policy
+            </Link>
+
+            <span className="hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
+
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              Download App:
+            </span>
+
+            {APP_LINKS.map((app) => (
               <a
-                key={label}
-                href={href}
-                className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                key={`bottom-${app.label}`}
+                href={app.href}
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
               >
-                <Icon className="h-4 w-4" aria-hidden="true" />
-                {label}
+                <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
+                {app.label}
               </a>
             ))}
           </div>
         </div>
-
-        {/* Legal and copyright */}
-        <div className="mt-8 flex flex-col gap-4 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-muted-foreground">
-            © 2026 Medic1905. Serving Nigeria. All rights reserved.
-          </p>
-
-          <nav aria-label="Legal">
-            <ul className="flex flex-wrap items-center gap-4">
-              {LEGAL_LINKS.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </div>
-
-        <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground/70">
-          Medic1905 is a healthcare platform, not a medical provider. Doctors and facilities are
-          responsible for clinical decisions. AI-generated content is informational only and does
-          not replace professional medical advice.
-        </p>
       </div>
     </footer>
   );
