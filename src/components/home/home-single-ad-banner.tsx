@@ -13,7 +13,7 @@ export interface HomePromoSlide {
   linkUrl?: string | null;
 }
 
-const AUTOPLAY_DELAY_MS = 6000;.
+const AUTOPLAY_DELAY_MS = 6000;
 
 /**
  * A Beeline-style promotional carousel beneath the homepage carousel.
