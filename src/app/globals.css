@@ -516,3 +516,11 @@
 }
 .cl-footerActionLink { color: var(--foreground) !important; }
 .cl-internalNote { color: var(--muted-foreground) !important; }
+
+.home-single-ad-banner-image {
+  mask-image: linear-gradient(
+    to right,
+    black 55%,
+    transparent 100%
+  );
+}
