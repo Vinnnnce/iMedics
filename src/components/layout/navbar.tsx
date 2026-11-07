@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
@@ -7,7 +8,10 @@ import { usePathname } from "next/navigation";
 import { useMe } from "@/lib/use-me";
 import { useUser } from "@clerk/nextjs";
 import { useTheme } from "@/components/theme-provider";
-import { optionalProcessingAllowed, COOKIE_CONSENT_EVENT } from "@/lib/cookie-consent";
+import {
+  optionalProcessingAllowed,
+  COOKIE_CONSENT_EVENT,
+} from "@/lib/cookie-consent";
 import { navigationFeatureEnabled } from "@/lib/navigation-features";
 import { moduleForPath } from "@/lib/platform/policy";
 import {
@@ -28,14 +32,54 @@ import { ADMIN_LINKS } from "@/components/admin/admin-links";
 import { NotificationCenter } from "@/components/shared/notification-center";
 import { WebsiteTour } from "@/components/onboarding/website-tour";
 import { SignOutButton } from "@/components/shared/sign-out-button";
-import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import {
-  Search, Sun, Moon, Menu, X, Home, Stethoscope, Users,
-  FlaskConical, Heart, Sparkles, User, Globe, HeartPulse,
-  Calendar, FileText, Video, MessageSquare, Building2,
-  ClipboardList, Upload, LayoutDashboard, ArrowRight, Receipt, Wallet, Tags, PanelLeftClose,
-  FolderOpen, BellRing, ShieldCheck, Settings, BedDouble, SearchCheck, Bell, Star, Briefcase, Pill,
-  BarChart3, Activity, IdCard, CreditCard,
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import {
+  Search,
+  Sun,
+  Moon,
+  Menu,
+  X,
+  Home,
+  Stethoscope,
+  Users,
+  FlaskConical,
+  Heart,
+  Sparkles,
+  User,
+  Globe,
+  HeartPulse,
+  Calendar,
+  FileText,
+  Video,
+  MessageSquare,
+  Building2,
+  ClipboardList,
+  Upload,
+  LayoutDashboard,
+  ArrowRight,
+  Receipt,
+  Wallet,
+  Tags,
+  PanelLeftClose,
+  FolderOpen,
+  BellRing,
+  ShieldCheck,
+  Settings,
+  BedDouble,
+  SearchCheck,
+  Bell,
+  Star,
+  Briefcase,
+  Pill,
+  BarChart3,
+  Activity,
+  IdCard,
+  CreditCard,
   type LucideIcon,
   Siren,
 } from "lucide-react";
@@ -46,22 +90,26 @@ type NavItem = {
   label: string;
   icon: LucideIcon;
   roles: string[];
-  /** Facility permission required to see this link. Owners always see it. */
   permission?: string;
 };
 
-/**
- * A labelled group of links rendered as one sidebar section. The doctor and
- * facility menus are grouped so each account type sees exactly its own
- * workspace structure; a null label renders the items without a heading
- * (patient and admin menus).
- */
 type NavSection = {
   label: string | null;
   items: NavItem[];
-  /** Facility kinds allowed to see this section at all. */
   kinds?: MeFacility["kind"][];
 };
+
+type SearchResult = {
+  title: string;
+  subtitle: string;
+  href: string;
+  icon: LucideIcon;
+  category: string;
+};
+
+/* -------------------------------------------------------------------------- */
+/* PATIENT NAVIGATION                                                         */
+/* -------------------------------------------------------------------------- */
 
 const PATIENT_NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["PATIENT"] },
@@ -83,12 +131,10 @@ const PATIENT_NAV: NavItem[] = [
   { href: "/profile", label: "Profile", icon: User, roles: ["PATIENT"] },
 ];
 
-/**
- * The doctor's simplified interface: four main sections — the Doctor
- * Dashboard (with the clinical workflows grouped underneath it), AI Tools,
- * and the account section. Doctors never see facility administration; every
- * link still resolves to the doctor portal routes only.
- */
+/* -------------------------------------------------------------------------- */
+/* DOCTOR NAVIGATION                                                          */
+/* -------------------------------------------------------------------------- */
+
 const DOCTOR_SECTIONS: NavSection[] = [
   {
     label: "Doctor Dashboard",
@@ -128,14 +174,10 @@ const DOCTOR_SECTIONS: NavSection[] = [
   },
 ];
 
-/**
- * The facility administration environment: grouped modules shown per the
- * registered facility type. Each page still enforces the facility kind and
- * the caller's facility membership server-side (requireModulePage in
- * lib/modules/page-guards.ts) — these links only decide what is worth
- * showing. Sections with `kinds` appear only for those facility types, so a
- * standalone laboratory never sees hospital departments and vice versa.
- */
+/* -------------------------------------------------------------------------- */
+/* FACILITY NAVIGATION                                                        */
+/* -------------------------------------------------------------------------- */
+
 const FACILITY_DASHBOARD_ITEM: NavItem = {
   href: "/lab/dashboard",
   label: "Facility Dashboard",
@@ -143,12 +185,20 @@ const FACILITY_DASHBOARD_ITEM: NavItem = {
   roles: ["FACILITY"],
 };
 
-const FACILITY_WEBSITE_ITEM: NavItem = { href: "/lab/website", label: "Our Website", icon: Globe, roles: ["FACILITY"], permission: "MANAGE_PROFILE" };
+const FACILITY_WEBSITE_ITEM: NavItem = {
+  href: "/lab/website",
+  label: "Our Website",
+  icon: Globe,
+  roles: ["FACILITY"],
+  permission: "MANAGE_PROFILE",
+};
 
 const FACILITY_SECTIONS: NavSection[] = [
   {
     label: "Organisation",
-    items: [{ href: "/lab/organization", label: "Workforce & Departments", icon: Users, roles: ["FACILITY"], permission: "MANAGE_STAFF" }],
+    items: [
+      { href: "/lab/organization", label: "Workforce & Departments", icon: Users, roles: ["FACILITY"], permission: "MANAGE_STAFF" },
+    ],
   },
   {
     label: "Facility Dashboard",
@@ -257,7 +307,11 @@ const FACILITY_SECTIONS: NavSection[] = [
   },
 ];
 
-const BOTTOM_NAV_ITEMS = [
+/* -------------------------------------------------------------------------- */
+/* MOBILE NAVIGATION                                                          */
+/* -------------------------------------------------------------------------- */
+
+const BOTTOM_NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Home", icon: Home, roles: ["PATIENT"] },
   { href: "/doctor/dashboard", label: "Home", icon: Home, roles: ["DOCTOR"] },
   { href: "/lab/dashboard", label: "Home", icon: Home, roles: ["LAB_SCIENTIST"] },
@@ -267,32 +321,41 @@ const BOTTOM_NAV_ITEMS = [
   { href: "/patient/results", label: "Labs", icon: FlaskConical, roles: ["PATIENT"] },
   { href: "/doctor/diagnostics", label: "Diag", icon: Heart, roles: ["DOCTOR"] },
   { href: "/lab/users", label: "Users", icon: Users, roles: ["LAB_SCIENTIST"] },
-  { href: "/patient/case-file", label: "Diag", icon: Heart, roles: ["PATIENT"] },
+  { href: "/patient/case-file", label: "Case File", icon: FileText, roles: ["PATIENT"] },
 ];
 
+/* -------------------------------------------------------------------------- */
+/* SEARCH SUGGESTIONS                                                         */
+/* -------------------------------------------------------------------------- */
+
 const AI_SUGGESTIONS = [
-  { text: "Find a cardiologist near me", icon: Stethoscope, category: "doctor" },
-  { text: "View my latest lab results", icon: FlaskConical, category: "results" },
-  { text: "Book an appointment", icon: Calendar, category: "appointment" },
-  { text: "Check my prescriptions", icon: FileText, category: "prescription" },
-  { text: "Start a video consultation", icon: Video, category: "consult" },
+  { text: "Find a cardiologist near me", icon: Stethoscope, category: "doctors" },
+  { text: "View my latest lab results", icon: FlaskConical, category: "labs" },
+  { text: "Book an appointment", icon: Calendar, category: "appointments" },
+  { text: "Check my prescriptions", icon: FileText, category: "prescriptions" },
+  { text: "Start a video consultation", icon: Video, category: "consultations" },
   { text: "View my case history", icon: ClipboardList, category: "history" },
 ];
 
 const DOCTOR_AI_SUGGESTIONS = [
-  { text: "Find patient by name or ID", icon: Users, category: "patient" },
-  { text: "Review pending lab requests", icon: FlaskConical, category: "lab" },
+  { text: "Find patient by name or ID", icon: Users, category: "patients" },
+  { text: "Review pending lab requests", icon: FlaskConical, category: "labs" },
   { text: "AI-assisted diagnostics", icon: Sparkles, category: "ai" },
   { text: "View today's schedule", icon: Calendar, category: "schedule" },
-  { text: "Write consultation notes", icon: ClipboardList, category: "consult" },
+  { text: "Write consultation notes", icon: ClipboardList, category: "consultations" },
   { text: "AI case history analysis", icon: FileText, category: "ai" },
 ];
 
 const ADMIN_SUGGESTIONS = [
+  { text: "Manage administrative teams", icon: Users, category: "teams" },
+  { text: "Manage roles and permissions", icon: ShieldCheck, category: "roles" },
   { text: "Review pending verifications", icon: ShieldCheck, category: "verification" },
-  { text: "Manage users", icon: Users, category: "users" },
-  { text: "Check payments", icon: Receipt, category: "payments" },
-  { text: "Manage ads and notices", icon: Globe, category: "content" },
+  { text: "Manage healthcare facilities", icon: Building2, category: "facilities" },
+  { text: "Review subscriptions and payments", icon: Receipt, category: "payments" },
+  { text: "Manage clinical documents", icon: FileText, category: "documents" },
+  { text: "Review security and audit logs", icon: ShieldCheck, category: "security" },
+  { text: "Manage platform modules", icon: Settings, category: "modules" },
+  { text: "View platform analytics", icon: BarChart3, category: "analytics" },
 ];
 
 const FACILITY_SUGGESTIONS = [
@@ -302,7 +365,14 @@ const FACILITY_SUGGESTIONS = [
   { text: "Reply to reviews", icon: Star, category: "reviews" },
 ];
 
-type FilterChip = { label: string; value: string };
+/* -------------------------------------------------------------------------- */
+/* SEARCH FILTERS                                                             */
+/* -------------------------------------------------------------------------- */
+
+type FilterChip = {
+  label: string;
+  value: string;
+};
 
 const PATIENT_CHIPS: FilterChip[] = [
   { label: "All", value: "all" },
@@ -311,18 +381,21 @@ const PATIENT_CHIPS: FilterChip[] = [
   { label: "Appointments", value: "appointments" },
   { label: "Prescriptions", value: "prescriptions" },
 ];
+
 const DOCTOR_CHIPS: FilterChip[] = [
   { label: "All", value: "all" },
   { label: "Patients", value: "patients" },
   { label: "Consultations", value: "consultations" },
   { label: "Prescriptions", value: "prescriptions" },
 ];
+
 const FACILITY_CHIPS: FilterChip[] = [
   { label: "All", value: "all" },
   { label: "Patients", value: "patients" },
   { label: "Documents", value: "documents" },
   { label: "Bookings", value: "bookings" },
 ];
+
 const ADMIN_CHIPS: FilterChip[] = [
   { label: "All", value: "all" },
   { label: "Users", value: "users" },
@@ -330,147 +403,468 @@ const ADMIN_CHIPS: FilterChip[] = [
   { label: "Verifications", value: "verification" },
 ];
 
+/* -------------------------------------------------------------------------- */
+/* SUPER ADMIN NAVIGATION                                                     */
+/* -------------------------------------------------------------------------- */
+
+// Only existing ADMIN_LINKS are used. This groups the existing destinations;
+// it does not create or assume new admin routes.
+
 const ADMIN_NAV: NavItem[] = [
-  ...ADMIN_LINKS.map((l) => ({ href: l.href, label: l.label, icon: l.icon, roles: ["ADMIN"] })),
-  { href: "/settings", label: "Settings", icon: Settings, roles: ["ADMIN"] },
+  ...ADMIN_LINKS.map((link) => ({
+    href: link.href,
+    label: link.label,
+    icon: link.icon,
+    roles: ["ADMIN"],
+  })),
+  {
+    href: "/settings",
+    label: "Settings",
+    icon: Settings,
+    roles: ["ADMIN"],
+  },
 ];
+
+function getAdminNavSections(items: NavItem[]): NavSection[] {
+  const groups: { label: string; keywords: string[] }[] = [
+    {
+      label: "Platform Overview",
+      keywords: ["dashboard", "overview", "home", "analytics"],
+    },
+    {
+      label: "User & Team Management",
+      keywords: ["user", "team", "staff", "doctor", "patient", "nurse", "member"],
+    },
+    {
+      label: "Roles & Access Control",
+      keywords: ["role", "permission", "access", "security", "admin"],
+    },
+    {
+      label: "Healthcare Facilities",
+      keywords: ["facility", "hospital", "laboratory", "diagnostic", "pharmacy", "department"],
+    },
+    {
+      label: "Clinical Governance",
+      keywords: ["clinical", "medical", "document", "template", "verification"],
+    },
+    {
+      label: "Finance & Subscriptions",
+      keywords: ["payment", "billing", "subscription", "revenue", "invoice", "plan"],
+    },
+    {
+      label: "Platform Configuration",
+      keywords: ["setting", "module", "feature", "integration", "api", "content", "notice", "advert"],
+    },
+  ];
+
+  const assigned = new Set<string>();
+
+  const sections: NavSection[] = groups.map((group) => {
+    const matched = items.filter((item) => {
+      if (assigned.has(item.href)) return false;
+
+      const text = `${item.label} ${item.href}`.toLowerCase();
+      const matches = group.keywords.some((keyword) => text.includes(keyword));
+
+      if (matches) assigned.add(item.href);
+      return matches;
+    });
+
+    return {
+      label: group.label,
+      items: matched,
+    };
+  }).filter((section) => section.items.length > 0);
+
+  const remaining = items.filter((item) => !assigned.has(item.href));
+
+  if (remaining.length > 0) {
+    sections.push({
+      label: "Other Administration",
+      items: remaining,
+    });
+  }
+
+  return sections;
+}
+
+const ADMIN_NAV_SECTIONS = getAdminNavSections(ADMIN_NAV);
+
+/* -------------------------------------------------------------------------- */
+/* HELPERS                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function normalisePath(href: string) {
+  return href.split("?")[0].replace(/\/+$/, "") || "/";
+}
+
+function getSearchCategory(href: string): string {
+  const path = normalisePath(href).toLowerCase();
+
+  if (path.includes("doctor")) return "doctors";
+  if (path.includes("patient") || path.includes("users")) return "patients";
+  if (path.includes("result") || path.includes("lab") || path.includes("specimen")) return "labs";
+  if (path.includes("appointment") || path.includes("booking") || path.includes("schedule")) return "appointments";
+  if (path.includes("prescription") || path.includes("pharmacy") || path.includes("medication")) return "prescriptions";
+  if (path.includes("consult")) return "consultations";
+  if (path.includes("history")) return "history";
+  if (path.includes("document") || path.includes("case-report") || path.includes("template")) return "documents";
+  if (path.includes("payment") || path.includes("billing") || path.includes("subscription")) return "payments";
+  if (path.includes("verification")) return "verification";
+  if (path.includes("team") || path.includes("staff")) return "teams";
+  if (path.includes("role") || path.includes("permission")) return "roles";
+  if (path.includes("facility") || path.includes("hospital") || path.includes("organization")) return "facilities";
+  if (path.includes("security") || path.includes("audit")) return "security";
+  if (path.includes("module") || path.includes("setting")) return "modules";
+  if (path.includes("analytic")) return "analytics";
+  if (path.includes("review")) return "reviews";
+
+  return "other";
+}
+
+/* -------------------------------------------------------------------------- */
+/* NAVBAR                                                                     */
+/* -------------------------------------------------------------------------- */
 
 export function Navbar({ children }: { children: React.ReactNode }) {
   const { theme, toggleTheme } = useTheme();
   const { user } = useUser();
-  // Anonymous RSC prefetches of protected routes redirect to Clerk's external
-  // sign-in domain and fail CORS. Only real navigation should start sign-in.
-  const navigationPrefetch = user ? undefined : false;
-  const anonymousNavigation = (href: string) => (event: { preventDefault: () => void }) => {
-    if (!user) {
-      event.preventDefault();
-      // A document navigation lets Clerk redirect to its hosted sign-in page
-      // without an RSC fetch crossing origins and failing CORS first.
-      window.location.assign(href);
-    }
-  };
   const pathname = usePathname();
-  // Signed-out visitors get a clean, centred page: the sidebar and bottom nav
-  // only list authenticated destinations, so they stay hidden until sign-in.
+  const me = useMe();
+
+  const navigationPrefetch = user ? undefined : false;
+
+  const anonymousNavigation = (href: string) =>
+    (event: { preventDefault: () => void }) => {
+      if (!user) {
+        event.preventDefault();
+        window.location.assign(href);
+      }
+    };
+
+  const role = me?.role ?? "PATIENT";
   const showNavChrome = Boolean(user);
+
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
+
   const searchRef = useRef<HTMLInputElement>(null);
   const searchWrapRef = useRef<HTMLDivElement>(null);
   const mobileSearchRef = useRef<HTMLDivElement>(null);
 
-  const me = useMe();
-  const role = me?.role ?? "PATIENT";
+  const isFacilityUser =
+    Boolean(me?.facility) &&
+    (role === "PATIENT" || role === "LAB_SCIENTIST");
 
-  // Remember the sidebar preference across sessions (desktop only).
+  /* ------------------------------------------------------------------------ */
+  /* SIDEBAR PREFERENCE                                                       */
+  /* ------------------------------------------------------------------------ */
+
   useEffect(() => {
     const restore = () => {
-      try { if (optionalProcessingAllowed("preferences")) setSidebarCollapsed(window.localStorage.getItem("medic1905.sidebar.collapsed") === "1"); } catch { /* blocked browser storage */ }
+      try {
+        if (optionalProcessingAllowed("preferences")) {
+          setSidebarCollapsed(
+            window.localStorage.getItem("medic1905.sidebar.collapsed") === "1"
+          );
+        }
+      } catch {
+        // Browser storage may be unavailable.
+      }
     };
+
     void Promise.resolve().then(restore);
+
     window.addEventListener(COOKIE_CONSENT_EVENT, restore);
-    return () => window.removeEventListener(COOKIE_CONSENT_EVENT, restore);
-  }, []);
-  const toggleSidebar = useCallback(() => {
-    setSidebarCollapsed((collapsed) => {
-      try { if (optionalProcessingAllowed("preferences")) window.localStorage.setItem("medic1905.sidebar.collapsed", collapsed ? "0" : "1"); } catch { /* optional preference */ }
-      return !collapsed;
-    });
+
+    return () => {
+      window.removeEventListener(COOKIE_CONSENT_EVENT, restore);
+    };
   }, []);
 
-  /**
-   * One resolver for the sidebar, the mobile drawer, the bottom navigation and
-   * the search results. Links marked FACILITY need a resolved facility
-   * context: the /api/me response computes the facility kind and permissions
-   * server-side, and the target pages still enforce everything independently.
-   */
-  const isFacilityUser = Boolean(me?.facility) && (role === "PATIENT" || role === "LAB_SCIENTIST");
-  const visibleNavItems = useMemo(() => {
-    // Every account type gets exactly its own menu: nothing from another
-    // role's workspace is ever mixed in.
-    if (role === "ADMIN") return ADMIN_NAV;
-    const permitted = (href: string) => { const featureModule = moduleForPath(href); return !featureModule || !me?.blockedModules?.includes(featureModule); };
-    if (role === "DOCTOR") return [...DOCTOR_SECTIONS.flatMap((s) => s.items), ...(me?.facility ? [{ label: "Facility organisation", href: "/lab/organization", icon: Users }] : [])].filter((item) => permitted(item.href));
+  const saveSidebarPreference = useCallback((collapsed: boolean) => {
+    try {
+      if (optionalProcessingAllowed("preferences")) {
+        window.localStorage.setItem(
+          "medic1905.sidebar.collapsed",
+          collapsed ? "1" : "0"
+        );
+      }
+    } catch {
+      // Sidebar preference is optional.
+    }
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((current) => {
+      const next = !current;
+      saveSidebarPreference(next);
+      return next;
+    });
+  }, [saveSidebarPreference]);
+
+  /* ------------------------------------------------------------------------ */
+  /* PERMISSION-AWARE NAVIGATION                                              */
+  /* ------------------------------------------------------------------------ */
+
+  const permitted = useCallback(
+    (href: string) => {
+      const featureModule = moduleForPath(href);
+
+      return (
+        !featureModule ||
+        !me?.blockedModules?.includes(featureModule)
+      );
+    },
+    [me?.blockedModules]
+  );
+
+  const visibleNavItems = useMemo<NavItem[]>(() => {
+    if (role === "ADMIN") {
+      return ADMIN_NAV.filter((item) => permitted(item.href));
+    }
+
+    if (role === "DOCTOR") {
+      const doctorItems = DOCTOR_SECTIONS.flatMap((section) => section.items);
+
+      const organisationItem: NavItem[] = me?.facility
+        ? [
+            {
+              label: "Facility organisation",
+              href: "/lab/organization",
+              icon: Users,
+              roles: ["DOCTOR"],
+            },
+          ]
+        : [];
+
+      return [...doctorItems, ...organisationItem].filter((item) =>
+        permitted(item.href)
+      );
+    }
 
     const facility = me?.facility ?? null;
-    if (role === "LAB_SCIENTIST" || (role === "PATIENT" && facility)) {
+
+    if (
+      role === "LAB_SCIENTIST" ||
+      (role === "PATIENT" && facility)
+    ) {
+      if (!facility) return [];
+
       return FACILITY_SECTIONS
-        // Sections gated by facility kind appear only for the registered
-        // facility type — standalone labs never see hospital departments.
-        // Without a resolved facility, no facility modules are displayed.
-        .filter((section) => facility && (!section.kinds || section.kinds.includes(facility.kind)))
+        .filter(
+          (section) =>
+            !section.kinds ||
+            section.kinds.includes(facility.kind)
+        )
         .flatMap((section) =>
           section.items
             .filter((item) => {
               if (
-                facility &&
                 facility.facilityRole !== "OWNER" &&
                 item.permission &&
                 !facility.permissions.includes(item.permission)
               ) {
                 return false;
               }
+
               return true;
             })
-            .filter((item) => Boolean(facility && navigationFeatureEnabled(item.href, facility.kind, facility.enabledModules)))
+            .filter((item) =>
+              navigationFeatureEnabled(
+                item.href,
+                facility.kind,
+                facility.enabledModules
+              )
+            )
             .filter((item) => permitted(item.href))
-            .map((item) => item.href === "/lab/website" && facility
-              ? { ...item, href: `/lab/website?facilityId=${encodeURIComponent(facility.id)}` }
-              : item),
+            .map((item) =>
+              item.href === "/lab/website"
+                ? {
+                    ...item,
+                    href: `/lab/website?facilityId=${encodeURIComponent(facility.id)}`,
+                  }
+                : item
+            )
         );
     }
+
     return PATIENT_NAV.filter((item) => permitted(item.href));
-  }, [role, me]);
-  /** Grouped for the sidebar and mobile drawer: one section per heading. */
-  const navSections = useMemo(() => {
-    if (role === "ADMIN") return [{ label: null, items: ADMIN_NAV }];
-    if (role === "DOCTOR") return [...DOCTOR_SECTIONS.map((s) => ({ ...s, items: s.items.filter((item) => visibleNavItems.some((v) => v.href === item.href)) })), ...(me?.facility ? [{ label: "Facility workspace", items: visibleNavItems.filter((v) => v.href === "/lab/organization") }] : [])];
+  }, [role, me, permitted]);
+
+  /* ------------------------------------------------------------------------ */
+  /* GROUPED SIDEBAR SECTIONS                                                 */
+  /* ------------------------------------------------------------------------ */
+
+  const navSections = useMemo<NavSection[]>(() => {
+    if (role === "ADMIN") {
+      return ADMIN_NAV_SECTIONS.map((section) => ({
+        ...section,
+        items: section.items.filter((item) =>
+          visibleNavItems.some((visible) => visible.href === item.href)
+        ),
+      })).filter((section) => section.items.length > 0);
+    }
+
+    if (role === "DOCTOR") {
+      const sections = DOCTOR_SECTIONS.map((section) => ({
+        ...section,
+        items: section.items.filter((item) =>
+          visibleNavItems.some((visible) => visible.href === item.href)
+        ),
+      })).filter((section) => section.items.length > 0);
+
+      const organisationItems = visibleNavItems.filter(
+        (item) => normalisePath(item.href) === "/lab/organization"
+      );
+
+      if (organisationItems.length > 0) {
+        sections.push({
+          label: "Facility Workspace",
+          items: organisationItems,
+        });
+      }
+
+      return sections;
+    }
+
     const facility = me?.facility ?? null;
-    if (role === "LAB_SCIENTIST" || (role === "PATIENT" && facility)) {
+
+    if (
+      role === "LAB_SCIENTIST" ||
+      (role === "PATIENT" && facility)
+    ) {
+      if (!facility) return [];
+
       return FACILITY_SECTIONS
-        .filter((section) => facility && (!section.kinds || section.kinds.includes(facility.kind)))
+        .filter(
+          (section) =>
+            !section.kinds ||
+            section.kinds.includes(facility.kind)
+        )
         .map((section) => ({
           label: section.label,
-          items: visibleNavItems.filter((item) => section.items.some((s) => s.href === item.href.split("?")[0])),
+          items: visibleNavItems.filter((item) =>
+            section.items.some(
+              (source) =>
+                normalisePath(source.href) === normalisePath(item.href)
+            )
+          ),
         }))
         .filter((section) => section.items.length > 0);
     }
-    return [{ label: null, items: PATIENT_NAV }];
-  }, [role, me, visibleNavItems]);
+
+    return [
+      {
+        label: null,
+        items: visibleNavItems,
+      },
+    ];
+  }, [role, me?.facility, visibleNavItems]);
+
   const navItems = visibleNavItems;
-  const bottomNav = useMemo(() => {
+
+  /* ------------------------------------------------------------------------ */
+  /* MOBILE BOTTOM NAVIGATION                                                */
+  /* ------------------------------------------------------------------------ */
+
+  const bottomNav = useMemo<NavItem[]>(() => {
     if (role === "ADMIN") {
-      return [
-        { href: "/admin", label: "Home", icon: Home, roles: [role] },
-        { href: "/admin/verifications", label: "Verify", icon: ShieldCheck, roles: [role] },
-        { href: "/admin/users", label: "Users", icon: Users, roles: [role] },
-        { href: "/admin/payments", label: "Payments", icon: Receipt, roles: [role] },
-      ] as NavItem[];
-    }
-    const facility = me?.facility;
-    if (facility && (role === "PATIENT" || role === "LAB_SCIENTIST")) {
-      // Facility users: quick links to their workspace modules by kind.
-      const kind = facility.kind;
-      const items: NavItem[] = [
-        { href: "/lab/dashboard", label: "Facility", icon: Home, roles: [role] },
-        kind === "DIAGNOSTIC_CENTRE"
-          ? { href: "/lab/examinations", label: "Exams", icon: FileText, roles: [role] }
-          : kind === "HOSPITAL"
-            ? { href: "/lab/admissions", label: "Wards", icon: BedDouble, roles: [role] }
-            : kind === "PHARMACY"
-              ? { href: "/lab/pharmacy", label: "Pharmacy", icon: Pill, roles: [role] }
-              : { href: "/lab/orders", label: "Orders", icon: ClipboardList, roles: [role] },
-        { href: "/lab/case-reports?tab=documents", label: "Docs", icon: FolderOpen, roles: [role] },
-        { href: "/settings", label: "Settings", icon: Settings, roles: [role] },
+      const preferred = [
+        { href: "/admin", label: "Home", icon: Home, roles: ["ADMIN"] },
+        { href: "/admin/verifications", label: "Verify", icon: ShieldCheck, roles: ["ADMIN"] },
+        { href: "/admin/users", label: "Users", icon: Users, roles: ["ADMIN"] },
+        { href: "/admin/payments", label: "Payments", icon: Receipt, roles: ["ADMIN"] },
       ];
-      return items.filter(item => visibleNavItems.some(visible => visible.href.split("?")[0] === item.href.split("?")[0]));
+
+      return preferred.filter((item) =>
+        visibleNavItems.some(
+          (visible) =>
+            normalisePath(visible.href) === normalisePath(item.href)
+        )
+      );
     }
-    return BOTTOM_NAV_ITEMS.filter((item) => item.roles.includes(role));
+
+    const facility = me?.facility;
+
+    if (
+      facility &&
+      (role === "PATIENT" || role === "LAB_SCIENTIST")
+    ) {
+      const items: NavItem[] = [
+        {
+          href: "/lab/dashboard",
+          label: "Facility",
+          icon: Home,
+          roles: [role],
+        },
+        facility.kind === "DIAGNOSTIC_CENTRE"
+          ? {
+              href: "/lab/examinations",
+              label: "Exams",
+              icon: FileText,
+              roles: [role],
+            }
+          : facility.kind === "HOSPITAL"
+            ? {
+                href: "/lab/admissions",
+                label: "Wards",
+                icon: BedDouble,
+                roles: [role],
+              }
+            : facility.kind === "PHARMACY"
+              ? {
+                  href: "/lab/pharmacy",
+                  label: "Pharmacy",
+                  icon: Pill,
+                  roles: [role],
+                }
+              : {
+                  href: "/lab/orders",
+                  label: "Orders",
+                  icon: ClipboardList,
+                  roles: [role],
+                },
+        {
+          href: "/lab/case-reports?tab=documents",
+          label: "Docs",
+          icon: FolderOpen,
+          roles: [role],
+        },
+        {
+          href: "/settings",
+          label: "Settings",
+          icon: Settings,
+          roles: [role],
+        },
+      ];
+
+      return items.filter((item) =>
+        visibleNavItems.some(
+          (visible) =>
+            normalisePath(visible.href) === normalisePath(item.href)
+        )
+      );
+    }
+
+    return BOTTOM_NAV_ITEMS.filter(
+      (item) =>
+        item.roles.includes(role) &&
+        visibleNavItems.some(
+          (visible) =>
+            normalisePath(visible.href) === normalisePath(item.href)
+        )
+    );
   }, [me?.facility, role, visibleNavItems]);
+
+  /* ------------------------------------------------------------------------ */
+  /* SEARCH CONFIGURATION                                                     */
+  /* ------------------------------------------------------------------------ */
+
   const suggestions =
     role === "ADMIN"
       ? ADMIN_SUGGESTIONS
@@ -479,6 +873,7 @@ export function Navbar({ children }: { children: React.ReactNode }) {
         : role === "DOCTOR"
           ? DOCTOR_AI_SUGGESTIONS
           : AI_SUGGESTIONS;
+
   const filterChips =
     role === "ADMIN"
       ? ADMIN_CHIPS
@@ -487,76 +882,90 @@ export function Navbar({ children }: { children: React.ReactNode }) {
         : role === "DOCTOR"
           ? DOCTOR_CHIPS
           : PATIENT_CHIPS;
+
   const searchPlaceholder =
     role === "ADMIN"
-      ? "Search users, payments…"
+      ? "Search administration..."
       : isFacilityUser || role === "LAB_SCIENTIST"
-        ? "Search patients, documents…"
+        ? "Search facility workspace..."
         : role === "DOCTOR"
-          ? "Search patients, labs…"
-          : "Search doctors, labs…";
+          ? "Search doctor workspace..."
+          : "Search your healthcare workspace...";
 
-  const filteredSuggestions = searchQuery
-    ? suggestions.filter((s) => s.text.toLowerCase().includes(searchQuery.toLowerCase()))
-    : suggestions;
+  const filteredSuggestions = useMemo(() => {
+    if (!searchQuery.trim()) return suggestions;
 
-  // AI-driven search results
-  const getSearchResults = useCallback(() => {
+    const query = searchQuery.toLowerCase();
+
+    return suggestions.filter((suggestion) =>
+      suggestion.text.toLowerCase().includes(query)
+    );
+  }, [searchQuery, suggestions]);
+
+  /* ------------------------------------------------------------------------ */
+  /* SEARCH RESULTS                                                           */
+  /* ------------------------------------------------------------------------ */
+
+  const getSearchResults = useCallback((): SearchResult[] => {
     if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase();
-    const results: { title: string; subtitle: string; href: string; icon: LucideIcon }[] = [];
 
-    // Search nav items
+    const query = searchQuery.toLowerCase();
+    const results: SearchResult[] = [];
+
     visibleNavItems.forEach((item) => {
-      if (item.label.toLowerCase().includes(q)) {
+      if (
+        item.label.toLowerCase().includes(query) ||
+        item.href.toLowerCase().includes(query)
+      ) {
         results.push({
           title: item.label,
-          subtitle: `Navigate to ${item.label}`,
+          subtitle: `Open ${item.label}`,
           href: item.href,
           icon: item.icon,
+          category: getSearchCategory(item.href),
         });
       }
     });
 
-    // AI suggestions
-    suggestions.forEach((s) => {
-      if (s.text.toLowerCase().includes(q)) {
-        const matchingNav = navItems.find((n) =>
-          s.category === "doctor" && n.href.includes("doctors") ||
-          s.category === "patient" && n.href.includes("patients") ||
-          s.category === "results" && n.href.includes("results") ||
-          s.category === "appointment" && n.href.includes("appointments") ||
-          s.category === "prescription" && n.href.includes("prescriptions") ||
-          s.category === "consult" && n.href.includes("consult") ||
-          s.category === "history" && n.href.includes("history") ||
-          s.category === "lab" && n.href.includes("lab") ||
-          s.category === "schedule" && n.href.includes("schedule") ||
-          s.category === "ai" && n.href.includes("ai") ||
-          s.category === "verification" && n.href.includes("verifications") ||
-          s.category === "users" && n.href.includes("users") ||
-          s.category === "payments" && n.href.includes("payments") ||
-          s.category === "content" && n.href.includes("content") ||
-          s.category === "documents" && (n.href.includes("documents") || n.href.includes("case-reports")) ||
-          s.category === "templates" && (n.href.includes("templates") || n.href.includes("case-reports")) ||
-          s.category === "bookings" && n.href.includes("bookings") ||
-          s.category === "reviews" && n.href.includes("reviews") ||
-          s.category === "consultations" && n.href.includes("consultations")
+    suggestions.forEach((suggestion) => {
+      if (!suggestion.text.toLowerCase().includes(query)) return;
+
+      const matchingNav = visibleNavItems.find((item) => {
+        const category = getSearchCategory(item.href);
+        return (
+          category === suggestion.category ||
+          (suggestion.category === "ai" && item.href.includes("/ai"))
         );
-        if (matchingNav) {
-          results.push({
-            title: s.text,
-            subtitle: "AI suggestion",
-            href: matchingNav.href,
-            icon: s.icon,
-          });
-        }
+      });
+
+      if (
+        matchingNav &&
+        !results.some((result) => result.href === matchingNav.href)
+      ) {
+        results.push({
+          title: suggestion.text,
+          subtitle: `Suggested: ${matchingNav.label}`,
+          href: matchingNav.href,
+          icon: suggestion.icon,
+          category: getSearchCategory(matchingNav.href),
+        });
       }
     });
 
-    return results.slice(0, 6);
-  }, [searchQuery, visibleNavItems, suggestions, navItems]);
+    return results
+      .filter(
+        (result) =>
+          activeFilter === "all" ||
+          result.category === activeFilter
+      )
+      .slice(0, 8);
+  }, [searchQuery, visibleNavItems, suggestions, activeFilter]);
 
   const searchResults = getSearchResults();
+
+  /* ------------------------------------------------------------------------ */
+  /* SEARCH FOCUS                                                             */
+  /* ------------------------------------------------------------------------ */
 
   useEffect(() => {
     if (searchOpen && searchRef.current) {
@@ -564,48 +973,83 @@ export function Navbar({ children }: { children: React.ReactNode }) {
     }
   }, [searchOpen]);
 
-  // Close the search dropdown when clicking outside of it, and support the
-  // ⌘K / Ctrl+K shortcut advertised in the search bar. Escape always closes it.
+  /* ------------------------------------------------------------------------ */
+  /* KEYBOARD SHORTCUTS                                                       */
+  /* ------------------------------------------------------------------------ */
+
   useEffect(() => {
+    const isTyping = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+
+      return (
+        target.isContentEditable ||
+        ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
+      );
+    };
+
     const onPointerDown = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node;
+
       const insideSearch =
-        (searchWrapRef.current?.contains(target) ?? false) || (mobileSearchRef.current?.contains(target) ?? false);
+        (searchWrapRef.current?.contains(target) ?? false) ||
+        (mobileSearchRef.current?.contains(target) ?? false);
+
       if (!insideSearch) {
         setSearchOpen(false);
         setMobileSearchOpen(false);
       }
     };
+
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      const key = event.key.toLowerCase();
+
+      if ((event.metaKey || event.ctrlKey) && key === "k") {
         event.preventDefault();
+
         if (window.matchMedia("(max-width: 639px)").matches) {
-          // On phones the inline search input is hidden; open the search row.
           setMobileSearchOpen(true);
           setSearchOpen(true);
         } else {
           setSearchOpen(true);
           searchRef.current?.focus();
         }
+
+        return;
       }
+
+      if ((event.metaKey || event.ctrlKey) && key === "b") {
+        if (!isTyping(event.target)) {
+          event.preventDefault();
+          toggleSidebar();
+        }
+        return;
+      }
+
       if (event.key === "Escape") {
         setSearchOpen(false);
         setMobileSearchOpen(false);
+        setMobileSidebarOpen(false);
       }
     };
+
     document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
+
     return () => {
       document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, []);
+  }, [toggleSidebar]);
 
-  // Lock the page scroll while the mobile drawer is open so the content
-  // underneath cannot be scrolled past the overlay. Closing the drawer when the
-  // viewport grows past the mobile breakpoint also releases the lock.
+  /* ------------------------------------------------------------------------ */
+  /* MOBILE DRAWER SCROLL LOCK                                                */
+  /* ------------------------------------------------------------------------ */
+
   useEffect(() => {
     document.body.style.overflow = mobileSidebarOpen ? "hidden" : "";
+
     return () => {
       document.body.style.overflow = "";
     };
@@ -613,118 +1057,212 @@ export function Navbar({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 768px)");
+
     const onChange = (event: MediaQueryListEvent) => {
-      if (event.matches) setMobileSidebarOpen(false);
+      if (event.matches) {
+        setMobileSidebarOpen(false);
+      }
     };
+
     media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
+
+    return () => {
+      media.removeEventListener("change", onChange);
+    };
   }, []);
 
-  const isActive = (href: string) => {
-    const path = href.split("?")[0];
-    return pathname === path || (pathname.startsWith(path + "/") && path !== "/");
-  };
+  /* ------------------------------------------------------------------------ */
+  /* ACTIVE ROUTE                                                             */
+  /* ------------------------------------------------------------------------ */
 
-  // Logged-out visitors on the public homepage render it standalone: the
-  // homepage brings its own header, footer, and theme toggle, so the
-  // application chrome (sidebar, search, bottom nav) stays out of the way.
-  // Authenticated visitors never reach this branch with the homepage: the
-  // root page redirects them (only suspended accounts render there, with the
-  // app chrome, which is the correct shell for them).
+  const isActive = useCallback(
+    (href: string) => {
+      const path = normalisePath(href);
+      const current = normalisePath(pathname);
+
+      return (
+        current === path ||
+        (path !== "/" && current.startsWith(`${path}/`))
+      );
+    },
+    [pathname]
+  );
+
+  const currentNavItem = navItems.find((item) => isActive(item.href));
+
+  const workspaceTitle =
+    role === "ADMIN"
+      ? "Super Admin Control Centre"
+      : role === "DOCTOR"
+        ? "Doctor Workspace"
+        : me?.facility?.name ?? "Patient Workspace";
+
+  /* ------------------------------------------------------------------------ */
+  /* PUBLIC AND AUTHENTICATION PAGES                                          */
+  /* ------------------------------------------------------------------------ */
+
   if (pathname === "/" && !user) {
-    return <>{children}<div className="fixed bottom-4 right-4 z-50 rounded-xl border border-border bg-card"><WebsiteTour publicTour /></div></>;
+    return (
+      <>
+        {children}
+        <div className="fixed bottom-4 right-4 z-50 rounded-xl border border-border bg-card">
+          <WebsiteTour publicTour />
+        </div>
+      </>
+    );
   }
-  if (pathname.startsWith("/auth/login") || pathname.startsWith("/auth/signup") || pathname.startsWith("/auth/callback")) return <>{children}</>;
 
-  // The AI search dropdown, shared by the desktop search bar and the mobile search row.
+  if (
+    pathname.startsWith("/auth/login") ||
+    pathname.startsWith("/auth/signup") ||
+    pathname.startsWith("/auth/callback")
+  ) {
+    return <>{children}</>;
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /* SEARCH DROPDOWN                                                          */
+  /* ------------------------------------------------------------------------ */
+
   const searchDropdown = searchOpen ? (
-<div className="absolute top-full left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-xl mt-1 ai-suggestions overflow-hidden z-50">
-                {/* Filter chips */}
-                <div className="flex gap-2 p-3 overflow-x-auto border-b border-border">
-                  {filterChips.map((chip) => (
-                    <button
-                      key={chip.value}
-                      onClick={() => setActiveFilter(chip.value)}
-                      className={`filter-chip ${activeFilter === chip.value ? "active" : ""}`}
-                    >
-                      {chip.label}
-                    </button>
-                  ))}
-                </div>
+    <div className="absolute left-0 right-0 top-full z-[80] mt-1 overflow-hidden rounded-xl border border-border bg-popover shadow-xl md:left-1/2 md:right-auto md:w-full md:max-w-xl md:-translate-x-1/2">
+      <div className="flex gap-2 overflow-x-auto border-b border-border p-3">
+        {filterChips.map((chip) => (
+          <button
+            key={chip.value}
+            type="button"
+            onClick={() => setActiveFilter(chip.value)}
+            aria-pressed={activeFilter === chip.value}
+            className={`filter-chip shrink-0 ${
+              activeFilter === chip.value ? "active" : ""
+            }`}
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
 
-                {/* AI Suggestions or Search Results */}
-                <div className="max-h-80 overflow-y-auto">
-                  {searchQuery ? (
-                    searchResults.length > 0 ? (
-                      searchResults.map((result, i) => (
-                        <Link
-                          prefetch={navigationPrefetch}
-                          onNavigate={anonymousNavigation(result.href)}
-                          key={i}
-                          href={result.href}
-                          onClick={() => { setSearchOpen(false); setSearchQuery(""); setMobileSearchOpen(false); }}
-                          className="flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors cursor-pointer"
-                        >
-                          <div className="icon-badge h-8 w-8 bg-muted">
-                            <result.icon className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">{result.title}</p>
-                            <p className="text-xs text-muted-foreground truncate">{result.subtitle}</p>
-                          </div>
-                          <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                        </Link>
-                      ))
-                    ) : (
-                      <div className="p-6 text-center">
-                        <Search className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                        <p className="text-sm text-muted-foreground">No results for &quot;{searchQuery}&quot;</p>
-                        <p className="text-xs text-muted-foreground mt-1">Try a different search term</p>
-                      </div>
-                    )
-                  ) : (
-                    <>
-                      <div className="px-4 py-2 flex items-center gap-2 border-b border-border">
-                        <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-xs font-medium text-muted-foreground">AI Suggestions</span>
-                      </div>
-                      {filteredSuggestions.map((suggestion, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setSearchQuery(suggestion.text)}
-                          className="flex items-center gap-3 w-full px-4 py-3 hover:bg-accent transition-colors text-left"
-                        >
-                          <div className="icon-badge h-8 w-8 bg-muted">
-                            <suggestion.icon className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                          <span className="text-sm text-foreground">{suggestion.text}</span>
-                        </button>
-                      ))}
-                    </>
-                  )}
-                </div>
-              </div>
+      <div className="max-h-80 overflow-y-auto">
+        {searchQuery ? (
+          searchResults.length > 0 ? (
+            searchResults.map((result, index) => {
+              const Icon = result.icon;
+
+              return (
+                <Link
+                  key={`${result.href}-${index}`}
+                  prefetch={navigationPrefetch}
+                  onNavigate={anonymousNavigation(result.href)}
+                  href={result.href}
+                  onClick={() => {
+                    setSearchOpen(false);
+                    setSearchQuery("");
+                    setMobileSearchOpen(false);
+                    setActiveFilter("all");
+                  }}
+                  className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-accent"
+                >
+                  <div className="icon-badge flex h-8 w-8 items-center justify-center bg-muted">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {result.title}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {result.subtitle}
+                    </p>
+                  </div>
+
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Link>
+              );
+            })
+          ) : (
+            <div className="p-6 text-center">
+              <Search className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                No navigation results for &quot;{searchQuery}&quot;
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Try another search term or select All.
+              </p>
+            </div>
+          )
+        ) : (
+          <>
+            <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+              <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground">
+                Workspace Suggestions
+              </span>
+            </div>
+
+            {filteredSuggestions.map((suggestion, index) => {
+              const Icon = suggestion.icon;
+
+              return (
+                <button
+                  key={`${suggestion.category}-${index}`}
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery(suggestion.text);
+                    setActiveFilter("all");
+                  }}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent"
+                >
+                  <div className="icon-badge flex h-8 w-8 items-center justify-center bg-muted">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+
+                  <span className="text-sm text-foreground">
+                    {suggestion.text}
+                  </span>
+                </button>
+              );
+            })}
+          </>
+        )}
+      </div>
+    </div>
   ) : null;
+
+  /* ------------------------------------------------------------------------ */
+  /* MAIN NAVBAR                                                              */
+  /* ------------------------------------------------------------------------ */
 
   return (
     <div className="flex min-h-screen flex-col">
-      {/* AI-Driven Navbar */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
         <div className="flex h-16 items-center justify-between gap-2 px-3 sm:gap-3 sm:px-4 md:px-6">
-          {/* Mobile menu */}
+          {/* Mobile menu button */}
           {showNavChrome && (
             <button
-              onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+              type="button"
+              onClick={() => setMobileSidebarOpen((open) => !open)}
               aria-label={mobileSidebarOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileSidebarOpen}
-              className="md:hidden flex shrink-0 items-center justify-center h-11 w-11 rounded-lg hover:bg-muted"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted md:hidden"
             >
-              {mobileSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {mobileSidebarOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
             </button>
           )}
 
-          {/* Logo — Medic1905 wordmark (white chip keeps it legible in dark mode) */}
-          <Link prefetch={navigationPrefetch} onNavigate={anonymousNavigation("/dashboard")} href="/dashboard" className={`${user ? "hidden sm:flex" : "flex"} shrink-0 items-center rounded-lg transition-opacity hover:opacity-80`} aria-label="Medic1905 home">
+          {/* Medic1905 logo */}
+          <Link
+            prefetch={navigationPrefetch}
+            onNavigate={anonymousNavigation("/dashboard")}
+            href="/dashboard"
+            aria-label="Medic1905 home"
+            className={`${
+              user ? "hidden sm:flex" : "flex"
+            } shrink-0 items-center rounded-lg transition-opacity hover:opacity-80`}
+          >
             <Image
               src="/medic1905-logo.png"
               alt="Medic1905"
@@ -735,86 +1273,202 @@ export function Navbar({ children }: { children: React.ReactNode }) {
             />
           </Link>
 
-          {me && <nav aria-label="Current workspace" className="workspace-title">
-            <span className="hidden text-xs text-muted-foreground lg:block">{me.facility?.name ?? `${role === "DOCTOR" ? "Doctor" : role === "ADMIN" ? "Administration" : "Patient"} workspace`}</span>
-            <span className="font-medium">{navItems.find(item => isActive(item.href))?.label ?? (pathname.startsWith("/auth/callback") ? "Registration" : "Medic1905")}</span>
-          </nav>}
-          {/* AI Search Bar (sm and up; on phones it collapses to a search icon) */}
-          <div ref={searchWrapRef} className="relative hidden flex-1 max-w-xl mx-auto min-w-0 sm:block">
+          {/* Workspace identity */}
+          {me && (
+            <nav
+              aria-label="Current workspace"
+              className="workspace-title min-w-0"
+            >
+              <span className="hidden truncate text-xs text-muted-foreground lg:block">
+                {workspaceTitle}
+              </span>
+
+              <span className="block max-w-40 truncate font-medium sm:max-w-56">
+                {currentNavItem?.label ??
+                  (pathname.startsWith("/auth/callback")
+                    ? "Registration"
+                    : "Medic1905")}
+              </span>
+            </nav>
+          )}
+
+          {/* Desktop search */}
+          <div
+            ref={searchWrapRef}
+            className="relative mx-auto hidden min-w-0 max-w-xl flex-1 sm:block"
+          >
             <div className="ai-search-bar flex items-center gap-2 px-4 py-2">
-              <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+
               <input
                 ref={searchRef}
                 type="text"
                 placeholder={searchPlaceholder}
                 aria-label="Search authorised workspace navigation"
+                aria-expanded={searchOpen}
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(event) => {
+                  setSearchQuery(event.target.value);
+                  setActiveFilter("all");
+                }}
                 onFocus={() => setSearchOpen(true)}
-                className="flex-1 min-w-0 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
               />
+
               {searchQuery && (
-                <button onClick={() => { setSearchQuery(""); setSearchOpen(false); }} className="text-muted-foreground hover:text-foreground">
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setActiveFilter("all");
+                    setSearchOpen(false);
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
                   <X className="h-4 w-4" />
                 </button>
               )}
-              <kbd className="hidden md:block text-xs text-muted-foreground border border-border rounded px-1.5 py-0.5">⌘K</kbd>
+
+              <kbd className="hidden rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground md:block">
+                Ctrl K
+              </kbd>
             </div>
 
-            {/* AI Search Results Dropdown */}
             {searchDropdown}
           </div>
 
-          {/* Right side actions */}
-          <div className="flex items-center gap-2 shrink-0 sm:gap-3">
-            {/* Mobile search toggle */}
-            <button
-              onClick={() => setMobileSearchOpen(true)}
-              aria-label="Search"
-              data-testid="button-mobile-search"
-              className={`${user ? "hidden" : "flex sm:hidden"} h-11 w-11 items-center justify-center rounded-lg hover:bg-muted`}
-            >
-              <Search className="h-5 w-5" />
-            </button>
+          {/* Right-side actions */}
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            {/* Mobile search */}
+            {showNavChrome && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileSearchOpen(true);
+                  setSearchOpen(true);
+                }}
+                aria-label="Search workspace"
+                aria-expanded={mobileSearchOpen}
+                data-testid="button-mobile-search"
+                className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-muted sm:hidden"
+              >
+                <Search className="h-5 w-5" />
+              </button>
+            )}
+
             <NotificationCenter enabled={Boolean(me)} />
-            <WebsiteTour links={me?.status === "ACTIVE" && me.onboardingComplete ? navItems : []} publicTour={!user} compact={Boolean(user)} />
-            {/* Theme switch toggle */}
+
+            <WebsiteTour
+              links={
+                me?.status === "ACTIVE" && me.onboardingComplete
+                  ? navItems
+                  : []
+              }
+              publicTour={!user}
+              compact={Boolean(user)}
+            />
+
+            {/* Theme switch */}
             <button
+              type="button"
               onClick={toggleTheme}
               aria-label="Toggle theme"
+              aria-pressed={theme === "dark"}
               data-testid="button-theme-toggle"
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted"
-              aria-pressed={theme === "dark"}
             >
-              <span className="flex items-center justify-center">
-                {theme === "dark" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-              </span>
+              {theme === "dark" ? (
+                <Moon className="h-5 w-5" />
+              ) : (
+                <Sun className="h-5 w-5" />
+              )}
             </button>
 
-            {/* User avatar or sign in */}
+            {/* Account menu */}
             {user ? (
               <details className="relative">
-                <summary className="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-lg" aria-label="Open profile menu"><NavbarAvatar me={me} user={user} /></summary>
-                <div className="absolute right-0 top-full z-50 mt-2 grid min-w-56 gap-2 rounded-xl border border-border bg-popover p-3 shadow-lg">
-                  <p className="break-words px-2 text-sm font-semibold">{me?.name ?? "Your account"}</p>
-                  <button type="button" className="rounded-lg p-3 text-left text-sm hover:bg-muted sm:hidden" onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); setMobileSearchOpen(true); }}>Search workspace</button>
-                  <button type="button" className="rounded-lg p-3 text-left text-sm hover:bg-muted sm:hidden" onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); window.dispatchEvent(new Event("medic1905:tour")); }}>Help & Tour</button>
-                  <Link prefetch={navigationPrefetch} onNavigate={anonymousNavigation("/profile")} href="/profile" className="rounded-lg p-3 text-sm hover:bg-muted">My profile</Link>
-                  <Link prefetch={navigationPrefetch} onNavigate={anonymousNavigation("/settings")} href="/settings" className="rounded-lg p-3 text-sm hover:bg-muted">Account settings</Link>
-                  <Link prefetch={navigationPrefetch} onNavigate={anonymousNavigation("/legal/history")} href="/legal/history" className="rounded-lg p-3 text-sm hover:bg-muted">My policy history</Link>
+                <summary
+                  className="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-lg"
+                  aria-label="Open profile menu"
+                >
+                  <NavbarAvatar me={me} user={user} />
+                </summary>
+
+                <div className="absolute right-0 top-full z-[90] mt-2 grid min-w-56 gap-2 rounded-xl border border-border bg-popover p-3 shadow-lg">
+                  <p className="break-words px-2 text-sm font-semibold">
+                    {me?.name ?? "Your account"}
+                  </p>
+
+                  <button
+                    type="button"
+                    className="rounded-lg p-3 text-left text-sm hover:bg-muted sm:hidden"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      setMobileSearchOpen(true);
+                      setSearchOpen(true);
+                    }}
+                  >
+                    Search workspace
+                  </button>
+
+                  <button
+                    type="button"
+                    className="rounded-lg p-3 text-left text-sm hover:bg-muted sm:hidden"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      window.dispatchEvent(new Event("medic1905:tour"));
+                    }}
+                  >
+                    Help & Tour
+                  </button>
+
+                  <Link
+                    prefetch={navigationPrefetch}
+                    onNavigate={anonymousNavigation("/profile")}
+                    href="/profile"
+                    className="rounded-lg p-3 text-sm hover:bg-muted"
+                  >
+                    My profile
+                  </Link>
+
+                  <Link
+                    prefetch={navigationPrefetch}
+                    onNavigate={anonymousNavigation("/settings")}
+                    href="/settings"
+                    className="rounded-lg p-3 text-sm hover:bg-muted"
+                  >
+                    Account settings
+                  </Link>
+
+                  <Link
+                    prefetch={navigationPrefetch}
+                    onNavigate={anonymousNavigation("/legal/history")}
+                    href="/legal/history"
+                    className="rounded-lg p-3 text-sm hover:bg-muted"
+                  >
+                    My policy history
+                  </Link>
+
                   <SignOutButton />
                 </div>
               </details>
             ) : (
               <div className="flex items-center gap-2">
-                <Link prefetch={navigationPrefetch} onNavigate={anonymousNavigation("/auth/login")} href="/auth/login" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors hidden sm:inline">
+                <Link
+                  prefetch={navigationPrefetch}
+                  onNavigate={anonymousNavigation("/auth/login")}
+                  href="/auth/login"
+                  className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:inline"
+                >
                   Sign In
                 </Link>
+
                 <Link
                   prefetch={navigationPrefetch}
                   onNavigate={anonymousNavigation("/auth/signup")}
                   href="/auth/signup"
-                  className="pill-btn bg-foreground text-background px-4 py-2 text-sm hidden sm:inline-block"
+                  className="pill-btn hidden bg-foreground px-4 py-2 text-sm text-background sm:inline-block"
                 >
                   Sign Up
                 </Link>
@@ -824,158 +1478,240 @@ export function Navbar({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* Mobile search row — opens from the search icon on phones */}
+      {/* Mobile search panel */}
       {mobileSearchOpen && (
         <div
           ref={mobileSearchRef}
-          className="fixed inset-x-0 top-16 z-50 border-b border-border bg-card p-3 shadow-lg sm:hidden"
+          className="fixed inset-x-0 top-16 z-[80] border-b border-border bg-card p-3 shadow-lg sm:hidden"
         >
           <div className="ai-search-bar flex items-center gap-2 px-4 py-2">
-            <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+
             <input
               type="text"
               autoFocus
               placeholder={searchPlaceholder}
+              aria-label="Search workspace"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(event) => {
+                setSearchQuery(event.target.value);
+                setActiveFilter("all");
+              }}
               onFocus={() => setSearchOpen(true)}
-              className="flex-1 min-w-0 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+              className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
             />
+
             <button
-              onClick={() => { setMobileSearchOpen(false); setSearchOpen(false); }}
+              type="button"
+              onClick={() => {
+                setMobileSearchOpen(false);
+                setSearchOpen(false);
+                setSearchQuery("");
+              }}
               aria-label="Close search"
               className="text-muted-foreground hover:text-foreground"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
+
           {searchDropdown}
         </div>
       )}
 
-      {/* Content row: shadcn sidebar beside main content, below the full-width header.
-          The sidebar state stays in localStorage ("medic1905.sidebar.collapsed") and
-          drives the SidebarProvider in controlled mode; Ctrl/Cmd+B toggles it too. */}
+      {/* Main application layout */}
       <SidebarProvider
         open={!sidebarCollapsed}
         onOpenChange={(open) => {
           setSidebarCollapsed(!open);
-          try { if (optionalProcessingAllowed("preferences")) window.localStorage.setItem("medic1905.sidebar.collapsed", open ? "0" : "1"); } catch { /* optional preference */ }
+          saveSidebarPreference(!open);
         }}
-        className="flex-1 w-full"
+        className="w-full flex-1"
         style={{ minHeight: "calc(100vh - 4rem)" }}
       >
-      {/* Desktop Sidebar (collapsible to an icon rail) — authenticated users only */}
-      {showNavChrome && (
-      <Sidebar
-        collapsible="icon"
-        data-testid="desktop-sidebar"
-        data-collapsed={sidebarCollapsed}
-        style={{ top: "4rem", height: "calc(100vh - 4rem)" }}
-      >
-        <SidebarHeader>
-          <button
-            onClick={toggleSidebar}
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-expanded={!sidebarCollapsed}
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            data-testid="button-sidebar-toggle"
-            className="mx-3 mt-4 flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        {/* Desktop sidebar */}
+        {showNavChrome && (
+          <Sidebar
+            collapsible="icon"
+            data-testid="desktop-sidebar"
+            data-collapsed={sidebarCollapsed}
+            style={{
+              top: "4rem",
+              height: "calc(100vh - 4rem)",
+            }}
           >
-            <PanelLeftClose className={`h-4 w-4 transition-transform ${sidebarCollapsed ? "rotate-180" : ""}`} />
-          </button>
-        </SidebarHeader>
-        <SidebarContent>
-          {navSections.map((section, sectionIndex) => (
-            <SidebarGroup key={section.label ?? "main"}>
-              {section.label && (
-                <SidebarGroupLabel data-testid={`sidebar-section-${section.label}`}>{section.label}</SidebarGroupLabel>
-              )}
-              <SidebarMenu>
-                {section.items.map((item, index) => {
-                  const Icon = item.icon;
-                  const active = isActive(item.href);
-                  return (
-                    <SidebarMenuItem key={`${item.label}-${sectionIndex}-${index}`}>
-                      <SidebarMenuButton
-                        isActive={active}
-                        tooltip={item.label}
-                        aria-label={item.label}
-                        render={
-                          <Link
-                            prefetch={navigationPrefetch}
-                            onNavigate={anonymousNavigation(item.href)}
-                            href={item.href}
-                          />
-                        }
-                      >
-                        <Icon className="h-4 w-4 shrink-0" />
-                        <span>{item.label}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroup>
-          ))}
-        </SidebarContent>
+            <SidebarHeader>
+              <div className="flex items-center justify-between px-3 pt-4">
+                <span className="truncate text-xs font-semibold text-muted-foreground group-data-[collapsible=icon]:hidden">
+                  {workspaceTitle}
+                </span>
 
-        <SidebarFooter>
-          <p className="text-xs text-muted-foreground">
-            Medic1905 is a platform only, not a medical provider. AI content is informational.
-          </p>
-        </SidebarFooter>
-        <SidebarRail />
-      </Sidebar>
-      )}
+                <button
+                  type="button"
+                  onClick={toggleSidebar}
+                  aria-label={
+                    sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
+                  }
+                  aria-expanded={!sidebarCollapsed}
+                  title={
+                    sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
+                  }
+                  data-testid="button-sidebar-toggle"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <PanelLeftClose
+                    className={`h-4 w-4 transition-transform ${
+                      sidebarCollapsed ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+              </div>
+            </SidebarHeader>
 
-      {/* Main content column */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <main className="flex-1 p-4 md:p-6 has-bottom-nav">{children}</main>
-        <Footer />
-      </div>
+            <SidebarContent>
+              {navSections.map((section, sectionIndex) => (
+                <SidebarGroup key={section.label ?? "main"}>
+                  {section.label && (
+                    <SidebarGroupLabel
+                      data-testid={`sidebar-section-${section.label}`}
+                    >
+                      {section.label}
+                    </SidebarGroupLabel>
+                  )}
+
+                  <SidebarMenu>
+                    {section.items.map((item, index) => {
+                      const Icon = item.icon;
+                      const active = isActive(item.href);
+
+                      return (
+                        <SidebarMenuItem
+                          key={`${item.href}-${sectionIndex}-${index}`}
+                        >
+                          <SidebarMenuButton
+                            isActive={active}
+                            tooltip={item.label}
+                            aria-label={item.label}
+                            render={
+                              <Link
+                                prefetch={navigationPrefetch}
+                                onNavigate={anonymousNavigation(item.href)}
+                                href={item.href}
+                              />
+                            }
+                          >
+                            <Icon className="h-4 w-4 shrink-0" />
+                            <span>{item.label}</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </SidebarGroup>
+              ))}
+            </SidebarContent>
+
+            <SidebarFooter>
+              <p className="text-xs text-muted-foreground">
+                Medic1905 is a platform only, not a medical provider. AI content
+                is informational.
+              </p>
+            </SidebarFooter>
+
+            <SidebarRail />
+          </Sidebar>
+        )}
+
+        {/* Main content */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <main className="has-bottom-nav flex-1 p-4 md:p-6">
+            {children}
+          </main>
+
+          <Footer />
+        </div>
       </SidebarProvider>
 
-      {/* Mobile sidebar overlay — above the bottom navigation so the backdrop covers it and the last links stay reachable */}
+      {/* Mobile navigation drawer */}
       {showNavChrome && (
-        <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-          <SheetContent side="left" className="z-[70] w-[min(320px,90vw)] overflow-y-auto bg-sidebar">
-            <SheetTitle className="sr-only">Workspace navigation</SheetTitle>
-            <SheetDescription className="sr-only">Modules available to your account. Escape closes this menu.</SheetDescription>
+        <Sheet
+          open={mobileSidebarOpen}
+          onOpenChange={setMobileSidebarOpen}
+        >
+          <SheetContent
+            side="left"
+            className="z-[70] w-[min(320px,90vw)] overflow-y-auto bg-sidebar"
+          >
+            <SheetTitle className="sr-only">
+              Workspace navigation
+            </SheetTitle>
+
+            <SheetDescription className="sr-only">
+              Modules available to your account. Escape closes this menu.
+            </SheetDescription>
+
             <div className="flex h-16 items-center gap-2 border-b border-border px-6">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-foreground">
-                <svg viewBox="0 0 24 24" className="h-5 w-5 text-background" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M12 2v20M2 12h20" strokeLinecap="round" />
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5 text-background"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M12 2v20M2 12h20"
+                    strokeLinecap="round"
+                  />
                 </svg>
               </div>
-              <span className="text-base font-bold text-foreground">Medic1905</span>
+
+              <div className="min-w-0">
+                <span className="block truncate text-base font-bold text-foreground">
+                  Medic1905
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {workspaceTitle}
+                </span>
+              </div>
             </div>
-            <nav className="space-y-4 p-3 pb-20">
+
+            <nav
+              className="space-y-4 p-3 pb-20"
+              aria-label="Mobile workspace navigation"
+            >
               {navSections.map((section, sectionIndex) => (
-                <div key={section.label ?? "main"} className="space-y-1">
+                <div
+                  key={section.label ?? "main"}
+                  className="space-y-1"
+                >
                   {section.label && (
                     <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       {section.label}
                     </p>
                   )}
+
                   {section.items.map((item, index) => {
                     const Icon = item.icon;
                     const active = isActive(item.href);
+
                     return (
                       <Link
                         prefetch={navigationPrefetch}
                         onNavigate={anonymousNavigation(item.href)}
-                        key={`${item.label}-${sectionIndex}-${index}`}
+                        key={`${item.href}-${sectionIndex}-${index}`}
                         href={item.href}
                         onClick={() => setMobileSidebarOpen(false)}
+                        aria-current={active ? "page" : undefined}
                         className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                           active
                             ? "bg-foreground/10 text-foreground"
                             : "text-muted-foreground hover:bg-muted hover:text-foreground"
                         }`}
                       >
-                        <Icon className="h-4 w-4" />
-                        {item.label}
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span>{item.label}</span>
                       </Link>
                     );
                   })}
@@ -986,45 +1722,61 @@ export function Navbar({ children }: { children: React.ReactNode }) {
         </Sheet>
       )}
 
-      {/* Mobile Bottom Navigation — authenticated users only */}
-      {showNavChrome && (
-      <nav className="bottom-nav md:hidden" aria-label="Mobile bottom navigation">
-        {bottomNav.map((item, index) => {
-          const Icon = item.icon;
-          const active = isActive(item.href);
-          return (
-            <Link
-              prefetch={navigationPrefetch}
-              onNavigate={anonymousNavigation(item.href)}
-              key={`${item.label}-${index}`}
-              href={item.href}
-              className={`bottom-nav-item ${active ? "active" : ""}`}
-            >
-              <Icon className="h-5 w-5" />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      {/* Mobile bottom navigation */}
+      {showNavChrome && bottomNav.length > 0 && (
+        <nav
+          className="bottom-nav md:hidden"
+          aria-label="Mobile bottom navigation"
+        >
+          {bottomNav.map((item, index) => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+
+            return (
+              <Link
+                prefetch={navigationPrefetch}
+                onNavigate={anonymousNavigation(item.href)}
+                key={`${item.href}-${index}`}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={`bottom-nav-item ${
+                  active ? "active" : ""
+                }`}
+              >
+                <Icon className="h-5 w-5" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
       )}
     </div>
   );
 }
 
-/**
- * The header avatar: the user's saved profile image with a graceful fallback
- * to their initials. A failed image load never renders a broken-image icon —
- * it swaps to the initials once and keeps the layout stable.
- */
-function NavbarAvatar({ me, user }: { me: Me | null; user: NonNullable<ReturnType<typeof useUser>["user"]> }) {
+/* -------------------------------------------------------------------------- */
+/* NAVBAR AVATAR                                                              */
+/* -------------------------------------------------------------------------- */
+
+function NavbarAvatar({
+  me,
+  user,
+}: {
+  me: Me | null;
+  user: NonNullable<ReturnType<typeof useUser>["user"]>;
+}) {
   const [imageBroken, setImageBroken] = useState(false);
+
   const src = me?.avatarUrl ?? user.imageUrl;
+
   const initial =
-    user.firstName?.[0] || user.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() || "U";
+    user.firstName?.[0] ||
+    user.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() ||
+    "U";
 
   if (src && !imageBroken) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element -- remote Clerk/S3 avatar in a fixed chip
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={src}
         alt=""
@@ -1036,8 +1788,9 @@ function NavbarAvatar({ me, user }: { me: Me | null; user: NonNullable<ReturnTyp
       />
     );
   }
+
   return (
-    <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center text-sm font-bold text-foreground">
+    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-sm font-bold text-foreground">
       {initial}
     </div>
   );
