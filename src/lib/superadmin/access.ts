@@ -18,6 +18,7 @@ import type { User } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { forbidden } from "@/lib/errors";
 import { freshMfa } from "@/lib/platform/access";
+import { controlAudit } from "@/lib/organization/security";
 import {
   ADMIN_SECTIONS, resolvePermissions, visibleSections,
   type AdminSection, type AdminVerb,
@@ -38,9 +39,56 @@ function assignmentWindow(now: Date) {
   return { revokedAt: null as null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] };
 }
 
+/** Platform owners, from the same trusted env list that bootstraps the ADMIN role. */
+function ownerEmails(): ReadonlySet<string> {
+  return new Set(
+    (process.env.ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+/**
+ * Bootstrap the first Super Admin grant for a platform owner.
+ *
+ * A fresh deployment has no grants and no admin memberships, and every
+ * grant-creating console action already requires Super Admin access —
+ * without this bootstrap the console could never be opened by anyone.
+ * The owner list is the same Clerk-verified ADMIN_EMAILS set that
+ * bootstraps the global ADMIN role. The grant is created exactly once,
+ * recorded in the immutable control audit log, and stays revocable like
+ * any other: an existing grant — active or revoked — is never recreated,
+ * so revoking the owner's access always sticks.
+ */
+async function ensureOwnerGrant(user: User): Promise<void> {
+  if (!ownerEmails().has(user.email.toLowerCase())) return;
+  const existing = await prisma.superAdminGrant.findUnique({ where: { userId: user.id }, select: { userId: true } });
+  if (existing) return;
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.superAdminGrant.create({
+        data: {
+          userId: user.id,
+          grantedBy: "ADMIN_EMAILS bootstrap",
+          reason: "Platform owner bootstrap from the ADMIN_EMAILS environment configuration on first console sign-in.",
+        },
+      });
+      await controlAudit(tx, user.id, null, "SUPER_ADMIN_GRANT_BOOTSTRAPPED", user.id, {
+        email: user.email,
+        source: "ADMIN_EMAILS",
+      });
+    });
+  } catch (error) {
+    // A concurrent request may have bootstrapped the same owner first — fine.
+    if ((error as { code?: string })?.code !== "P2002") throw error;
+  }
+}
+
 /** Resolve the caller's console access. Returns null when there is none. */
 export const getAdminAccess = cache(async function getAdminAccess(user: User): Promise<AdminAccess | null> {
   if (user.status !== "ACTIVE" || user.deletedAt) return null;
+  await ensureOwnerGrant(user);
   const now = new Date();
 
   const [grant, memberships, assignments, overrides] = await Promise.all([

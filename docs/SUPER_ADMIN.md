@@ -9,6 +9,8 @@ Console access is granted by exactly two paths, both requiring `user.role = ADMI
 1. **SuperAdminGrant** — the platform owner path. Carries the full permission catalog, and every non-VIEW action additionally requires fresh multi-factor authentication (the Clerk `fva` session claim).
 2. **Active AdminMembership** — a membership in an admin department, with zero or more `AdminRoleAssignment` records providing the actual permissions.
 
+**Bootstrap:** a fresh deployment has no grants and no memberships, and every grant-creating action already requires Super Admin access — so the first grant is bootstrapped automatically. When a user listed in the `ADMIN_EMAILS` environment variable (the same Clerk-verified list that bootstraps the global ADMIN role) first reaches the console, an audited `SUPER_ADMIN_GRANT_BOOTSTRAPPED` grant is created for them exactly once. An existing grant — active or revoked — is never recreated, so revoking the owner's grant always sticks; re-granting afterwards is a deliberate Super Admin action.
+
 Everything is enforced server-side:
 
 - Permission keys are `SECTION:VERB` strings (26 sections × up to 15 verbs: VIEW, CREATE, EDIT, DELETE, APPROVE, REJECT, SIGN, RELEASE, DOWNLOAD, PRINT, EXPORT, ASSIGN, CONFIGURE, MANAGE, AUDIT).

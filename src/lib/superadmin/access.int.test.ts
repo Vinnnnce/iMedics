@@ -44,11 +44,13 @@ const enabled = Boolean(process.env.SA_TEST_DATABASE_URL);
 describe.skipIf(!enabled)("Super Admin console: server-enforced access boundaries", () => {
   let supportUserId: string;
   let membershipId: string;
+  let supportEmail: string;
 
   beforeAll(async () => {
     const email = `sa-access-${randomUUID()}@medic1905.test`;
     const user = await prisma.user.create({ data: { clerkId: `sa-access-${randomUUID()}`, email, name: "Access Test Admin", role: "ADMIN", status: "ACTIVE", onboardingComplete: true } });
     supportUserId = user.id;
+    supportEmail = email;
     const dept = await prisma.adminDepartment.create({ data: { name: `Access Test Dept ${randomUUID().slice(0, 8)}` } });
     membershipId = (await prisma.adminMembership.create({ data: { userId: user.id, departmentId: dept.id, title: "Technical Support Officer", createdById: user.id } })).id;
   });
@@ -144,5 +146,36 @@ describe.skipIf(!enabled)("Super Admin console: server-enforced access boundarie
     await expect(requireAdminPermission(identity.actor!, "SETTINGS", "CONFIGURE")).rejects.toThrow(/multi-factor/i);
     identity.fva = [0, 0];
     await expect(requireAdminPermission(identity.actor!, "SETTINGS", "CONFIGURE")).resolves.toBeTruthy();
+  });
+
+  it("bootstraps the platform owner's grant from ADMIN_EMAILS exactly once", async () => {
+    await prisma.superAdminGrant.deleteMany({ where: { userId: supportUserId } });
+    const previousEmails = process.env.ADMIN_EMAILS;
+    process.env.ADMIN_EMAILS = supportEmail;
+    try {
+      // First console access bootstraps an audited owner grant.
+      identity.actor = await prisma.user.findUniqueOrThrow({ where: { id: supportUserId } });
+      const access = await getAdminAccess(identity.actor!);
+      expect(access!.superAdmin).toBe(true);
+      expect(access!.sections).toHaveLength(26);
+      const grant = await prisma.superAdminGrant.findUniqueOrThrow({ where: { userId: supportUserId } });
+      expect(grant.grantedBy).toBe("ADMIN_EMAILS bootstrap");
+      expect(grant.revokedAt).toBeNull();
+      const audit = await prisma.controlAuditEvent.findFirst({
+        where: { action: "SUPER_ADMIN_GRANT_BOOTSTRAPPED", resourceId: supportUserId },
+      });
+      expect(audit).not.toBeNull();
+
+      // A revoked owner grant is never silently recreated — revocation sticks.
+      await prisma.superAdminGrant.update({ where: { userId: supportUserId }, data: { revokedAt: new Date() } });
+      identity.actor = await prisma.user.findUniqueOrThrow({ where: { id: supportUserId } });
+      const afterRevoke = await getAdminAccess(identity.actor!);
+      expect(afterRevoke?.superAdmin ?? false).toBe(false);
+      const stillRevoked = await prisma.superAdminGrant.findUniqueOrThrow({ where: { userId: supportUserId } });
+      expect(stillRevoked.revokedAt).not.toBeNull();
+    } finally {
+      process.env.ADMIN_EMAILS = previousEmails;
+      await prisma.superAdminGrant.deleteMany({ where: { userId: supportUserId } });
+    }
   });
 });
