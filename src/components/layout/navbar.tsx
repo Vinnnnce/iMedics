@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -20,9 +20,21 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
+    const onScroll = () => {
+      const nextScrolled = window.scrollY > 8;
+
+      setScrolled((current) => {
+        if (current === nextScrolled) {
+          return current;
+        }
+
+        return nextScrolled;
+      });
+    };
+
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
+
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
@@ -30,8 +42,24 @@ export function Navbar() {
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(`${href}/`);
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileMenuOpen]);
+
+  const isActive = useCallback(
+    (href: string) => pathname === href || pathname.startsWith(`${href}/`),
+    [pathname],
+  );
 
   return (
     <header
@@ -87,14 +115,18 @@ export function Navbar() {
           <button
             type="button"
             onClick={toggleTheme}
-            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            aria-label={
+              theme === "dark"
+                ? "Switch to light theme"
+                : "Switch to dark theme"
+            }
             data-testid="navbar-theme-toggle"
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             {theme === "dark" ? (
-              <Sun className="h-[18px] w-[18px]" aria-hidden="true" />
+              <Sun className="h-[18px] w-[18px]" />
             ) : (
-              <Moon className="h-[18px] w-[18px]" aria-hidden="true" />
+              <Moon className="h-[18px] w-[18px]" />
             )}
           </button>
 
@@ -112,14 +144,18 @@ export function Navbar() {
           <button
             type="button"
             onClick={toggleTheme}
-            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            aria-label={
+              theme === "dark"
+                ? "Switch to light theme"
+                : "Switch to dark theme"
+            }
             data-testid="navbar-theme-toggle-mobile"
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             {theme === "dark" ? (
-              <Sun className="h-[18px] w-[18px]" aria-hidden="true" />
+              <Sun className="h-[18px] w-[18px]" />
             ) : (
-              <Moon className="h-[18px] w-[18px]" aria-hidden="true" />
+              <Moon className="h-[18px] w-[18px]" />
             )}
           </button>
 
@@ -133,47 +169,49 @@ export function Navbar() {
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             {mobileMenuOpen ? (
-              <X className="h-5 w-5" aria-hidden="true" />
+              <X className="h-5 w-5" />
             ) : (
-              <Menu className="h-5 w-5" aria-hidden="true" />
+              <Menu className="h-5 w-5" />
             )}
           </button>
         </div>
       </div>
 
       {/* Mobile menu */}
-      <div
-        id="mobile-navigation"
-        className={`overflow-hidden border-t border-border bg-background transition-all duration-300 md:hidden ${
-          mobileMenuOpen ? "max-h-80 opacity-100" : "max-h-0 opacity-0"
-        }`}
-      >
-        <nav className="flex flex-col gap-1 px-4 py-4" aria-label="Mobile">
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              aria-current={isActive(link.href) ? "page" : undefined}
-              className={`rounded-xl px-4 py-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
-                isActive(link.href)
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
+      {mobileMenuOpen && (
+        <div
+          id="mobile-navigation"
+          className="border-t border-border bg-background md:hidden"
+        >
+          <nav className="flex flex-col gap-1 px-4 py-4" aria-label="Mobile">
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={isActive(link.href) ? "page" : undefined}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`rounded-xl px-4 py-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+                  isActive(link.href)
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
 
-          <div className="mt-3 border-t border-border pt-3">
-            <Link
-              href="/auth/login"
-              className="flex h-11 w-full items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            >
-              Login
-            </Link>
-          </div>
-        </nav>
-      </div>
+            <div className="mt-3 border-t border-border pt-3">
+              <Link
+                href="/auth/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex h-11 w-full items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                Login
+              </Link>
+            </div>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }
