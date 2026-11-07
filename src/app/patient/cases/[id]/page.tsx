@@ -49,7 +49,7 @@ export default async function PatientCaseDetailPage({ params }: { params: Promis
   // Payments belong to this episode either directly (case_id) or through the
   // appointment that a consultation of this case was recorded against — both
   // are recorded relationships, nothing is inferred.
-  const episodePayments = await prisma.payment.findMany({
+  const episodePayments = await prisma.payment.findMany({ take: 200,
     where: {
       OR: [
         { caseId: careCase.id },

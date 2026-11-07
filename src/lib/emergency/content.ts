@@ -15,7 +15,7 @@
 
 export const EMERGENCY_BANNER = {
   title: "In a real emergency, call for help first",
-  body: "If someone is unresponsive or not breathing normally, contact your local emergency number (for example 112 or 911) immediately and follow the dispatcher's instructions. Do not wait to finish reading or complete any tutorial.",
+  body: "Educational information is not a substitute for professional medical care. In a life-threatening emergency, contact your local emergency services immediately. Do not delay emergency assistance to watch a video or use this website.",
 };
 
 export interface ModuleStep {

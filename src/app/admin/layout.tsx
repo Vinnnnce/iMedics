@@ -6,7 +6,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   await requirePageRole("ADMIN");
   const pending = await countPendingVerifications();
   return (
-    <div className="mx-auto grid max-w-7xl gap-6 px-4 lg:grid-cols-[13rem_1fr] md:px-0">
+    <div className="mx-auto grid w-full min-w-0 max-w-7xl gap-6 px-4 lg:grid-cols-[13rem_minmax(0,1fr)] md:px-0">
       <aside className="lg:sticky lg:top-20 lg:self-start">
         <AdminNav pending={pending} />
       </aside>

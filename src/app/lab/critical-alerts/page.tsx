@@ -2,7 +2,8 @@ import { AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { AcknowledgeAlertButton } from "@/components/lab/critical-alerts";
-import { requireModulePage } from "@/lib/modules/page-guards";
+import { requireModulePageWithPermission } from "@/lib/modules/page-guards";
+import { escalationWindowMinutes } from "@/lib/modules/critical-alert-escalation";
 import { prisma } from "@/lib/prisma";
 import { formatClinicDateTime } from "@/lib/format";
 
@@ -17,7 +18,7 @@ const STATUS_LABEL: Record<string, string> = {
 // hospitals acknowledge alerts for their orders; laboratories see the
 // communication status of alerts raised on their results.
 export default async function CriticalAlertsPage() {
-  const { facilityId, kind } = await requireModulePage("HOSPITAL", "LABORATORY");
+  const { facilityId, kind } = await requireModulePageWithPermission("REVIEW_DOCUMENTS", "HOSPITAL", "LABORATORY");
 
   const where =
     kind === "HOSPITAL"
@@ -50,7 +51,8 @@ export default async function CriticalAlertsPage() {
         <h1 className="text-2xl font-bold">Critical result alerts</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Critical findings must be acknowledged by the responsible clinician.
-          Unacknowledged alerts escalate after 30 minutes.
+          Unacknowledged alerts first escalate after {escalationWindowMinutes()} minutes.
+          This administrative response window is not a clinical treatment protocol.
         </p>
       </div>
 

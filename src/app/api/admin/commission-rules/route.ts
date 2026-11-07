@@ -56,7 +56,7 @@ export const GET = withAuth(["ADMIN"], async () => {
 });
 
 const createSchema = z.object({
-  providerType: z.enum(["DOCTOR", "HOSPITAL", "LABORATORY", "DIAGNOSTIC_CENTRE"]),
+  providerType: z.enum(["DOCTOR", "HOSPITAL", "LABORATORY", "DIAGNOSTIC_CENTRE", "PHARMACY"]),
   facilityId: z.string().uuid().nullable().optional(),
   kind: z.enum(["PERCENT", "FIXED"]),
   value: z.number().min(0),

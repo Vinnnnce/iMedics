@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { NotificationType } from "@prisma/client";
+import type { NotificationType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getPreferenceMatrix, isChannelEnabled } from "./preferences";
 import { renderEmail, sendEmail } from "./email";
@@ -15,21 +15,24 @@ export async function hasNotificationOutbox(): Promise<boolean> {
 
 /** Reuse the checked-in delivery table; never creates or migrates a database. */
 export async function persistQueuedNotification(userId: string, notification: RenderedNotification, toast: boolean) {
+  await prisma.$transaction((tx) => persistQueuedNotificationInTransaction(tx, userId, notification, toast));
+}
+
+/** A clinical transition can enlist delivery persistence in its own commit. */
+export async function persistQueuedNotificationInTransaction(tx: Prisma.TransactionClient, userId: string, notification: RenderedNotification, toast: boolean) {
   const id = randomUUID();
-  await prisma.$transaction(async tx => {
     await tx.notification.create({ data: {
       id, userId, type: notification.type, title: notification.title, body: notification.body,
       href: notification.href, data: { ...notification.data, toast },
     } });
     await tx.$executeRaw`INSERT INTO workspace_delivery(id, owner_id, event_key, title, href)
       VALUES(${randomUUID()}::uuid, ${userId}::uuid, ${`notify:${notification.type}:${id}`}, ${notification.title}, ${notification.href})`;
-  });
 }
 
 export function deliveryType(eventKey: string): NotificationType {
   if (eventKey.startsWith("critical:")) return "LAB_RESULT";
   const type = eventKey.split(":")[1];
-  if (eventKey.startsWith("notify:") && ["APPOINTMENT", "MESSAGE", "PAYMENT", "LAB_RESULT", "PRESCRIPTION", "SYSTEM"].includes(type)) return type as NotificationType;
+  if (eventKey.startsWith("notify:") && ["APPOINTMENT", "MESSAGE", "PAYMENT", "LAB_RESULT", "PRESCRIPTION", "SYSTEM", "CLINICAL_DOCUMENT"].includes(type)) return type as NotificationType;
   return "APPOINTMENT";
 }
 
@@ -50,9 +53,9 @@ export async function deliverPendingNotifications(ownerId?: string) {
   for (const job of jobs) {
     try {
       const user = await prisma.user.findFirst({
-        where: { id: job.owner_id, status: "ACTIVE", deletedAt: null }, select: { email: true },
+        where: { id: job.owner_id, status: "ACTIVE", deletedAt: null }, select: { email: true, testAccountExpiresAt: true },
       });
-      if (!user) {
+      if (!user || user.testAccountExpiresAt) {
         await prisma.$executeRaw`UPDATE workspace_delivery SET email_done = true, push_done = true WHERE id = ${job.id}::uuid`;
         continue;
       }

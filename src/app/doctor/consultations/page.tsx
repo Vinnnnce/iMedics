@@ -16,7 +16,7 @@ import {
 import {
   ClipboardList, Plus, Trash2, Save, FileText, Activity,
   HeartPulse, FlaskConical, Pill, Stethoscope, CheckCircle2,
-  Loader2,
+  Loader2, Download, Pencil, History, X,
 } from "lucide-react";
 
 type PatientOption = {
@@ -57,6 +57,31 @@ type ConsultationRecord = {
   followUpDate: string | null;
   patient: { id: string; name: string; caseNumber: string };
   doctor: { id: string; name: string };
+  revision: number;
+  amendedAt: string | null;
+};
+
+type FullConsultation = ConsultationRecord & {
+  historyPresentIllness: string | null;
+  pastMedicalHistory: string | null;
+  symptoms: { name?: string; duration?: string; severity?: string }[];
+  vitals: Record<string, string>;
+  examination: string | null;
+  differentialDiagnosis: string | null;
+  labFindings: string | null;
+  imagingFindings: string | null;
+  treatmentPlan: string | null;
+  recommendations: string | null;
+  notes: string | null;
+  prescriptions: { items: { drugName: string; dose: string | null; frequency: string | null; duration: string | null; instructions: string | null }[] }[];
+};
+
+type RevisionEntry = {
+  id: string;
+  revision: number;
+  reason: string | null;
+  createdAt: string;
+  snapshot: { chiefComplaint?: string | null; diagnosis?: string | null; icd?: { code: string; description: string } | null; treatmentPlan?: string | null };
 };
 
 const emptyVitals: Vitals = {
@@ -93,6 +118,14 @@ export default function DoctorConsultationsPage() {
   const [recommendations, setRecommendations] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Review / amend state: set when an existing report is loaded into the form.
+  const [editing, setEditing] = useState<{ id: string; status: string; revision: number } | null>(null);
+  const [amendmentReason, setAmendmentReason] = useState("");
+  const [history, setHistory] = useState<RevisionEntry[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [loadingReport, setLoadingReport] = useState<string | null>(null);
+  const isAmendment = editing?.status === "finalized";
 
   const fetchPatients = useCallback(async (): Promise<PatientOption[]> => {
     const res = await fetch("/api/patients?limit=100");
@@ -155,49 +188,132 @@ export default function DoctorConsultationsPage() {
     setDifferentialDiagnosis(""); setLabFindings(""); setImagingFindings("");
     setMedications([{ ...emptyMedication }]); setTreatmentPlan("");
     setRecommendations(""); setFollowUpDate(""); setNotes("");
+    setEditing(null); setAmendmentReason(""); setHistory(null);
   };
 
-  const handleSave = async () => {
+  /** Loads a saved report into the form so the doctor can review and edit it. */
+  const loadForEdit = async (id: string) => {
+    setError(""); setMessage(""); setLoadingReport(id); setHistory(null);
+    try {
+      const res = await fetch(`/api/consultations/${id}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Could not open the report.");
+        return;
+      }
+      const c = data.consultation as FullConsultation;
+      setPatientId(c.patient.id);
+      setChiefComplaint(c.chiefComplaint ?? "");
+      setHistoryPresentIllness(c.historyPresentIllness ?? "");
+      setPastMedicalHistory(c.pastMedicalHistory ?? "");
+      const loadedSymptoms = (c.symptoms ?? []).filter((x) => x.name).map((x) => ({ name: x.name ?? "", duration: x.duration ?? "", severity: x.severity ?? "mild" }));
+      setSymptoms(loadedSymptoms.length ? loadedSymptoms : [{ name: "", duration: "", severity: "mild" }]);
+      setVitals({ ...emptyVitals, ...(c.vitals ?? {}) });
+      setExamination(c.examination ?? "");
+      setIcd(c.icd ? { code: c.icd.code, description: c.icd.description } : null);
+      setDifferentialDiagnosis(c.differentialDiagnosis ?? "");
+      setLabFindings(c.labFindings ?? "");
+      setImagingFindings(c.imagingFindings ?? "");
+      const meds = (c.prescriptions ?? []).flatMap((p) => p.items).map((i) => ({
+        name: i.drugName, dose: i.dose ?? "", frequency: i.frequency ?? "", duration: i.duration ?? "", instructions: i.instructions ?? "",
+      }));
+      setMedications(meds.length ? meds : [{ ...emptyMedication }]);
+      setTreatmentPlan(c.treatmentPlan ?? "");
+      setRecommendations(c.recommendations ?? "");
+      setFollowUpDate(c.followUpDate ? c.followUpDate.slice(0, 10) : "");
+      setNotes(c.notes ?? "");
+      setAmendmentReason("");
+      setEditing({ id: c.id, status: c.status, revision: c.revision });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      setError("Could not open the report. Please try again.");
+    } finally {
+      setLoadingReport(null);
+    }
+  };
+
+  const loadHistory = async () => {
+    if (!editing) return;
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/consultations/${editing.id}/revisions`);
+      const data = await res.json();
+      setHistory(res.ok ? (data.revisions as RevisionEntry[]) : []);
+    } catch {
+      setHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  /**
+   * Saves the form: creates a report, or — when an existing report is loaded —
+   * updates the draft, finalizes it, or records an amendment of a finalized one.
+   */
+  const handleSave = async (status: "draft" | "finalized") => {
     setError(""); setMessage("");
-    if (!patientId) {
+    if (!editing && !patientId) {
       setError("Select a patient first.");
       return;
     }
-    if (!icd) {
+    if (status === "finalized" && !icd) {
       setError("Select an ICD-10 diagnosis before saving the report.");
+      return;
+    }
+    if (isAmendment && amendmentReason.trim().length < 5) {
+      setError("Give a short reason for amending this finalized report.");
       return;
     }
     setSaving(true);
     try {
-      const res = await fetch("/api/consultations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patientId,
-          chiefComplaint,
-          historyPresentIllness,
-          pastMedicalHistory,
-          symptoms: symptoms.filter((s) => s.name.trim()),
-          vitals,
-          examination,
-          icdCode: icd.code,
-          differentialDiagnosis,
-          labFindings,
-          imagingFindings,
-          medications: medications.filter((m) => m.name.trim()),
-          treatmentPlan,
-          recommendations,
-          followUpDate: followUpDate || undefined,
-          notes,
-          status: "finalized",
-        }),
-      });
+      const fields = {
+        chiefComplaint,
+        historyPresentIllness,
+        pastMedicalHistory,
+        symptoms: symptoms.filter((s) => s.name.trim()),
+        vitals,
+        examination,
+        ...(icd ? { icdCode: icd.code } : {}),
+        differentialDiagnosis,
+        labFindings,
+        imagingFindings,
+        treatmentPlan,
+        recommendations,
+        notes,
+      };
+      const meds = medications.filter((m) => m.name.trim());
+
+      let res: Response;
+      if (editing) {
+        res = await fetch(`/api/consultations/${editing.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            isAmendment
+              ? { ...fields, followUpDate, amendmentReason: amendmentReason.trim() }
+              : { ...fields, followUpDate, medications: meds, status },
+          ),
+        });
+      } else {
+        res = await fetch("/api/consultations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ patientId, ...fields, followUpDate: followUpDate || undefined, medications: meds, status }),
+        });
+      }
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Failed to save the consultation report.");
         return;
       }
-      setMessage(`Consultation report saved for ${data.consultation.patient.name}.`);
+      const name = data.consultation.patient.name;
+      setMessage(
+        isAmendment
+          ? `Report for ${name} amended (revision ${data.consultation.revision}). The patient has been notified.`
+          : status === "draft"
+            ? `Draft saved for ${name}.`
+            : `Consultation report saved for ${name}.`,
+      );
       resetForm();
       loadReports();
     } catch {
@@ -229,13 +345,55 @@ export default function DoctorConsultationsPage() {
         </div>
       )}
 
+      {editing && (
+        <div className="rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm space-y-3" data-testid="banner-editing-report">
+          <div className="flex flex-wrap items-center gap-2">
+            <Pencil className="h-4 w-4 shrink-0" />
+            <span className="font-medium">
+              {isAmendment ? `Amending a finalized report (revision ${editing.revision})` : "Editing a draft report"}
+            </span>
+            <div className="ml-auto flex gap-2">
+              {editing.revision > 1 && (
+                <Button variant="outline" size="sm" className="rounded-lg" onClick={loadHistory} disabled={historyLoading}>
+                  {historyLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <History className="h-4 w-4 mr-1" />} History
+                </Button>
+              )}
+              <Button variant="outline" size="sm" className="rounded-lg" onClick={resetForm}>
+                <X className="h-4 w-4 mr-1" /> Cancel
+              </Button>
+            </div>
+          </div>
+          {isAmendment && (
+            <p className="text-xs text-muted-foreground">
+              The previous version is kept as revision {editing.revision} and the patient is notified. Medications are managed from the Prescriptions page.
+            </p>
+          )}
+          {history && (
+            <ul className="space-y-2 border-t border-border pt-3" data-testid="list-revision-history">
+              {history.length === 0 && <li className="text-xs text-muted-foreground">No earlier versions.</li>}
+              {history.map((h) => (
+                <li key={h.id} className="text-xs">
+                  <span className="font-semibold">Revision {h.revision}</span>
+                  <span className="text-muted-foreground"> · replaced {new Date(h.createdAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</span>
+                  {h.reason && <span> — {h.reason}</span>}
+                  <div className="text-muted-foreground">
+                    {h.snapshot.icd ? `${h.snapshot.icd.code} ${h.snapshot.icd.description}` : h.snapshot.diagnosis || "No diagnosis"}
+                    {h.snapshot.chiefComplaint ? ` · ${h.snapshot.chiefComplaint}` : ""}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {/* Patient selector */}
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="text-lg">Patient</CardTitle>
         </CardHeader>
         <CardContent>
-          <Select value={patientId} onValueChange={(v) => setPatientId(v || "")}>
+          <Select value={patientId} onValueChange={(v) => setPatientId(v || "")} disabled={Boolean(editing)}>
             <SelectTrigger className="rounded-lg" data-testid="select-patient">
               <SelectValue placeholder={loadingPatients ? "Loading patients..." : "Select patient"} />
             </SelectTrigger>
@@ -482,7 +640,8 @@ export default function DoctorConsultationsPage() {
         </CardContent>
       </Card>
 
-      {/* Prescriptions */}
+      {/* Prescriptions (not changed by an amendment) */}
+      {!isAmendment && (
       <Card className="beeline-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -551,6 +710,7 @@ export default function DoctorConsultationsPage() {
           </Button>
         </CardContent>
       </Card>
+      )}
 
       {/* Plan & recommendations */}
       <Card className="beeline-card">
@@ -612,18 +772,48 @@ export default function DoctorConsultationsPage() {
         </CardContent>
       </Card>
 
-      <Button
-        onClick={handleSave}
-        disabled={saving || !patientId}
-        className="w-full bg-foreground text-background hover:bg-foreground/90 rounded-lg h-12 text-base font-bold disabled:opacity-50"
-        data-testid="button-save-report"
-      >
-        {saving ? (
-          <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Saving Report…</>
-        ) : (
-          <><Save className="h-5 w-5 mr-2" /> Save Consultation Report</>
+      {isAmendment && (
+        <Card className="beeline-card">
+          <CardContent className="pt-6 space-y-2">
+            <Label htmlFor="amendmentReason">Reason for amendment (required)</Label>
+            <Input
+              id="amendmentReason"
+              value={amendmentReason}
+              onChange={(e) => setAmendmentReason(e.target.value)}
+              placeholder="e.g. Corrected the dose after reviewing the lab result"
+              className="rounded-lg"
+              maxLength={500}
+              data-testid="input-amendment-reason"
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex flex-col gap-3 sm:flex-row">
+        {!isAmendment && (
+          <Button
+            variant="outline"
+            onClick={() => handleSave("draft")}
+            disabled={saving || (!editing && !patientId)}
+            className="rounded-lg h-12 text-base font-semibold sm:w-48"
+            data-testid="button-save-draft"
+          >
+            <Save className="h-5 w-5 mr-2" /> Save draft
+          </Button>
         )}
-      </Button>
+        <Button
+          onClick={() => handleSave("finalized")}
+          disabled={saving || (!editing && !patientId)}
+          className="flex-1 bg-foreground text-background hover:bg-foreground/90 rounded-lg h-12 text-base font-bold disabled:opacity-50"
+          data-testid="button-save-report"
+        >
+          {saving ? (
+            <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Saving Report…</>
+          ) : (
+            <><CheckCircle2 className="h-5 w-5 mr-2" /> {isAmendment ? "Save amendment" : editing ? "Finalize report" : "Save Consultation Report"}</>
+          )}
+        </Button>
+      </div>
 
       {/* Saved reports */}
       <Card className="beeline-card">
@@ -637,7 +827,7 @@ export default function DoctorConsultationsPage() {
           {reports.length === 0 && (
             <p className="text-sm text-muted-foreground">No consultation reports yet. Saved reports will appear here.</p>
           )}
-          {reports.slice(0, 10).map((r) => (
+          {reports.slice(0, 20).map((r) => (
             <div key={r.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0 flex-wrap">
               <div className="icon-badge h-8 w-8 bg-muted">
                 <FileText className="h-4 w-4 text-muted-foreground" />
@@ -653,8 +843,29 @@ export default function DoctorConsultationsPage() {
                 </p>
               </div>
               <span className={`status-badge ${r.status === "finalized" ? "bg-muted text-foreground" : "bg-muted text-muted-foreground"}`}>
-                {r.status}
+                {r.status}{r.revision > 1 ? ` · amended (r${r.revision})` : ""}
               </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg"
+                  onClick={() => loadForEdit(r.id)}
+                  disabled={loadingReport === r.id}
+                  data-testid={`button-review-${r.id}`}
+                >
+                  {loadingReport === r.id ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Pencil className="h-4 w-4 mr-1" />}
+                  {r.status === "finalized" ? "Review / amend" : "Edit"}
+                </Button>
+                <a
+                  href={`/api/consultations/${r.id}/pdf`}
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-border px-3 text-xs font-medium hover:bg-accent"
+                  aria-label={`Download PDF of ${r.patient.name}'s report`}
+                  data-testid={`link-pdf-${r.id}`}
+                >
+                  <Download className="h-4 w-4" /> PDF
+                </a>
+              </div>
             </div>
           ))}
         </CardContent>

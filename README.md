@@ -1,6 +1,6 @@
 # Medic1905
 
-Telemedicine and medical-records web app for patients, doctors and laboratory staff.
+Telemedicine and medical-records web app for patients, doctors, healthcare facilities and pharmacy staff.
 
 **Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · shadcn/ui · Prisma 7 · Neon Postgres · Clerk · S3-compatible storage (Cloudflare R2 / AWS S3) · Kimi K3 (doctor-side AI assistance) · Vitest · Vercel.
 
@@ -67,20 +67,39 @@ Also add a scheduled job that calls `GET /api/cron/appointment-reminders` every 
 - **Notifications.** In-app (bell + pop-ups), email (Resend) and web push, with per-category preferences on the profile page. Messages never contain health details; they link back into the signed-in app.
 
 - **Admin console.** `/admin`: overview, a verification workspace showing everything an applicant submitted (details, documents, duplicate and plausibility checks, checklist, approve or reject with reasons), user directory and account controls, payments with refunds, audit log, and notices/ads. See [docs/ADMIN.md](docs/ADMIN.md).
+- **Super Admin Control Centre.** `/super-admin`: the platform-wide command centre — 26 sections in five control layers (governance, team & workforce, healthcare network, clinical & content, security & operations) with role- and attribute-based permissions enforced server-side, dual approval for privileged changes, hash-chained audit records, and clinical-record access kept as a separate, justified and audited boundary. See [docs/SUPER_ADMIN.md](docs/SUPER_ADMIN.md).
 
 ## Platform features
 
 Mini-websites for facilities, structured prescriptions with clinical-safety checks, patient document storage, medication reminders, inactivity-based welfare monitoring, a public emergency/CPR learning centre and the collapsible desktop sidebar are documented in [docs/PLATFORM_FEATURES.md](docs/PLATFORM_FEATURES.md), including the medication-reference policy (RxNav/RxNorm, free, no API key) and the limits of inactivity monitoring.
 
-## Hospital, laboratory & diagnostic-centre modules
+## Hospital, laboratory, diagnostic-centre & pharmacy modules
 
-Three integrated modules with a server-enforced organization access matrix:
+Three integrated modules with a server-enforced organization access matrix
+(plus a standalone **pharmacy** account type — see below):
 hospital admissions with progress notes, transfers and discharge epicrises;
 laboratory specimen management (accessioning, rejection with documented
 reasons, recollection) and an extended order workflow; diagnostic examination
 reports with verification, signing and traceable amendments; critical-result
 alerts with acknowledgement; and customizable medical-document templates. See
 [docs/MODULES.md](docs/MODULES.md).
+
+## Pharmacy module
+
+A **pharmacy** is a sixth account type (`PHARMACY` on `User.accountType` /
+`FacilityKind`), registered through the same wizard as the other facility
+types and verified by an admin before it goes live. Pharmacies get the
+medication workflow only (`KIND_MODULES.PHARMACY = ["PHARMACY"]`): review,
+dispense and track medication orders; manage the formulary and the
+pharmacy-configured interaction rules (advisory alerts only — the system
+never automates dispensing decisions). Portal page: `/lab/pharmacy`. A
+public directory lives at `/pharmacies`. Hospitals keep the same in-hospital
+pharmacy module; standalone pharmacies get the same tools scoped to their own
+facility.
+
+## Hospital Information System (HIS)
+
+Multi-hospital clinical documentation and operations under `/lab/his`: per-hospital settings (versioned), a system catalogue of document templates for groups A–P that hospitals adopt and customize (draft → review → approved → published → retired), clinical documents with author/review/signature/finalize/amend workflow and audit trail, print view and server-side Unicode PDF, patient portfolio and records-package export, diagnostic media uploads (format registry, checksums, duplicate detection), encounters with care priority/workflow dashboards, payer classification, and aggregated analytics. Patients see released documents at `/patient/documents`. See [docs/HIS.md](docs/HIS.md).
 
 ## Scripts
 

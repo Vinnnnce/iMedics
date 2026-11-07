@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { randomUUID } from "node:crypto";
 
 /**
  * Facility mini-website builder: shared schema for layouts.
@@ -152,7 +151,7 @@ export function newWebsiteBlock(type: WebsiteBlockType, settings: Record<string,
     gallery: { title: "Gallery" },
     faq: { title: "Frequently asked questions", items: [] },
   };
-  return { id: randomUUID(), type, hidden: false, settings: { ...defaults[type], ...settings } };
+  return { id: globalThis.crypto.randomUUID(), type, hidden: false, settings: { ...defaults[type], ...settings } };
 }
 
 /** Reorder blocks: move the block at index by the given delta, clamped. */

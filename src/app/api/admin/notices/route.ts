@@ -6,7 +6,7 @@ import { writeAudit } from "@/lib/audit";
 
 // GET /api/admin/notices — list all notices (admin only)
 export const GET = withAuth(["ADMIN"], async () => {
-  const notices = await prisma.notice.findMany({ orderBy: { createdAt: "desc" } });
+  const notices = await prisma.notice.findMany({ take: 200, orderBy: { createdAt: "desc" } });
   return NextResponse.json({ notices });
 });
 

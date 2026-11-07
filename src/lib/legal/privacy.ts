@@ -88,7 +88,7 @@ export const PRIVACY_COMMON: PolicySection[] = [
     id: "cross-border",
     heading: "7. Data stored outside Nigeria",
     paragraphs: [
-      "Some of our infrastructure (cloud hosting, file storage, authentication, email, AI processing) may be operated by providers with servers outside Nigeria. The NDPA 2023 (sections 41–43) permits cross-border transfers only where the destination protects the data adequately — for example under a legally binding instrument approved by the NDPC. We select processors on that basis and require them to keep your data secure wherever it is processed.",
+      "Infrastructure providers for hosting, file storage, authentication, email and AI may process information outside Nigeria. Before publication, the operator must document actual destinations, subprocessors, transfer assessments and applicable safeguards under Nigerian law, and GDPR Chapter V where applicable. This draft does not certify that contracts or transfer safeguards have been completed.",
       "If you would like more detail about where specific data is stored, contact us at " + LEGAL_META.contactEmail + ".",
     ],
   },
@@ -96,14 +96,14 @@ export const PRIVACY_COMMON: PolicySection[] = [
     id: "ai-processing",
     heading: "8. AI-assisted features",
     paragraphs: [
-      "Some doctor-side features send laboratory result values to a third-party AI model to draft plain-language explanations and case summaries. These drafts are reviewed by the responsible doctor before they are released to a patient's record or shown to the patient. Patients never see unreviewed AI output.",
+      "AI-enabled features may send information to an external model to produce explanations, summaries or assistance. Only the minimum information necessary should be sent under an approved legal basis and vendor arrangement. Clinical drafts require professional review before clinical use; patient-facing assistant messages are informational and can be wrong. Do not assume every AI message has been reviewed by a doctor. The operator must verify model providers, retention, training settings and processing locations before enabling a feature for health information.",
     ],
   },
   {
     id: "security",
     heading: "9. How we protect your data",
     paragraphs: [
-      "We use encryption in transit, access controls, role-based permissions, audit logging, verification of providers, and monitoring to protect the Service. We limit access to patient data to the people who need it for their work.",
+      "The software includes role-based access controls, provider verification workflows and audit mechanisms. Deployment controls, encryption configuration, backups, incident response and monitoring must be verified by the operator. No security measure eliminates every risk, and this draft is not a security certification.",
       "If a personal data breach occurs, the NDPA 2023 (section 40) sets two duties: where the breach is likely to result in a risk to your rights and freedoms, we notify the NDPC within 72 hours of becoming aware; and where it is likely to result in a high risk, we tell the affected users immediately, in plain language, including steps you can take. You can help by keeping your password private and telling us promptly at " + LEGAL_META.contactEmail + " if you suspect unauthorised access to your account.",
     ],
   },
@@ -160,10 +160,10 @@ export const PRIVACY_AUDIENCES: AudienceSection[] = [
           "Your health data belongs to you. Here is how the Service handles it in practice:",
         ],
         bullets: [
-          "Who can see your records: you; the doctors who treat you; the hospitals, laboratories and diagnostic centres that process your orders or referrals; and platform administrators who support the service under access controls. Nobody else.",
+          "Records may be accessed by you, authorised treating professionals and facilities, appropriately restricted support staff, lawful representatives and recipients permitted by law. A relative must not use your password: representative access requires verified authority, an appropriate legal basis and supported permissions. Do not assume a relationship alone grants access.",
           "Booking and consent: when you book a consultation, order a test or accept a referral, the provider involved gets only the information needed to care for you. You can see and manage your case file, history, results and prescriptions in your account.",
           "Your rights in practice: you can view and download your records, ask us to correct anything wrong, and request deletion of anything the law does not require to be kept. Write to " + LEGAL_META.contactEmail + " and we will respond and explain what we did.",
-          "AI: doctors may use AI to help draft plain-language explanations of your results. A doctor always reviews them before you see them, and they never replace your doctor's judgement.",
+          "AI: professional clinical drafts require review before clinical use. A patient assistant can provide unreviewed general information, can be wrong and does not replace your clinician or emergency care.",
           "Emergencies: in a genuine emergency, providers may access or share your information to protect your life (National Health Act 2014, section 27; NDPA vital interests).",
         ],
       },
@@ -237,6 +237,24 @@ export const PRIVACY_AUDIENCES: AudienceSection[] = [
           "You see the patient details attached to the investigations and referrals you accept, for the purpose of performing and reporting them.",
           "Report release is a controlled workflow (drafting, review, release). Patients and referring providers see only what you release. You are responsible for the professional quality of released reports.",
           "Confidentiality and security duties under the National Health Act 2014, the RRBN code for imaging professionals, and the NDPA 2023 apply to your use of the platform.",
+          "Staff credential data is used for verification and rostering only, with the consent of the staff concerned.",
+        ],
+      },
+    ],
+  },
+  {
+    audience: "PHARMACY",
+    sections: [
+      {
+        id: "pharmacy-privacy",
+        heading: "For pharmacies",
+        paragraphs: [
+          "As a pharmacy account you process patient data for medication orders and dispensing:",
+        ],
+        bullets: [
+          "You see the patient details attached to the medication orders you review and dispense, for the purpose of safe dispensing only.",
+          "Dispensing is a controlled workflow (review, dispense, completion). Patients and prescribers see the status you record. Dispensing decisions remain with your licensed pharmacists.",
+          "Confidentiality and security duties under the National Health Act 2014, the PCN code of ethics, and the NDPA 2023 apply to your use of the platform.",
           "Staff credential data is used for verification and rostering only, with the consent of the staff concerned.",
         ],
       },

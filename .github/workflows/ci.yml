@@ -9,10 +9,27 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: imedics_ci
+          POSTGRES_PASSWORD: ci-only-disposable
+          POSTGRES_DB: imedics_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U imedics_ci -d imedics_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     env:
-      # Dummy values so the build can run without real services.
-      DATABASE_URL: postgresql://user:password@localhost:5432/medic1905
-      DIRECT_URL: postgresql://user:password@localhost:5432/medic1905
+      # Disposable CI databases, never an external or production datasource.
+      DATABASE_URL: postgresql://imedics_ci:ci-only-disposable@localhost:5432/imedics_ci
+      DIRECT_URL: postgresql://imedics_ci:ci-only-disposable@localhost:5432/imedics_ci
+      TEST_DATABASE_URL: postgresql://imedics_ci:ci-only-disposable@localhost:5432/imedics_ci
+      HIS_TEST_DATABASE_URL: postgresql://imedics_ci:ci-only-disposable@localhost:5432/imedics_his_acceptance
+      PGPASSWORD: ci-only-disposable
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
       CLERK_SECRET_KEY: sk_test_dummy
     steps:
@@ -22,10 +39,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Migrate both disposable test databases
+        run: |
+          psql -h localhost -U imedics_ci -d imedics_ci -c 'CREATE DATABASE imedics_his_acceptance'
+          npx prisma migrate deploy
+          DATABASE_URL="$HIS_TEST_DATABASE_URL" DIRECT_URL="$HIS_TEST_DATABASE_URL" npx prisma migrate deploy
       - run: npx prisma validate
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      # CI has no database service — deploy-time migrations run on Vercel (real
-      # database), so build here without `prisma migrate deploy`.
+      # Never run production migrations from CI. The build uses the migrated
+      # disposable service; the authorized Vercel deployment owns live deploys.
       - run: npx prisma generate && npx next build

@@ -25,6 +25,7 @@ const PROVIDER_TYPES = [
   { value: "HOSPITAL", label: "Hospitals" },
   { value: "LABORATORY", label: "Laboratories" },
   { value: "DIAGNOSTIC_CENTRE", label: "Diagnostic centres" },
+  { value: "PHARMACY", label: "Pharmacies" },
 ];
 
 /** Admins configure how Medic1905's commission on provider charges is computed. */

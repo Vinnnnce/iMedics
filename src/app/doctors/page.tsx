@@ -4,17 +4,41 @@ import { Heart, MapPin, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { requirePageRole } from "@/lib/guards";
-import { listDoctors } from "@/lib/data/doctors";
+import { DOCTOR_SORTS, listDoctors, listDoctorSpecialties, type DoctorSort } from "@/lib/data/doctors";
 import { initials } from "@/lib/format";
 
-export default async function DoctorsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string }>;
-}) {
-  await requirePageRole("PATIENT", "ADMIN");
-  const q = (await searchParams).q?.trim().slice(0, 100) || undefined;
-  const { doctors, total } = await listDoctors({ search: q, limit: 30 });
+const PAGE_SIZE = 20;
+
+type Params = { q?: string; specialty?: string; rating?: string; fee?: string; sort?: string; page?: string };
+
+/** The directory URL for a set of filters (empty values are dropped). */
+function directoryHref(params: Record<string, string | number | undefined>) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "" && !(key === "page" && value === 1)) query.set(key, String(value));
+  }
+  const text = query.toString();
+  return text ? `/doctors?${text}` : "/doctors";
+}
+
+const SELECT_CLASS = "h-10 rounded-lg border border-input bg-background px-3 text-sm";
+
+export default async function DoctorsPage({ searchParams }: { searchParams: Promise<Params> }) {
+  await requirePageRole("PATIENT", "DOCTOR", "LAB_SCIENTIST", "ADMIN");
+  const raw = await searchParams;
+  const q = raw.q?.trim().slice(0, 100) || undefined;
+  const specialty = raw.specialty?.trim().slice(0, 100) || undefined;
+  const minRating = [1, 2, 3, 4].includes(Number(raw.rating)) ? Number(raw.rating) : undefined;
+  const maxFee = raw.fee !== undefined && raw.fee !== "" && Number.isFinite(Number(raw.fee)) && Number(raw.fee) >= 0 ? Number(raw.fee) : undefined;
+  const sort = (DOCTOR_SORTS as readonly string[]).includes(raw.sort ?? "") ? (raw.sort as DoctorSort) : "rating";
+  const page = Math.max(1, Math.min(500, Number.parseInt(raw.page ?? "1", 10) || 1));
+
+  const [{ doctors, total }, specialties] = await Promise.all([
+    listDoctors({ search: q, specialty, minRating, maxFee, sort, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
+    listDoctorSpecialties(),
+  ]);
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const current = { q, specialty, rating: minRating, fee: maxFee, sort: sort === "rating" ? undefined : sort };
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 md:px-0">
@@ -25,19 +49,52 @@ export default async function DoctorsPage({
         </p>
       </div>
 
-      <form className="flex gap-2" action="/doctors">
-        <input
-          name="q"
-          defaultValue={q}
-          placeholder="Search by name, specialty or location"
-          className="h-10 flex-1 rounded-lg border border-input bg-background px-3 text-sm"
-        />
-        <button className="h-10 rounded-lg bg-foreground px-4 text-sm text-background">
-          Search
-        </button>
+      <form className="space-y-2" action="/doctors" aria-label="Search and filter doctors">
+        <div className="flex gap-2">
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="Search by name, specialty or location"
+            aria-label="Search doctors"
+            className="h-10 flex-1 rounded-lg border border-input bg-background px-3 text-sm"
+          />
+          <button className="h-10 rounded-lg bg-foreground px-4 text-sm text-background">
+            Search
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <select name="specialty" defaultValue={specialty ?? ""} aria-label="Specialty" className={SELECT_CLASS}>
+            <option value="">All specialties</option>
+            {specialties.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+          <select name="rating" defaultValue={minRating ? String(minRating) : ""} aria-label="Minimum rating" className={SELECT_CLASS}>
+            <option value="">Any rating</option>
+            {[4, 3, 2, 1].map((n) => <option key={n} value={n}>{n}+ stars</option>)}
+          </select>
+          <input
+            name="fee"
+            type="number"
+            min={0}
+            defaultValue={maxFee}
+            placeholder="Max fee"
+            aria-label="Maximum consultation fee"
+            className={`${SELECT_CLASS} w-28`}
+          />
+          <select name="sort" defaultValue={sort} aria-label="Sort by" className={SELECT_CLASS}>
+            <option value="rating">Top rated</option>
+            <option value="fee_asc">Lowest fee</option>
+            <option value="likes">Most liked</option>
+            <option value="name">Name (A–Z)</option>
+          </select>
+          {(q || specialty || minRating || maxFee !== undefined || sort !== "rating") && (
+            <Link href="/doctors" className="inline-flex h-10 items-center px-2 text-sm text-muted-foreground underline underline-offset-4">
+              Clear filters
+            </Link>
+          )}
+        </div>
       </form>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-muted-foreground" role="status">
         {total} doctor{total === 1 ? "" : "s"} found
       </p>
 
@@ -94,10 +151,22 @@ export default async function DoctorsPage({
         ))}
         {doctors.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No doctors match your search.
+            No doctors match your search. Try removing a filter.
           </p>
         )}
       </div>
+
+      {pageCount > 1 && (
+        <nav aria-label="Pagination" className="flex items-center justify-between text-sm">
+          {page > 1 ? (
+            <Link href={directoryHref({ ...current, page: page - 1 })} className="underline underline-offset-4">← Previous</Link>
+          ) : <span />}
+          <span className="text-xs text-muted-foreground">Page {page} of {pageCount}</span>
+          {page < pageCount ? (
+            <Link href={directoryHref({ ...current, page: page + 1 })} className="underline underline-offset-4">Next →</Link>
+          ) : <span />}
+        </nav>
+      )}
     </div>
   );
 }

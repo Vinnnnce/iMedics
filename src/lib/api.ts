@@ -5,6 +5,7 @@ import { requireRole, requireUser } from "./auth";
 import { badRequest, forbidden, toErrorResponse } from "./errors";
 import { assertSameOriginWrite } from "./request-security";
 import { isAccountReady } from "./roles";
+import { enforceRequestPolicy } from "./platform/access";
 
 export type RouteParams<P> = { params: Promise<P> };
 
@@ -40,7 +41,10 @@ export function withAuth<P = Record<string, never>>(
     if (!options.allowOnboarding && !isAccountReady(user)) {
       throw forbidden("Complete registration and verification before continuing");
     }
-    return handler(req, { ...ctx, user });
+    await enforceRequestPolicy(user, req);
+    const response = await handler(req, { ...ctx, user });
+    response.headers.set("Cache-Control", "private, no-store");
+    return response;
   });
 }
 

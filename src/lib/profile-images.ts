@@ -43,7 +43,7 @@ const stagingPrefix = (userId: string) => `profile-image-uploads/${userId}`;
 const finalPrefix = (userId: string) => `profile-images/${userId}`;
 
 /** Detects the image type from the first bytes; never trusts the browser-declared type. */
-function detectImageType(head: Uint8Array): ProfileImageMimeType | null {
+export function detectImageType(head: Uint8Array): ProfileImageMimeType | null {
   const startsWith = (...bytes: number[]) =>
     bytes.every((b, i) => head[i] === b);
   if (startsWith(0x89, 0x50, 0x4e, 0x47)) return "image/png"; // PNG

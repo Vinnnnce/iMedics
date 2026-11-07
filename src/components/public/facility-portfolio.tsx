@@ -17,11 +17,12 @@ import { getCurrentUser } from "@/lib/auth";
 import { initials } from "@/lib/format";
 import { FacilityWebsiteRenderer } from "./facility-website-renderer";
 import { FacilityReviewSection } from "./facility-review-section";
+import { ReportProfileButton } from "@/components/shared/report-profile-button";
 import { prisma } from "@/lib/prisma";
 import { parseWebsiteLayout } from "@/lib/website/blocks";
 
 interface PortfolioPageInput {
-  directory: "hospitals" | "laboratories" | "diagnostic-centres";
+  directory: "hospitals" | "laboratories" | "diagnostic-centres" | "pharmacies";
   slug: string;
 }
 
@@ -406,6 +407,8 @@ export async function FacilityPortfolio({ directory, slug }: PortfolioPageInput)
           initialCount={reviews.count}
         />
       )}
+
+      {user && user.role !== "ADMIN" && <ReportProfileButton targetType="FACILITY" targetId={facility.id} />}
 
       {/* Contact */}
       <section aria-labelledby="contact-heading" id="contact" className="space-y-3">

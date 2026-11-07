@@ -22,7 +22,10 @@ interface DocumentRow {
   notes: string | null;
   createdAt: string;
   shares: { id: string; sharedWithUser: { id: string; name: string; role: string }; role: string; revokedAt: string | null }[];
+  facilityShares: { id: string; facility: { id: string; laboratoryName: string | null } }[];
 }
+
+interface FacilityOption { id: string; name: string; type: string | null; city: string | null }
 
 const CATEGORY_OPTIONS = Object.entries(DOCUMENT_CATEGORY_LABELS);
 const CATEGORIES = DOCUMENT_CATEGORIES as readonly string[];
@@ -38,6 +41,9 @@ export function PatientRecords() {
   const [shareUserId, setShareUserId] = useState("");
   const [shareName, setShareName] = useState("");
   const [shareRole, setShareRole] = useState("DOCTOR");
+  const [facilitySearch, setFacilitySearch] = useState("");
+  const [facilityResults, setFacilityResults] = useState<FacilityOption[]>([]);
+  const [searchingFacilities, setSearchingFacilities] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadCategory, setUploadCategory] = useState<string>("LAB_REPORT");
 
@@ -136,6 +142,44 @@ export function PatientRecords() {
     }
   };
 
+  const searchFacilities = async () => {
+    const term = facilitySearch.trim();
+    if (term.length < 2) return;
+    setSearchingFacilities(true);
+    try {
+      const data = await apiClient.get<{ facilities: FacilityOption[] }>(`/facilities?search=${encodeURIComponent(term)}`);
+      setFacilityResults(data.facilities.slice(0, 8));
+    } catch {
+      toast.error("Could not search facilities");
+    } finally {
+      setSearchingFacilities(false);
+    }
+  };
+
+  const shareWithFacility = async (facility: FacilityOption) => {
+    if (!shareTarget) return;
+    try {
+      await apiClient.post(`/patient/documents/${shareTarget.id}/facility-shares`, { facilityId: facility.id });
+      toast.success(`Shared with ${facility.name}`);
+      setShareTarget(null);
+      setFacilitySearch("");
+      setFacilityResults([]);
+      void Promise.resolve().then(load);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not share");
+    }
+  };
+
+  const revokeFacilityShare = async (documentId: string, facilityId: string) => {
+    try {
+      await apiClient.delete(`/patient/documents/${documentId}/facility-shares?facilityId=${encodeURIComponent(facilityId)}`);
+      toast.success("Sharing revoked");
+      void Promise.resolve().then(load);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not revoke");
+    }
+  };
+
   const revokeShare = async (documentId: string, userId: string) => {
     try {
       await apiClient.delete(`/patient/documents/${documentId}/shares?userId=${encodeURIComponent(userId)}`);
@@ -218,8 +262,16 @@ export function PatientRecords() {
                     {" · "}{Math.round(doc.sizeBytes / 1024)} KB
                   </p>
                   {doc.notes && <p className="mt-1 text-sm text-muted-foreground">{doc.notes}</p>}
-                  {doc.shares.length > 0 && (
+                  {(doc.shares.length > 0 || doc.facilityShares.length > 0) && (
                     <div className="mt-2 flex flex-wrap gap-1">
+                      {doc.facilityShares.map((share) => (
+                        <span key={share.id} className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs">
+                          Shared with {share.facility.laboratoryName ?? "a facility"}
+                          <button aria-label={`Revoke sharing with ${share.facility.laboratoryName ?? "the facility"}`} onClick={() => revokeFacilityShare(doc.id, share.facility.id)}>
+                            <X className="h-3 w-3" aria-hidden="true" />
+                          </button>
+                        </span>
+                      ))}
                       {doc.shares.map((share) => (
                         <span key={share.id} className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs">
                           Shared with {share.sharedWithUser.name}
@@ -252,6 +304,37 @@ export function PatientRecords() {
         <Card className="beeline-card">
           <CardContent className="space-y-3 p-4">
             <p className="font-medium">Share “{shareTarget.title}”</p>
+
+            <div className="space-y-2" data-testid="section-share-facility">
+              <Label htmlFor="share-facility-search">With a hospital, laboratory or diagnostic centre</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="share-facility-search"
+                  value={facilitySearch}
+                  onChange={(e) => setFacilitySearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") void searchFacilities(); }}
+                  placeholder="Search by name…"
+                />
+                <Button variant="outline" onClick={searchFacilities} disabled={searchingFacilities || facilitySearch.trim().length < 2}>
+                  <Search className="h-4 w-4 mr-1" aria-hidden="true" /> Search
+                </Button>
+              </div>
+              {facilityResults.length > 0 && (
+                <ul className="divide-y rounded-lg border">
+                  {facilityResults.map((f) => (
+                    <li key={f.id} className="flex items-center justify-between gap-2 p-2 text-sm">
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium">{f.name}</span>
+                        <span className="text-xs text-muted-foreground">{[f.type?.replaceAll("_", " ").toLowerCase(), f.city].filter(Boolean).join(" · ")}</span>
+                      </span>
+                      <Button size="sm" onClick={() => shareWithFacility(f)}>Share</Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <p className="pt-1 text-xs font-medium text-muted-foreground">Or share with one person</p>
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="space-y-1">
                 <Label htmlFor="share-user-id">Platform user ID</Label>

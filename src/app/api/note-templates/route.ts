@@ -21,7 +21,7 @@ export const GET = withAuth(["DOCTOR", "ADMIN"], async (req, { user }) => {
     z.object({ kind: z.enum(TEMPLATE_KINDS).optional() }),
   );
 
-  const templates = await prisma.noteTemplate.findMany({
+  const templates = await prisma.noteTemplate.findMany({ take: 200,
     where: { authorId: user.id, ...(kind ? { kind } : {}) },
     orderBy: { updatedAt: "desc" },
     select: { id: true, name: true, kind: true, content: true, updatedAt: true },

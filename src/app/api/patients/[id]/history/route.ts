@@ -40,7 +40,7 @@ export const GET = withAuth<Params>(["DOCTOR", "PATIENT"], async (req, { user, p
   await findAccessiblePatient(user, patientId);
   const { status } = parseQuery(req, listQuerySchema);
 
-  const histories = await prisma.medicalHistory.findMany({
+  const histories = await prisma.medicalHistory.findMany({ take: 200,
     where: { patientId, ...(status ? { status: status === "complete" ? "COMPLETE" : "DRAFT" } : {}) },
     orderBy: { createdAt: "desc" },
     include: { aiAnalysis: true },

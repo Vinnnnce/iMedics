@@ -100,17 +100,20 @@ export const POST = withAuth(null, async (req, { user }) => {
       if (claimed.count === 0) throw conflict("This order was just claimed by another laboratory");
     }
     const accessionNumber = await allocateAccessionNumber(tx, access.facility.id);
+    // Scanable barcode for label printing (facility-scoped, matches accession).
+    const barcode = `${access.facility.id.slice(0, 8).toUpperCase()}-${accessionNumber}`;
     return tx.specimen.create({
       data: {
         labOrderId: order.id,
         facilityId: access.facility.id,
         accessionNumber,
+        barcode,
         specimenType: data.specimenType ?? null,
         status: data.collectedAt ? "COLLECTED" : "PENDING_COLLECTION",
         ...(data.collectedAt ? { collectedAt: data.collectedAt, collectedById: user.id } : {}),
         parentSpecimenId: data.parentSpecimenId ?? null,
       },
-      select: { id: true, accessionNumber: true, status: true },
+      select: { id: true, accessionNumber: true, barcode: true, status: true },
     });
   });
 

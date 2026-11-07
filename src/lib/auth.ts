@@ -73,6 +73,7 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
 
   const existing = await prisma.user.findUnique({ where: { clerkId: userId } });
   const user = existing ?? (await provisionUser(userId, await currentUser()));
+  if (user.testAccountExpiresAt && user.testAccountExpiresAt.getTime() <= Date.now()) return null;
   if (user) void touchLastActive(user.id);
   return user;
 });

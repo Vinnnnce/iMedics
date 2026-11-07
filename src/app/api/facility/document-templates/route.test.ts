@@ -1,3 +1,8 @@
+vi.mock("@/lib/organization/privileges", () => ({ assertClinicalPrivilege: vi.fn(), filterClinicalPrivileges: vi.fn(async (_id: string, permissions: readonly string[]) => [...permissions]) }));
+vi.mock("@/lib/organization/patient-scope", () => ({ assertRequestPatientScope: vi.fn() }));
+vi.mock("@/lib/organization/document-access", () => ({ assertScopedDocumentAccess: vi.fn() }));
+// Isolate legacy workflow tests from the separately integration-tested platform policy boundary.
+vi.mock("@/lib/platform/access", () => ({ enforceRequestPolicy: vi.fn(), assertPlatformPolicy: vi.fn() }));
 /**
  * Always-running tests for facility document templates: staff with the
  * MANAGE_DOCUMENT_TEMPLATES permission can list and create their facility's

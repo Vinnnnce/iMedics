@@ -16,6 +16,12 @@ const isPublicRoute = createRouteMatcher([
   "/hospitals(.*)",
   "/laboratories(.*)",
   "/diagnostic-centres(.*)",
+  "/doctors(.*)",
+  "/pharmacies(.*)",
+  "/facilities(.*)",
+  // Public news and podcasts (shown once the feature is switched on).
+  "/news(.*)",
+  "/podcasts(.*)",
   // Public facility reviews (approved patient ratings) shown on public
   // facility profiles; writes are still authenticated inside the route.
   "/api/facility-reviews(.*)",
@@ -25,13 +31,18 @@ const isPublicRoute = createRouteMatcher([
   // Profile photos / facility logos shown on public pages. The route itself
   // only serves image objects attached to an account (see /api/profile-images).
   "/api/profile-images/(.*)",
+  // Images uploaded by admins for ads, news and podcasts; the route only serves attached images.
+  "/api/site-media/(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (isPublicRoute(req)) return;
+  const forwarded = new Headers(req.headers);
+  forwarded.set("x-medic-page-path", req.nextUrl.pathname);
+  const next = () => NextResponse.next({ request: { headers: forwarded } });
+  if (isPublicRoute(req)) return next();
 
   const { userId } = await auth();
-  if (userId) return;
+  if (userId) return next();
 
   // API callers get a JSON 401; page visitors are redirected to sign in.
   if (req.nextUrl.pathname.startsWith("/api/")) {

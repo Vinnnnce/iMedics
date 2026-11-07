@@ -5,9 +5,13 @@
 const API_BASE = "/api";
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  /** The parsed error response body, when the server sent JSON. */
+  body?: unknown;
+
+  constructor(public status: number, message: string, body?: unknown) {
     super(message);
     this.name = "ApiError";
+    this.body = body;
   }
 }
 
@@ -26,13 +30,19 @@ async function request<T>(
 
   if (!response.ok) {
     let message = `Request failed with status ${response.status}`;
+    let body: unknown;
     try {
-      const errorBody = await response.json();
+      body = await response.json();
+      const errorBody = body as {
+        issues?: { message?: string }[];
+        error?: string;
+        message?: string;
+      };
       message = errorBody.issues?.[0]?.message || errorBody.error || errorBody.message || message;
     } catch {
       // ignore
     }
-    throw new ApiError(response.status, message);
+    throw new ApiError(response.status, message, body);
   }
 
   // Handle 204 No Content

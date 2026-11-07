@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PublicEntryLink as Link } from "@/components/shared/public-entry-link";
 import { EMERGENCY_NUMBERS } from "@/lib/home/content";
 
 const COLUMNS: { heading: string; links: { href: string; label: string }[] }[] = [

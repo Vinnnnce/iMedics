@@ -1,0 +1,67 @@
+/* Existing brand blue remains an accent, never an authenticated page surface. */
+.auth-shell { display: grid; min-height: 100svh; grid-template-columns: minmax(0, 1fr); background: var(--background); }
+.auth-story { display: none; }
+.auth-form-region { min-width: 0; display: flex; align-items: center; justify-content: center; padding: 24px 20px 40px; }
+.auth-form-wrap { width: 100%; max-width: 420px; min-width: 0; }
+.auth-form-wrap a[aria-label="Clerk logo"], .auth-form-wrap a[aria-label="Clerk logo"] svg { color: var(--muted-foreground) !important; }
+.registration-flow input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.registration-flow select, .registration-flow [data-slot="select-trigger"] { min-height: 44px; max-width: 100%; font-size: 16px; }
+.auth-mobile-signal { width: 100%; height: 24px; margin-block: 0 20px; }
+.auth-mobile-signal path { fill: none; stroke: var(--muted-foreground); stroke-width: 1.5; stroke-dasharray: 25 240; animation: health-flow 7s linear infinite; }
+.auth-form-wrap .stat-card { border: 0; padding: 0; background: transparent; box-shadow: none; }
+.auth-form-wrap .cl-rootBox, .auth-form-wrap .cl-cardBox, .auth-form-wrap .cl-card { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+.auth-form-wrap input { scroll-margin-block: 100px; }
+.auth-form-wrap a:hover { text-decoration: underline; text-underline-offset: 4px; }
+@media (min-width: 1024px) {
+  .auth-shell { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
+  .auth-story { display: flex; flex-direction: column; justify-content: space-between; gap: 40px; padding: 40px clamp(32px, 5vw, 80px); background: #eef3f9; color: #182c50; }
+  .auth-story h2 { font-size: clamp(30px, 3vw, 44px); line-height: 1.17; font-weight: 600; letter-spacing: -.03em; }
+  .auth-story p { margin-top: 20px; line-height: 1.7; color: #4b607c; }
+  .auth-story-foot { display: flex; align-items: center; gap: 12px; font-size: 12px; }
+  .auth-form-region { padding: 40px; }
+}
+.health-network { margin-top: 32px; color: #405878; }
+.health-network-diagram { position: relative; width: 100%; height: 330px; margin-bottom: 24px; }
+.health-connections { position: absolute; width: 100%; height: 100%; overflow: visible; }
+.health-data-path { fill: none; stroke: #7796bf; stroke-width: .35; stroke-dasharray: 2 2; animation: health-flow 12s linear infinite; }
+.health-pulse { fill: none; stroke: #3165a5; stroke-width: .65; stroke-dasharray: 25 180; animation: health-flow 6s linear infinite; }
+.health-core, .health-node { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; }
+.health-core { top: 49%; left: 50%; width: 112px; height: 112px; background: #fff; border: 1px solid #b7c9df; border-radius: 50%; color: #234f8c; font-size: 12px; }
+.health-core svg { width: 32px; height: 32px; }
+.health-node { width: 88px; padding: 12px 4px; border-radius: 12px; background: #eef3f9; color: #354f70; font-size: 12px; }
+.health-node svg { width: 23px; height: 23px; }
+.health-motion-button { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid #b7c9df; border-radius: 8px; }
+.health-network[data-paused="true"] * { animation-play-state: paused; }
+.health-network[data-paused="true"] .health-pulse { opacity: 0; }
+@keyframes health-flow { to { stroke-dashoffset: -205; } }
+.policy-layout { max-width: 1100px; margin: 0 auto; padding: 32px 20px 64px; }
+.policy-reader { display: grid; gap: 40px; margin-top: 32px; }
+.policy-toc { align-self: start; display: grid; gap: 12px; font-size: 14px; max-height: 70svh; overflow-y: auto; }
+.policy-text { min-width: 0; max-width: 72ch; line-height: 1.85; }
+.policy-text section { margin-bottom: 32px; scroll-margin-top: 100px; }
+.policy-text h2 { font-size: 18px; margin-bottom: 12px; color: var(--foreground); }
+.policy-text p, .policy-text ul { margin-bottom: 12px; }
+.policy-text li { margin-bottom: 8px; }
+.policy-progress { position: fixed; top: 0; left: 0; height: 3px; background: #477bbd; z-index: 100; transform-origin: left; width: 100%; }
+.tour-highlight { outline: 3px solid #7298d0 !important; outline-offset: 4px; border-radius: 8px; }
+.tour-panel { position: fixed; z-index: 90; bottom: 24px; right: 24px; width: min(400px, calc(100vw - 32px)); max-height: calc(100svh - 32px); overflow-y: auto; padding: 24px; background: var(--card); color: var(--foreground); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 16px 48px #0003; }
+.cookie-panel { position: fixed; z-index: 80; bottom: 16px; left: 16px; width: min(440px, calc(100vw - 32px)); max-height: calc(100svh - 32px); overflow-y: auto; padding: 24px; background: var(--card); color: var(--foreground); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 12px 36px #0003; }
+.experience-settings { display: flex; justify-content: flex-end; padding: 8px 16px; background: var(--background); }
+.workspace-title { min-width: 0; font-size: 14px; }
+.workspace-title span { display: block; overflow-wrap: anywhere; }
+@media (max-width: 767px) {
+  .workspace-title { flex: 1; }
+  header[data-testid="app-navbar"] > div { gap: 4px; }
+}
+@media (min-width: 900px) { .policy-reader { grid-template-columns: 240px minmax(0, 1fr); } .policy-toc { position: sticky; top: 90px; } }
+@media (max-width: 639px) {
+  .tour-panel { bottom: 88px; right: 16px; }
+  .workspace-title { max-width: 100px; font-size: 12px; }
+  .auth-form-region { align-items: flex-start; }
+  .experience-settings { padding-bottom: 88px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .health-pulse { opacity: 0; }
+  .health-network *, .auth-mobile-signal path, .policy-layout *, .tour-panel, .cookie-panel { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+:focus-visible { outline: 2px solid #7298d0; outline-offset: 3px; }

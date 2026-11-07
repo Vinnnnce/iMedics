@@ -2,11 +2,15 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  IMEDICS_AUDIENCES,
+  IMEDICS_BENEFITS,
   IMEDICS_FAQS,
   IMEDICS_FEATURED_PANEL,
   IMEDICS_FOOTER_LINKS,
   IMEDICS_HOME_SLIDES,
   IMEDICS_HOW_IT_WORKS_STEPS,
+  IMEDICS_IMAGE_CREDITS,
+  IMEDICS_NAV_LINKS,
   IMEDICS_SERVICE_CARDS,
 } from "./imedics-home-content";
 
@@ -70,5 +74,43 @@ describe("Medic1905 homepage content", () => {
         expect(existsSync(path.join(process.cwd(), "src/app", slide.ctaHref, "page.tsx")), slide.ctaHref).toBe(true);
       }
     }
+  });
+
+  it("targets real routes or on-page anchors for every navigation link", () => {
+    expect(IMEDICS_NAV_LINKS.length).toBeGreaterThanOrEqual(10);
+    for (const link of IMEDICS_NAV_LINKS) {
+      expect(link.label).toBeTruthy();
+      if (link.href.startsWith("#")) {
+        // On-page anchors must point at sections that exist on the landing page.
+        expect(["#for-patients", "#features", "#contact"]).toContain(link.href);
+      } else {
+        expect(existsSync(path.join(process.cwd(), "src/app", link.href, "page.tsx")), link.href).toBe(true);
+      }
+    }
+  });
+
+  it("shows one audience section per account type with real destinations", () => {
+    expect(IMEDICS_AUDIENCES.map((a) => a.key)).toEqual([
+      "patients", "doctors", "hospitals", "laboratories", "diagnostics", "pharmacies",
+    ]);
+    for (const audience of IMEDICS_AUDIENCES) {
+      expect(audience.title).toBeTruthy();
+      expect(audience.description.length).toBeGreaterThan(30);
+      expect(audience.cta).toBeTruthy();
+      expect(existsSync(path.join(process.cwd(), "src/app", audience.href, "page.tsx")), audience.href).toBe(true);
+      if (audience.image) {
+        expect(audience.image.startsWith("/home/")).toBe(true);
+        expect(existsSync(path.join(process.cwd(), "public", audience.image))).toBe(true);
+      }
+    }
+  });
+
+  it("lists benefits and credits every photograph used on the page", () => {
+    expect(IMEDICS_BENEFITS.length).toBeGreaterThanOrEqual(6);
+    for (const benefit of IMEDICS_BENEFITS) {
+      expect(benefit.title).toBeTruthy();
+      expect(benefit.description.length).toBeGreaterThan(30);
+    }
+    expect(IMEDICS_IMAGE_CREDITS.length).toBeGreaterThanOrEqual(4);
   });
 });

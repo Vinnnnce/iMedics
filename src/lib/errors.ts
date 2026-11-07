@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
+import { safeErrorMetadata } from "./safe-error";
 
 /** An error that is safe to show to the client (status + message only). */
 export class ApiError extends Error {
@@ -54,6 +55,6 @@ export function toErrorResponse(error: unknown): NextResponse {
     }
   }
 
-  console.error("Unhandled API error:", error);
+  console.error("Unhandled API error:", safeErrorMetadata(error));
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }

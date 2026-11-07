@@ -70,6 +70,7 @@ export interface AccessibleDocument {
     mimeType: string;
     sizeBytes: number;
     issuingFacility: string | null;
+    issuingFacilityId: string | null;
     issuedOn: Date | null;
     notes: string | null;
     uploadedById: string;

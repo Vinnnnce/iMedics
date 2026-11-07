@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import type { FacilityStaffRole, StaffCredential } from "@prisma/client";
 
 export type { FacilityStaffRole };
@@ -26,6 +25,22 @@ export const FACILITY_PERMISSIONS = [
   "VIEW_PATIENT_DOCUMENTS", // View patient documents issued by this facility
   "MANAGE_DOCUMENT_TEMPLATES", // Create and edit the facility's document templates
   "VIEW_AUDIT", // Read-only access to audit logs
+  // Hospital Information System (clinical documents, operations, media)
+  "AUTHOR_DOCUMENTS", // Create and edit clinical document drafts
+  "REVIEW_DOCUMENTS", // Clinically verify submitted documents
+  "SIGN_DOCUMENTS", // Sign clinical documents as themselves; attest handwritten signatures
+  "APPROVE_DOCUMENTS", // Department-head approval; approve templates; void finalized documents
+  "RELEASE_DOCUMENTS", // Release finalized documents to the patient portal; export records packages
+  "MANAGE_HOSPITAL_SETTINGS", // Branding, numbering, terminology, triage protocol
+  "MANAGE_ENCOUNTERS", // Register encounters, triage, queue and workflow status
+  "MANAGE_INSURANCE", // Payer classification, eligibility, authorizations, claims
+  "UPLOAD_MEDIA", // Upload diagnostic media to a patient's record
+  "RECORD_NURSING", // Record nursing observations, care tasks and handovers
+  "ORDER_MEDICATIONS", // Prescribe and submit medication orders
+  "REVIEW_MEDICATIONS", // Review and dispense medication orders (pharmacy)
+  "ADMINISTER_MEDICATIONS", // Record medication administration (MAR entries)
+  "MANAGE_FORMULARY", // Configure the facility formulary and interaction rules
+  "VIEW_ANALYTICS", // Aggregated operational dashboards
 ] as const;
 
 export type FacilityPermission = (typeof FACILITY_PERMISSIONS)[number];
@@ -45,27 +60,62 @@ const ROLE_PERMISSIONS: Record<FacilityStaffRole, readonly FacilityPermission[]>
     "MANAGE_REFERRALS",
     "VIEW_PATIENT_DOCUMENTS",
     "MANAGE_DOCUMENT_TEMPLATES",
+    "MANAGE_HOSPITAL_SETTINGS",
+    "MANAGE_ENCOUNTERS",
+    "MANAGE_INSURANCE",
+    "VIEW_ANALYTICS",
   ],
   // Consultations, referrals, clinical records.
-  DOCTOR: ["MANAGE_BOOKINGS", "REGISTER_PATIENTS", "MANAGE_REFERRALS", "VIEW_PATIENT_DOCUMENTS"],
+  DOCTOR: [
+    "MANAGE_BOOKINGS", "REGISTER_PATIENTS", "MANAGE_REFERRALS", "VIEW_PATIENT_DOCUMENTS",
+    "AUTHOR_DOCUMENTS", "REVIEW_DOCUMENTS", "SIGN_DOCUMENTS", "RELEASE_DOCUMENTS", "MANAGE_ENCOUNTERS", "UPLOAD_MEDIA", "ORDER_MEDICATIONS",
+  ],
   // Sample tracking, test entry, result entry, report preparation.
-  LAB_SCIENTIST: ["PROCESS_ORDERS", "ENTER_RESULTS", "VERIFY_RESULTS", "RELEASE_RESULTS", "VIEW_PATIENT_DOCUMENTS"],
+  LAB_SCIENTIST: [
+    "PROCESS_ORDERS", "ENTER_RESULTS", "VERIFY_RESULTS", "RELEASE_RESULTS", "VIEW_PATIENT_DOCUMENTS",
+    "AUTHOR_DOCUMENTS", "REVIEW_DOCUMENTS", "SIGN_DOCUMENTS", "RELEASE_DOCUMENTS", "UPLOAD_MEDIA",
+  ],
   // Sample processing, equipment logs, result entry.
-  LAB_TECHNICIAN: ["PROCESS_ORDERS", "ENTER_RESULTS"],
+  LAB_TECHNICIAN: ["PROCESS_ORDERS", "ENTER_RESULTS", "AUTHOR_DOCUMENTS", "UPLOAD_MEDIA"],
   // Sample receipt, labelling, preparation.
   LAB_ASSISTANT: ["PROCESS_ORDERS"],
   // Patient identification, sample collection, labelling.
   PHLEBOTOMIST: ["PROCESS_ORDERS"],
   // Patient care tasks, appointment support.
-  NURSE: ["PROCESS_ORDERS", "REGISTER_PATIENTS"],
+  NURSE: ["PROCESS_ORDERS", "REGISTER_PATIENTS", "VIEW_PATIENT_DOCUMENTS", "AUTHOR_DOCUMENTS", "SIGN_DOCUMENTS", "MANAGE_ENCOUNTERS", "RECORD_NURSING", "ADMINISTER_MEDICATIONS"],
   // Imaging procedures, image upload, technical reports.
-  RADIOGRAPHER: ["PROCESS_ORDERS", "ENTER_RESULTS"],
+  RADIOGRAPHER: ["PROCESS_ORDERS", "ENTER_RESULTS", "AUTHOR_DOCUMENTS", "UPLOAD_MEDIA"],
   // Booking, patient registration, payments.
-  RECEPTIONIST: ["MANAGE_BOOKINGS", "REGISTER_PATIENTS", "TAKE_PAYMENTS"],
+  RECEPTIONIST: ["MANAGE_BOOKINGS", "REGISTER_PATIENTS", "TAKE_PAYMENTS", "MANAGE_ENCOUNTERS"],
   // Invoices, payments, refunds, revenue reports.
-  ACCOUNTANT: ["TAKE_PAYMENTS", "VIEW_REVENUE"],
+  ACCOUNTANT: ["TAKE_PAYMENTS", "VIEW_REVENUE", "MANAGE_INSURANCE", "VIEW_ANALYTICS"],
   // Read-only audit logs, credential reports, compliance records.
-  COMPLIANCE_OFFICER: ["VIEW_AUDIT", "MANAGE_CREDENTIALS", "VIEW_PATIENT_DOCUMENTS"],
+  COMPLIANCE_OFFICER: ["VIEW_AUDIT", "MANAGE_CREDENTIALS", "VIEW_PATIENT_DOCUMENTS", "VIEW_ANALYTICS"],
+  // Reporting radiologist: imaging reports, verification and release.
+  RADIOLOGIST: [
+    "PROCESS_ORDERS", "ENTER_RESULTS", "VERIFY_RESULTS", "RELEASE_RESULTS", "VIEW_PATIENT_DOCUMENTS",
+    "AUTHOR_DOCUMENTS", "REVIEW_DOCUMENTS", "SIGN_DOCUMENTS", "RELEASE_DOCUMENTS", "UPLOAD_MEDIA",
+  ],
+  // ECG/echo/EEG/endoscopy and other physiological diagnostics.
+  DIAGNOSTIC_SPECIALIST: [
+    "PROCESS_ORDERS", "ENTER_RESULTS", "VERIFY_RESULTS", "RELEASE_RESULTS", "VIEW_PATIENT_DOCUMENTS",
+    "AUTHOR_DOCUMENTS", "REVIEW_DOCUMENTS", "SIGN_DOCUMENTS", "RELEASE_DOCUMENTS", "UPLOAD_MEDIA",
+  ],
+  // Medication reconciliation, stewardship and pharmacy records.
+  PHARMACIST: ["VIEW_PATIENT_DOCUMENTS", "AUTHOR_DOCUMENTS", "SIGN_DOCUMENTS", "REVIEW_MEDICATIONS", "MANAGE_FORMULARY"],
+  // Operative and procedural documentation.
+  SURGEON: [
+    "MANAGE_BOOKINGS", "REGISTER_PATIENTS", "MANAGE_REFERRALS", "VIEW_PATIENT_DOCUMENTS",
+    "AUTHOR_DOCUMENTS", "REVIEW_DOCUMENTS", "SIGN_DOCUMENTS", "RELEASE_DOCUMENTS", "MANAGE_ENCOUNTERS", "UPLOAD_MEDIA", "ORDER_MEDICATIONS",
+  ],
+  // Organisational leadership is not a professional qualification.
+  DEPARTMENT_HEAD: [
+    "MANAGE_BOOKINGS", "VIEW_ANALYTICS",
+  ],
+  // Registration, records release and external record intake.
+  MEDICAL_RECORDS_OFFICER: ["REGISTER_PATIENTS", "VIEW_PATIENT_DOCUMENTS", "RELEASE_DOCUMENTS", "UPLOAD_MEDIA", "MANAGE_ENCOUNTERS"],
+  BILLING_OFFICER: ["TAKE_PAYMENTS", "VIEW_REVENUE", "MANAGE_INSURANCE"],
+  INSURANCE_OFFICER: ["REGISTER_PATIENTS", "MANAGE_INSURANCE"],
 };
 
 export function permissionsForRole(role: FacilityStaffRole): readonly FacilityPermission[] {
@@ -89,6 +139,14 @@ export const FACILITY_ROLE_LABEL: Record<FacilityStaffRole, string> = {
   RECEPTIONIST: "Receptionist",
   ACCOUNTANT: "Accountant",
   COMPLIANCE_OFFICER: "Auditor / Compliance officer",
+  RADIOLOGIST: "Radiologist",
+  DIAGNOSTIC_SPECIALIST: "Diagnostic specialist",
+  PHARMACIST: "Pharmacist",
+  SURGEON: "Surgeon",
+  DEPARTMENT_HEAD: "Head of department",
+  MEDICAL_RECORDS_OFFICER: "Medical records officer",
+  BILLING_OFFICER: "Billing officer",
+  INSURANCE_OFFICER: "Insurance officer",
 };
 
 export const FACILITY_STAFF_STATUS_LABEL: Record<string, string> = {
@@ -112,11 +170,19 @@ export const ASSIGNABLE_ROLES: readonly FacilityStaffRole[] = [
   "RECEPTIONIST",
   "ACCOUNTANT",
   "COMPLIANCE_OFFICER",
+  "RADIOLOGIST",
+  "DIAGNOSTIC_SPECIALIST",
+  "PHARMACIST",
+  "SURGEON",
+  "DEPARTMENT_HEAD",
+  "MEDICAL_RECORDS_OFFICER",
+  "BILLING_OFFICER",
+  "INSURANCE_OFFICER",
 ];
 
 /** Single-use invite token (URL-safe). */
 export function generateInviteToken(): string {
-  return randomBytes(24).toString("hex");
+  return Array.from(globalThis.crypto.getRandomValues(new Uint8Array(24)), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export const INVITE_EXPIRY_DAYS = 7;

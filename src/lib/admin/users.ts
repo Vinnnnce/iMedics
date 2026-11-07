@@ -10,7 +10,7 @@ export const userFilterSchema = z.object({
   q: optional(z.string().trim().max(100)),
   role: optional(z.enum(["PATIENT", "DOCTOR", "LAB_SCIENTIST", "ADMIN"])),
   status: optional(z.enum(["PENDING", "ACTIVE", "SUSPENDED", "BANNED"])),
-  type: optional(z.enum(["PATIENT", "DOCTOR", "LABORATORY", "DIAGNOSTIC_CENTRE", "HOSPITAL"])),
+  type: optional(z.enum(["PATIENT", "DOCTOR", "LABORATORY", "DIAGNOSTIC_CENTRE", "HOSPITAL", "PHARMACY"])),
   verification: optional(z.enum(["PENDING", "VERIFIED", "REJECTED"])),
   sort: optional(z.enum(["newest", "oldest", "name", "active"])),
   page: pageSchema,

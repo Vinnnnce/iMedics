@@ -26,6 +26,8 @@ import Link from "next/link";
 import { uploadVerificationDocument } from "@/lib/verification-upload";
 import { uploadProfileImage } from "@/lib/profile-image-upload";
 import { VerificationStatusPanel } from "@/components/shared/verification-status-panel";
+import { POLICY_RELEASE } from "@/lib/legal/release";
+import { CookieSettingsButton } from "@/components/legal/cookie-preferences";
 import {
   Shield,
   FileText,
@@ -36,6 +38,7 @@ import {
   FlaskConical,
   Building2,
   Hospital,
+  Pill,
   Microscope,
   Upload,
   ArrowRight,
@@ -52,7 +55,13 @@ import {
 type Step = "loading" | "terms" | "account-type" | "registration" | "pending";
 
 type AccountType =
-  "patient" | "doctor" | "laboratory" | "diagnostic_centre" | "hospital" | null;
+  | "patient"
+  | "doctor"
+  | "laboratory"
+  | "diagnostic_centre"
+  | "hospital"
+  | "pharmacy"
+  | null;
 
 type UploadedDoc = {
   /** Which requirement this file satisfies, e.g. "mdcn_certificate". */
@@ -72,6 +81,8 @@ const DOC_KIND: Record<string, string> = {
 };
 
 type RegistrationData = {
+  country: string;
+  language: string;
   // Common fields
   firstName: string;
   lastName: string;
@@ -96,15 +107,6 @@ type RegistrationData = {
   organisationName: string;
   organisationType: string;
   facilityLicenseNumber: string;
-  // Patient-specific
-  bloodGroup: string;
-  genotype: string;
-  allergies: string;
-  chronicConditions: string;
-  occupation: string;
-  emergencyContactName: string;
-  emergencyContactRelationship: string;
-  emergencyContactPhone: string;
   // Documents
   documents: UploadedDoc[];
 };
@@ -180,10 +182,9 @@ const DOCTOR_SPECIALTIES = [
   "Microbiology",
 ];
 
-const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
-const GENOTYPES = ["AA", "AS", "SS", "AC", "SC", "CC"];
-
 const DEFAULT_REG_DATA: RegistrationData = {
+  country: "NG",
+  language: "en",
   firstName: "",
   lastName: "",
   middleName: "",
@@ -205,14 +206,6 @@ const DEFAULT_REG_DATA: RegistrationData = {
   organisationName: "",
   organisationType: "",
   facilityLicenseNumber: "",
-  bloodGroup: "",
-  genotype: "",
-  allergies: "",
-  chronicConditions: "",
-  occupation: "",
-  emergencyContactName: "",
-  emergencyContactRelationship: "",
-  emergencyContactPhone: "",
   documents: [],
 };
 
@@ -243,7 +236,7 @@ export default function PostSignupRedirect() {
   const [accountType, setAccountType] = useState<AccountType>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
-  const [acceptedCookies, setAcceptedCookies] = useState(false);
+  const [reviewedForType, setReviewedForType] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -256,7 +249,7 @@ export default function PostSignupRedirect() {
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY);
       return saved
-        ? { ...DEFAULT_REG_DATA, ...JSON.parse(saved), documents: [] }
+        ? { ...DEFAULT_REG_DATA, ...Object.fromEntries(Object.entries(JSON.parse(saved)).filter(([key]) => Object.prototype.hasOwnProperty.call(DEFAULT_REG_DATA, key))), documents: [] }
         : DEFAULT_REG_DATA;
     } catch {
       return DEFAULT_REG_DATA;
@@ -431,12 +424,21 @@ export default function PostSignupRedirect() {
           role: string;
           status: string;
           onboardingComplete: boolean;
+          facility?: { id: string } | null;
         } = await res.json();
         if (cancelled) return;
 
         if (me.onboardingComplete) {
+          if (me.status === "SUSPENDED" || me.status === "BANNED") {
+            router.replace("/");
+            return;
+          }
           if (me.status === "PENDING") {
             setStep("pending");
+            return;
+          }
+          if (me.facility && me.status === "ACTIVE") {
+            router.replace("/lab/dashboard");
             return;
           }
           switch (me.role) {
@@ -502,7 +504,7 @@ export default function PostSignupRedirect() {
   };
 
   const handleAcceptTerms = async () => {
-    if (!acceptedTerms || !acceptedPrivacy || !acceptedCookies) return;
+    if (!acceptedTerms || !acceptedPrivacy) return;
     setSubmitting(true);
     setError("");
     try {
@@ -524,6 +526,7 @@ export default function PostSignupRedirect() {
 
   const handleAccountTypeSelect = async () => {
     if (!accountType) return;
+    setReviewedForType(false);
     setSubmitting(true);
     setError("");
     try {
@@ -548,6 +551,7 @@ export default function PostSignupRedirect() {
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
+    if (!reviewedForType) errors.policies = "Review and acknowledge the information for your selected account type.";
 
     // Common required fields
     if (!regData.firstName.trim()) errors.firstName = "First name is required";
@@ -586,7 +590,8 @@ export default function PostSignupRedirect() {
     if (
       accountType === "laboratory" ||
       accountType === "diagnostic_centre" ||
-      accountType === "hospital"
+      accountType === "hospital" ||
+      accountType === "pharmacy"
     ) {
       if (!profileImage)
         errors.profileImage = "An organisation logo is required";
@@ -596,17 +601,6 @@ export default function PostSignupRedirect() {
         errors.cacRegistrationNumber = "CAC Registration Number is required";
       if (!regData.facilityLicenseNumber.trim())
         errors.facilityLicenseNumber = "Facility License Number is required";
-    }
-
-    // Patient-specific validation
-    if (accountType === "patient") {
-      if (!regData.emergencyContactName.trim())
-        errors.emergencyContactName = "Emergency contact name is required";
-      if (!regData.emergencyContactPhone.trim()) {
-        errors.emergencyContactPhone = "Emergency contact phone is required";
-      } else if (!isValidNigerianPhone(regData.emergencyContactPhone)) {
-        errors.emergencyContactPhone = "Enter a valid Nigerian phone number";
-      }
     }
 
     setFieldErrors(errors);
@@ -636,6 +630,8 @@ export default function PostSignupRedirect() {
           ...regData,
           accountType,
           termsAccepted: true,
+          privacyAccepted: true,
+          policyVersion: POLICY_RELEASE.version,
           profileImageKey: profileImage?.key,
         }),
       });
@@ -675,10 +671,11 @@ export default function PostSignupRedirect() {
       }
 
       // Clear sessionStorage
-      sessionStorage.removeItem(STORAGE_KEY);
+      try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* blocked storage must not break successful registration */ }
 
       if (!result.requiresVerification) {
         router.push("/dashboard");
+        router.refresh();
         return;
       }
       setDirection("forward");
@@ -693,7 +690,8 @@ export default function PostSignupRedirect() {
   const isOrganisation =
     accountType === "laboratory" ||
     accountType === "diagnostic_centre" ||
-    accountType === "hospital";
+    accountType === "hospital" ||
+    accountType === "pharmacy";
   const requiresVerification = accountType === "doctor" || isOrganisation;
 
   // Step definitions for progress stepper
@@ -949,7 +947,7 @@ export default function PostSignupRedirect() {
                 Welcome to Medic1905
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Please review and accept our policies to continue
+                Review the policies before continuing. Draft acknowledgements are not acceptance of an approved legal agreement.
               </p>
             </div>
 
@@ -966,12 +964,13 @@ export default function PostSignupRedirect() {
                         Terms of Use
                       </p>
                       <Switch
+                        aria-label="Acknowledge terms information"
                         checked={acceptedTerms}
                         onCheckedChange={setAcceptedTerms}
                       />
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      I agree to the{" "}
+                      I acknowledge the{" "}
                       <Link
                         href="/legal/terms"
                         className="underline text-foreground"
@@ -996,12 +995,13 @@ export default function PostSignupRedirect() {
                         Privacy Policy
                       </p>
                       <Switch
+                        aria-label="Acknowledge privacy information"
                         checked={acceptedPrivacy}
                         onCheckedChange={setAcceptedPrivacy}
                       />
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      I agree to the{" "}
+                      I acknowledge the{" "}
                       <Link
                         href="/legal/privacy"
                         className="underline text-foreground"
@@ -1025,13 +1025,10 @@ export default function PostSignupRedirect() {
                       <p className="text-sm font-semibold text-foreground">
                         Cookies Policy
                       </p>
-                      <Switch
-                        checked={acceptedCookies}
-                        onCheckedChange={setAcceptedCookies}
-                      />
+                      <CookieSettingsButton />
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      I agree to the{" "}
+                      You can independently choose optional cookies in the{" "}
                       <Link
                         href="/legal/cookies"
                         className="underline text-foreground"
@@ -1055,7 +1052,6 @@ export default function PostSignupRedirect() {
                   disabled={
                     !acceptedTerms ||
                     !acceptedPrivacy ||
-                    !acceptedCookies ||
                     submitting
                   }
                   onClick={handleAcceptTerms}
@@ -1127,6 +1123,14 @@ export default function PostSignupRedirect() {
             label: "Hospital",
             desc: "Hospital management, admissions, departments",
             icon: Hospital,
+            color: "text-muted-foreground",
+            bgColor: "bg-muted",
+          },
+          {
+            value: "pharmacy",
+            label: "Pharmacy",
+            desc: "Dispense prescriptions, manage stock and formulary",
+            icon: Pill,
             color: "text-muted-foreground",
             bgColor: "bg-muted",
           },
@@ -1260,7 +1264,7 @@ export default function PostSignupRedirect() {
   // === REGISTRATION FORM STEP ===
   if (step === "registration") {
     return (
-      <div className="min-h-[calc(100vh-4rem)] py-8 px-4">
+      <div className="registration-flow min-h-[calc(100vh-4rem)] py-8 px-4">
         {renderProgressStepper()}
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="text-center">
@@ -1282,6 +1286,7 @@ export default function PostSignupRedirect() {
               {accountType === "diagnostic_centre" &&
                 "Diagnostic Centre Registration"}
               {accountType === "hospital" && "Hospital Registration"}
+              {accountType === "pharmacy" && "Pharmacy Registration"}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               {requiresVerification
@@ -1308,6 +1313,16 @@ export default function PostSignupRedirect() {
             }}
             className="space-y-6"
           >
+            <div className="rounded-xl border border-border p-4 text-sm">
+              <p className="font-semibold">{accountType?.replace("_", " ")} account information · {POLICY_RELEASE.version} · {POLICY_RELEASE.status}</p>
+              <p className="mt-2 text-muted-foreground">{accountType === "patient" ? "Your account gives you access to records and appointments. Record sharing requires appropriate authorisation." : accountType === "doctor" ? "Professional verification is required. You remain responsible for clinical decisions, confidentiality and prescriptions." : "Administrator verification is required. Manage staff permissions, patient information and access revocation within your facility responsibilities."}</p>
+              <div className="my-3 flex flex-wrap gap-4">
+                <Link href={`/legal/privacy?accountType=${accountType?.toUpperCase()}`} target="_blank" className="underline">Account privacy information</Link>
+                <Link href={`/legal/terms?accountType=${accountType?.toUpperCase()}`} target="_blank" className="underline">Account terms information</Link>
+              </div>
+              <label className="flex min-h-11 items-center gap-3"><input type="checkbox" checked={reviewedForType} onChange={e => setReviewedForType(e.target.checked)} />I have reviewed this account-specific policy information. Draft text is not an approved agreement.</label>
+              {renderFieldError("policies")}
+            </div>
             {/* === COMMON: Personal Information === */}
             <Card className="beeline-card">
               <CardHeader>
@@ -1444,6 +1459,10 @@ export default function PostSignupRedirect() {
                   </div>
                 </div>
 
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2"><Label htmlFor="country">Country of residence or practice</Label><Input id="country" value={regData.country} maxLength={2} autoComplete="country" onChange={e => updateField("country", e.target.value.toUpperCase())} /><p className="text-xs text-muted-foreground">Two-letter country code, for example NG. Draft policy review is Nigeria-first; availability varies by country.</p></div>
+                  <div className="space-y-2"><Label htmlFor="language">Preferred language</Label><select id="language" className="min-h-11 w-full rounded-lg border border-border bg-card px-3" value={regData.language} onChange={e => updateField("language", e.target.value)}><option value="en">English</option><option value="ha">Hausa</option><option value="ig">Igbo</option><option value="yo">Yoruba</option></select><p className="text-xs text-muted-foreground">Saved for communication preferences. The interface is currently in English.</p></div>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="state">State *</Label>
                   <Select
@@ -1672,7 +1691,9 @@ export default function PostSignupRedirect() {
                             ? "Laboratory"
                             : accountType === "diagnostic_centre"
                               ? "Diagnostic Centre"
-                              : "Hospital"
+                              : accountType === "pharmacy"
+                                ? "Pharmacy"
+                                : "Hospital"
                         }
                         readOnly
                         className="rounded-lg bg-muted"
@@ -1746,157 +1767,7 @@ export default function PostSignupRedirect() {
               </Card>
             )}
 
-            {/* === PATIENT-SPECIFIC: Medical & Emergency === */}
-            {accountType === "patient" && (
-              <Card className="beeline-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Heart className="h-5 w-5 text-foreground" />
-                    Medical Information & Emergency Contact
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Medical info */}
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="bloodGroup">Blood Group</Label>
-                      <Select
-                        value={regData.bloodGroup}
-                        onValueChange={(v) =>
-                          updateField("bloodGroup", v || "")
-                        }
-                      >
-                        <SelectTrigger className="rounded-lg">
-                          <SelectValue placeholder="Select blood group" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {BLOOD_GROUPS.map((bg) => (
-                            <SelectItem key={bg} value={bg}>
-                              {bg}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="genotype">Genotype</Label>
-                      <Select
-                        value={regData.genotype}
-                        onValueChange={(v) => updateField("genotype", v || "")}
-                      >
-                        <SelectTrigger className="rounded-lg">
-                          <SelectValue placeholder="Select genotype" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {GENOTYPES.map((g) => (
-                            <SelectItem key={g} value={g}>
-                              {g}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="allergies">Known Allergies</Label>
-                      <Input
-                        id="allergies"
-                        value={regData.allergies}
-                        onChange={(e) =>
-                          updateField("allergies", e.target.value)
-                        }
-                        placeholder="Comma-separated, e.g., Penicillin, Peanuts"
-                        className="rounded-lg"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="chronicConditions">
-                        Chronic Conditions
-                      </Label>
-                      <Input
-                        id="chronicConditions"
-                        value={regData.chronicConditions}
-                        onChange={(e) =>
-                          updateField("chronicConditions", e.target.value)
-                        }
-                        placeholder="Comma-separated, e.g., Diabetes, Hypertension"
-                        className="rounded-lg"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="occupation">Occupation</Label>
-                    <Input
-                      id="occupation"
-                      value={regData.occupation}
-                      onChange={(e) =>
-                        updateField("occupation", e.target.value)
-                      }
-                      placeholder="e.g., Teacher, Engineer"
-                      className="rounded-lg"
-                    />
-                  </div>
-
-                  {/* Emergency Contact */}
-                  <div className="border-t border-border pt-4">
-                    <p className="text-sm font-semibold mb-3">
-                      Emergency Contact
-                    </p>
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="ecName">Contact Name *</Label>
-                        <Input
-                          id="ecName"
-                          value={regData.emergencyContactName}
-                          onChange={(e) =>
-                            updateField("emergencyContactName", e.target.value)
-                          }
-                          required
-                          className={`rounded-lg ${fieldErrors.emergencyContactName ? "border-destructive" : ""}`}
-                        />
-                        {renderFieldError("emergencyContactName")}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="ecRel">Relationship</Label>
-                        <Input
-                          id="ecRel"
-                          value={regData.emergencyContactRelationship}
-                          onChange={(e) =>
-                            updateField(
-                              "emergencyContactRelationship",
-                              e.target.value,
-                            )
-                          }
-                          placeholder="e.g., Spouse, Parent"
-                          className="rounded-lg"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="ecPhone">Phone *</Label>
-                        <Input
-                          id="ecPhone"
-                          type="tel"
-                          value={regData.emergencyContactPhone}
-                          onChange={(e) =>
-                            updateField(
-                              "emergencyContactPhone",
-                              formatPhoneInput(e.target.value),
-                            )
-                          }
-                          required
-                          placeholder="+234 803 123 4567"
-                          className={`rounded-lg ${fieldErrors.emergencyContactPhone ? "border-destructive" : ""}`}
-                        />
-                        {renderFieldError("emergencyContactPhone")}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {accountType === "patient" && <p className="rounded-lg border border-border p-4 text-sm text-muted-foreground">You do not need to share allergies, conditions, blood group or emergency contacts to create an account. Add clinically relevant details later in your protected patient profile.</p>}
 
             {/* Verification Notice */}
             {requiresVerification && (
@@ -1917,11 +1788,11 @@ export default function PostSignupRedirect() {
               </div>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex flex-col-reverse gap-3 sm:flex-row">
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-lg px-6"
+                className="min-h-11 w-full rounded-lg px-6 sm:w-auto"
                 onClick={goBack}
                 disabled={submitting || imageUploading}
               >
@@ -1929,7 +1800,7 @@ export default function PostSignupRedirect() {
               </Button>
               <Button
                 type="submit"
-                className="flex-1 bg-foreground text-background hover:bg-foreground/90 rounded-lg h-12 text-base font-bold"
+                className="min-w-0 w-full sm:flex-1 bg-foreground text-background hover:bg-foreground/90 rounded-lg h-12 text-base font-bold"
                 disabled={submitting || imageUploading}
               >
                 {submitting ? (
@@ -1975,7 +1846,7 @@ export default function PostSignupRedirect() {
             <Button
               variant="outline"
               className="flex-1 rounded-lg"
-              onClick={() => signOut({ redirectUrl: "/auth/login" })}
+              onClick={() => signOut({ redirectUrl: "/" })}
             >
               Sign Out
             </Button>

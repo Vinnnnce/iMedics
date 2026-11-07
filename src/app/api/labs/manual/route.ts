@@ -250,7 +250,7 @@ export const GET = withAuth(["DOCTOR", "PATIENT"], async (req, { user }) => {
   const { patientId } = parseQuery(req, listQuerySchema);
   await findAccessiblePatient(user, patientId);
 
-  const results = await prisma.labResult.findMany({
+  const results = await prisma.labResult.findMany({ take: 200,
     where: { patientId, ...(user.role === "PATIENT" ? { status: { not: "REJECTED" as const } } : {}) },
     orderBy: { testDate: "desc" },
     include: {

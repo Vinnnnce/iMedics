@@ -6,11 +6,12 @@ import { describe, expect, it } from "vitest";
 import { canAccess, accessTo, KIND_MODULES, RESOURCE_MATRIX, RESOURCE_MODULE } from "./access-matrix";
 
 describe("module access per facility kind", () => {
-  it("gives hospitals all three modules", () => {
-    expect(KIND_MODULES.HOSPITAL).toEqual(["HOSPITAL", "LABORATORY", "DIAGNOSTIC"]);
+  it("gives hospitals all four modules", () => {
+    expect(KIND_MODULES.HOSPITAL).toEqual(["HOSPITAL", "LABORATORY", "DIAGNOSTIC", "PHARMACY"]);
     expect(canAccess("HOSPITAL", "HOSPITAL")).toBe(true);
     expect(canAccess("HOSPITAL", "LABORATORY")).toBe(true);
     expect(canAccess("HOSPITAL", "DIAGNOSTIC")).toBe(true);
+    expect(canAccess("HOSPITAL", "PHARMACY")).toBe(true);
   });
 
   it("restricts laboratories to the laboratory module", () => {
@@ -59,8 +60,19 @@ describe("resource access matrix (spec section 7)", () => {
     expect(accessTo("DIAGNOSTIC_CENTRE", "DISCHARGE_SUMMARIES")).toBe("NONE");
   });
 
+  it("gives pharmacies the medication workflow and nothing else", () => {
+    expect(accessTo("PHARMACY", "PATIENT_REGISTRATION")).toBe("MINIMUM");
+    expect(accessTo("PHARMACY", "MEDICATION_ORDERS")).toBe("FULL");
+    expect(accessTo("PHARMACY", "FORMULARY")).toBe("FULL");
+    expect(accessTo("PHARMACY", "LAB_ORDERS")).toBe("NONE");
+    expect(accessTo("PHARMACY", "LAB_RESULTS")).toBe("NONE");
+    expect(accessTo("PHARMACY", "ADMISSION_RECORDS")).toBe("NONE");
+    expect(accessTo("PHARMACY", "DIAGNOSTIC_REPORTS")).toBe("NONE");
+    expect(accessTo("PHARMACY", "DISCHARGE_SUMMARIES")).toBe("NONE");
+  });
+
   it("keeps every organization inside its own audit trail", () => {
-    for (const kind of ["HOSPITAL", "LABORATORY", "DIAGNOSTIC_CENTRE"] as const) {
+    for (const kind of ["HOSPITAL", "LABORATORY", "DIAGNOSTIC_CENTRE", "PHARMACY"] as const) {
       expect(accessTo(kind, "OWN_AUDIT_LOGS")).toBe("FULL");
     }
   });

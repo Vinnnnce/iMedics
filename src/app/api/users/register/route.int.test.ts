@@ -17,6 +17,7 @@ import {
   it,
   vi,
 } from "vitest";
+import { POLICY_RELEASE } from "@/lib/legal/release";
 
 vi.mock("next/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/server")>()),
@@ -70,6 +71,8 @@ describe.skipIf(!url)("POST /api/users/register", () => {
 
   const basePayload = () => ({
     termsAccepted: true,
+    privacyAccepted: true,
+    policyVersion: POLICY_RELEASE.version,
     firstName: "Test",
     lastName: "User",
     gender: "other",
@@ -139,8 +142,8 @@ describe.skipIf(!url)("POST /api/users/register", () => {
     const response = await invoke({
       ...basePayload(),
       accountType: "doctor",
-      mdcnRegistrationNumber: "MDCN-1",
-      mdcnLicenseNumber: "LIC-1",
+      mdcnRegistrationNumber: `SYNTHETIC-MDCN-${RUN}`,
+      mdcnLicenseNumber: `SYNTHETIC-LIC-${RUN}`,
       yearOfRegistration: "2020",
       yearsOfExperience: "5",
       specialty: "Internal Medicine",
@@ -156,7 +159,7 @@ describe.skipIf(!url)("POST /api/users/register", () => {
     const doctor = await prisma.doctorProfile.findUnique({
       where: { userId: user.id },
     });
-    expect(doctor?.licenseNumber).toBe("LIC-1");
+    expect(doctor?.licenseNumber).toBe(`SYNTHETIC-LIC-${RUN}`);
     expect(doctor?.verificationStatus).toBe("PENDING");
 
     const updated = await prisma.user.findUnique({ where: { id: user.id } });
@@ -219,6 +222,7 @@ describe.skipIf(!url)("POST /api/users/register", () => {
         where: { userId: user.id },
       });
       expect(profile?.laboratoryName).toBe("Test Facility Ltd");
+      expect(profile?.country).toBe("NG");
       expect(profile?.facilityLicenseNumber).toBe("FAC-67890");
       expect(profile?.logoUrl).toBe(imageUrl(key));
       expect(profile?.verificationStatus).toBe("PENDING");

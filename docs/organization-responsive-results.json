@@ -1,0 +1,114 @@
+{
+  "results": [
+    {
+      "screen": "organization",
+      "width": 1440,
+      "height": 1000,
+      "theme": "light",
+      "background": "rgb(255, 255, 255)",
+      "foreground": "rgb(17, 17, 17)",
+      "overflow": false
+    },
+    {
+      "screen": "organization",
+      "width": 1440,
+      "height": 1000,
+      "theme": "dark",
+      "background": "rgb(16, 17, 18)",
+      "foreground": "rgb(255, 255, 255)",
+      "overflow": false
+    },
+    {
+      "screen": "master-control",
+      "width": 1440,
+      "height": 1000,
+      "theme": "light",
+      "background": "rgb(255, 255, 255)",
+      "foreground": "rgb(17, 17, 17)",
+      "overflow": false
+    },
+    {
+      "screen": "master-control",
+      "width": 1440,
+      "height": 1000,
+      "theme": "dark",
+      "background": "rgb(16, 17, 18)",
+      "foreground": "rgb(255, 255, 255)",
+      "overflow": false
+    },
+    {
+      "screen": "organization",
+      "width": 768,
+      "height": 1024,
+      "theme": "light",
+      "background": "rgb(255, 255, 255)",
+      "foreground": "rgb(17, 17, 17)",
+      "overflow": false
+    },
+    {
+      "screen": "organization",
+      "width": 768,
+      "height": 1024,
+      "theme": "dark",
+      "background": "rgb(16, 17, 18)",
+      "foreground": "rgb(255, 255, 255)",
+      "overflow": false
+    },
+    {
+      "screen": "master-control",
+      "width": 768,
+      "height": 1024,
+      "theme": "light",
+      "background": "rgb(255, 255, 255)",
+      "foreground": "rgb(17, 17, 17)",
+      "overflow": false
+    },
+    {
+      "screen": "master-control",
+      "width": 768,
+      "height": 1024,
+      "theme": "dark",
+      "background": "rgb(16, 17, 18)",
+      "foreground": "rgb(255, 255, 255)",
+      "overflow": false
+    },
+    {
+      "screen": "organization",
+      "width": 390,
+      "height": 844,
+      "theme": "light",
+      "background": "rgb(255, 255, 255)",
+      "foreground": "rgb(17, 17, 17)",
+      "overflow": false
+    },
+    {
+      "screen": "organization",
+      "width": 390,
+      "height": 844,
+      "theme": "dark",
+      "background": "rgb(16, 17, 18)",
+      "foreground": "rgb(255, 255, 255)",
+      "overflow": false
+    },
+    {
+      "screen": "master-control",
+      "width": 390,
+      "height": 844,
+      "theme": "light",
+      "background": "rgb(255, 255, 255)",
+      "foreground": "rgb(17, 17, 17)",
+      "overflow": false
+    },
+    {
+      "screen": "master-control",
+      "width": 390,
+      "height": 844,
+      "theme": "dark",
+      "background": "rgb(16, 17, 18)",
+      "foreground": "rgb(255, 255, 255)",
+      "overflow": false
+    }
+  ],
+  "errors": [],
+  "provenance": "Actual production components in existing QA harness. Synthetic PostgreSQL fixtures; not authenticated production E2E. Five tabs in each screen checked at all three widths. Finite theme animations disabled for screenshots."
+}

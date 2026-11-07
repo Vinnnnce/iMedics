@@ -7,9 +7,9 @@
 
 import { redirect } from "next/navigation";
 import { requireFacilityPortalPage } from "@/lib/guards";
-import { resolveFacilityForPortalUser } from "@/lib/facility-auth";
+import { resolveFacilityForPortalUser, resolveFacilityPermissions } from "@/lib/facility-auth";
 import { prisma } from "@/lib/prisma";
-import { permissionsForRole, type FacilityPermission } from "@/lib/facility-staff";
+import type { FacilityPermission } from "@/lib/facility-staff";
 import type { FacilityKindValue } from "./access-matrix";
 
 /**
@@ -28,7 +28,9 @@ export async function currentFacilityKind(): Promise<{ facilityId: string; kind:
   });
   const at = owner?.accountType;
   const kind: FacilityKindValue | null =
-    at === "HOSPITAL" || at === "LABORATORY" || at === "DIAGNOSTIC_CENTRE" ? at : null;
+    at === "HOSPITAL" || at === "LABORATORY" || at === "DIAGNOSTIC_CENTRE" || at === "PHARMACY"
+      ? at
+      : null;
   return { facilityId: facility.id, kind };
 }
 
@@ -54,17 +56,8 @@ export async function requireModulePageWithPermission(
   const resolved = await requireModulePage(...kinds);
   const user = await requireFacilityPortalPage();
 
-  const own = await prisma.labStaffProfile.findUnique({
-    where: { userId: user.id },
-    select: { id: true },
-  });
-  if (own?.id === resolved.facilityId) return resolved; // owner
-
-  const memberships = await prisma.facilityStaff.findMany({
-    where: { userId: user.id, facilityId: resolved.facilityId, status: { in: ["ACTIVE", "ON_LEAVE"] } },
-    select: { facilityRole: true },
-  });
-  const allowed = memberships.some((m) => permissionsForRole(m.facilityRole).includes(permission));
+  const effective = await resolveFacilityPermissions(user, resolved.facilityId);
+  const allowed = effective.permissions.includes(permission);
   if (!allowed) redirect("/lab/dashboard");
   return resolved;
 }

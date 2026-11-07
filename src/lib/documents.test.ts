@@ -1,3 +1,4 @@
+vi.mock("@/lib/staff-access", () => ({ getStaffMembership: vi.fn(async () => null), assertStaffCanReachPatient: vi.fn() }));
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 /**

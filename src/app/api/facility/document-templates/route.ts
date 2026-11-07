@@ -37,7 +37,7 @@ export const GET = withAuth(["DOCTOR", "ADMIN", "LAB_SCIENTIST"], async (req, { 
   const query = parseQuery(req, querySchema);
   const { facility } = await requireFacilityAccess(user, "MANAGE_DOCUMENT_TEMPLATES", req);
 
-  const templates = await prisma.facilityDocumentTemplate.findMany({
+  const templates = await prisma.facilityDocumentTemplate.findMany({ take: 200,
     where: { facilityId: facility.id, ...(query.kind ? { kind: query.kind } : {}) },
     orderBy: { updatedAt: "desc" },
     select: {

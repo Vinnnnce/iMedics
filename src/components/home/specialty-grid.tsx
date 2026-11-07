@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { PublicEntryLink as Link } from "@/components/shared/public-entry-link";
 import { Search } from "lucide-react";
 import { SPECIALTIES, filterSpecialties } from "@/lib/home/content";
 

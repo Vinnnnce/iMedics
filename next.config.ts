@@ -11,6 +11,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Embedded Unicode fonts for server-side PDF rendering (src/lib/his/pdf.ts).
+  outputFileTracingIncludes: { "/api/**/*": ["./assets/fonts/**/*"] },
   // Next 16 blocks cross-origin dev resources (HMR) unless the origin is allowed.
   allowedDevOrigins: ["127.0.0.1", "localhost"],
 

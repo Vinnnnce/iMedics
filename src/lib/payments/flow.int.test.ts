@@ -57,12 +57,9 @@ describe.skipIf(!url)("fees, payments and notifications", () => {
   afterAll(async () => {
     if (!m) return;
     const p = m.prisma;
-    await p.payment.deleteMany({ where: { payerId: ids.patientUser } });
-    await p.appointment.deleteMany({ where: { patientId: ids.patient } });
-    await p.notification.deleteMany({ where: { userId: { in: [ids.patientUser, ids.doctorUser] } } });
-    await p.patient.delete({ where: { id: ids.patient } });
-    await p.doctorProfile.delete({ where: { id: ids.doctor } });
-    await p.user.deleteMany({ where: { id: { in: [ids.patientUser, ids.doctorUser] } } });
+    // Retain append-only audit/outbox references. These are synthetic identities
+    // in a disposable DB, not accounts that should be destructively cascaded.
+    await p.user.updateMany({ where: { id: { in: [ids.patientUser, ids.doctorUser] } }, data: { status: "SUSPENDED", deletedAt: new Date() } });
     await p.$disconnect();
   });
 

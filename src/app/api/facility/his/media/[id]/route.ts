@@ -1,0 +1,80 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { withAuth, parseBody, parseId, parseQuery } from "@/lib/api";
+import { badRequest, conflict, forbidden, notFound } from "@/lib/errors";
+import { hasPermission, requireHisAccess } from "@/lib/his/access";
+import { auditHis } from "@/lib/his/audit";
+import { formatByKey } from "@/lib/his/media-formats";
+import { DOWNLOAD_URL_TTL_SECONDS, presignDownload, presignView } from "@/lib/storage";
+
+const getSchema = z.object({ mode: z.enum(["view", "download"]).default("view") });
+const patchSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("release"), confirmProtected: z.boolean().optional() }),
+  z.object({ action: z.literal("revoke") }),
+  z.object({ action: z.literal("reportStatus"), reportStatus: z.enum(["UNREPORTED", "PRELIMINARY", "VERIFIED", "AMENDED"]), reportingClinician: z.string().trim().max(160).optional() }),
+  z.object({ action: z.literal("delete"), reason: z.string().trim().min(5).max(500) }),
+]);
+
+// GET /api/facility/his/media/[id] — a 60-second signed URL (inline preview only for safe formats).
+export const GET = withAuth<{ id: string }>(null, async (req, { user, params }) => {
+  const access = await requireHisAccess(user, "VIEW_PATIENT_DOCUMENTS", req);
+  const { mode } = parseQuery(req, getSchema);
+  const media = await prisma.medicalMedia.findFirst({ where: { id: parseId((await params).id), facilityId: access.facility.id, deletedAt: null } });
+  if (!media) throw notFound("File not found");
+  if (media.scanStatus !== "CLEAN") throw forbidden("File content is quarantined until a CLEAN malware scan completes");
+  if (media.sensitivity === "SPECIALLY_PROTECTED" && !hasPermission(access, "REVIEW_DOCUMENTS")) throw forbidden("This record is specially protected");
+  const preview = formatByKey(media.formatKey)?.preview ?? "none";
+  const inline = mode === "view" && ["image", "pdf", "video", "audio"].includes(preview);
+  const url = inline ? await presignView(media.storageKey, media.fileName) : await presignDownload(media.storageKey, media.fileName);
+  await auditHis(access, inline ? "HIS_MEDIA_VIEWED" : "HIS_MEDIA_DOWNLOADED", "MedicalMedia", media.id, req, { patientId: media.patientId });
+  return NextResponse.json({ url, preview: inline ? preview : "none", expiresInSeconds: DOWNLOAD_URL_TTL_SECONDS });
+});
+
+// PATCH /api/facility/his/media/[id] — release to the patient portal, update report status, or soft-delete.
+export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }) => {
+  const access = await requireHisAccess(user, null, req);
+  const id = parseId((await params).id);
+  const body = await parseBody(req, patchSchema);
+  const media = await prisma.medicalMedia.findFirst({ where: { id, facilityId: access.facility.id, deletedAt: null } });
+  if (!media) throw notFound("File not found");
+  if (media.sensitivity === "SPECIALLY_PROTECTED" && !hasPermission(access, "REVIEW_DOCUMENTS")) throw forbidden("This record is specially protected");
+  const need = (p: Parameters<typeof hasPermission>[1]) => { if (!hasPermission(access, p)) throw forbidden("Your role does not allow this action"); };
+  const update = async (data: Parameters<typeof prisma.medicalMedia.updateMany>[0]["data"]) => {
+    await prisma.$transaction(async (tx) => {
+    const changed = await tx.medicalMedia.updateMany({
+      where: {
+        id, facilityId: access.facility.id, deletedAt: null,
+        reportStatus: media.reportStatus, releasedToPatientAt: media.releasedToPatientAt,
+        scanStatus: media.scanStatus, sensitivity: media.sensitivity,
+      }, data,
+    });
+    if (!changed.count) throw conflict("This file changed in the meantime — reload and try again");
+    await tx.auditLog.create({ data: {
+      userId: user.id, actorRole: user.role, facilityId: access.facility.id, patientId: media.patientId,
+      action: `HIS_MEDIA_${body.action.toUpperCase().replaceAll("-", "_")}`, resourceType: "MedicalMedia", resourceId: id,
+      details: { previousReportStatus: media.reportStatus, previouslyReleased: Boolean(media.releasedToPatientAt) },
+    } });
+    });
+  };
+
+  if (body.action === "release") {
+    need("RELEASE_DOCUMENTS");
+    if (media.releasedToPatientAt) throw conflict("Already released");
+    if (media.scanStatus !== "CLEAN") throw forbidden("Patient release requires a completed CLEAN malware scan");
+    if (media.reportStatus !== "VERIFIED" && media.reportStatus !== "AMENDED") throw badRequest("Only verified results can be released to the patient");
+    if (media.sensitivity === "SPECIALLY_PROTECTED" && body.confirmProtected !== true) throw badRequest("Confirm release of a specially protected record complies with policy");
+    await update({ releasedToPatientAt: new Date() });
+  } else if (body.action === "revoke") {
+    need("RELEASE_DOCUMENTS");
+    await update({ releasedToPatientAt: null });
+  } else if (body.action === "reportStatus") {
+    need("REVIEW_DOCUMENTS");
+    await update({ reportStatus: body.reportStatus, ...(!["VERIFIED", "AMENDED"].includes(body.reportStatus) ? { releasedToPatientAt: null } : {}), ...(body.reportingClinician ? { reportingClinician: body.reportingClinician } : {}) });
+  } else {
+    need("APPROVE_DOCUMENTS");
+    await update({ deletedAt: new Date(), releasedToPatientAt: null });
+  }
+  await auditHis(access, `HIS_MEDIA_${body.action.toUpperCase()}`, "MedicalMedia", id, req, { patientId: media.patientId, details: body.action === "delete" ? { reason: body.reason } : {} });
+  return NextResponse.json({ ok: true });
+});

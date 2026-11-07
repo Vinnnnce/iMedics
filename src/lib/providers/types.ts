@@ -10,6 +10,7 @@ export const PROVIDER_TYPES: Record<ProviderType, { label: string; accountTypes:
   HOSPITAL: { label: "Hospital", accountTypes: ["HOSPITAL"] },
   LABORATORY: { label: "Laboratory", accountTypes: ["LABORATORY"] },
   DIAGNOSTIC_CENTRE: { label: "Diagnostic centre", accountTypes: ["DIAGNOSTIC_CENTRE"] },
+  PHARMACY: { label: "Pharmacy", accountTypes: ["PHARMACY"] },
 };
 
 export function providerTypeForAccountType(accountType: AccountType | null): ProviderType | null {
@@ -67,6 +68,16 @@ export const ONBOARDING_REQUIREMENTS: Record<ProviderType, OnboardingRequirement
     { key: "address", label: "Address", source: "signup" },
     { key: "licenseDocument", label: "Centre licence (upload)", source: "documents" },
     { key: "serviceCatalogue", label: "Priced imaging/procedure catalogue", source: "signup" },
+    { key: "settlementDetails", label: "Settlement bank details (for earnings)", source: "documents" },
+  ],
+  PHARMACY: [
+    { key: "facilityName", label: "Pharmacy name", source: "signup" },
+    { key: "cacRegistrationNumber", label: "CAC registration number", source: "signup" },
+    { key: "facilityLicenseNumber", label: "Pharmacy licence number", source: "signup" },
+    { key: "operatingHours", label: "Operating hours", source: "signup" },
+    { key: "address", label: "Address", source: "signup" },
+    { key: "licenseDocument", label: "Pharmacy licence (upload)", source: "documents" },
+    { key: "serviceCatalogue", label: "Priced service catalogue", source: "signup" },
     { key: "settlementDetails", label: "Settlement bank details (for earnings)", source: "documents" },
   ],
 };

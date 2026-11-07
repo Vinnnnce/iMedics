@@ -7,7 +7,7 @@ import { listFacilities } from "@/lib/facilities";
 import { formatMoney } from "@/lib/money";
 import { z } from "zod";
 
-const TYPE_LABEL = { LABORATORY: "Laboratory", DIAGNOSTIC_CENTRE: "Diagnostic centre", HOSPITAL: "Hospital" } as const;
+const TYPE_LABEL = { LABORATORY: "Laboratory", DIAGNOSTIC_CENTRE: "Diagnostic centre", HOSPITAL: "Hospital", PHARMACY: "Pharmacy" } as const;
 
 export default async function FacilitiesPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   await requirePageRole("PATIENT", "ADMIN");

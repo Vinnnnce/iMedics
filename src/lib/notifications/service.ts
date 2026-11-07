@@ -21,7 +21,7 @@ interface NotifyOptions {
 export async function notifyUser(userId: string, event: NotificationEvent, options: NotifyOptions = {}): Promise<void> {
   const user = await prisma.user.findFirst({
     where: { id: userId, deletedAt: null, ...(options.anyStatus ? {} : { status: "ACTIVE" }) },
-    select: { id: true, role: true, email: true },
+    select: { id: true, role: true, email: true, testAccountExpiresAt: true },
   });
   if (!user) return;
 
@@ -60,6 +60,9 @@ export async function notifyUser(userId: string, event: NotificationEvent, optio
     });
   }
 
+  // Synthetic users retain in-app workflow notifications but must never send
+  // email or push through a configured external delivery provider.
+  if (user.testAccountExpiresAt) return;
   const deliver = async () => {
     if (queued) {
       await deliverPendingNotifications(userId);

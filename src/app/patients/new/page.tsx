@@ -34,13 +34,22 @@ import {
   type PatientFormData,
 } from "@/lib/validations";
 import { calculateBMI, getBMIColor } from "@/lib/bmi";
-import { apiClient } from "@/lib/api-client";
-import { ArrowLeft, Save, UserPlus, AlertCircle } from "lucide-react";
+import { apiClient, ApiError } from "@/lib/api-client";
+import { ArrowLeft, Save, UserPlus, AlertCircle, UserCheck, Copy } from "lucide-react";
+
+type DuplicateMatch = {
+  id: string;
+  caseNumber: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+};
 
 export default function NewPatientPage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [duplicateMatches, setDuplicateMatches] = useState<DuplicateMatch[] | null>(null);
   const form = useForm<PatientFormData>({
     resolver: zodResolver(patientSchema),
     defaultValues: {
@@ -77,6 +86,7 @@ export default function NewPatientPage() {
   async function onSubmit(values: PatientFormData) {
     setSubmitting(true);
     setError(null);
+    setDuplicateMatches(null);
     try {
       const patient = await apiClient.post<{ id: string }>(
         "/patients",
@@ -84,9 +94,53 @@ export default function NewPatientPage() {
       );
       router.push(`/patients/${patient.id}`);
     } catch (err) {
+      // Duplicate review: the server found possible existing records with the
+      // same name and date of birth. The doctor decides — link an existing
+      // record to their care, or confirm this is a different person.
+      if (err instanceof ApiError && err.status === 409) {
+        const matches = (err.body as { matches?: DuplicateMatch[] } | undefined)?.matches;
+        if (matches && matches.length > 0) {
+          setDuplicateMatches(matches);
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to create patient");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  /** The doctor confirmed none of the matches is this patient. */
+  async function registerAnyway() {
+    const values = form.getValues();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const patient = await apiClient.post<{ id: string }>("/patients", { ...values, force: true });
+      router.push(`/patients/${patient.id}`);
+    } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create patient");
     } finally {
       setSubmitting(false);
+      setDuplicateMatches(null);
+    }
+  }
+
+  /** The doctor recognised an existing record — reuse that patient identity. */
+  async function linkExisting(patientId: string) {
+    const values = form.getValues();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const patient = await apiClient.post<{ id: string }>("/patients", { ...values, linkTo: patientId });
+      router.push(`/patients/${patient.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add the existing patient");
+    } finally {
+      setSubmitting(false);
+      setDuplicateMatches(null);
     }
   }
 
@@ -115,6 +169,63 @@ export default function NewPatientPage() {
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
+      )}
+
+      {/* Duplicate review — possible existing records with the same name and
+          date of birth. The doctor links an existing record or confirms this
+          is a different person before a new record is created. */}
+      {duplicateMatches && duplicateMatches.length > 0 && (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-amber-600">
+              <Copy className="h-4 w-4" />
+              Possible existing patient records
+            </CardTitle>
+            <CardDescription>
+              Patients with the same name and date of birth are already registered. Creating
+              another record would duplicate their medical history — add the existing record
+              to your care instead, or confirm this is a different person.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {duplicateMatches.map((match) => (
+              <div
+                key={match.id}
+                className="flex flex-col items-start justify-between gap-2 rounded-lg border border-border p-3 sm:flex-row sm:items-center"
+              >
+                <div>
+                  <p className="text-sm font-medium">
+                    {match.firstName} {match.lastName}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Case <span className="font-mono">{match.caseNumber}</span> — born{" "}
+                    {new Date(match.dateOfBirth).toLocaleDateString()}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={submitting}
+                  onClick={() => linkExisting(match.id)}
+                  data-testid={`button-link-patient-${match.caseNumber}`}
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                  Add to my care
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={submitting}
+              onClick={registerAnyway}
+              data-testid="button-register-anyway"
+            >
+              This is a different person — register a new record
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       <Form {...form}>

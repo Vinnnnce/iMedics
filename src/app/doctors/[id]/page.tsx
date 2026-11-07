@@ -1,9 +1,12 @@
 import { notFound } from "next/navigation";
 import { Star } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DownloadCvButton, PortfolioSection, ShareProfileButton } from "@/components/shared/doctor-profile-extras";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookingPanel } from "@/components/shared/booking-panel";
 import { LikeButton, ReviewForm } from "@/components/shared/doctor-feedback";
+import { ReportProfileButton } from "@/components/shared/report-profile-button";
 import { requirePageRole } from "@/lib/guards";
 import { getDoctorProfileView } from "@/lib/data/doctors";
 import { clinicToday } from "@/lib/clinic-time";
@@ -12,19 +15,24 @@ import { formatMoney } from "@/lib/money";
 import { z } from "zod";
 
 export default async function DoctorProfilePage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requirePageRole("PATIENT", "ADMIN");
+  // Any signed-in role may view a verified doctor's public profile.
+  const user = await requirePageRole("PATIENT", "DOCTOR", "LAB_SCIENTIST", "ADMIN");
   const parsed = z.string().uuid().safeParse((await params).id);
   if (!parsed.success) notFound();
 
   const view = await getDoctorProfileView(parsed.data, user);
   if (!view) notFound();
-  const { doctor, reviews, viewer } = view;
+  const { doctor, reviews, viewer, portfolio, ratingBreakdown } = view;
+  const ratedTotal = ratingBreakdown.reduce((sum, r) => sum + r.count, 0);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 md:px-0">
       <Card className="beeline-card">
         <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-foreground/10 text-xl font-bold">{initials(doctor.name)}</div>
+          <Avatar className="h-20 w-20 rounded-xl">
+            {doctor.avatarUrl && <AvatarImage src={doctor.avatarUrl} alt={`${doctor.name}'s photo`} className="object-cover" />}
+            <AvatarFallback className="rounded-xl bg-foreground/10 text-xl font-bold">{initials(doctor.name)}</AvatarFallback>
+          </Avatar>
           <div className="flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-bold">{doctor.name}</h1>
@@ -45,7 +53,11 @@ export default async function DoctorProfilePage({ params }: { params: Promise<{ 
                   : ""}
               </span>
             </div>
+            <div className="flex flex-wrap items-center gap-2">
             {user.role === "PATIENT" && <LikeButton doctorId={doctor.id} initialLiked={viewer.liked} initialCount={doctor.likeCount} />}
+              <ShareProfileButton />
+              <DownloadCvButton doctorId={doctor.id} />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -70,11 +82,35 @@ export default async function DoctorProfilePage({ params }: { params: Promise<{ 
         </Card>
       )}
 
+      {portfolio.length > 0 && (
+        <section className="space-y-3" aria-labelledby="portfolio-heading">
+          <h2 id="portfolio-heading" className="text-lg font-semibold">Portfolio</h2>
+          <PortfolioSection items={portfolio} />
+        </section>
+      )}
+
+      {user.role !== "ADMIN" && <ReportProfileButton targetType="DOCTOR" targetId={doctor.id} />}
+
       {user.role === "PATIENT" && doctor.acceptingPatients && <BookingPanel doctorId={doctor.id} today={clinicToday()} />}
       {user.role === "PATIENT" && viewer.canReview && <ReviewForm doctorId={doctor.id} />}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Reviews</h2>
+        {ratedTotal > 0 && (
+          <Card className="beeline-card">
+            <CardContent className="space-y-1.5 p-4" aria-label="Rating breakdown">
+              {ratingBreakdown.map((r) => (
+                <div key={r.stars} className="flex items-center gap-2 text-xs">
+                  <span className="w-8 shrink-0">{r.stars} ★</span>
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                    <div className="h-full rounded-full bg-foreground" style={{ width: `${(r.count / ratedTotal) * 100}%` }} />
+                  </div>
+                  <span className="w-8 shrink-0 text-right text-muted-foreground">{r.count}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
         {reviews.length === 0 && <p className="text-sm text-muted-foreground">No reviews yet.</p>}
         {reviews.map((r) => (
           <Card key={r.id} className="beeline-card">

@@ -56,25 +56,25 @@
 
 /* Dark Mode (default) */
 :root {
-  --background: #0B0F17;
+  --background: #101112;
   --foreground: #FFFFFF;
-  --card: #141C2B;
+  --card: #191b1d;
   --card-foreground: #FFFFFF;
-  --popover: #141C2B;
+  --popover: #202224;
   --popover-foreground: #FFFFFF;
   --primary: #FFFFFF;
-  --primary-foreground: #0B0F17;
-  --secondary: #1A2333;
+  --primary-foreground: #101112;
+  --secondary: #242628;
   --secondary-foreground: #FFFFFF;
-  --muted: #1A2333;
-  --muted-foreground: #94A3B8;
-  --accent: #222F46;
+  --muted: #242628;
+  --muted-foreground: #a7adb3;
+  --accent: #2d3033;
   --accent-foreground: #FFFFFF;
   --destructive: #EF4444;
   --success: #22C55E;
   --warning: #F59E0B;
-  --border: #222F46;
-  --input: #222F46;
+  --border: #34383c;
+  --input: #34383c;
   --ring: #FFFFFF;
   --chart-1: #FFFFFF;
   --chart-2: #94A3B8;
@@ -82,19 +82,19 @@
   --chart-4: #475569;
   --chart-5: #EF4444;
   --radius: 0.75rem;
-  --sidebar: #0F1620;
+  --sidebar: #141617;
   --sidebar-foreground: #FFFFFF;
   --sidebar-primary: #FFFFFF;
-  --sidebar-primary-foreground: #0B0F17;
-  --sidebar-accent: #1A2333;
+  --sidebar-primary-foreground: #101112;
+  --sidebar-accent: #242628;
   --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #222F46;
+  --sidebar-border: #34383c;
   --sidebar-ring: #FFFFFF;
 }
 
-/* Light Mode */
+/* Light Mode — white background by default */
 .light {
-  --background: #F5F5F7;
+  --background: #FFFFFF;
   --foreground: #111111;
   --card: #FFFFFF;
   --card-foreground: #111111;
@@ -235,6 +235,18 @@
   transform: translateY(-2px);
 }
 
+/* Clerk widget text (labels, footer tagline): Clerk's internal stylesheet
+   assumes a white background, so its grays vanish on the dark card. The
+   secondary texts (footer action, divider, "Secured by") get the muted
+   token via the appearance config's !important utilities and this rule;
+   the labels need the full foreground token. */
+.cl-formFieldLabel {
+  color: var(--foreground);
+}
+.cl-footer p {
+  color: var(--muted-foreground);
+}
+
 /* Module card — horizontal navigation card */
 .module-card {
   border-radius: 1rem;
@@ -338,14 +350,9 @@
   color: var(--foreground);
 }
 
-/* Desktop sidebar */
-.desktop-sidebar {
-  display: none;
-}
+/* Bottom navigation is a mobile-only pattern; the desktop sidebar ships its own
+   responsive visibility classes (hidden md:block) via the shadcn sidebar. */
 @media (min-width: 768px) {
-  .desktop-sidebar {
-    display: flex;
-  }
   .bottom-nav {
     display: none;
   }
@@ -509,3 +516,11 @@
 }
 .cl-footerActionLink { color: var(--foreground) !important; }
 .cl-internalNote { color: var(--muted-foreground) !important; }
+
+.home-single-ad-banner-image {
+  mask-image: linear-gradient(
+    to right,
+    black 55%,
+    transparent 100%
+  );
+}

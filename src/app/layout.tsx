@@ -2,8 +2,17 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
+import "./experience.css";
 import { Navbar } from "@/components/layout/navbar";
 import { ThemeProvider } from "@/components/theme-provider";
+import { MeProvider } from "@/lib/use-me";
+import { getNavMe } from "@/lib/me";
+import { CookiePreferences } from "@/components/legal/cookie-preferences";
+import { PolicyConsentNotice } from "@/components/legal/policy-consent-notice";
+import { headers } from "next/headers";
+import { moduleForPath } from "@/lib/platform/policy";
+import { getCurrentUser } from "@/lib/auth";
+import { assertPlatformPolicy } from "@/lib/platform/access";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -20,9 +29,22 @@ export const metadata: Metadata = {
  * system's preferred colour scheme on a first visit. Setting the class on
  * <html> here avoids a flash of the wrong theme during page load.
  */
-const themeInitScript = `try{var s=localStorage.getItem("imedics.theme");var d=s?s==="system"?window.matchMedia("(prefers-color-scheme: dark)").matches:s==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;var c=document.documentElement.classList;c.remove("dark","light");c.add(d?"dark":"light");}catch(e){}`;
+const themeInitScript = `try{var p=JSON.parse(localStorage.getItem("medic1905.consent.v1")||"null");var a=p?Date.now()-Date.parse(p.savedAt):NaN;var ok=p&&p.version===1&&p.essential===true&&["preferences","analytics","performance","marketing"].every(function(k){return typeof p[k]==="boolean"})&&Number.isFinite(a)&&a>=-60000&&a<=15552000000;var s=ok&&p.preferences?localStorage.getItem("imedics.theme"):null;var d=s?s==="system"?window.matchMedia("(prefers-color-scheme: dark)").matches:s==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;var c=document.documentElement.classList;c.remove("dark","light");c.add(d?"dark":"light");}catch(e){}`;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const me = await getNavMe();
+  const requestedModule = moduleForPath((await headers()).get("x-medic-page-path") ?? "");
+  let restricted = false;
+  if (requestedModule) {
+    const user = await getCurrentUser();
+    if (user) {
+      try { await assertPlatformPolicy(user, "FEATURE", requestedModule, "VIEW", me?.facility?.id); }
+      catch (error) {
+        if (!(error instanceof Error) || !("status" in error) || error.status !== 403) throw error;
+        restricted = true;
+      }
+    }
+  }
   return (
     <ClerkProvider>
       {/* suppressHydrationWarning: the theme-init script below mutates the
@@ -31,7 +53,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <body className="min-h-full flex flex-col bg-background text-foreground">
           <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
           <ThemeProvider>
-            <Navbar>{children}</Navbar>
+            <MeProvider initialMe={me}>
+              <Navbar><PolicyConsentNotice />{restricted ? <section role="alert" className="mx-auto max-w-2xl rounded-xl border bg-card p-6"><h1 className="text-xl font-semibold">Feature access restricted</h1><p className="mt-3 text-sm text-muted-foreground">This module is unavailable under the current platform policy, role or subscription. Your existing records have not been deleted. Contact your facility administrator for an access review.</p></section> : children}</Navbar>
+              <CookiePreferences />
+            </MeProvider>
           </ThemeProvider>
         </body>
       </html>
