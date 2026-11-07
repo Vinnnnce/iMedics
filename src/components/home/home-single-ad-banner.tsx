@@ -1,4 +1,4 @@
-"import Image from "next/image";
+import Image from "next/image";
 import { PublicEntryLink as Link } from "@/components/shared/public-entry-link";
 import { ArrowRight, Building2, Sparkles } from "lucide-react";
 import { IMEDICS_SINGLE_AD_BANNER } from "@/lib/home/imedics-home-content";
