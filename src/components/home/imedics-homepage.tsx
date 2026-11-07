@@ -10,7 +10,10 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { HomeAdsCarousel } from "@/components/home/home-ads-carousel";
-import { HomeSingleAdBanner } from "@/components/home/home-single-ad-banner";
+import {
+  HomeSingleAdBanner,
+  type HomePromoSlide,
+} from "@/components/home/home-single-ad-banner";
 import {
   IMEDICS_AUDIENCES, IMEDICS_BENEFITS, IMEDICS_CONTACT, IMEDICS_FAQS,
   IMEDICS_FEATURED_PANEL, IMEDICS_FOOTER_LINKS, IMEDICS_HOW_IT_WORKS_STEPS,
@@ -272,11 +275,15 @@ export function ImedicsHomepage({
   topFacilities,
   carouselAds,
   bannerAd,
+  bannerAds,
 }: {
   topDoctors: TopRatedDoctor[];
   topFacilities: TopRatedFacility[];
   carouselAds?: ImedicsHomeAd[];
+  /** Legacy single-banner prop. Retained for backward compatibility. */
   bannerAd?: ImedicsHomeAd | null;
+  /** New multi-slide promo carousel prop. */
+  bannerAds?: HomePromoSlide[] | HomePromoSlide | null;
 }) {
   const { theme, toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -292,6 +299,21 @@ export function ImedicsHomepage({
         image: ad.imageUrl ?? undefined,
       }))
     : undefined;
+
+  /* Convert the legacy single banner into a one-slide promo carousel when
+     the new bannerAds prop has not been supplied. */
+  const promoSlides: HomePromoSlide[] | null =
+    bannerAds ??
+    (bannerAd
+      ? [
+          {
+            title: bannerAd.title,
+            content: bannerAd.content,
+            imageUrl: bannerAd.imageUrl ?? null,
+            linkUrl: bannerAd.linkUrl ?? null,
+          },
+        ]
+      : null);
 
   return (
     <div className="im-mono flex min-h-screen flex-col bg-background text-foreground">
@@ -410,7 +432,7 @@ export function ImedicsHomepage({
       </header>
 
       <main className="flex-1 pb-20">
-        {/* Beeline-style hero: large headline, concise value proposition, two actions */}
+        {/* Beeline-style hero */}
         <section
           aria-labelledby="welcome-heading"
           className="mx-auto w-full max-w-7xl px-4 pb-10 pt-10 lg:px-8 lg:pt-16"
@@ -477,7 +499,7 @@ export function ImedicsHomepage({
           </div>
         </section>
 
-        {/* Quick category tiles — similar to the reference page's grouped entry points */}
+        {/* Quick category tiles */}
         <section
           aria-labelledby="quick-links-heading"
           className="mx-auto w-full max-w-7xl px-4 lg:px-8"
@@ -522,13 +544,13 @@ export function ImedicsHomepage({
           </div>
         </section>
 
-        {/* Carousel and sponsored banner */}
+        {/* Carousel and multi-slide promo banner */}
         <div className="mx-auto w-full max-w-7xl px-4 pt-8 lg:px-8">
           <HomeAdsCarousel slides={adSlides} />
         </div>
 
         <div className="mx-auto w-full max-w-7xl px-4 pt-4 lg:px-8">
-          <HomeSingleAdBanner ad={bannerAd} />
+          <HomeSingleAdBanner ads={promoSlides} />
         </div>
 
         {/* Services */}
@@ -545,6 +567,7 @@ export function ImedicsHomepage({
               >
                 Explore services
               </h2>
+
               <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
                 Everything you need to organise care, communicate with providers and manage your
                 health records.
@@ -862,7 +885,7 @@ export function ImedicsHomepage({
           </div>
         </section>
 
-        {/* App download — reference-style callout */}
+        {/* App download */}
         <section
           aria-labelledby="app-heading"
           className="mx-auto w-full max-w-7xl px-4 pt-16 lg:px-8"
