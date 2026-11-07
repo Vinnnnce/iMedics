@@ -1,6 +1,13 @@
 import Link from "next/link";
 import {
-  Apple, Download, Facebook, Instagram, Linkedin, Smartphone, Twitter, Youtube,
+  Download,
+  Facebook,
+  Instagram,
+  Linkedin,
+  ShieldCheck,
+  Smartphone,
+  Twitter,
+  Youtube,
 } from "lucide-react";
 
 const FOOTER_NAVIGATION = [
@@ -64,55 +71,72 @@ export function Footer() {
   return (
     <footer className="hidden border-t border-border bg-card md:block">
       <div className="mx-auto w-full max-w-7xl px-6 py-10 lg:px-8 lg:py-12">
-        {/* Top footer: brand, description, app download and social links */}
+        {/* Brand, app downloads, social links, and navigation */}
         <div className="grid gap-10 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
           <div>
             <Link
               href="/"
-              className="inline-flex items-center gap-2 rounded-lg text-xl font-extrabold tracking-tight transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              aria-label="Medic1905 home"
+              className="inline-flex items-center rounded-lg text-xl font-extrabold tracking-tight text-foreground transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Medic<span className="text-primary">1905</span>
             </Link>
 
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
-              A healthcare platform connecting patients with verified doctors, hospitals,
-              laboratories, diagnostic centres and pharmacies across Nigeria.
+              A healthcare platform connecting patients with verified doctors,
+              hospitals, laboratories, diagnostic centres and pharmacies across
+              Nigeria.
             </p>
 
             <p className="mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
-              <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+              <ShieldCheck
+                className="h-3.5 w-3.5 shrink-0"
+                aria-hidden="true"
+              />
               Secure records · Role-based access
             </p>
 
             <div className="mt-6">
-              <p className="text-sm font-semibold">Download the Medic1905 app</p>
+              <p className="text-sm font-semibold text-foreground">
+                Download the Medic1905 app
+              </p>
+
               <p className="mt-1 text-xs text-muted-foreground">
-                Book care, follow results and manage your health records anywhere.
+                Book care, follow results and manage your health records
+                anywhere.
               </p>
 
               <div className="mt-3 flex flex-wrap gap-2">
                 {APP_LINKS.map((app) => (
-                  <a
+                  <Link
                     key={app.label}
                     href={app.href}
-                    className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    aria-label={`Download Medic1905 for ${app.label}`}
+                    className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   >
-                    <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
+                    <Smartphone
+                      className="h-3.5 w-3.5"
+                      aria-hidden="true"
+                    />
                     {app.label}
-                  </a>
+                  </Link>
                 ))}
               </div>
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center gap-2">
+            <div
+              className="mt-6 flex flex-wrap items-center gap-2"
+              role="group"
+              aria-label="Social media"
+            >
               {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
                 <a
                   key={label}
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={label}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  aria-label={`${label} (opens in a new tab)`}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   <Icon className="h-4 w-4" aria-hidden="true" />
                 </a>
@@ -120,20 +144,23 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Link groups */}
+          {/* Footer navigation groups */}
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {FOOTER_NAVIGATION.map((group) => (
-              <nav key={group.heading} aria-label={group.heading}>
+              <nav
+                key={group.heading}
+                aria-label={`${group.heading} footer navigation`}
+              >
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {group.heading}
                 </h3>
 
                 <ul className="mt-4 space-y-2.5">
                   {group.links.map((link) => (
-                    <li key={link.href + link.label}>
+                    <li key={`${link.href}-${link.label}`}>
                       <Link
                         href={link.href}
-                        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+                        className="inline-flex items-center gap-1 rounded-sm text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                       >
                         {link.label}
                       </Link>
@@ -145,7 +172,7 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Bottom bar: legal links and app download */}
+        {/* Copyright, legal links, and app shortcuts */}
         <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border pt-6 lg:flex-row">
           <p className="text-center text-xs text-muted-foreground lg:text-left">
             © 2026 Medic1905. Serving Nigeria. All rights reserved.
@@ -154,26 +181,29 @@ export function Footer() {
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 lg:justify-end">
             <Link
               href="/legal/privacy"
-              className="text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+              className="rounded-sm text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Privacy Policy
             </Link>
 
             <Link
               href="/legal/terms"
-              className="text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+              className="rounded-sm text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Terms of Use
             </Link>
 
             <Link
               href="/legal/cookies"
-              className="text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+              className="rounded-sm text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Cookies Policy
             </Link>
 
-            <span className="hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
+            <span
+              className="hidden h-4 w-px bg-border sm:block"
+              aria-hidden="true"
+            />
 
             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <Download className="h-3.5 w-3.5" aria-hidden="true" />
@@ -181,14 +211,18 @@ export function Footer() {
             </span>
 
             {APP_LINKS.map((app) => (
-              <a
+              <Link
                 key={`bottom-${app.label}`}
                 href={app.href}
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+                aria-label={`Download Medic1905 for ${app.label}`}
+                className="inline-flex items-center gap-1 rounded-sm text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
-                <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
+                <Smartphone
+                  className="h-3.5 w-3.5"
+                  aria-hidden="true"
+                />
                 {app.label}
-              </a>
+              </Link>
             ))}
           </div>
         </div>
@@ -196,3 +230,5 @@ export function Footer() {
     </footer>
   );
 }
+
+export default Footer;
