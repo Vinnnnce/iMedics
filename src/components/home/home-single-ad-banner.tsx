@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import { PublicEntryLink as Link } from "@/components/shared/public-entry-link";
 import { ArrowRight, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { IMEDICS_SINGLE_AD_BANNER } from "@/lib/home/imedics-home-content";
@@ -11,6 +10,14 @@ export interface HomePromoSlide {
   content: string;
   imageUrl?: string | null;
   linkUrl?: string | null;
+}
+
+interface NormalizedPromoSlide {
+  title: string;
+  content: string;
+  imageUrl: string | null;
+  ctaHref: string;
+  ctaLabel: string;
 }
 
 const AUTOPLAY_DELAY_MS = 6000;
@@ -31,15 +38,16 @@ export function HomeSingleAdBanner({
   const [isPaused, setIsPaused] = useState(false);
   const touchStartX = useRef<number | null>(null);
 
-  const activeSlide = slides[activeIndex] ?? slides[0];
-  const external = /^https?:\/\//i.test(activeSlide.ctaHref);
+  const activeSlide: NormalizedPromoSlide | undefined = slides[activeIndex];
 
-  const goTo = useCallback((index: number) => {
-    setActiveIndex((current) => {
-      const total = slides.length;
-      return ((index % total) + total) % total;
-    });
-  }, [slides.length]);
+  const goTo = useCallback(
+    (index: number) => {
+      if (slides.length === 0) return;
+
+      setActiveIndex(((index % slides.length) + slides.length) % slides.length);
+    },
+    [slides.length],
+  );
 
   const goNext = useCallback(() => {
     goTo(activeIndex + 1);
@@ -74,7 +82,11 @@ export function HomeSingleAdBanner({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [goNext, goPrevious]);
 
-  if (slides.length === 0) return null;
+  if (!activeSlide) {
+    return null;
+  }
+
+  const external = /^https?:\/\//i.test(activeSlide.ctaHref);
 
   const ctaClass =
     "inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
@@ -246,17 +258,11 @@ export function HomeSingleAdBanner({
 
 function normalizeSlides(
   ads: HomePromoSlide[] | HomePromoSlide | null | undefined,
-): Array<{
-  title: string;
-  content: string;
-  imageUrl: string | null;
-  ctaHref: string;
-  ctaLabel: string;
-}> {
+): NormalizedPromoSlide[] {
   const incoming = Array.isArray(ads) ? ads : ads ? [ads] : [];
 
   const validAds = incoming
-    .filter((ad) => ad?.title?.trim() && ad?.content?.trim())
+    .filter((ad) => Boolean(ad?.title?.trim() && ad?.content?.trim()))
     .map((ad) => ({
       title: ad.title,
       content: ad.content,
@@ -265,7 +271,9 @@ function normalizeSlides(
       ctaLabel: ad.linkUrl ? "Learn more" : IMEDICS_SINGLE_AD_BANNER.ctaLabel,
     }));
 
-  if (validAds.length > 0) return validAds;
+  if (validAds.length > 0) {
+    return validAds;
+  }
 
   return [
     {
