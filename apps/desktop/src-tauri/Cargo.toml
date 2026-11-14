@@ -1,0 +1,22 @@
+[package]
+name = "medic1905-simulator"
+version = "1.0.0"
+description = "Medic1905 medical simulator desktop shell"
+authors = ["Medic1905"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.77.2"
+
+[build-dependencies]
+tauri-build = { version = "2.5.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.9.0", features = ["tray-icon"] }
+tauri-plugin-updater = "2.9.0"
+tauri-plugin-process = "2.3.0"
+tauri-plugin-window-state = "2.4.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]

@@ -33,6 +33,16 @@ const isPublicRoute = createRouteMatcher([
   "/api/profile-images/(.*)",
   // Images uploaded by admins for ads, news and podcasts; the route only serves attached images.
   "/api/site-media/(.*)",
+  // Medic1905 simulator API: the simulator client authenticates with its own
+  // bearer session tokens (SimSession) handled inside the routes, so the
+  // proxy must let these through for the web + native apps.
+  "/api/sim/(.*)",
+  // Download centre: public release metadata, installer redirects and the
+  // Tauri updater endpoint. Admin mutations stay guarded inside the routes.
+  "/api/app-releases(.*)",
+  // The simulator client and the app download pages are public.
+  "/simulator(.*)",
+  "/app(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

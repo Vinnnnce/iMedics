@@ -1,0 +1,36 @@
+{
+  "appId": "medic.simulator.m1905",
+  "appName": "Medic1905 Simulator",
+  "bundledWebRuntime": false,
+  "webDir": "www",
+  "server": {
+    "url": "https://medic1905.vercel.app",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "always",
+    "limitsNavigationsToAppBoundDomains": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "backgroundColor": "#0b0e13",
+      "androidSplashResourceName": "splash",
+      "iosSplashResourceName": "Splash",
+      "showSpinner": false
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    },
+    "Camera": {},
+    "Share": {},
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#0b0e13"
+    }
+  }
+}

@@ -4,7 +4,7 @@ Telemedicine and medical-records web app for patients, doctors, healthcare facil
 
 **Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · shadcn/ui · Prisma 7 · Neon Postgres · Clerk · S3-compatible storage (Cloudflare R2 / AWS S3) · Kimi K3 (doctor-side AI assistance) · Vitest · Vercel.
 
-> Scope: web only. A mobile app is planned for a later release.
+> Also ships as native apps — Android (APK/AAB), iOS (TestFlight/App Store) and Windows (Tauri EXE) — see [docs/MEDIC1905_MULTIPLATFORM.md](docs/MEDIC1905_MULTIPLATFORM.md) and the download centre at `/app/download`. The Medic1905 medical simulator (virtual hospital, 12 roles, 18 cases) lives at `/simulator/` and `/api/sim/*`.
 
 ## Roles
 

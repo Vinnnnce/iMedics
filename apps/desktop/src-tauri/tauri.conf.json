@@ -1,0 +1,70 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Medic1905 Simulator",
+  "version": "1.0.0",
+  "identifier": "medic.simulator.m1905",
+  "build": {
+    "frontendDist": "../../shared-www"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Medic1905 Simulator",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1024,
+        "minHeight": 640,
+        "center": true,
+        "theme": "Dark",
+        "backgroundColor": "#0b0e13",
+        "additionalBrowserArgs": "--enable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection"
+      }
+    ],
+    "security": {
+      "csp": null,
+      "capabilities": [
+        "default"
+      ]
+    },
+    "trayIcon": {
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": false,
+      "title": "Medic1905 Simulator"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis",
+      "msi"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      },
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.digicert.com"
+    },
+    "shortDescription": "Medical simulation training platform",
+    "longDescription": "Medic1905 medical simulator - clinical training with virtual patients, labs, imaging, surgery theatre, multi-role gameplay and instructor oversight.",
+    "copyright": "\u00a9 2026 Medic1905"
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "dialog": false,
+      "pubkey": "",
+      "endpoints": [
+        "https://medic1905.vercel.app/api/app-releases/updates/{{target}}/{{current_version}}"
+      ]
+    }
+  }
+}

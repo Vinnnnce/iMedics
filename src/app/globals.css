@@ -524,3 +524,96 @@
     transparent 100%
   );
 }
+
+/* ============================================================
+   DOWNLOAD CENTRE — PUBG-style HUD (dark tactical panel, angular
+   clipped cards, amber highlights). Used on the homepage footer,
+   /app/download and inside the native app shells.
+   ============================================================ */
+.m1905-dl {
+  --dl-bg: #0b0e13;
+  --dl-panel: #12161d;
+  --dl-card: #171c25;
+  --dl-card-top: #1d2330;
+  --dl-line: #2a3242;
+  --dl-amber: #f0a71f;
+  --dl-amber-dark: #c9860d;
+  --dl-text: #e8ecf3;
+  --dl-muted: #8b95a7;
+  position: relative;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(255,255,255,0.012) 2px 4px),
+    radial-gradient(1200px 400px at 50% -10%, rgba(240,167,31,0.10), transparent 60%),
+    var(--dl-bg);
+  color: var(--dl-text);
+  border-top: 1px solid var(--dl-line);
+  border-bottom: 1px solid var(--dl-line);
+}
+.m1905-dl-inner { max-width: 1120px; margin: 0 auto; padding: 3rem 1.25rem 2.5rem; }
+.m1905-dl-head { text-align: center; margin-bottom: 2.25rem; }
+.m1905-dl-cross { height: 2rem; width: 2rem; margin: 0 auto 0.75rem; color: var(--dl-amber); opacity: 0.9; }
+.m1905-dl-title {
+  font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase;
+  font-size: clamp(1.25rem, 3vw, 2rem); line-height: 1.15; color: var(--dl-text);
+}
+.m1905-dl-title span { display: block; color: var(--dl-amber); }
+.m1905-dl-sub { margin-top: 0.75rem; font-size: 0.9rem; color: var(--dl-muted); }
+.m1905-dl-detected { color: var(--dl-amber); font-weight: 700; }
+
+.m1905-dl-grid { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.m1905-dl-card {
+  position: relative; background: var(--dl-card);
+  border: 1px solid var(--dl-line);
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+  padding: 1.5rem 1.4rem 1.35rem;
+  display: flex; flex-direction: column; gap: 1rem;
+  transition: transform 160ms ease, border-color 160ms ease;
+}
+.m1905-dl-card:hover { transform: translateY(-3px); border-color: #3a465c; }
+.m1905-dl-card.recommended { border-color: var(--dl-amber); box-shadow: 0 0 0 1px var(--dl-amber) inset, 0 12px 32px -18px rgba(240,167,31,0.45); }
+.m1905-dl-ribbon {
+  position: absolute; top: 10px; right: -6px;
+  background: linear-gradient(90deg, var(--dl-amber-dark), var(--dl-amber));
+  color: #151005; font-size: 0.62rem; font-weight: 900; letter-spacing: 0.14em;
+  padding: 3px 14px 3px 10px;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 50%, 100% 100%, 0 100%);
+}
+.m1905-dl-card-top { display: flex; align-items: center; gap: 0.8rem; }
+.m1905-dl-logo {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 3.25rem; width: 3.25rem; color: var(--dl-text);
+  background: var(--dl-card-top); border: 1px solid var(--dl-line);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+}
+.m1905-dl-card.recommended .m1905-dl-logo { color: var(--dl-amber); border-color: rgba(240,167,31,0.5); }
+.m1905-dl-card-title { font-weight: 800; letter-spacing: 0.1em; font-size: 1.02rem; }
+
+.m1905-dl-meta { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; font-size: 0.8rem; }
+.m1905-dl-meta li { display: flex; justify-content: space-between; gap: 1rem; border-bottom: 1px dashed #232b3a; padding-bottom: 0.35rem; }
+.m1905-dl-meta span { color: var(--dl-muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.68rem; padding-top: 2px; }
+.m1905-dl-meta b { font-weight: 700; color: var(--dl-text); text-align: right; }
+
+.m1905-dl-tf { font-size: 0.78rem; color: var(--dl-amber); text-decoration: underline; text-underline-offset: 3px; }
+.m1905-dl-btn {
+  margin-top: auto; display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(180deg, var(--dl-amber), var(--dl-amber-dark));
+  color: #17120a; font-weight: 900; font-size: 0.82rem; letter-spacing: 0.09em;
+  padding: 0.85rem 1rem; text-align: center;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  transition: filter 140ms ease, transform 140ms ease;
+}
+.m1905-dl-btn:hover { filter: brightness(1.08); }
+.m1905-dl-btn:active { transform: translateY(1px); }
+.m1905-dl-btn.disabled { background: #2a3242; color: #8b95a7; cursor: not-allowed; }
+.m1905-dl-channel { text-align: center; font-size: 0.62rem; letter-spacing: 0.18em; color: #5b6575; text-transform: uppercase; }
+
+.m1905-dl-web { margin-top: 2rem; text-align: center; }
+.m1905-dl-web-link {
+  display: inline-block; background: transparent; color: var(--dl-text);
+  border: 1px solid var(--dl-line); font-weight: 800; font-size: 0.85rem;
+  letter-spacing: 0.12em; padding: 0.8rem 2.2rem;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  transition: border-color 140ms ease, color 140ms ease;
+}
+.m1905-dl-web-link:hover { border-color: var(--dl-amber); color: var(--dl-amber); }
+.m1905-dl-web p { margin-top: 0.6rem; font-size: 0.78rem; color: var(--dl-muted); }

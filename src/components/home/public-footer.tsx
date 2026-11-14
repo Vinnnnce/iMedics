@@ -1,5 +1,6 @@
 import { PublicEntryLink as Link } from "@/components/shared/public-entry-link";
 import { EMERGENCY_NUMBERS } from "@/lib/home/content";
+import { DownloadCentre } from "@/components/download/download-centre";
 
 const COLUMNS: { heading: string; links: { href: string; label: string }[] }[] = [
   {
@@ -78,6 +79,11 @@ export function PublicFooter() {
             </nav>
           ))}
         </div>
+        {/* Download centre — native apps + web simulator */}
+        <div className="mt-10 -mx-4 md:-mx-6">
+          <DownloadCentre compact />
+        </div>
+
         <p className="mt-10 border-t border-border pt-6 text-xs text-muted-foreground">
           © {new Date().getFullYear()} Medic1905. Serving Nigeria. All rights reserved. Medic1905 is a platform
           only, not a medical provider. AI content is informational.

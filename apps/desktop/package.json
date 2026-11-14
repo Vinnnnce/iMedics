@@ -1,0 +1,13 @@
+{
+  "name": "medic1905-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Medic1905 medical simulator - Windows desktop shell (Tauri)",
+  "scripts": {
+    "tauri": "tauri",
+    "build:exe": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.6"
+  }
+}

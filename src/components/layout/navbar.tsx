@@ -20,7 +20,7 @@ const NAV_LINKS: NavLink[] = [
 
 const MOBILE_MENU_MAX_HEIGHT = "26rem";
 
-export function Navbar() {
+export function Navbar({ children }: { children?: React.ReactNode }) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
 
@@ -142,6 +142,7 @@ export function Navbar() {
   }, []);
 
   return (
+    <>
     <header
       ref={headerRef}
       className={`sticky top-0 z-50 w-full border-b transition-all duration-300 motion-reduce:transition-none ${
@@ -318,5 +319,7 @@ export function Navbar() {
         </nav>
       </div>
     </header>
+    {children}
+    </>
   );
 }

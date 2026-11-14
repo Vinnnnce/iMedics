@@ -1,0 +1,116 @@
+name: iOS app (TestFlight-ready build)
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Prepare Capacitor project
+        working-directory: apps/mobile
+        run: |
+          npm install
+          node scripts/build-www.mjs
+          npx cap add ios
+
+      # ---- Signing path (runs once Apple secrets are configured) ----
+      - name: Install signing identity + provisioning profile
+        if: ${{ secrets.APPLE_CERT_P12 != '' }}
+        env:
+          APPLE_CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
+          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+          APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+        run: |
+          KEYCHAIN=build.keychain
+          security create-keychain -p actions "$KEYCHAIN"
+          security default-keychain -s "$KEYCHAIN"
+          security unlock-keychain -p actions "$KEYCHAIN"
+          echo "$APPLE_CERT_P12" | base64 --decode > cert.p12
+          security import cert.p12 -k "$KEYCHAIN" -P "$APPLE_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k actions "$KEYCHAIN"
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$APPLE_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/build.mobileprovision
+
+      - name: Build signed IPA (xcarchive + export)
+        if: ${{ secrets.APPLE_CERT_P12 != '' }}
+        working-directory: apps/mobile/ios/App
+        run: |
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release \
+            -archivePath "$RUNNER_TEMP/Medic1905.xcarchive" archive \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}"
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${{ secrets.APPLE_TEAM_ID }}</string>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Medic1905.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/ipa"
+
+      - name: Publish to TestFlight via App Store Connect API
+        if: ${{ secrets.APP_STORE_CONNECT_KEY_ID != '' }}
+        run: |
+          npm i -g @fastlane/fastlane || true
+          echo "${{ secrets.APP_STORE_CONNECT_KEY }}" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          cat > fastlane/Appfile <<EOF
+          app_identifier("medic.simulator.m1905")
+          apple_id("${{ secrets.APPLE_APPLE_ID }}")
+          itc_team_id("${{ secrets.APPLE_TEAM_ID }}")
+          team_id("${{ secrets.APPLE_TEAM_ID }}")
+          EOF
+          mkdir -p fastlane
+          cat > fastlane/Appfile <<EOF
+          app_identifier("medic.simulator.m1905")
+          itc_team_id("${{ secrets.APPLE_TEAM_ID }}")
+          team_id("${{ secrets.APPLE_TEAM_ID }}")
+          EOF
+          cat > fastlane/Fastfile <<EOF
+          default_platform(:ios)
+          lane :beta do
+            api_key = app_store_connect_api_key(
+              key_id: "${{ secrets.APP_STORE_CONNECT_KEY_ID }}",
+              issuer_id: "${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}",
+              key_filepath: "$RUNNER_TEMP/AuthKey.p8",
+              is_key_content_base64: false
+            )
+            pilot(api_key: api_key, ipa: Dir["$RUNNER_TEMP/ipa/*.ipa"].first, skip_waiting_for_build_processing: true)
+          end
+          EOF
+          fastlane ios beta
+
+      # ---- Unsigned path (no Apple secrets yet): attach the archive ----
+      - name: Build unsigned archive (no Apple signing secrets configured)
+        if: ${{ secrets.APPLE_CERT_P12 == '' }}
+        working-directory: apps/mobile/ios/App
+        run: |
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release \
+            -archivePath "$RUNNER_TEMP/Medic1905.xcarchive" archive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGN_ENTITLEMENTS=""
+          cd "$RUNNER_TEMP" && zip -r -q Medic1905-ios-archive.zip Medic1905.xcarchive
+
+      - name: Collect artifacts + checksums
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          cp "$RUNNER_TEMP"/ipa/*.ipa "$RUNNER_TEMP/out/" 2>/dev/null || true
+          cp "$RUNNER_TEMP"/Medic1905-ios-archive.zip "$RUNNER_TEMP/out/" 2>/dev/null || true
+          cd "$RUNNER_TEMP/out"
+          sha256sum * > SHA256SUMS-ios.txt || true
+          ls -la
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-release
+          path: ${{ runner.temp }}/out/
+          if-no-files-found: error

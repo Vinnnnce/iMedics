@@ -1,0 +1,72 @@
+name: Release — build all platforms, publish, sync download centre
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (must exist, e.g. v1.0.0)"
+        required: true
+
+jobs:
+  android:
+    uses: ./.github/workflows/android.yml
+    secrets: inherit
+
+  ios:
+    uses: ./.github/workflows/ios.yml
+    secrets: inherit
+
+  windows:
+    uses: ./.github/workflows/windows.yml
+    secrets: inherit
+
+  publish:
+    needs: [android, ios, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Assemble release bundle + checksums
+        run: |
+          TAG="${GITHUB_REF_NAME:-${{ inputs.tag }}}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          mkdir -p release
+          find dist -type f \( -name "*.apk" -o -name "*.aab" -o -name "*.ipa" -o -name "*.exe" -o -name "*.msi" -o -name "*-archive.zip" -o -name "*.sig" \) -exec cp {} release/ \;
+          cd release
+          cat ../dist/*/SHA256SUMS-*.txt > SHA256SUMS.txt 2>/dev/null || true
+          sha256sum *.apk *.aab *.ipa *.exe *.msi 2>/dev/null >> SHA256SUMS.txt || true
+          ls -la
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: Medic1905 ${{ env.TAG }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: release/*
+
+      - name: Sync download centre (web app release registry)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_URL: ${{ vars.APP_URL || 'https://medic1905.vercel.app' }}
+          RELEASE_SYNC_TOKEN: ${{ secrets.RELEASE_SYNC_TOKEN }}
+          TAG: ${{ env.TAG }}
+        run: |
+          if [ -z "$RELEASE_SYNC_TOKEN" ]; then
+            echo "::warning::RELEASE_SYNC_TOKEN not set - download centre will not update automatically."
+            exit 0
+          fi
+          PAYLOAD=$(gh api repos/${GITHUB_REPOSITORY}/releases/tags/"$TAG" \
+            --jq '{tag_name, body, assets: [.assets[] | {name, size, browser_download_url}]}')
+          curl -sf -X POST "$APP_URL/api/admin/app-releases/sync" \
+            -H "Authorization: Bearer $RELEASE_SYNC_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"

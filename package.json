@@ -23,7 +23,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "his:acceptance": "node --env-file-if-exists=.env --experimental-strip-types scripts/his-acceptance.mts",
-    "icd10:import": "node --env-file-if-exists=.env --experimental-strip-types scripts/import-icd10.ts"
+    "icd10:import": "node --env-file-if-exists=.env --experimental-strip-types scripts/import-icd10.ts",
+    "sim:seed": "esbuild scripts/seed-simulator.ts --bundle --platform=node --outfile=.seed-build/seed-sim.cjs --external:bcryptjs --external:@prisma/client --external:@prisma/adapter-pg --log-level=error && node --env-file-if-exists=.env .seed-build/seed-sim.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.700.0",
@@ -31,6 +32,8 @@
     "@base-ui/react": "^1.8.0",
     "@clerk/nextjs": "^7.9.7",
     "@hookform/resolvers": "^5.9.1",
+    "@neon/config": "^1.14.0",
+    "@neon/env": "^2.1.3",
     "@pdf-lib/fontkit": "^1.1.1",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
@@ -38,6 +41,7 @@
     "@radix-ui/react-dialog": "^1.2.0",
     "@radix-ui/react-progress": "^1.1.17",
     "@radix-ui/react-scroll-area": "^1.3.0",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",

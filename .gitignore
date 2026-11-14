@@ -31,3 +31,13 @@ next-env.d.ts
 build.db
 /qa/feature-audit/dist/
 /qa/his-acceptance/
+.neon
+
+# Medic1905 simulator + native app builds
+/.seed-build/
+# Capacitor / Tauri generated platform projects (CI recreates them)
+/apps/mobile/android/
+/apps/mobile/ios/
+/apps/desktop/src-tauri/target/
+/apps/mobile/node_modules/
+/apps/desktop/node_modules/

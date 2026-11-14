@@ -1,6 +1,6 @@
 import {
   Activity, BadgeDollarSign, CreditCard, FileBarChart, GitCompareArrows, LayoutDashboard,
-  Flag, Megaphone, Newspaper, RotateCcw, ShieldCheck, ShieldPlus, Stethoscope, Users, type LucideIcon,
+  Flag, Megaphone, Newspaper, RotateCcw, ShieldCheck, ShieldPlus, Smartphone, Stethoscope, Users, type LucideIcon,
 } from "lucide-react";
 
 export interface AdminLink {
@@ -32,6 +32,7 @@ export const ADMIN_LINKS: AdminLink[] = [
   { href: "/admin/reports", label: "Reports", icon: FileBarChart },
   { href: "/admin/activity", label: "Activity log", icon: Activity },
   { href: "/admin/profile-reports", label: "Profile reports", icon: Flag },
+  { href: "/admin/app-releases", label: "App releases", icon: Smartphone },
   { href: "/admin/content", label: "Notices & ads", icon: Megaphone },
   { href: "/admin/news", label: "News & podcasts", icon: Newspaper },
 ];

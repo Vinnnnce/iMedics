@@ -23,6 +23,16 @@ const nextConfig: NextConfig = {
       { source: "/api/:path*", headers: [{ key: "Cache-Control", value: "no-store" }] },
     ];
   },
+
+  // The Medic1905 simulator client lives in public/simulator (static files);
+  // serve its entry point on the friendly URLs used by the download centre,
+  // footer link and the native apps.
+  async rewrites() {
+    return [
+      { source: "/simulator", destination: "/simulator/index.html" },
+      { source: "/simulator/", destination: "/simulator/index.html" },
+    ];
+  },
 };
 
 export default nextConfig;

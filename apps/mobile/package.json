@@ -1,0 +1,24 @@
+{
+  "name": "medic1905-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Medic1905 medical simulator - Android & iOS shell (Capacitor)",
+  "scripts": {
+    "build:web": "node scripts/build-www.mjs",
+    "cap:sync": "cap sync",
+    "cap:android": "cap open android",
+    "cap:ios": "cap open ios"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^7.4.2",
+    "@capacitor/cli": "^7.4.2",
+    "@capacitor/core": "^7.4.2",
+    "@capacitor/ios": "^7.4.2",
+    "@capacitor/camera": "^7.0.2",
+    "@capacitor/filesystem": "^7.1.2",
+    "@capacitor/share": "^7.0.2",
+    "@capacitor/splash-screen": "^7.0.3",
+    "@capacitor/status-bar": "^7.0.2",
+    "@capacitor/push-notifications": "^7.0.3"
+  }
+}

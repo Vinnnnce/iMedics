@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Medic1905 Simulator</title>
+<link rel="stylesheet" href="assets/shell.css" />
+</head>
+<body>
+<div class="boot">
+  <img src="assets/icon.png" alt="Medic1905" class="boot-logo" />
+  <div class="boot-title">MEDIC<span>1905</span></div>
+  <div class="boot-sub">MEDICAL SIMULATOR</div>
+  <div class="boot-bar"><i></i></div>
+  <div class="boot-status" id="status">Connecting to Medic1905…</div>
+  <div class="boot-offline" id="offline" hidden>
+    <p>You appear to be offline. The Medic1905 simulator needs an internet
+    connection to reach the training hospital network.</p>
+    <button onclick="location.reload()">Retry connection</button>
+  </div>
+</div>
+<script>
+// Thin shell: the native app is a secure WebView over the production
+// Medic1905 platform. This page covers first paint and offline states.
+var PROD = "https://medic1905.vercel.app";
+var t0 = Date.now();
+function ready() {
+  var wait = Math.max(0, 1200 - (Date.now() - t0));
+  setTimeout(function () { location.replace(PROD + "/simulator/"); }, wait);
+}
+if (navigator.onLine) { ready(); } else {
+  document.getElementById("offline").hidden = false;
+  document.getElementById("status").textContent = "Offline";
+  window.addEventListener("online", function () { location.reload(); });
+}
+</script>
+</body>
+</html>
