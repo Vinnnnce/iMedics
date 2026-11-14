@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import "./experience.css";
 import { Navbar } from "@/components/layout/navbar";
@@ -58,6 +59,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <CookiePreferences />
             </MeProvider>
           </ThemeProvider>
+          <Analytics />
         </body>
       </html>
     </ClerkProvider>
