@@ -85,6 +85,13 @@ export async function seed(prisma: PrismaClient, modelName: string, ctx: SeedCon
     const given = overrides[field.name] ?? ctx.values?.[`${modelName}.${field.name}`] ?? ctx.values?.[field.name];
     if (given !== undefined) { data[field.name] = given; continue; }
     if (!field.isRequired || field.hasDefault) continue;
+    // The HIS acceptance database must stay synthetic-only: its fixture guard
+    // refuses to build fixtures while any patient lacks the QA- acceptance
+    // marker, so every seeded patient carries it.
+    if (modelName === "Patient" && field.name === "caseNumber") {
+      data[field.name] = `QA-${randomBytes(6).toString("hex")}`.slice(0, field.maxLength ?? 64);
+      continue;
+    }
     const relation = fkOwner.get(field.name);
     if (relation) {
       // A unique foreign key means "one per parent": reusing the anchor would collide, so make a new parent.
