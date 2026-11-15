@@ -1,18 +1,20 @@
 import Link from "next/link";
 import {
-  ClipboardList, FlaskConical, Upload, BedDouble, Activity, SearchCheck, Bell, FileText,
-  Users, Stethoscope, HeartPulse, Wallet, CalendarClock, Building2, LayoutDashboard,
+  AlertCircle, BedDouble, Bell, Building2, Activity, Users, Stethoscope, HeartPulse,
+  Wallet, Calendar, ClipboardList, FlaskConical, Upload, FileText, BarChart3,
+  Settings, Award, TrendingUp, Clock, CheckCircle2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
 import { requireFacilityPortalPage } from "@/lib/guards";
 import type { FacilityStaffStatus } from "@prisma/client";
 import { clinicInstant, clinicToday } from "@/lib/clinic-time";
 import { resolveFacilityForPortalUser } from "@/lib/facility-auth";
-import { SuggestionsCard } from "@/components/shared/suggestions-card";
-import { facilitySuggestions } from "@/lib/suggestions";
 import { ProfileCompletenessCard } from "@/components/shared/profile-completeness-card";
 import { facilityCompleteness } from "@/lib/profile-completeness";
+import { FacilityHeader } from "@/components/facility/facility-header";
 
 /** Credentials expiring within 90 days (or already expired) for the facility. */
 async function credentialAlertCount(facilityId: string): Promise<number> {
@@ -27,7 +29,6 @@ async function facilityKindOf(profile: { id: string; kind: string | null; userId
   return at === "HOSPITAL" || at === "LABORATORY" || at === "DIAGNOSTIC_CENTRE" || at === "PHARMACY" ? at : null;
 }
 
-/** Admissions discharged within the last 7 days. */
 async function recentDischargeCount(facilityId: string): Promise<number> {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   return prisma.admission.count({
@@ -35,14 +36,12 @@ async function recentDischargeCount(facilityId: string): Promise<number> {
   });
 }
 
-/** Registered patients: distinct patients that have had an encounter here. */
 async function registeredPatientCount(facilityId: string): Promise<number> {
   return prisma.patient.count({
     where: { deletedAt: null, encounters: { some: { facilityId } } },
   });
 }
 
-/** New patients: first-ever encounter at this facility within the last 30 days. */
 async function newPatientCount(facilityId: string): Promise<number> {
   const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const recent = await prisma.encounter.findMany({
@@ -60,19 +59,19 @@ async function newPatientCount(facilityId: string): Promise<number> {
   });
 }
 
-/** Facility staff headcount by role family (doctors, nurses, total active). */
 async function staffCounts(facilityId: string) {
   const activeStatuses: FacilityStaffStatus[] = ["ACTIVE", "ON_LEAVE"];
   const active = { facilityId, status: { in: activeStatuses } };
-  const [doctors, nurses, total] = await Promise.all([
+  const [doctors, nurses, total, suspended, terminated] = await Promise.all([
     prisma.facilityStaff.count({ where: { ...active, facilityRole: { in: ["DOCTOR", "RADIOLOGIST"] } } }),
     prisma.facilityStaff.count({ where: { ...active, facilityRole: "NURSE" } }),
     prisma.facilityStaff.count({ where: active }),
+    prisma.facilityStaff.count({ where: { facilityId, status: "SUSPENDED" } }),
+    prisma.facilityStaff.count({ where: { facilityId, status: "TERMINATED" } }),
   ]);
-  return { doctors, nurses, total };
+  return { doctors, nurses, total, suspended, terminated };
 }
 
-/** Outstanding payments: pending facility bookings billed to this facility. */
 async function outstandingPayments(profile: { id: string; userId: string }) {
   const where = {
     status: "PENDING" as const,
@@ -86,7 +85,6 @@ async function outstandingPayments(profile: { id: string; userId: string }) {
   return { count, amount: sum._sum.amount ?? 0 };
 }
 
-/** Department activity: encounters in the last 7 days grouped by department. */
 async function departmentActivity(facilityId: string) {
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const groups = await prisma.encounter.groupBy({
@@ -100,122 +98,36 @@ async function departmentActivity(facilityId: string) {
     .slice(0, 5);
 }
 
-export default async function LabDashboardPage() {
+export default async function FacilityDashboardPage() {
   const user = await requireFacilityPortalPage();
   const profile = await resolveFacilityForPortalUser(user);
   if (!profile) return null;
+
   const today = clinicToday();
   const kind = await facilityKindOf(profile);
   const facilityId = profile.id;
 
-  const [newOrders, inProgress, submittedToday, referralInbox, credentialAlerts, activeServices] = await Promise.all([
-    // Facility-scoped work queues — never a global count across organizations.
+  const [
+    newOrders, inProgress, submittedToday, referralInbox, credentialAlerts, activeServices,
+    totalPatients, newPatients, staffData, outstanding, departments,
+    inpatients, criticalAlerts, recentDischarges, openEncounters,
+  ] = await Promise.all([
     prisma.labOrder.count({ where: { OR: [{ performingFacilityId: facilityId, status: "ORDERED" }, { performingFacilityId: null, status: "ORDERED" }] } }),
     prisma.labOrder.count({ where: { OR: [{ performingFacilityId: facilityId, status: "IN_PROGRESS" }, { performingFacilityId: null, status: "IN_PROGRESS" }] } }),
     prisma.labResult.count({ where: { uploadedById: user.id, createdAt: { gte: clinicInstant(today, 0), lt: clinicInstant(today, 24 * 60) } } }),
-    // Referral inbox
     prisma.facilityReferral.count({ where: { facilityId: profile.id, status: "PENDING" } }),
-    // Credential alerts: expiring within 90 days or already expired
     credentialAlertCount(profile.id),
     prisma.facilityService.count({ where: { facilityId: profile.id, isActive: true } }),
-  ]);
-
-  const stats = [
-    { label: "New orders", value: newOrders, icon: ClipboardList, href: "/lab/orders" },
-    { label: "In progress", value: inProgress, icon: FlaskConical, href: "/lab/orders" },
-    { label: "Submitted today", value: submittedToday, icon: Upload, href: "/lab/upload" },
-  ];
-
-  // Organization overview (spec section 6) — real database counts, scoped to
-  // this facility only.
-  const [totalPatients, newPatients, staff, outstanding] = await Promise.all([
     registeredPatientCount(facilityId),
     newPatientCount(facilityId),
     staffCounts(facilityId),
     outstandingPayments(profile),
-  ]);
-
-  const organizationStats = [
-    { label: "Registered patients", value: totalPatients, icon: Users, href: "/lab/users" },
-    { label: "New patients (30 days)", value: newPatients, icon: Activity, href: "/lab/users" },
-    { label: "Doctors", value: staff.doctors, icon: Stethoscope, href: "/lab/staff" },
-    { label: "Nurses", value: staff.nurses, icon: HeartPulse, href: "/lab/nursing" },
-    { label: "Staff members", value: staff.total, icon: Building2, href: "/lab/staff" },
-    { label: "Outstanding payments", value: outstanding.count, icon: Wallet, href: "/payments" },
-  ];
-
-  // Module dashboards (spec section 8) — shown per facility kind.
-  const [
-    inpatients, pendingLabInvestigations, criticalToAcknowledge, recentDischarges,
-    newLabRequests, specimensToReceive, recollectionsNeeded, labCriticalOpen,
-    newReferrals, reportsAwaitingInterpretation, reportsAwaitingVerification, reportsAwaitingDelivery,
-    ordersToReview, dispensedToday, activeFormulary,
-    emergencyOpen, plannedAdmissions, departments, openEncounters,
-  ] = await Promise.all([
+    kind === "HOSPITAL" ? departmentActivity(facilityId) : Promise.resolve([]),
     prisma.admission.count({ where: { facilityId, status: "ACTIVE" } }),
-    prisma.labOrder.count({ where: { requestingFacilityId: facilityId, status: { in: ["ORDERED", "ACCEPTED", "SPECIMEN_PENDING", "IN_PROGRESS", "AWAITING_VERIFICATION"] } } }),
     prisma.criticalResultAlert.count({ where: { orderingFacilityId: facilityId, status: { in: ["SENT", "ESCALATED"] } } }),
     recentDischargeCount(facilityId),
-    prisma.labOrder.count({ where: { OR: [{ performingFacilityId: facilityId, status: "ORDERED" }, { performingFacilityId: null, status: "ORDERED" }] } }),
-    prisma.specimen.count({ where: { facilityId, status: { in: ["PENDING_COLLECTION", "COLLECTED"] } } }),
-    prisma.specimen.count({ where: { facilityId, status: "RECOLLECTION_REQUESTED" } }),
-    prisma.criticalResultAlert.count({ where: { labResult: { labOrder: { performingFacilityId: facilityId } }, status: { in: ["SENT", "ESCALATED"] } } }),
-    prisma.facilityBooking.count({ where: { service: { facilityId }, status: "REQUESTED" } }),
-    prisma.diagnosticReport.count({ where: { facilityId, status: "DRAFT" } }),
-    prisma.diagnosticReport.count({ where: { facilityId, status: "AWAITING_VERIFICATION" } }),
-    prisma.diagnosticReport.count({ where: { facilityId, status: { in: ["FINALIZED", "AMENDED"] } } }),
-    prisma.medicationOrder.count({ where: { facilityId, status: "SUBMITTED" } }),
-    prisma.medicationOrder.count({ where: { facilityId, status: "DISPENSED", dispensedAt: { gte: clinicInstant(today, 0) } } }),
-    prisma.formularyItem.count({ where: { facilityId, active: true } }),
-    // Hospital operations: open emergency encounters and planned inpatients.
-    kind === "HOSPITAL"
-      ? prisma.encounter.count({ where: { facilityId, closedAt: null, priority: "EMERGENCY" } })
-      : Promise.resolve(0),
-    kind === "HOSPITAL"
-      ? prisma.encounter.count({ where: { facilityId, closedAt: null, type: "PLANNED_INPATIENT" } })
-      : Promise.resolve(0),
-    kind === "HOSPITAL" ? departmentActivity(facilityId) : Promise.resolve([]),
-    kind === "HOSPITAL"
-      ? prisma.encounter.count({ where: { facilityId, closedAt: null } })
-      : Promise.resolve(0),
+    kind === "HOSPITAL" ? prisma.encounter.count({ where: { facilityId, closedAt: null } }) : Promise.resolve(0),
   ]);
-
-  const hospitalOperationsStats = [
-    { label: "Emergency patients (open)", value: emergencyOpen, icon: HeartPulse, href: "/lab/encounters?board=emergency" },
-    { label: "Planned admissions", value: plannedAdmissions, icon: CalendarClock, href: "/lab/admissions" },
-    { label: "Open encounters", value: openEncounters, icon: LayoutDashboard, href: "/lab/his" },
-  ];
-
-  const moduleStats =
-    kind === "HOSPITAL"
-      ? [
-          { label: "Current inpatients", value: inpatients, icon: BedDouble, href: "/lab/admissions" },
-          { label: "Pending lab investigations", value: pendingLabInvestigations, icon: SearchCheck, href: "/lab/investigations" },
-          { label: "Critical results to acknowledge", value: criticalToAcknowledge, icon: Bell, href: "/lab/critical-alerts" },
-          { label: "Recent discharges", value: recentDischarges, icon: Activity, href: "/lab/admissions" },
-        ]
-      : kind === "LABORATORY"
-        ? [
-            { label: "New requests", value: newLabRequests, icon: ClipboardList, href: "/lab/orders" },
-            { label: "Specimens to receive", value: specimensToReceive, icon: FlaskConical, href: "/lab/specimens" },
-            { label: "Recollections needed", value: recollectionsNeeded, icon: FlaskConical, href: "/lab/specimens" },
-            { label: "Critical alerts open", value: labCriticalOpen, icon: Bell, href: "/lab/critical-alerts" },
-          ]
-        : kind === "DIAGNOSTIC_CENTRE"
-          ? [
-              { label: "New referrals", value: newReferrals, icon: ClipboardList, href: "/lab/examinations" },
-              { label: "Reports awaiting interpretation", value: reportsAwaitingInterpretation, icon: FileText, href: "/lab/examinations" },
-              { label: "Reports awaiting verification", value: reportsAwaitingVerification, icon: SearchCheck, href: "/lab/examinations" },
-              { label: "Finalized awaiting delivery", value: reportsAwaitingDelivery, icon: Activity, href: "/lab/examinations" },
-            ]
-          : kind === "PHARMACY"
-            ? [
-                { label: "Orders to review", value: ordersToReview, icon: ClipboardList, href: "/lab/pharmacy" },
-                { label: "Dispensed today", value: dispensedToday, icon: Activity, href: "/lab/pharmacy" },
-                { label: "Active formulary entries", value: activeFormulary, icon: FileText, href: "/lab/pharmacy" },
-                { label: "Orders in progress", value: inProgress, icon: SearchCheck, href: "/lab/pharmacy" },
-              ]
-            : [];
 
   const completeness = facilityCompleteness({
     logoUrl: profile.logoUrl,
@@ -227,116 +139,310 @@ export default async function LabDashboardPage() {
     isPublished: profile.isPublished,
   });
 
+  // Critical alerts
+  const criticalItems = [];
+  if (credentialAlerts > 0) criticalItems.push({ type: "credential", count: credentialAlerts, label: "Staff credentials expiring" });
+  if (criticalAlerts > 0) criticalItems.push({ type: "critical", count: criticalAlerts, label: "Critical lab alerts" });
+  if (referralInbox > 0) criticalItems.push({ type: "referral", count: referralInbox, label: "Pending referrals" });
+  if (staffData.suspended > 0) criticalItems.push({ type: "staff", count: staffData.suspended, label: "Suspended staff members" });
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Facility Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Operations, patients and departments at a glance</p>
-      </div>
-      <ProfileCompletenessCard completeness={completeness} title="Complete your public page" />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {stats.map((s) => (
-          <Link key={s.label} href={s.href}>
-            <Card className="beeline-card h-full transition-colors hover:bg-muted/50">
-              <CardContent className="p-4">
-                <s.icon className="h-5 w-5 text-muted-foreground" />
-                <p className="mt-3 text-2xl font-bold">{s.value}</p>
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
-
-      {/* Organization overview — facility headcount and patient population. */}
-      <h2 className="text-lg font-semibold">Organization</h2>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {organizationStats.map((s) => (
-          <Link key={s.label} href={s.href}>
-            <Card className="beeline-card h-full transition-colors hover:bg-muted/50">
-              <CardContent className="p-4">
-                <s.icon className="h-5 w-5 text-muted-foreground" />
-                <p className="mt-3 text-2xl font-bold">{s.value}</p>
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
-
-      {kind === "HOSPITAL" && (
-        <>
-          <h2 className="text-lg font-semibold">Hospital operations</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {hospitalOperationsStats.map((s) => (
-              <Link key={s.label} href={s.href}>
-                <Card className="beeline-card h-full transition-colors hover:bg-muted/50">
-                  <CardContent className="p-4">
-                    <s.icon className="h-5 w-5 text-muted-foreground" />
-                    <p className="mt-3 text-2xl font-bold">{s.value}</p>
-                    <p className="text-xs text-muted-foreground">{s.label}</p>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-
-          {/* Department activity — the last 7 days of encounters per department. */}
-          {departments.length > 0 && (
-            <Card className="beeline-card">
-              <CardHeader>
-                <CardTitle className="text-lg">Department activity (7 days)</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {departments.map((d) => (
-                  <div key={d.name} className="flex items-center justify-between gap-3 text-sm">
-                    <p className="font-medium">{d.name}</p>
-                    <p className="text-muted-foreground">{d.count} encounters</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-        </>
-      )}
-
-      {moduleStats.length > 0 && (
-        <>
-          <h2 className="text-lg font-semibold">
-            {kind === "HOSPITAL"
-              ? "Hospital"
-              : kind === "LABORATORY"
-                ? "Laboratory"
-                : kind === "PHARMACY"
-                  ? "Pharmacy"
-                  : "Diagnostic centre"}{" "}
-            module
-          </h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {moduleStats.map((s) => (
-              <Link key={s.label} href={s.href}>
-                <Card className="beeline-card h-full transition-colors hover:bg-muted/50">
-                  <CardContent className="p-4">
-                    <s.icon className="h-5 w-5 text-muted-foreground" />
-                    <p className="mt-3 text-2xl font-bold">{s.value}</p>
-                    <p className="text-xs text-muted-foreground">{s.label}</p>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Account-specific suggestions */}
-      <SuggestionsCard
-        items={facilitySuggestions({
-          accountType: user.accountType,
-          referralInbox,
-          credentialAlerts,
-          activeServices,
-        })}
+    <>
+      <FacilityHeader
+        facilityName={profile.laboratoryName || "Facility"}
+        facilityType={kind || "Healthcare Facility"}
+        totalStaff={staffData.total}
+        activeServices={activeServices}
+        verificationStatus={profile.verificationStatus}
       />
-    </div>
+      <div className="space-y-6 max-w-7xl mx-auto p-6">
+        {/* Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">{profile.laboratoryName || "Facility"}</h1>
+            <p className="text-muted-foreground mt-1">
+              {kind === "HOSPITAL" ? "Hospital Operations" : kind === "LABORATORY" ? "Laboratory Management" : kind === "DIAGNOSTIC_CENTRE" ? "Diagnostic Center" : kind === "PHARMACY" ? "Pharmacy Management" : "Facility Management"}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {profile.verificationStatus === "VERIFIED" && (
+              <Badge className="bg-green-100 text-green-800 rounded-lg">
+                <CheckCircle2 className="h-3 w-3 mr-1" /> Verified
+              </Badge>
+            )}
+            {credentialAlerts > 0 && (
+              <Badge variant="destructive" className="rounded-lg">
+                <AlertCircle className="h-3 w-3 mr-1" /> {credentialAlerts} Credentials expiring
+              </Badge>
+            )}
+            <Link href="/lab/organization">
+              <Button variant="outline" size="sm">
+                <Settings className="h-4 w-4 mr-2" /> Settings
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        <ProfileCompletenessCard completeness={completeness} title="Complete your public profile" />
+
+        {/* Critical Alerts */}
+        {criticalItems.length > 0 && (
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-red-900">Pending Actions ({criticalItems.length})</p>
+                  <div className="space-y-1 mt-2">
+                    {criticalItems.map((item, i) => (
+                      <p key={i} className="text-sm text-red-800">
+                        • {item.count} {item.label}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Primary Operations KPIs */}
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Operations at a Glance</h2>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {/* New Orders */}
+            <Card className="beeline-card">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">New Orders</p>
+                    <p className="text-2xl font-bold">{newOrders}</p>
+                  </div>
+                  <ClipboardList className="h-8 w-8 text-blue-500 opacity-50" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* In Progress */}
+            <Card className="beeline-card">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">In Progress</p>
+                    <p className="text-2xl font-bold">{inProgress}</p>
+                  </div>
+                  <Activity className="h-8 w-8 text-yellow-500 opacity-50" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Submitted Today */}
+            <Card className="beeline-card">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Submitted Today</p>
+                    <p className="text-2xl font-bold">{submittedToday}</p>
+                  </div>
+                  <CheckCircle2 className="h-8 w-8 text-green-500 opacity-50" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Active Services */}
+            <Card className="beeline-card">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Active Services</p>
+                    <p className="text-2xl font-bold">{activeServices}</p>
+                  </div>
+                  <TrendingUp className="h-8 w-8 text-purple-500 opacity-50" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Outstanding Payments */}
+            <Card className="beeline-card">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Pending Payments</p>
+                    <p className="text-2xl font-bold">{outstanding.count}</p>
+                  </div>
+                  <Wallet className="h-8 w-8 text-orange-500 opacity-50" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Organization Overview */}
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Organization Overview</h2>
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <Card className="beeline-card">
+              <CardContent className="p-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Patients</p>
+                  <p className="text-2xl font-bold">{totalPatients}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="beeline-card">
+              <CardContent className="p-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">New (30 days)</p>
+                  <p className="text-2xl font-bold">{newPatients}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="beeline-card">
+              <CardContent className="p-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Staff</p>
+                  <p className="text-2xl font-bold">{staffData.total}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="beeline-card">
+              <CardContent className="p-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Doctors</p>
+                  <p className="text-2xl font-bold">{staffData.doctors}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="beeline-card">
+              <CardContent className="p-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Nurses</p>
+                  <p className="text-2xl font-bold">{staffData.nurses}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="beeline-card">
+              <CardContent className="p-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Suspended</p>
+                  <p className="text-2xl font-bold text-orange-600">{staffData.suspended}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Hospital-Specific Operations */}
+        {kind === "HOSPITAL" && (
+          <>
+            <div>
+              <h2 className="text-lg font-semibold mb-3">Hospital Operations</h2>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card className="beeline-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Current Inpatients</p>
+                        <p className="text-2xl font-bold">{inpatients}</p>
+                      </div>
+                      <BedDouble className="h-8 w-8 text-blue-500 opacity-50" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="beeline-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Critical Alerts</p>
+                        <p className="text-2xl font-bold">{criticalAlerts}</p>
+                      </div>
+                      <Bell className="h-8 w-8 text-red-500 opacity-50" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="beeline-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Recent Discharges</p>
+                        <p className="text-2xl font-bold">{recentDischarges}</p>
+                      </div>
+                      <CheckCircle2 className="h-8 w-8 text-green-500 opacity-50" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="beeline-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Open Encounters</p>
+                        <p className="text-2xl font-bold">{openEncounters}</p>
+                      </div>
+                      <Activity className="h-8 w-8 text-purple-500 opacity-50" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Department Activity */}
+            {departments.length > 0 && (
+              <Card className="beeline-card">
+                <CardHeader>
+                  <CardTitle className="text-lg">Department Activity (Last 7 Days)</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {departments.map((d) => (
+                    <div key={d.name} className="flex items-center justify-between p-2 border-b last:border-0">
+                      <p className="font-medium">{d.name}</p>
+                      <Badge variant="outline">{d.count} encounters</Badge>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
+
+        {/* Quick Access Links */}
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Quick Access</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Link href="/lab/staff">
+              <Button variant="outline" className="w-full justify-start">
+                <Users className="h-4 w-4 mr-2" />
+                Staff
+              </Button>
+            </Link>
+            <Link href="/lab/orders">
+              <Button variant="outline" className="w-full justify-start">
+                <ClipboardList className="h-4 w-4 mr-2" />
+                Orders
+              </Button>
+            </Link>
+            <Link href="/lab/admissions">
+              <Button variant="outline" className="w-full justify-start">
+                <BedDouble className="h-4 w-4 mr-2" />
+                Admissions
+              </Button>
+            </Link>
+            <Link href="/lab/services">
+              <Button variant="outline" className="w-full justify-start">
+                <Award className="h-4 w-4 mr-2" />
+                Services
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
