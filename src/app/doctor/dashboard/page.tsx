@@ -20,6 +20,7 @@ import { loadWorkspace } from "@/lib/workspace/data";
 import { listUnreadNotifications } from "@/lib/data/notifications";
 import { ProfileCompletenessCard } from "@/components/shared/profile-completeness-card";
 import { doctorCompleteness } from "@/lib/profile-completeness";
+import { DoctorHeader } from "@/components/doctor/doctor-header";
 
 export default async function DoctorDashboardPage() {
   const user = await requirePageRole("DOCTOR");
@@ -174,94 +175,106 @@ export default async function DoctorDashboardPage() {
   ];
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto p-6">
-      {/* Header with Practice Info */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">{doctor.specialty ? `${doctor.specialty} Specialist` : "Doctor"}</h1>
-          <p className="text-muted-foreground mt-1">Welcome back, {user.name.split(" ")[0]}!</p>
+    <>
+      <DoctorHeader
+        doctorName={user.name}
+        specialty={doctor.specialty}
+        rating={doctor.ratingAvg}
+        ratingCount={doctor.ratingCount}
+        verificationStatus={doctor.verificationStatus}
+        unreadNotifications={0}
+        licenseExpiryWarning={
+          doctor.licenseExpiry ? new Date(doctor.licenseExpiry) < new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) : false
+        }
+      />
+      <div className="space-y-6 max-w-6xl mx-auto p-6">
+        {/* Header with Practice Info */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">{doctor.specialty ? `${doctor.specialty} Specialist` : "Doctor"}</h1>
+            <p className="text-muted-foreground mt-1">Welcome back, {user.name.split(" ")[0]}!</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {doctor.verificationStatus === "VERIFIED" && (
+              <Badge className="bg-green-100 text-green-800 rounded-lg">
+                <BadgeCheck className="h-3 w-3 mr-1" /> Verified
+              </Badge>
+            )}
+            {doctor.licenseVerification === "VERIFIED" && (
+              <Badge className="bg-blue-100 text-blue-800 rounded-lg">
+                <Award className="h-3 w-3 mr-1" /> License Verified
+              </Badge>
+            )}
+            {doctor.licenseExpiry && new Date(doctor.licenseExpiry) < new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) && (
+              <Badge variant="destructive" className="rounded-lg">
+                <AlertCircle className="h-3 w-3 mr-1" /> License expiring soon
+              </Badge>
+            )}
+            <Link href="/doctor/profile">
+              <Button variant="outline" size="sm">
+                <Settings className="h-4 w-4 mr-2" /> Settings
+              </Button>
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {doctor.verificationStatus === "VERIFIED" && (
-            <Badge className="bg-green-100 text-green-800 rounded-lg">
-              <BadgeCheck className="h-3 w-3 mr-1" /> Verified
-            </Badge>
-          )}
-          {doctor.licenseVerification === "VERIFIED" && (
-            <Badge className="bg-blue-100 text-blue-800 rounded-lg">
-              <Award className="h-3 w-3 mr-1" /> License Verified
-            </Badge>
-          )}
-          {doctor.licenseExpiry && new Date(doctor.licenseExpiry) < new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) && (
-            <Badge variant="destructive" className="rounded-lg">
-              <AlertCircle className="h-3 w-3 mr-1" /> License expiring soon
-            </Badge>
-          )}
-          <Link href="/doctor/profile">
-            <Button variant="outline" size="sm">
-              <Settings className="h-4 w-4 mr-2" /> Settings
-            </Button>
-          </Link>
+
+        {/* Practice Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Rating */}
+          <Card className="beeline-card">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Patient Rating</p>
+                  <p className="text-2xl font-bold flex items-center gap-1">
+                    {doctor.ratingAvg.toFixed(1)}
+                    <Star className="h-5 w-5 text-yellow-500" />
+                  </p>
+                  <p className="text-xs text-muted-foreground">{doctor.ratingCount} reviews</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Active Patients */}
+          <Card className="beeline-card">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Active Patients</p>
+                  <p className="text-2xl font-bold">{activePatients}</p>
+                </div>
+                <Users className="h-8 w-8 text-blue-500 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Total Consultations */}
+          <Card className="beeline-card">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Consultations</p>
+                  <p className="text-2xl font-bold">{totalConsultations}</p>
+                </div>
+                <ClipboardList className="h-8 w-8 text-purple-500 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Services */}
+          <Card className="beeline-card">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Active Services</p>
+                  <p className="text-2xl font-bold">{doctorServices.length}</p>
+                </div>
+                <Briefcase className="h-8 w-8 text-green-500 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </div>
-
-      {/* Practice Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* Rating */}
-        <Card className="beeline-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Patient Rating</p>
-                <p className="text-2xl font-bold flex items-center gap-1">
-                  {doctor.ratingAvg.toFixed(1)}
-                  <Star className="h-5 w-5 text-yellow-500" />
-                </p>
-                <p className="text-xs text-muted-foreground">{doctor.ratingCount} reviews</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Active Patients */}
-        <Card className="beeline-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Active Patients</p>
-                <p className="text-2xl font-bold">{activePatients}</p>
-              </div>
-              <Users className="h-8 w-8 text-blue-500 opacity-50" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Total Consultations */}
-        <Card className="beeline-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Consultations</p>
-                <p className="text-2xl font-bold">{totalConsultations}</p>
-              </div>
-              <ClipboardList className="h-8 w-8 text-purple-500 opacity-50" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Services */}
-        <Card className="beeline-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Active Services</p>
-                <p className="text-2xl font-bold">{doctorServices.length}</p>
-              </div>
-              <Briefcase className="h-8 w-8 text-green-500 opacity-50" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       <ProfileCompletenessCard completeness={completeness} title="Complete your public profile" />
 
@@ -318,9 +331,9 @@ export default async function DoctorDashboardPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {doctorServices.map((service) => (
-              <div key={service.id} className="flex items-center justify-between p-3 border rounded-lg text-sm">
+              <div key={service.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg text-sm hover:bg-muted/50 transition-colors">
                 <p className="font-medium">{service.name}</p>
-                <Badge variant="outline">{service.price} NGN</Badge>
+                <Badge variant="outline">₦{service.price.toLocaleString()}</Badge>
               </div>
             ))}
           </CardContent>
@@ -330,7 +343,7 @@ export default async function DoctorDashboardPage() {
       {/* Today's appointments */}
       <Card className="beeline-card">
         <CardHeader>
-          <CardTitle className="text-lg">Today&#39;s appointments</CardTitle>
+          <CardTitle className="text-lg">Today's appointments</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {todaysAppointments.length === 0 && <p className="text-sm text-muted-foreground">No appointments scheduled for today.</p>}
@@ -465,5 +478,7 @@ export default async function DoctorDashboardPage() {
           ))}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
+}

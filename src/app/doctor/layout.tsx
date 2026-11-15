@@ -1,5 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { getDoctorProfile, requirePageRole } from "@/lib/guards";
+import { DoctorSidebar } from "@/components/doctor/doctor-sidebar";
+import { DoctorTabNavigation } from "@/components/doctor/doctor-tab-navigation";
 
 export default async function DoctorLayout({ children }: { children: React.ReactNode }) {
   const user = await requirePageRole("DOCTOR");
@@ -18,5 +20,22 @@ export default async function DoctorLayout({ children }: { children: React.React
       </Card>
     );
   }
-  return children;
+
+  return (
+    <div className="flex h-screen flex-col md:flex-row">
+      {/* Desktop Sidebar */}
+      <DoctorSidebar />
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Mobile Tab Navigation */}
+        <DoctorTabNavigation />
+
+        {/* Content Area */}
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
 }

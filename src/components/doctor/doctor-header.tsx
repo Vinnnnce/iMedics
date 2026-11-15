@@ -1,0 +1,117 @@
+"use client";
+
+import { Bell, LogOut, Settings } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+
+interface DoctorHeaderProps {
+  doctorName: string;
+  specialty?: string;
+  rating: number;
+  ratingCount: number;
+  verificationStatus: string;
+  unreadNotifications?: number;
+  licenseExpiryWarning?: boolean;
+}
+
+export function DoctorHeader({
+  doctorName,
+  specialty,
+  rating,
+  ratingCount,
+  verificationStatus,
+  unreadNotifications = 0,
+  licenseExpiryWarning = false,
+}: DoctorHeaderProps) {
+  const pathname = usePathname();
+  const firstName = doctorName.split(" ")[0];
+
+  return (
+    <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex items-center justify-between gap-4 px-4 py-3 md:px-6">
+        {/* Left: Logo/Branding */}
+        <div className="hidden md:block min-w-0">
+          <h1 className="text-lg font-semibold truncate">Doctor Portal</h1>
+          <p className="text-xs text-muted-foreground">{specialty || "Medical Professional"}</p>
+        </div>
+
+        {/* Center: Status Badges */}
+        <div className="flex items-center gap-2 flex-wrap justify-center">
+          {verificationStatus === "VERIFIED" && (
+            <Badge className="bg-green-100 text-green-800 hidden sm:inline-flex">✓ Verified</Badge>
+          )}
+          <Badge variant="outline" className="hidden sm:inline-flex">
+            ⭐ {rating.toFixed(1)} ({ratingCount})
+          </Badge>
+          {licenseExpiryWarning && (
+            <Badge variant="destructive" className="hidden sm:inline-flex">
+              License expiring soon
+            </Badge>
+          )}
+        </div>
+
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2 ml-auto">
+          {/* Notifications */}
+          <Button variant="ghost" size="icon" className="relative" asChild>
+            <Link href="/doctor/chat">
+              <Bell className="h-5 w-5" />
+              {unreadNotifications > 0 && (
+                <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-destructive" />
+              )}
+            </Link>
+          </Button>
+
+          {/* User Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-2">
+                <div className="hidden sm:block text-right">
+                  <p className="text-sm font-medium">{firstName}</p>
+                  <p className="text-xs text-muted-foreground">Doctor</p>
+                </div>
+                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                  <span className="text-xs font-semibold">{firstName[0]}</span>
+                </div>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <div className="px-2 py-1.5 text-sm">
+                <p className="font-medium">{doctorName}</p>
+                <p className="text-xs text-muted-foreground">{specialty || "Medical Professional"}</p>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/doctor/profile" className="flex items-center gap-2 cursor-pointer">
+                  <Settings className="h-4 w-4" />
+                  <span>Profile Settings</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/doctor/dashboard" className="flex items-center gap-2 cursor-pointer">
+                  <span>Dashboard</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <a href="/api/auth/logout" className="flex items-center gap-2 cursor-pointer text-destructive">
+                  <LogOut className="h-4 w-4" />
+                  <span>Sign Out</span>
+                </a>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </header>
+  );
+}
