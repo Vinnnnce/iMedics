@@ -160,7 +160,10 @@ describe.skipIf(!url)("cross-tenant access by id: remaining routes", () => {
       return prisma.user.create({ data: { clerkId: clerk[key], email: `${key}-${runId}@xt2.test`, name: `XT ${key}`, role, onboardingComplete: true } });
     };
     const [u1, u2, ud1, ud2] = [await user("p1", "PATIENT"), await user("p2", "PATIENT"), await user("d1", "DOCTOR"), await user("d2", "DOCTOR")];
-    const patient = (u: { id: string }, n: string) => prisma.patient.create({ data: { userId: u.id, caseNumber: `X2-${runId}-${n}`, firstName: `Synthetic${n}`, lastName: "Patient", gender: "OTHER", dateOfBirth: new Date("1990-01-01") } });
+    // QA- prefix keeps the shared acceptance database synthetic-only: the
+    // fixture guard refuses to build fixtures while any patient record
+    // without the acceptance marker exists (parallel test files share it).
+    const patient = (u: { id: string }, n: string) => prisma.patient.create({ data: { userId: u.id, caseNumber: `QA-X2-${runId}-${n}`, firstName: `Synthetic${n}`, lastName: "Patient", gender: "OTHER", dateOfBirth: new Date("1990-01-01") } });
     const [p1] = [await patient(u1, "1"), await patient(u2, "2")];
     const dp1 = await prisma.doctorProfile.create({ data: { userId: ud1.id, verificationStatus: "VERIFIED" } });
     await prisma.doctorProfile.create({ data: { userId: ud2.id, verificationStatus: "VERIFIED" } });
