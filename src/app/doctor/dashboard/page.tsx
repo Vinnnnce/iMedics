@@ -1,10 +1,11 @@
 import Link from "next/link";
 import {
   Calendar, ClipboardList, FlaskConical, Users, Sparkles, MessageSquare, Building2, BadgeCheck,
-  Bell, FileText, Stethoscope, ClipboardCheck,
+  Bell, FileText, Stethoscope, ClipboardCheck, Settings, Star, AlertCircle, Briefcase, Award,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
 import { getDoctorProfile, requirePageRole } from "@/lib/guards";
 import { clinicInstant, clinicToday } from "@/lib/clinic-time";
@@ -33,7 +34,7 @@ export default async function DoctorDashboardPage() {
     pendingBookings, activePatients, consultationsToday, aiToReview, upcoming, notifications,
     workspace, scheduleCount, portfolioCount,
     todaysAppointments, recentConsultations, draftConsultations, openCriticalAlerts, followUps,
-    recentLabResults, recentPrescriptions,
+    recentLabResults, recentPrescriptions, totalConsultations, doctorServices,
   ] = await Promise.all([
     prisma.appointment.count({ where: { AND: [{ doctorId: doctor.id, status: "BOOKED", scheduledAt: { gte: new Date() } }, visibleToDoctor] } }),
     prisma.patientAssignment.count({ where: { doctorId: doctor.id, status: "ACTIVE", patient: { deletedAt: null } } }),
@@ -89,6 +90,14 @@ export default async function DoctorDashboardPage() {
       orderBy: { issuedAt: "desc" },
       take: 5,
       include: { patient: { select: { id: true, firstName: true, lastName: true } } },
+    }),
+    // Total consultations for statistics
+    prisma.consultation.count({ where: { doctorId: doctor.id } }),
+    // Doctor services offered
+    prisma.doctorService.findMany({
+      where: { doctorId: doctor.id, isActive: true },
+      select: { id: true, name: true, price: true },
+      take: 3,
     }),
   ]);
 
@@ -165,15 +174,93 @@ export default async function DoctorDashboardPage() {
   ];
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="flex items-center gap-3">
+    <div className="space-y-6 max-w-6xl mx-auto p-6">
+      {/* Header with Practice Info */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Doctor Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage your patients and consultations</p>
+          <h1 className="text-3xl font-bold">{doctor.specialty ? `${doctor.specialty} Specialist` : "Doctor"}</h1>
+          <p className="text-muted-foreground mt-1">Welcome back, {user.name.split(" ")[0]}!</p>
         </div>
-        <Badge className="bg-muted text-muted-foreground rounded-lg ml-auto">
-          <BadgeCheck className="h-3 w-3 mr-1" /> Verified
-        </Badge>
+        <div className="flex flex-wrap gap-2">
+          {doctor.verificationStatus === "VERIFIED" && (
+            <Badge className="bg-green-100 text-green-800 rounded-lg">
+              <BadgeCheck className="h-3 w-3 mr-1" /> Verified
+            </Badge>
+          )}
+          {doctor.licenseVerification === "VERIFIED" && (
+            <Badge className="bg-blue-100 text-blue-800 rounded-lg">
+              <Award className="h-3 w-3 mr-1" /> License Verified
+            </Badge>
+          )}
+          {doctor.licenseExpiry && new Date(doctor.licenseExpiry) < new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) && (
+            <Badge variant="destructive" className="rounded-lg">
+              <AlertCircle className="h-3 w-3 mr-1" /> License expiring soon
+            </Badge>
+          )}
+          <Link href="/doctor/profile">
+            <Button variant="outline" size="sm">
+              <Settings className="h-4 w-4 mr-2" /> Settings
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Practice Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Rating */}
+        <Card className="beeline-card">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Patient Rating</p>
+                <p className="text-2xl font-bold flex items-center gap-1">
+                  {doctor.ratingAvg.toFixed(1)}
+                  <Star className="h-5 w-5 text-yellow-500" />
+                </p>
+                <p className="text-xs text-muted-foreground">{doctor.ratingCount} reviews</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Active Patients */}
+        <Card className="beeline-card">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Active Patients</p>
+                <p className="text-2xl font-bold">{activePatients}</p>
+              </div>
+              <Users className="h-8 w-8 text-blue-500 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Total Consultations */}
+        <Card className="beeline-card">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Consultations</p>
+                <p className="text-2xl font-bold">{totalConsultations}</p>
+              </div>
+              <ClipboardList className="h-8 w-8 text-purple-500 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Services */}
+        <Card className="beeline-card">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Active Services</p>
+                <p className="text-2xl font-bold">{doctorServices.length}</p>
+              </div>
+              <Briefcase className="h-8 w-8 text-green-500 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <ProfileCompletenessCard completeness={completeness} title="Complete your public profile" />
@@ -199,19 +286,42 @@ export default async function DoctorDashboardPage() {
 
       {/* Pending clinical tasks — the doctor's actionable queue */}
       {clinicalTasks.length > 0 && (
-        <Card className="beeline-card">
+        <Card className="beeline-card border-orange-200 bg-orange-50">
           <CardHeader>
-            <CardTitle className="text-lg">Pending clinical tasks</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-orange-600" />
+              Pending Actions ({clinicalTasks.length})
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {clinicalTasks.map((task) => (
-              <Link key={task.label} href={task.href} className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-muted/50">
+              <Link key={task.label} href={task.href} className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-white/50">
                 <span className="flex items-center gap-3">
                   <task.icon className="h-4 w-4 text-muted-foreground" />
                   {task.label}
                 </span>
                 <Badge className="rounded-lg">{task.value}</Badge>
               </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Practice Services */}
+      {doctorServices.length > 0 && (
+        <Card className="beeline-card">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="text-lg">My Services</CardTitle>
+            <Link href="/doctor/services">
+              <Button variant="ghost" size="sm">Manage</Button>
+            </Link>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {doctorServices.map((service) => (
+              <div key={service.id} className="flex items-center justify-between p-3 border rounded-lg text-sm">
+                <p className="font-medium">{service.name}</p>
+                <Badge variant="outline">{service.price} NGN</Badge>
+              </div>
             ))}
           </CardContent>
         </Card>
@@ -242,8 +352,11 @@ export default async function DoctorDashboardPage() {
 
       {/* Upcoming appointments */}
       <Card className="beeline-card">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="text-lg">Upcoming appointments</CardTitle>
+          <Link href="/doctor/booking-requests">
+            <Button variant="ghost" size="sm">View all</Button>
+          </Link>
         </CardHeader>
         <CardContent className="space-y-3">
           {upcoming.length === 0 && <p className="text-sm text-muted-foreground">No upcoming appointments.</p>}
@@ -333,21 +446,24 @@ export default async function DoctorDashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {modules.map((m) => (
-          <Link key={m.href} href={m.href}>
-            <Card className="beeline-card h-full transition-colors hover:bg-muted/50">
-              <CardContent className="flex items-start gap-3 p-4">
-                <m.icon className="mt-0.5 h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-semibold">{m.label}</p>
-                  <p className="text-xs text-muted-foreground">{m.desc}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+      {/* Quick Access Modules */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Quick Access</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {modules.map((m) => (
+            <Link key={m.href} href={m.href}>
+              <Card className="beeline-card h-full transition-colors hover:bg-muted/50">
+                <CardContent className="flex items-start gap-3 p-4">
+                  <m.icon className="mt-0.5 h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-semibold">{m.label}</p>
+                    <p className="text-xs text-muted-foreground">{m.desc}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );
-}
