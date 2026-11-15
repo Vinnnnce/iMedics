@@ -318,7 +318,8 @@ describe.skipIf(!url)("HIS real-database safety and workflows", () => {
     const row = await prisma.clinicalDocument.findFirstOrThrow({ where: { id: pinnedDocId }, include: documentInclude });
     const view = await buildDocumentView(row);
     expect(view.facility.name).toBe("Radiology Institute");
-    expect(view.facility.signatureBlocks).toEqual([]);
+    // The pinned Radiology letterhead carries its own signature block.
+    expect(view.facility.signatureBlocks?.map((b) => b.name)).toEqual(["Dr. Ada"]);
     // Unpinning falls back to the facility's automatic resolution.
     const unpinned = await buildDocumentView({ ...row, templateVersion: { ...row.templateVersion, definition: { ...(row.templateVersion.definition as Record<string, unknown>), output: { pageSize: "A4", letterheadId: null } } } });
     expect(unpinned.facility.name).toBe("Synthetic General Hospital");
@@ -332,10 +333,12 @@ describe.skipIf(!url)("HIS real-database safety and workflows", () => {
     }), { params: Promise.resolve({}) });
     expect(foreign.status).toBe(400);
     expect(((await foreign.json()) as { error: string }).error).toContain("not available to this facility");
+    await as("owner", "b");
     const other = await createTemplate(request("/api/facility/his/templates", "POST", {
       mode: "custom", name: `Other hospital pin ${runId}`, groupCode: "B", definition: { ...def, output: { pageSize: "A4", letterheadId: radiologyLetterheadId } },
     }, "b"), { params: Promise.resolve({}) });
     expect(other.status).toBe(400);
+    expect(((await other.json()) as { error: string }).error).toContain("not available to this facility");
   });
 
   it("keeps doctor letterheads personal: only the owner can list, edit or resolve them", async () => {
