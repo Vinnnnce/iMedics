@@ -5085,3 +5085,15 @@ enum FacilitySubscriptionStatus {
   EXPIRED
   CANCELLED
 }
+
+
+model LetterheadProfile {
+  // existing fields...
+
+  qrUrl              String?
+  watermark          String?
+  watermarkOpacity   Float?
+  watermarkRotation  Float?
+  locale             String?
+  dateFormat         String?
+}
