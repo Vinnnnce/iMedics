@@ -18,10 +18,14 @@ export const PATIENT_ACCOUNT_NAVIGATION: readonly NavItem[] = [
 ];
 
 export const PATIENT_HEALTH_LINKS: readonly NavItem[] = [
+  { href: "/patient/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/patient/cases", label: "Care episodes", icon: FolderOpen },
   { href: "/patient/history", label: "Health history", icon: ClipboardList },
   { href: "/patient/results", label: "Test results", icon: FlaskConical },
   { href: "/patient/prescriptions", label: "Prescriptions", icon: Pill },
+  { href: "/patient/reminders", label: "Medication reminders", icon: Bell },
+  { href: "/patient/documents", label: "Documents", icon: FileText },
+  { href: "/patient/safety", label: "Medical alerts", icon: Shield },
   { href: "/patient/case-reports?tab=documents", label: "Hospital documents", icon: FileText },
   { href: "/patient/case-reports", label: "Case reports", icon: FileText },
 ];
@@ -33,9 +37,11 @@ export const PATIENT_HEALTH_LINKS: readonly NavItem[] = [
  */
 export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
   PATIENT: [
-    { href: "/dashboard", label: "Home", icon: LayoutDashboard },
+    { href: "/patient/dashboard", label: "Home", icon: LayoutDashboard },
     { href: "/patient/appointments", label: "Appointments", icon: Calendar },
-    { href: "/patient/case-file", label: "My Health", icon: FileText },
+    { href: "/patient/prescriptions", label: "Medications", icon: Pill },
+    { href: "/patient/results", label: "Results", icon: FlaskConical },
+    { href: "/patient/documents", label: "Documents", icon: FileText },
     { href: "/patient/consult", label: "Messages", icon: MessageSquare },
   ],
   DOCTOR: [
@@ -111,9 +117,9 @@ export function getBottomNavigation(role: Role | null | undefined): readonly Nav
   const home = { href: ROLE_POLICY[role].dashboard, label: "Home", icon: Home };
   switch (role) {
     case "PATIENT": return [
-      home,
+      { href: "/patient/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/patient/appointments", label: "Appointments", icon: Calendar },
-      { href: "/patient/case-file", label: "My Health", icon: FileText },
+      { href: "/patient/prescriptions", label: "Medications", icon: Pill },
       { href: "/patient/consult", label: "Messages", icon: MessageSquare },
     ];
     case "DOCTOR": return [home, { href: "/doctor/patients", label: "Patients", icon: Users }, { href: "/doctor/consultations", label: "Notes", icon: ClipboardList }, { href: "/doctor/chat", label: "Messages", icon: MessageSquare }];

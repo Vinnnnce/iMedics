@@ -1,146 +1,30 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Building2, Calendar, FileText, FlaskConical, Stethoscope } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { NotificationsCard } from "@/components/shared/notifications-card";
-import { SuggestionsCard } from "@/components/shared/suggestions-card";
-import { patientSuggestions } from "@/lib/suggestions";
 import { getCurrentUser } from "@/lib/auth";
-import { requirePageRole } from "@/lib/guards";
-import { prisma } from "@/lib/prisma";
-import { listUnreadNotifications } from "@/lib/data/notifications";
-import { formatClinicDateTime, formatDate } from "@/lib/format";
 
-export default async function PatientDashboardPage() {
-  // Other roles have their own dashboards; "/" already routes everyone correctly.
+export default async function DashboardPage() {
+  // Route to role-specific dashboards
   const current = await getCurrentUser();
-  if (current && current.role !== "PATIENT" && current.onboardingComplete) redirect("/");
-  const user = await requirePageRole("PATIENT");
 
-  const owner = { patient: { userId: user.id, deletedAt: null } };
-  const [upcoming, activePrescriptions, resultCount, recentResults, notifications, unpaidPayments, failedPayments, unreadMessages, patientProfile] =
-    await Promise.all([
-    prisma.appointment.findMany({
-      where: { ...owner, status: { in: ["BOOKED", "CONFIRMED"] }, scheduledAt: { gte: new Date() } },
-      orderBy: { scheduledAt: "asc" },
-      take: 3,
-      include: { doctor: { select: { user: { select: { name: true } } } } },
-    }),
-    // Stat-card query that must never break the landing page: if the
-    // prescription table is missing (migration not applied to this environment),
-    // log loudly and show 0 instead of crashing the whole dashboard.
-    prisma.prescription
-      .count({ where: { ...owner, status: "ACTIVE" } })
-      .catch((error: unknown) => {
-        console.error(
-          "[dashboard] prescription stats unavailable — has `prisma migrate deploy` been run?",
-          error instanceof Error ? error.message : error,
-        );
-        return 0;
-      }),
-    prisma.labResult.count({ where: { ...owner, status: { not: "REJECTED" } } }),
-    prisma.labResult.findMany({
-      where: { ...owner, status: { not: "REJECTED" } },
-      orderBy: { testDate: "desc" },
-      take: 3,
-      select: { id: true, panelType: true, testDate: true, status: true },
-    }),
-    listUnreadNotifications(user.id),
-    prisma.payment.count({ where: { payerId: user.id, status: { in: ["PENDING", "REFUND_PENDING", "FAILED", "REFUNDED"] } } }),
-    prisma.payment.count({ where: { payerId: user.id, status: "FAILED" } }),
-    prisma.chatMessage.count({ where: { senderId: { not: user.id }, conversation: { patient: { userId: user.id, deletedAt: null } }, readAt: null } }),
-    prisma.patient.findUnique({ where: { userId: user.id }, select: { bloodGroup: true } }),
-  ]);
+  if (!current) {
+    redirect("/auth/login");
+  }
 
-  const suggestionItems = patientSuggestions({
-    hasUpcomingAppointment: upcoming.length > 0,
-    unpaidPayments,
-    failedPayments,
-    pendingResults: resultCount,
-    unreadMessages,
-    hasBloodGroup: Boolean(patientProfile?.bloodGroup),
-  });
+  if (current.role === "PATIENT") {
+    redirect("/patient/dashboard");
+  }
 
-  const stats = [
-    { label: "Upcoming appointments", value: upcoming.length, icon: Calendar, href: "/patient/appointments" },
-    { label: "Active prescriptions", value: activePrescriptions, icon: FileText, href: "/patient/prescriptions" },
-    { label: "Lab results", value: resultCount, icon: FlaskConical, href: "/patient/results" },
-  ];
+  if (current.role === "DOCTOR") {
+    redirect("/doctor/dashboard");
+  }
 
-  return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Hello, {user.name.split(" ")[0]}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Your health at a glance</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/doctors" className="inline-flex h-10 items-center gap-2 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:opacity-90">
-            <Stethoscope className="h-4 w-4" aria-hidden="true" /> Book an appointment
-          </Link>
-          <Link href="/facilities" className="inline-flex h-10 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium hover:bg-muted">
-            <Building2 className="h-4 w-4" aria-hidden="true" /> Find a facility
-          </Link>
-        </div>
-      </div>
+  if (current.role === "LAB_SCIENTIST") {
+    redirect("/lab/dashboard");
+  }
 
-      <NotificationsCard items={notifications.map((n) => ({ ...n, createdAt: n.createdAt.toISOString() }))} />
+  if (current.role === "ADMIN") {
+    redirect("/admin/dashboard");
+  }
 
-      {/* Account-specific suggestions */}
-      <SuggestionsCard items={suggestionItems} />
-
-      <div className="grid grid-cols-3 gap-3">
-        {stats.map((s) => (
-          <Link key={s.label} href={s.href}>
-            <Card className="beeline-card h-full transition-colors hover:bg-muted/50">
-              <CardContent className="p-4">
-                <s.icon className="h-5 w-5 text-muted-foreground" />
-                <p className="mt-3 text-2xl font-bold">{s.value}</p>
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
-
-      <Card className="beeline-card">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">Next appointments</CardTitle>
-          <Link href="/doctors" className="flex items-center gap-1 text-sm underline">
-            <Stethoscope className="h-4 w-4" /> Find a doctor
-          </Link>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {upcoming.length === 0 && <p className="text-sm text-muted-foreground">No upcoming appointments.</p>}
-          {upcoming.map((a) => (
-            <div key={a.id} className="flex items-center justify-between gap-3 text-sm">
-              <div>
-                <p className="font-medium">{a.doctor.user.name}</p>
-                <p className="text-xs text-muted-foreground">{formatClinicDateTime(a.scheduledAt)}</p>
-              </div>
-              <Badge variant={a.status === "CONFIRMED" ? "secondary" : "outline"} className="rounded-lg">
-                {a.status === "CONFIRMED" ? "Confirmed" : "Awaiting doctor"}
-              </Badge>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card className="beeline-card">
-        <CardHeader>
-          <CardTitle className="text-lg">Recent lab results</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {recentResults.length === 0 && <p className="text-sm text-muted-foreground">No results yet.</p>}
-          {recentResults.map((r) => (
-            <div key={r.id} className="flex items-center justify-between text-sm">
-              <p className="font-medium">{r.panelType}</p>
-              <p className="text-xs text-muted-foreground">{formatDate(r.testDate)}</p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-    </div>
-  );
+  redirect("/");
 }
+

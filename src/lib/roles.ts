@@ -2,7 +2,7 @@ import type { Role, UserStatus } from "@prisma/client";
 
 /** Facility remains LAB_SCIENTIST in persistence for backwards compatibility. */
 export const ROLE_POLICY = {
-  PATIENT: { label: "Patient", dashboard: "/dashboard" },
+  PATIENT: { label: "Patient", dashboard: "/patient/dashboard" },
   DOCTOR: { label: "Doctor", dashboard: "/doctor/dashboard" },
   LAB_SCIENTIST: { label: "Facility", dashboard: "/lab/dashboard" },
   ADMIN: { label: "Admin", dashboard: "/admin/dashboard" },
