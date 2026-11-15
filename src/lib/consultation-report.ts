@@ -2,6 +2,7 @@ import { PDFDocument, rgb, degrees } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import type { ConsultationWithRelations } from "@/lib/consultation";
 import { PAGE_SIZES, Writer, loadPdfFonts } from "@/lib/his/pdf";
+import { resolveDoctorLetterhead } from "@/lib/letterheads";
 
 /** The clinical content of a report as it stood at one revision. */
 export interface ConsultationSnapshot {
@@ -84,8 +85,25 @@ export async function renderConsultationPdf(c: ConsultationWithRelations): Promi
   pdf.setTitle(`Consultation report ${reportNumber}`);
 
   const size = PAGE_SIZES.A4;
+  // Independent-practice doctors get their own approved letterhead; when none
+  // exists the generic Medic1905 header is used.
+  const letterhead = await resolveDoctorLetterhead(c.doctor.userId);
+  const m = /^#?([0-9A-Fa-f]{6})$/.exec(letterhead?.brandColor ?? "");
+  const brandColor: [number, number, number] = m
+    ? [parseInt(m[1].slice(0, 2), 16) / 255, parseInt(m[1].slice(2, 4), 16) / 255, parseInt(m[1].slice(4, 6), 16) / 255]
+    : [0.1, 0.1, 0.1];
   const w = new Writer(pdf, size, font, bold, (writer) => {
-    writer.text("Medic1905 — Consultation report", { size: 13, bold: true });
+    if (letterhead) {
+      writer.text(letterhead.displayName, { size: 13, bold: true, color: brandColor });
+      for (const line of letterhead.headerLines) writer.text(line, { size: 8, color: GREY });
+      if (letterhead.registrationInfo) writer.text(letterhead.registrationInfo, { size: 7, color: [0.45, 0.45, 0.45] });
+      if (letterhead.website) writer.text(letterhead.website, { size: 7, color: [0.45, 0.45, 0.45] });
+      if (letterhead.addressLine) writer.text(letterhead.addressLine, { size: 8, color: GREY });
+      const contact = [letterhead.contactPhone, letterhead.contactEmail].filter(Boolean).join(" · ");
+      if (contact) writer.text(contact, { size: 8, color: GREY });
+    } else {
+      writer.text("Medic1905 — Consultation report", { size: 13, bold: true });
+    }
     writer.text(`Patient: ${patientName} · ${c.patient.caseNumber} · DOB ${day(c.patient.dateOfBirth)} · ${c.patient.gender.toLowerCase()}`, { size: 8 });
     writer.rule();
   });

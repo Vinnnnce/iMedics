@@ -7,6 +7,7 @@ import { parseDefinition, sectionVisible, type DocumentContent, type TemplateDef
 import { contentHash, missingSignatures, watermarkFor, STATUS_LABEL } from "./workflow";
 import type { User } from "@prisma/client";
 import { assertScopedDocumentAccess } from "@/lib/organization/document-access";
+import { resolveFacilityLetterhead, type LetterheadSignatureBlock } from "@/lib/letterheads";
 
 export const documentInclude = {
   templateVersion: { select: { version: true, definition: true, template: { select: { id: true, name: true, code: true } } } },
@@ -54,7 +55,13 @@ export interface DocumentView {
   supersedes: { id: string; documentNumber: string } | null;
   supersededBy: { id: string; documentNumber: string; status: string } | null;
   author: { id: string; name: string };
-  facility: { name: string; letterhead: string[]; address: string | null; contact: string | null; footer: string | null; pageSize: string; logoUrl: string | null; prefix: string };
+  facility: {
+    name: string; letterhead: string[]; address: string | null; contact: string | null; footer: string | null;
+    pageSize: string; logoUrl: string | null; prefix: string;
+    /** Letterhead branding (optional — falls back to plain rendering). */
+    brandColor?: string; registrationInfo?: string | null; website?: string | null; showQr?: boolean;
+    signatureBlocks?: LetterheadSignatureBlock[];
+  };
   patient: { id: string; name: string; caseNumber: string; dateOfBirth: string; gender: string };
   encounterNumber: string | null;
   definition: TemplateDefinition;
@@ -72,6 +79,9 @@ export async function buildDocumentView(doc: DocumentRow): Promise<DocumentView>
   const reviewer = doc.reviewedById ? await prisma.user.findUnique({ where: { id: doc.reviewedById }, select: { name: true } }) : null;
   const s = doc.facility.hospitalSettings;
   const fallbackAddress = [doc.facility.addressLine, doc.facility.city, doc.facility.state].filter(Boolean).join(", ") || null;
+  // Department-specific letterhead first, facility default second; when a
+  // letterhead exists its details override the plain settings block.
+  const letterhead = await resolveFacilityLetterhead(doc.facility.id, doc.department);
   return {
     id: doc.id,
     documentNumber: doc.documentNumber,
@@ -105,6 +115,21 @@ export async function buildDocumentView(doc: DocumentRow): Promise<DocumentView>
       pageSize: definition.output.pageSize || s?.pageSize || "A4",
       logoUrl: s?.logoUrl ?? null,
       prefix: s?.documentNumberPrefix ?? "DOC",
+      ...(letterhead
+        ? {
+            name: letterhead.displayName,
+            letterhead: letterhead.headerLines,
+            address: letterhead.addressLine || fallbackAddress,
+            contact: [letterhead.contactPhone, letterhead.contactEmail].filter(Boolean).join(" · ") || null,
+            footer: letterhead.footerText ?? s?.footerText ?? null,
+            logoUrl: letterhead.logoUrl ?? s?.logoUrl ?? null,
+            brandColor: letterhead.brandColor,
+            registrationInfo: letterhead.registrationInfo,
+            website: letterhead.website,
+            showQr: letterhead.showQr,
+            signatureBlocks: letterhead.signatureBlocks,
+          }
+        : {}),
     },
     patient: {
       id: doc.patient.id,

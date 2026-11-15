@@ -126,6 +126,7 @@ model User {
   country                                                     String?
   adminMembershipsCreated                                     AdminMembership[]             @relation("AdminMembershipCreator")
   adminMemberships                                            AdminMembership[]             @relation("AdminMembershipUser")
+  letterheads                                                LetterheadProfile[]           @relation("LetterheadOwner")
   adminPermissionOverridesGiven                               AdminPermissionOverride[]     @relation("AdminOverrideCreator")
   adminPermissionOverrides                                    AdminPermissionOverride[]     @relation("AdminOverrideUser")
   adminRoleAssignmentsGiven                                   AdminRoleAssignment[]         @relation("AdminRoleAssignmentCreator")
@@ -420,6 +421,7 @@ model LabStaffProfile {
   payerCoverages          PayerCoverage[]            @relation("PayerCoverageFacility")
   pharmacyPurchaseOrders  PharmacyPurchaseOrder[]    @relation("PharmacyPurchaseOrderFacility")
   stockBatches            PharmacyStockBatch[]       @relation("PharmacyStockBatchFacility")
+  letterheads            LetterheadProfile[]        @relation("LetterheadFacility")
   pharmacySuppliers       PharmacySupplier[]         @relation("PharmacySupplierFacility")
   subaccount              ProviderSubaccount?
   registrationDrafts      RegistrationDraft[]        @relation("RegistrationDraftFacility")
@@ -2505,6 +2507,52 @@ model HospitalSettingsRevision {
 
   @@unique([settingsId, version])
   @@map("hospital_settings_revisions")
+}
+
+/// Official document letterhead. Facility letterheads (facilityId set) may be
+/// general or department-specific; personal letterheads (userId set) belong to
+/// an independent doctor for documents issued under their own practice. The
+/// issuing organisation shown on a document always comes from the letterhead
+/// actually used, so a facility's registration cannot be misrepresented.
+model LetterheadProfile {
+  id               String           @id @default(uuid()) @db.Uuid
+  /// Owning facility; null for personal doctor letterheads.
+  facilityId       String?          @map("facility_id") @db.Uuid
+  /// Owning doctor; null for facility letterheads.
+  userId           String?          @map("user_id") @db.Uuid
+  name             String           @db.VarChar(120)
+  /// Department this letterhead applies to (e.g. "Radiology"); null = general.
+  department       String?          @db.VarChar(120)
+  isDefault        Boolean          @default(false) @map("is_default")
+  displayName      String           @map("display_name") @db.VarChar(200)
+  headerLines      String[]         @default([]) @map("header_lines")
+  addressLine      String?          @map("address_line") @db.VarChar(300)
+  contactPhone     String?          @map("contact_phone") @db.VarChar(40)
+  contactEmail     String?          @map("contact_email") @db.VarChar(120)
+  website          String?          @db.VarChar(160)
+  /// Registration / accreditation line (licence, NHIA/HMO or similar).
+  registrationInfo String?          @map("registration_info") @db.VarChar(300)
+  /// Hex colour for the organisation name and rules, e.g. #0F766E.
+  brandColor       String           @default("#0F766E") @map("brand_color") @db.VarChar(7)
+  footerText       String?          @map("footer_text") @db.VarChar(300)
+  logoUrl          String?          @map("logo_url") @db.VarChar(500)
+  /// Print a QR verification code (document number + content hash) on PDFs.
+  showQr           Boolean          @default(true) @map("show_qr")
+  watermark        String?          @db.VarChar(60)
+  /// Static authorised signature blocks: [{ name, title, registrationId, side }].
+  signatureBlocks  Json             @default("[]") @map("signature_blocks")
+  active           Boolean          @default(true)
+  createdById      String           @map("created_by_id") @db.Uuid
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  facility         LabStaffProfile? @relation("LetterheadFacility", fields: [facilityId], references: [id], onDelete: Cascade)
+  user             User?            @relation("LetterheadOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([facilityId, name])
+  @@unique([userId, name])
+  @@index([facilityId, active])
+  @@map("letterhead_profiles")
 }
 
 /// A hospital's own document type. Cloned from the system catalogue or created

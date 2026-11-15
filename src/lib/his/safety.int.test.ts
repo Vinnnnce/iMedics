@@ -29,6 +29,11 @@ import { GET as patientList } from "@/app/api/patient/clinical-documents/route";
 import { GET as patientPdf } from "@/app/api/patient/clinical-documents/[id]/pdf/route";
 import { GET as encounters } from "@/app/api/facility/his/encounters/route";
 import { POST as acknowledge } from "@/app/api/facility/critical-alerts/[id]/route";
+import { POST as createLetterhead, GET as listLetterheads } from "@/app/api/facility/his/letterheads/route";
+import { GET as getLetterhead, PATCH as patchLetterhead, DELETE as deleteLetterhead } from "@/app/api/facility/his/letterheads/[id]/route";
+import { GET as listDoctorLetterheads, POST as createDoctorLetterhead } from "@/app/api/doctors/me/letterheads/route";
+import { PATCH as patchDoctorLetterhead } from "@/app/api/doctors/me/letterheads/[id]/route";
+import { resolveDoctorLetterhead, resolveFacilityLetterhead } from "@/lib/letterheads";
 import { documentEvent } from "./audit";
 
 const url = process.env.HIS_TEST_DATABASE_URL;
@@ -218,5 +223,87 @@ describe.skipIf(!url)("HIS real-database safety and workflows", () => {
   it("prevents direct edits of finalized clinical content at the database boundary", async () => {
     await expect(prisma.clinicalDocument.update({ where: { id: docId }, data: { content: { note: "MUST NOT OVERWRITE" } } })).rejects.toThrow(/finalized clinical content/);
     await expect(prisma.clinicalDocument.update({ where: { id: docId }, data: { status: "DRAFT" } })).rejects.toThrow(/finalized clinical content/);
+  });
+
+  it("lets an administrator design facility letterheads, per department, with versioned audit", async () => {
+    await as("owner");
+    const body = {
+      name: `Main letterhead ${runId}`, displayName: "Synthetic General Hospital",
+      headerLines: ["Department of Medicine", "Referral hospital"], registrationInfo: "QA registration 000",
+      website: "https://example.org", brandColor: "#1D4ED8", footerText: "Confidential — synthetic fixture",
+      showQr: true, signatureBlocks: [{ name: "Dr. Ada", title: "Consultant", registrationId: "QA-1", side: "left" }],
+    };
+    const created = await createLetterhead(request("/api/facility/his/letterheads", "POST", body), { params: Promise.resolve({}) });
+    expect(created.status).toBe(201);
+    const letterhead = (await created.json()).letterhead as { id: string; isDefault: boolean; brandColor: string };
+    expect(letterhead.isDefault).toBe(true); // first letterhead becomes the default
+    expect(letterhead.brandColor).toBe("#1D4ED8");
+    expect(await prisma.auditLog.count({ where: { action: "HIS_LETTERHEAD_CREATED", resourceId: letterhead.id, facilityId: fac().id } })).toBe(1);
+
+    // A department-specific letterhead for Radiology.
+    const dept = await createLetterhead(request("/api/facility/his/letterheads", "POST", { ...body, name: `Radiology letterhead ${runId}`, department: "Radiology", displayName: "Radiology Institute" }), { params: Promise.resolve({}) });
+    expect(dept.status).toBe(201);
+
+    // Resolution: department match first, facility default otherwise.
+    expect((await resolveFacilityLetterhead(fac().id, "radiology"))?.displayName).toBe("Radiology Institute");
+    expect(await resolveFacilityLetterhead(fac().id, null)).not.toBeNull();
+    expect(await resolveFacilityLetterhead(fac("b").id, null)).toBeNull(); // tenant isolation
+
+    // Updates and listing.
+    expect((await patchLetterhead(request("/letterheads", "PATCH", { footerText: "Updated footer" }), ctx(letterhead.id))).status).toBe(200);
+    const list = await listLetterheads(request("/letterheads", "GET"), { params: Promise.resolve({}) });
+    expect((await list.json()).letterheads).toHaveLength(2);
+
+    // The other hospital cannot see or touch this letterhead.
+    await as("owner", "b");
+    expect((await getLetterhead(request("/letterheads", "GET", undefined, "b"), ctx(letterhead.id))).status).toBe(404);
+    expect((await patchLetterhead(request("/letterheads", "PATCH", { footerText: "steal" }, "b"), ctx(letterhead.id))).status).toBe(404);
+    expect((await deleteLetterhead(request("/letterheads", "DELETE", undefined, "b"), ctx(letterhead.id))).status).toBe(404);
+    await as("owner");
+  });
+
+  it("renders documents under the resolved letterhead with the verification QR", async () => {
+    await as("author");
+    const response = await pdf(request("/pdf"), ctx(docId));
+    expect(response.status).toBe(200);
+    const bytes = Buffer.from(await response.arrayBuffer());
+    expect(bytes.subarray(0, 5).toString()).toBe("%PDF-");
+    // The finalized document is issued under the facility letterhead, which
+    // enables the QR — so the rendered PDF carries an embedded QR image.
+    expect((bytes.toString("latin1").match(/\/Subtype\s*\/Image/g) ?? []).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("keeps doctor letterheads personal: only the owner can list, edit or resolve them", async () => {
+    // A synthetic verified doctor (independent practice) outside the facility roster.
+    const doctorUser = await prisma.user.create({ data: {
+      clerkId: `local_test_${runId}_doctor_letterhead`, email: `qa-doctor-letterhead-${runId}@example.org`,
+      name: "QA Doctor Letterhead", role: "DOCTOR", accountType: "DOCTOR", status: "ACTIVE", onboardingComplete: true,
+      testAccountExpiresAt: new Date(manifest.expiresAt),
+    } });
+    await prisma.doctorProfile.create({ data: { userId: doctorUser.id, verificationStatus: "VERIFIED" } });
+    vi.mocked(requireUser).mockResolvedValue(doctorUser);
+    vi.mocked(requireRole).mockImplementation(async (...roles) => {
+      if (!roles.includes(doctorUser.role)) throw new Error("Fixture does not have requested platform role");
+      return doctorUser;
+    });
+
+    const created = await createDoctorLetterhead(new NextRequest("http://localhost:3000/api/doctors/me/letterheads", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Practice letterhead", displayName: "Dr. Ada — Independent Practice", headerLines: ["Independent practice"], brandColor: "#7C3AED", showQr: true }),
+    }), { params: Promise.resolve({}) });
+    expect(created.status).toBe(201);
+    const personal = (await created.json()).letterhead as { id: string; isDefault: boolean };
+    expect(personal.isDefault).toBe(true);
+
+    const list = await listDoctorLetterheads(new NextRequest("http://localhost:3000/api/doctors/me/letterheads"), { params: Promise.resolve({}) });
+    expect((await list.json()).letterheads).toHaveLength(1);
+    expect((await resolveDoctorLetterhead(doctorUser.id))?.brandColor).toBe("#7C3AED");
+
+    expect((await patchDoctorLetterhead(new NextRequest(`http://localhost:3000/api/doctors/me/letterheads/${personal.id}`, {
+      method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ footerText: "Personal footer" }),
+    }), ctx(personal.id))).status).toBe(200);
+
+    // A facility owner (different user) cannot resolve the doctor's letterhead.
+    expect(await resolveDoctorLetterhead(manifest.users[0].userId)).toBeNull();
   });
 });

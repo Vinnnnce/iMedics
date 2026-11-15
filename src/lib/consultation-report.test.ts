@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/prisma", () => ({ prisma: {} }));
+vi.mock("@/lib/prisma", () => ({ prisma: { letterheadProfile: { findMany: vi.fn(async () => []) } } }));
 
 import { renderConsultationPdf, snapshotConsultation } from "@/lib/consultation-report";
 import type { ConsultationWithRelations } from "@/lib/consultation";
