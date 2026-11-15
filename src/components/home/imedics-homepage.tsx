@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { PublicEntryLink as Link } from "@/components/shared/public-entry-link";
 import {
@@ -24,6 +24,9 @@ export interface ImedicsHomeAd {
   imageUrl?: string | null;
   linkUrl?: string | null;
 }
+
+const PRIMARY_NAV_LINKS = IMEDICS_NAV_LINKS.filter((link) => !link.compactOnly);
+const MORE_NAV_LINKS = IMEDICS_NAV_LINKS.filter((link) => link.compactOnly);
 
 const SERVICE_ICONS: Record<ImedicsServiceCard["icon"], LucideIcon> = {
   stethoscope: Stethoscope,
@@ -280,6 +283,24 @@ export function ImedicsHomepage({
 }) {
   const { theme, toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (event.target instanceof Node && !moreMenuRef.current?.contains(event.target)) setMoreOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMoreOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [moreOpen]);
 
   const adSlides: ImedicsHomeSlide[] | undefined = carouselAds
     ? carouselAds.map((ad, index) => ({
@@ -295,28 +316,58 @@ export function ImedicsHomepage({
 
   return (
     <div className="im-mono flex min-h-screen flex-col bg-background text-foreground">
-      <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
-        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 lg:px-8">
+      <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-xl">
+        <div className="mx-auto flex h-18 w-full max-w-7xl items-center justify-between gap-3 px-3 sm:gap-4 sm:px-6 lg:px-8">
           <Link
             href="/"
-            className="flex items-center gap-2 rounded-lg transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="flex shrink-0 items-center rounded-xl transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             aria-label="Medic1905 home"
           >
-            <BrandMark className="h-10" />
+            <BrandMark className="h-8 sm:h-9" />
           </Link>
 
-          <nav className="hidden items-center gap-5 lg:flex xl:gap-6" aria-label="Primary">
-            {IMEDICS_NAV_LINKS.map((link) => (
+          <nav className="hidden items-center gap-0.5 rounded-full border border-border/70 bg-card/70 p-1 lg:flex" aria-label="Primary">
+            {PRIMARY_NAV_LINKS.map((link) => (
               <Link
                 key={link.href + link.label}
                 href={link.href}
-                className={`text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring ${
-                  link.compactOnly ? "hidden xl:inline" : ""
+                aria-current={link.href === "/" ? "page" : undefined}
+                className={`whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+                  link.href === "/" ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 }`}
               >
                 {link.label}
               </Link>
             ))}
+            <div className="relative" ref={moreMenuRef}>
+              <button
+                type="button"
+                onClick={() => setMoreOpen((open) => !open)}
+                aria-expanded={moreOpen}
+                aria-controls="im-desktop-more-menu"
+                className="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                More
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${moreOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+              </button>
+              {moreOpen && (
+                <div
+                  id="im-desktop-more-menu"
+                  className="absolute right-0 top-full z-50 mt-2 w-56 rounded-2xl border border-border bg-background p-2 shadow-xl"
+                >
+                  {MORE_NAV_LINKS.map((link) => (
+                    <Link
+                      key={link.href + link.label}
+                      href={link.href}
+                      onClick={() => setMoreOpen(false)}
+                      className="block rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </nav>
 
           <div className="flex items-center gap-2">
@@ -325,7 +376,7 @@ export function ImedicsHomepage({
               onClick={toggleTheme}
               aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
               data-testid="button-home-theme-toggle"
-              className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               {theme === "dark" ? (
                 <Sun className="h-5 w-5" aria-hidden="true" />
@@ -337,7 +388,7 @@ export function ImedicsHomepage({
             <Link
               href="/auth/login"
               data-testid="link-home-login"
-              className="hidden rounded-full border border-border px-4 py-2 text-sm font-semibold transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:inline"
+              className="hidden h-10 items-center rounded-full border border-border px-4 text-sm font-semibold transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:inline-flex"
             >
               Log in
             </Link>
@@ -345,7 +396,7 @@ export function ImedicsHomepage({
             <Link
               href="/auth/signup"
               data-testid="link-home-signup"
-              className="rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="inline-flex h-10 items-center whitespace-nowrap rounded-full bg-foreground px-3 text-xs font-semibold text-background transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:px-4 sm:text-sm"
             >
               Sign up
             </Link>
@@ -357,7 +408,7 @@ export function ImedicsHomepage({
               aria-controls="im-mobile-menu"
               aria-label={menuOpen ? "Close menu" : "Open menu"}
               data-testid="button-home-mobile-menu"
-              className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:hidden"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:hidden"
             >
               {menuOpen ? (
                 <X className="h-5 w-5" aria-hidden="true" />
@@ -464,7 +515,7 @@ export function ImedicsHomepage({
               </div>
             </div>
 
-            <div className="relative mx-auto aspect-[4/3] w-full max-w-xl overflow-hidden rounded-3xl border border-border lg:aspect-[4/5]">
+            <div className="relative mx-auto aspect-4/3 w-full max-w-xl overflow-hidden rounded-3xl border border-border lg:aspect-4/5">
               <Image
                 src="/home/hero-consultation.jpg"
                 alt="A doctor speaking with a patient during a video consultation"
@@ -588,7 +639,7 @@ export function ImedicsHomepage({
                 className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all hover:-translate-y-0.5 hover:border-foreground/40 hover:shadow-md focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring"
               >
                 {audience.image ? (
-                  <div className="relative aspect-[16/10] w-full">
+                  <div className="relative aspect-16/10 w-full">
                     <Image
                       src={audience.image}
                       alt={audience.imageAlt ?? audience.title}
@@ -599,7 +650,7 @@ export function ImedicsHomepage({
                   </div>
                 ) : (
                   <div
-                    className="flex aspect-[16/10] w-full items-center justify-center bg-accent"
+                    className="flex aspect-16/10 w-full items-center justify-center bg-accent"
                     aria-hidden="true"
                   >
                     {audience.key === "pharmacies" ? (

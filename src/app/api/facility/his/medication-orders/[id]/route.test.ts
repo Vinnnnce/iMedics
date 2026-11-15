@@ -12,6 +12,7 @@ vi.mock("@/lib/prisma", () => {
   return {
     prisma: {
       medicationOrder: make(),
+      patient: make(),
       pharmacyStockBatch: make(),
       formularyItem: make(),
       controlledSubstanceEvent: make(),
@@ -84,6 +85,7 @@ beforeEach(() => {
     permissions: ["REVIEW_MEDICATIONS", "ORDER_MEDICATIONS"],
   } as never);
   vi.mocked(prisma.$transaction).mockImplementation(((fn: (tx: unknown) => unknown) => fn(prisma)) as never);
+  vi.mocked(prisma.patient.findUnique).mockResolvedValue({ caseNumber: "CASE-000001" } as never);
 });
 
 describe("PATCH /api/facility/his/medication-orders/[id]", () => {

@@ -13,6 +13,7 @@ vi.mock("@/lib/his/audit", () => ({ auditHis: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ writeAudit: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    patient: { findMany: vi.fn() },
     nursingObservation: { findMany: vi.fn(), create: vi.fn() },
     nursingTask: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     nursingHandover: { findMany: vi.fn(), create: vi.fn() },
@@ -42,6 +43,7 @@ beforeEach(() => {
   vi.mocked(requireUser).mockResolvedValue({ id: "nurse-1", role: "NURSE", status: "ACTIVE", onboardingComplete: true, deletedAt: null } as never);
   vi.mocked(requireHisAccess).mockResolvedValue({ facility: { id: "hospital-a" }, user: { id: "nurse-1", role: "NURSE" }, permissions: ["RECORD_NURSING", "VIEW_PATIENT_DOCUMENTS"] } as never);
   vi.mocked(assertPatientLinked).mockResolvedValue(undefined);
+  vi.mocked(prisma.patient.findMany).mockResolvedValue([] as never);
 });
 
 describe("nursing observations", () => {
@@ -81,10 +83,11 @@ describe("nursing observations", () => {
   });
 
   it("lists a patient's observation log", async () => {
-    vi.mocked(prisma.nursingObservation.findMany).mockResolvedValue([{ id: "obs-1", observationType: "PULSE" }] as never);
+    vi.mocked(prisma.nursingObservation.findMany).mockResolvedValue([{ id: "obs-1", patientId: PATIENT, observationType: "PULSE" }] as never);
+    vi.mocked(prisma.patient.findMany).mockResolvedValue([{ id: PATIENT, firstName: "Ada", lastName: "Patient", caseNumber: "CASE-1" }] as never);
     const res = await listObservations(new NextRequest(`http://localhost:3000/api/facility/his/nursing/observations?patientId=${PATIENT}`), { user: { id: "nurse-1", role: "NURSE" }, params: Promise.resolve({}) } as never);
     expect(res.status).toBe(200);
-    expect((await res.json()).observations).toHaveLength(1);
+    expect((await res.json()).observations[0].patient).toMatchObject({ id: PATIENT, caseNumber: "CASE-1" });
     expect(assertPatientLinked).toHaveBeenCalledWith("hospital-a", PATIENT);
   });
 });

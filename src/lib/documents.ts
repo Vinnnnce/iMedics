@@ -5,6 +5,7 @@ import { findAccessiblePatient } from "@/lib/access";
 import { effectivePermissions } from "@/lib/facility-auth";
 import { getStaffMembership, assertStaffCanReachPatient } from "@/lib/staff-access";
 import { writeAudit } from "@/lib/audit";
+import { notFound } from "@/lib/errors";
 import type { AccessibleDocument } from "@/lib/documents/shared";
 
 /**
@@ -31,7 +32,8 @@ export function documentStorageKey(patientId: string, fileName: string): string 
   return `patient-documents/${patientId}/${randomUUID()}.${safeExt}`;
 }
 
-const notFoundDocument = () => Object.assign(new Error("Document not found"), { status: 404 });
+// Must be an ApiError: a plain Error with a status field is reported as a 500.
+const notFoundDocument = () => notFound("Document not found");
 
 /**
  * The facilities whose patient documents this user may read: the facility they

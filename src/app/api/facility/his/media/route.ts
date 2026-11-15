@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { RATE_LIMITS } from "@/lib/rate-limit";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseQuery } from "@/lib/api";
@@ -96,4 +97,4 @@ export const POST = withAuth(null, async (req, { user }) => {
     parts: presigned.map((url, i) => ({ partNumber: i + 1, url })),
     expiresInSeconds: PART_URL_TTL_SECONDS,
   });
-});
+}, { rateLimit: RATE_LIMITS.upload });

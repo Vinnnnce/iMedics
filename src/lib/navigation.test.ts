@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { getBottomNavigation, getRoleNavigation } from "./navigation";
+import { getBottomNavigation, getRoleNavigation, PATIENT_ACCOUNT_NAVIGATION, PATIENT_HEALTH_LINKS } from "./navigation";
 import { ROLE_POLICY } from "./roles";
 
 describe("role-aware navigation", () => {
@@ -12,10 +12,37 @@ describe("role-aware navigation", () => {
   it("does not expose patient clinical routes to admins", () => {
     expect(getRoleNavigation("ADMIN").some(item => item.href.startsWith("/patient") || item.href === "/dashboard")).toBe(false);
   });
+  it("keeps the patient menu focused and groups supporting links under My Health or Account", () => {
+    const primary = [
+      ["/dashboard", "Home"],
+      ["/patient/appointments", "Appointments"],
+      ["/patient/case-file", "My Health"],
+      ["/patient/consult", "Messages"],
+    ];
+    expect(getRoleNavigation("PATIENT").map(({ href, label }) => [href, label])).toEqual(primary);
+    expect(getBottomNavigation("PATIENT").map(({ href, label }) => [href, label])).toEqual(primary);
+    expect(PATIENT_ACCOUNT_NAVIGATION.map(({ href, label }) => [href, label])).toEqual([
+      ["/profile", "Profile"],
+      ["/settings", "Settings & privacy"],
+      ["/payments", "Payments"],
+    ]);
+    expect(PATIENT_HEALTH_LINKS.map(({ href, label }) => [href, label])).toEqual([
+      ["/patient/cases", "Care episodes"],
+      ["/patient/history", "Health history"],
+      ["/patient/results", "Test results"],
+      ["/patient/prescriptions", "Prescriptions"],
+      ["/patient/case-reports?tab=documents", "Hospital documents"],
+      ["/patient/case-reports", "Case reports"],
+    ]);
+  });
   it.each(["PATIENT", "DOCTOR", "LAB_SCIENTIST", "ADMIN"] as const)("has real desktop and mobile routes for %s", role => {
     expect(getRoleNavigation(role)[0].href).toBe(ROLE_POLICY[role].dashboard);
     expect(getBottomNavigation(role)[0].href).toBe(ROLE_POLICY[role].dashboard);
-    for (const item of [...getRoleNavigation(role), ...getBottomNavigation(role)]) {
+    for (const item of [
+      ...getRoleNavigation(role),
+      ...getBottomNavigation(role),
+      ...(role === "PATIENT" ? [...PATIENT_ACCOUNT_NAVIGATION, ...PATIENT_HEALTH_LINKS] : []),
+    ]) {
       // Tab links carry a ?tab= query; the route itself is what must exist.
       const route = item.href.split("?")[0];
       expect(existsSync(path.join(process.cwd(), "src/app", route, "page.tsx")), item.href).toBe(true);

@@ -51,7 +51,8 @@ timeline, and case-number surfacing across existing views.
   the same case). Payments also attach to an episode through the appointment a
   consultation was recorded against — both are recorded relationships.
 - Pages: `/patient/cases` (filters + pagination) and `/patient/cases/[id]`
-  (linked records, payments, status history). Nav entry "My Cases" added.
+  (linked records, payments, status history). Patients reach care episodes,
+  history, results, prescriptions and documents from the My Health section.
 - APIs: `GET /api/cases`, `GET /api/cases/[id]`, `POST /api/cases/[id]/status`
   (doctor/admin only, care-scope enforced). A case number never grants access —
   authorization is always relationship-based.

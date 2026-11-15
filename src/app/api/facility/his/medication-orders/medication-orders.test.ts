@@ -16,6 +16,7 @@ vi.mock("@/lib/his/audit", () => ({ auditHis: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ writeAudit: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    patient: { findMany: vi.fn(), findUnique: vi.fn() },
     medicationOrder: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     medicalHistory: { findMany: vi.fn() },
     medicationInteractionRule: { findMany: vi.fn() },
@@ -52,6 +53,7 @@ beforeEach(() => {
   vi.mocked(prisma.medicalHistory.findMany).mockResolvedValue([] as never);
   vi.mocked(prisma.medicationInteractionRule.findMany).mockResolvedValue([] as never);
   vi.mocked(prisma.formularyItem.findMany).mockResolvedValue([] as never);
+  vi.mocked(prisma.patient.findMany).mockResolvedValue([] as never);
 });
 
 describe("creating medication orders", () => {
@@ -81,13 +83,17 @@ describe("creating medication orders", () => {
 describe("the order worklist", () => {
   it("returns orders with the patient's recorded allergies for visibility", async () => {
     vi.mocked(prisma.medicationOrder.findMany).mockResolvedValue([
-      { id: "order-1", patientId: PATIENT, patient: { id: PATIENT, firstName: "A", lastName: "B", caseNumber: "C1", dateOfBirth: "1990-01-01" } },
+      { id: "order-1", patientId: PATIENT },
+    ] as never);
+    vi.mocked(prisma.patient.findMany).mockResolvedValue([
+      { id: PATIENT, firstName: "A", lastName: "B", caseNumber: "C1", dateOfBirth: "1990-01-01" },
     ] as never);
     vi.mocked(prisma.medicalHistory.findMany).mockResolvedValue([{ patientId: PATIENT, allergies: ["Penicillin"] }] as never);
     const res = await listOrders(new NextRequest("http://localhost:3000/api/facility/his/medication-orders?status=SUBMITTED"), { user: { id: "doctor-1", role: "DOCTOR" }, params: Promise.resolve({}) } as never);
     expect(res.status).toBe(200);
     const { orders } = await res.json();
     expect(orders[0].allergies).toEqual(["Penicillin"]);
+    expect(orders[0].patient).toMatchObject({ id: PATIENT, caseNumber: "C1" });
     const where = vi.mocked(prisma.medicationOrder.findMany).mock.calls[0]![0]!.where;
     expect(where).toMatchObject({ facilityId: "hospital-a", status: "SUBMITTED" });
   });

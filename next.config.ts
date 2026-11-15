@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { cspHeader } from "./src/lib/csp";
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -17,8 +18,9 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost"],
 
   async headers() {
+    const csp = cspHeader();
     return [
-      { source: "/:path*", headers: securityHeaders },
+      { source: "/:path*", headers: csp ? [...securityHeaders, csp] : securityHeaders },
       // API responses can contain patient data: never cache them.
       { source: "/api/:path*", headers: [{ key: "Cache-Control", value: "no-store" }] },
     ];

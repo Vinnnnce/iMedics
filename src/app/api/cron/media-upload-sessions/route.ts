@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { monitoredCron } from "@/lib/monitoring";
 import { timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { abortMultipartUpload } from "@/lib/storage";
@@ -17,7 +18,7 @@ function authorized(req: NextRequest): boolean {
  * multipart sessions whose lifetime expired, so abandoned large studies leave
  * no orphaned storage parts. Runs are idempotent; overlapping runs are safe.
  */
-export async function GET(req: NextRequest) {
+async function run(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const expired = await prisma.medicalMediaUploadSession.findMany({
     where: { status: "ACTIVE", expiresAt: { lt: new Date() } },
@@ -32,3 +33,5 @@ export async function GET(req: NextRequest) {
   }
   return NextResponse.json({ expiredFound: expired.length, aborted });
 }
+
+export const GET = monitoredCron("media-upload-sessions", run);

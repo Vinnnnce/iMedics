@@ -8,6 +8,7 @@
  * reviewing possible duplicates before a new registration.
  */
 import { NextResponse } from "next/server";
+import { RATE_LIMITS } from "@/lib/rate-limit";
 import { z } from "zod";
 import { withAuth, parseBody } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
@@ -86,4 +87,4 @@ export const POST = withAuth(null, async (req, { user }) => {
   ].filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
 
   return NextResponse.json({ patients: results });
-});
+}, { rateLimit: RATE_LIMITS.search });

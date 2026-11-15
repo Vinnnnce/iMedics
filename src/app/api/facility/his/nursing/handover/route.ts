@@ -23,9 +23,18 @@ export const GET = withAuth(null, async (req, { user }) => {
     where: { facilityId: access.facility.id, patientId },
     orderBy: { createdAt: "desc" },
     take: 50,
-    include: { patient: { select: { id: true, firstName: true, lastName: true, caseNumber: true } } },
   });
-  return NextResponse.json({ handovers });
+  const patientIds = [...new Set(handovers.map((handover) => handover.patientId))];
+  const patients = patientIds.length
+    ? await prisma.patient.findMany({
+        where: { id: { in: patientIds } },
+        select: { id: true, firstName: true, lastName: true, caseNumber: true },
+      })
+    : [];
+  const patientsById = new Map(patients.map((patient) => [patient.id, patient]));
+  return NextResponse.json({
+    handovers: handovers.map((handover) => ({ ...handover, patient: patientsById.get(handover.patientId) ?? null })),
+  });
 });
 
 // POST /api/facility/his/nursing/handover — record a shift handover with the

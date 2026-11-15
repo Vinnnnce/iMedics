@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { monitoredCron } from "@/lib/monitoring";
 import { timingSafeEqual } from "node:crypto";
 import { runInactivityChecks } from "@/lib/welfare";
 
@@ -16,8 +17,10 @@ function authorized(req: NextRequest): boolean {
  * inactivity rule, triggers welfare alerts at the configured threshold and
  * escalates unacknowledged alerts. Idempotent per alert.
  */
-export async function GET(req: NextRequest) {
+async function run(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const result = await runInactivityChecks();
   return NextResponse.json(result);
 }
+
+export const GET = monitoredCron("inactivity-checks", run);

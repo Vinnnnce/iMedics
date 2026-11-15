@@ -9,6 +9,8 @@ vi.mock("@/lib/platform/access", () => ({ enforceRequestPolicy: vi.fn(), assertP
  * sections 7 and 11, scenarios 3 and 7).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+// The subscription write guard is covered by facility-subscriptions.int.test.ts; these tests stub the database.
+vi.mock("@/lib/facility-subscriptions", async (original) => ({ ...(await original<typeof import("@/lib/facility-subscriptions")>()), assertFacilityMayWrite: async () => undefined }));
 
 vi.mock("@/lib/auth", () => ({
   requireRole: vi.fn(),

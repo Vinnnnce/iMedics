@@ -27,9 +27,18 @@ export const GET = withAuth(null, async (req, { user }) => {
     where: { facilityId: access.facility.id, patientId },
     orderBy: { recordedAt: "desc" },
     take: 100,
-    include: { patient: { select: { id: true, firstName: true, lastName: true, caseNumber: true } } },
   });
-  return NextResponse.json({ observations });
+  const patientIds = [...new Set(observations.map((observation) => observation.patientId))];
+  const patients = patientIds.length
+    ? await prisma.patient.findMany({
+        where: { id: { in: patientIds } },
+        select: { id: true, firstName: true, lastName: true, caseNumber: true },
+      })
+    : [];
+  const patientsById = new Map(patients.map((patient) => [patient.id, patient]));
+  return NextResponse.json({
+    observations: observations.map((observation) => ({ ...observation, patient: patientsById.get(observation.patientId) ?? null })),
+  });
 });
 
 // POST /api/facility/his/nursing/observations — record a structured observation.

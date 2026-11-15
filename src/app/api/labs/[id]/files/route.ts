@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { RATE_LIMITS } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseId } from "@/lib/api";
 import { getVerifiedLabProfile } from "@/lib/access";
@@ -32,4 +33,4 @@ export const POST = withAuth<{ id: string }>(["LAB_SCIENTIST"], async (req, { us
     headers: { "Content-Type": mimeType },
     expiresInSeconds: UPLOAD_URL_TTL_SECONDS,
   });
-});
+}, { rateLimit: RATE_LIMITS.upload });

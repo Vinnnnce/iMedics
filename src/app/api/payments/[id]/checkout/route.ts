@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { RATE_LIMITS } from "@/lib/rate-limit";
 import { z } from "zod";
 import { withAuth, parseBody, parseId } from "@/lib/api";
 import { startCheckout } from "@/lib/payments/service";
@@ -13,4 +14,4 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
   const { checkoutUrl } = await startCheckout(id, { id: user.id, email: user.email }, method);
   await writeAudit({ userId: user.id, actorRole: user.role, action: "PAYMENT_CHECKOUT_STARTED", resourceType: "Payment", resourceId: id, details: { method }, req });
   return NextResponse.json({ checkoutUrl });
-});
+}, { rateLimit: RATE_LIMITS.payment });

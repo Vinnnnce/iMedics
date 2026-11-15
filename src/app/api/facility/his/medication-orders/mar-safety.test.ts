@@ -14,6 +14,7 @@ vi.mock("@/lib/audit", () => ({ writeAudit: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     medicationOrder: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    patient: { findMany: vi.fn(), findUnique: vi.fn() },
     medicationAdministration: { findMany: vi.fn(), create: vi.fn() },
     formularyItem: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     medicationInteractionRule: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
@@ -57,6 +58,7 @@ beforeEach(() => {
   vi.mocked(prisma.medicalHistory.findMany).mockResolvedValue([] as never);
   vi.mocked(prisma.medicationInteractionRule.findMany).mockResolvedValue([] as never);
   vi.mocked(prisma.formularyItem.findMany).mockResolvedValue([] as never);
+  vi.mocked(prisma.patient.findUnique).mockResolvedValue({ caseNumber: "QA-1" } as never);
 });
 
 describe("MAR administration recording", () => {

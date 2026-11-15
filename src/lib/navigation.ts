@@ -2,7 +2,7 @@ import {
   Activity,
   BarChart3, BedDouble, Bell, Briefcase, Building2, Calendar, CalendarClock, ClipboardList, CreditCard, FileText,
   FlaskConical, FolderOpen, Home, IdCard, LayoutDashboard, MessageSquare, Pill, Receipt, Settings,
-  Shield, Sparkles, Star, Stethoscope, Tags, Upload, User, Users, Wallet, type LucideIcon,
+  Shield, Siren, Sparkles, Star, Stethoscope, Syringe, Tags, UserCog, Upload, User, Users, Wallet, Globe, type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@prisma/client";
 import { ROLE_POLICY } from "./roles";
@@ -10,30 +10,33 @@ import { ROLE_POLICY } from "./roles";
 export interface NavItem { href: string; label: string; icon: LucideIcon }
 const profile: NavItem = { href: "/profile", label: "Profile", icon: User };
 const settings: NavItem = { href: "/settings", label: "Settings", icon: Settings };
+
+export const PATIENT_ACCOUNT_NAVIGATION: readonly NavItem[] = [
+  profile,
+  { href: "/settings", label: "Settings & privacy", icon: Settings },
+  { href: "/payments", label: "Payments", icon: Receipt },
+];
+
+export const PATIENT_HEALTH_LINKS: readonly NavItem[] = [
+  { href: "/patient/cases", label: "Care episodes", icon: FolderOpen },
+  { href: "/patient/history", label: "Health history", icon: ClipboardList },
+  { href: "/patient/results", label: "Test results", icon: FlaskConical },
+  { href: "/patient/prescriptions", label: "Prescriptions", icon: Pill },
+  { href: "/patient/case-reports?tab=documents", label: "Hospital documents", icon: FileText },
+  { href: "/patient/case-reports", label: "Case reports", icon: FileText },
+];
+
 /**
- * Role-aware navigation. Every entry must resolve to a real route (enforced by
- * navigation.test.ts). The visible set follows the platform navigation matrix:
- * Home, Appointments, Consultations, Records/Cases, Results & reports, Messages,
- * Payments & earnings, Find care, Subscription, Analytics and Settings per role.
+ * Role-aware primary navigation. Every entry must resolve to a real route
+ * (enforced by navigation.test.ts); less frequent patient links live in My Health
+ * or PATIENT_ACCOUNT_NAVIGATION.
  */
 export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
   PATIENT: [
     { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-    { href: "/doctors", label: "Find Care", icon: Stethoscope },
     { href: "/patient/appointments", label: "Appointments", icon: Calendar },
+    { href: "/patient/case-file", label: "My Health", icon: FileText },
     { href: "/patient/consult", label: "Messages", icon: MessageSquare },
-    { href: "/patient/results", label: "Results & Reports", icon: FlaskConical },
-    { href: "/patient/case-reports?tab=documents", label: "Hospital Documents", icon: FileText },
-    { href: "/patient/case-reports", label: "Case Reports", icon: ClipboardList },
-    { href: "/patient/case-file", label: "Health Record", icon: FileText },
-    { href: "/patient/cases", label: "My Cases", icon: FolderOpen },
-    { href: "/patient/history", label: "Case History", icon: ClipboardList },
-    { href: "/patient/prescriptions", label: "Prescriptions", icon: Pill },
-    { href: "/facilities", label: "Labs & Diagnostics", icon: Building2 },
-    { href: "/payments", label: "Payments", icon: Receipt },
-    { href: "/notifications", label: "Notifications", icon: Bell },
-    settings,
-    profile,
   ],
   DOCTOR: [
     { href: "/doctor/dashboard", label: "Home", icon: LayoutDashboard },
@@ -74,8 +77,20 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     { href: "/lab/upload", label: "Upload Results", icon: Upload },
     { href: "/lab/case-reports", label: "Case Reports", icon: FolderOpen },
     { href: "/lab/reviews", label: "Reviews", icon: Star },
+    { href: "/lab/emergency", label: "Emergency", icon: Siren },
+    { href: "/lab/wards", label: "Wards & Beds", icon: BedDouble },
+    { href: "/lab/nursing", label: "Nursing", icon: Syringe },
+    { href: "/lab/pharmacy", label: "Pharmacy", icon: Pill },
+    { href: "/lab/lab-equipment", label: "Equipment & QC", icon: FlaskConical },
+    { href: "/lab/registration", label: "Registration", icon: ClipboardList },
+    { href: "/lab/referrals", label: "Referrals", icon: FolderOpen },
     { href: "/lab/services", label: "Service Catalogue", icon: Tags },
     { href: "/lab/users", label: "Patient Lookup", icon: Users },
+    { href: "/lab/document-templates", label: "Document Templates", icon: FileText },
+    { href: "/lab/staff", label: "Staff", icon: Users },
+    { href: "/lab/organization", label: "Organization", icon: UserCog },
+    { href: "/lab/website", label: "Public Website", icon: Globe },
+    { href: "/lab/subscription", label: "Subscription", icon: Wallet },
     { href: "/payments", label: "Payments & Earnings", icon: Wallet },
     settings,
     profile,
@@ -95,7 +110,12 @@ export function getBottomNavigation(role: Role | null | undefined): readonly Nav
   if (!role) return [];
   const home = { href: ROLE_POLICY[role].dashboard, label: "Home", icon: Home };
   switch (role) {
-    case "PATIENT": return [home, { href: "/doctors", label: "Find Care", icon: Stethoscope }, { href: "/facilities", label: "Labs", icon: Building2 }, { href: "/patient/results", label: "Results", icon: FlaskConical }, { href: "/patient/case-file", label: "Diag", icon: FileText }];
+    case "PATIENT": return [
+      home,
+      { href: "/patient/appointments", label: "Appointments", icon: Calendar },
+      { href: "/patient/case-file", label: "My Health", icon: FileText },
+      { href: "/patient/consult", label: "Messages", icon: MessageSquare },
+    ];
     case "DOCTOR": return [home, { href: "/doctor/patients", label: "Patients", icon: Users }, { href: "/doctor/consultations", label: "Notes", icon: ClipboardList }, { href: "/doctor/chat", label: "Messages", icon: MessageSquare }];
     case "LAB_SCIENTIST": return [home, { href: "/lab/orders", label: "Orders", icon: ClipboardList }, { href: "/lab/bookings", label: "Bookings", icon: Calendar }, { href: "/lab/services", label: "Services", icon: Tags }];
     case "ADMIN": return [home, { href: "/admin", label: "Admin", icon: Shield }, { href: "/workspace", label: "Ops", icon: ClipboardList }, profile];

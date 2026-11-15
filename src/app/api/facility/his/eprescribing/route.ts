@@ -10,14 +10,21 @@ import { deliverEPrescription } from "@/lib/his/medication-safety";
 // that dependency is displayed, never hidden. No live transmission is claimed.
 export const GET = withAuth(null, async (req, { user }) => {
   const access = await requireHisAccess(user, "REVIEW_MEDICATIONS", req, ["HOSPITAL", "PHARMACY"]);
-  const outbox = await prisma.ePrescriptionOutbox.findMany({
+  const entries = await prisma.ePrescriptionOutbox.findMany({
     where: { facilityId: access.facility.id },
     orderBy: { createdAt: "desc" },
     take: 200,
-    include: { order: { select: { medicationName: true, patientId: true, status: true } } },
   });
+  const orderIds = [...new Set(entries.map((entry) => entry.orderId).filter(Boolean))];
+  const orders = orderIds.length
+    ? await prisma.medicationOrder.findMany({
+        where: { id: { in: orderIds }, facilityId: access.facility.id },
+        select: { id: true, medicationName: true, patientId: true, status: true },
+      })
+    : [];
+  const ordersById = new Map(orders.map((order) => [order.id, order]));
   return NextResponse.json({
-    outbox,
+    outbox: entries.map((entry) => ({ ...entry, order: ordersById.get(entry.orderId) ?? null })),
     endpointConfigured: Boolean(process.env.EPRESCRIBING_ENDPOINT),
   });
 });
@@ -30,7 +37,6 @@ export const POST = withAuth(null, async (req, { user }) => {
   const pending = await prisma.ePrescriptionOutbox.findMany({
     where: { facilityId: access.facility.id, status: "PENDING" },
     take: 50,
-    include: { order: true },
   });
   let delivered = 0, stillPending = 0;
   for (const entry of pending) {

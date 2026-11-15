@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { safeErrorMetadata } from "./safe-error";
+import { reportServerError } from "./monitoring";
 
 /** An error that is safe to show to the client (status + message only). */
 export class ApiError extends Error {
@@ -11,6 +12,14 @@ export class ApiError extends Error {
   ) {
     super(message);
     this.name = "ApiError";
+  }
+}
+
+/** 429 with a Retry-After hint, thrown by the rate limiter. */
+export class RateLimitError extends ApiError {
+  constructor(public readonly retryAfterSeconds: number, message = "Too many requests. Please wait a moment and try again.") {
+    super(429, message);
+    this.name = "RateLimitError";
   }
 }
 
@@ -24,9 +33,21 @@ export const conflict = (message = "Conflict") => new ApiError(409, message);
  * Convert any thrown value into a JSON response.
  * Unknown errors are logged server-side and never leak details to the client.
  */
-export function toErrorResponse(error: unknown): NextResponse {
+export function toErrorResponse(error: unknown, route?: string): NextResponse {
+  if (error instanceof RateLimitError) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: 429, headers: { "Retry-After": String(Math.max(1, Math.ceil(error.retryAfterSeconds))) } },
+    );
+  }
   if (error instanceof ApiError) {
     return NextResponse.json({ error: error.message }, { status: error.status });
+  }
+  // Older code throws `Object.assign(new Error("..."), { status: 404 })`. Those messages are
+  // written for the client, so honour a 4xx status instead of reporting a server failure.
+  const legacyStatus = error instanceof Error ? (error as { status?: unknown }).status : undefined;
+  if (error instanceof Error && typeof legacyStatus === "number" && Number.isInteger(legacyStatus) && legacyStatus >= 400 && legacyStatus < 500) {
+    return NextResponse.json({ error: error.message }, { status: legacyStatus });
   }
 
   if (error instanceof z.ZodError) {
@@ -56,5 +77,6 @@ export function toErrorResponse(error: unknown): NextResponse {
   }
 
   console.error("Unhandled API error:", safeErrorMetadata(error));
+  reportServerError("api", error, route);
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }

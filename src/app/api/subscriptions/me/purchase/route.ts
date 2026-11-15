@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { RATE_LIMITS } from "@/lib/rate-limit";
 import { z } from "zod";
 import { withAuth, parseBody } from "@/lib/api";
 import { assertPaymentsAvailable, startCheckout } from "@/lib/payments/service";
@@ -28,4 +29,4 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
     req,
   });
   return NextResponse.json({ checkoutUrl });
-});
+}, { rateLimit: RATE_LIMITS.payment });

@@ -9,6 +9,8 @@ vi.mock("@/lib/platform/access", () => ({ enforceRequestPolicy: vi.fn(), assertP
  * scaffolds, and only JSON objects of scaffold fields are accepted.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+// The subscription write guard is covered by facility-subscriptions.int.test.ts; these tests stub the database.
+vi.mock("@/lib/facility-subscriptions", async (original) => ({ ...(await original<typeof import("@/lib/facility-subscriptions")>()), assertFacilityMayWrite: async () => undefined }));
 
 vi.mock("@/lib/auth", () => ({
   requireRole: vi.fn(),

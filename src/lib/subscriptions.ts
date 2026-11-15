@@ -5,6 +5,7 @@ import { queueNotification } from "./notifications/service";
 import { newReference, holdExpiry } from "./payments/refs";
 import { getPaymentProvider } from "./payments/provider";
 import { round2 } from "./commissions";
+import { activateFacilitySubscriptionForPayment } from "./facility-subscriptions";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -70,7 +71,7 @@ export async function hasEntitlement(userId: string, feature: SubscriptionFeatur
 
 /** Plans a doctor can pick, cheapest first. */
 export async function listPlans(db: Db = prisma): Promise<SubscriptionPlan[]> {
-  return db.subscriptionPlan.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } });
+  return db.subscriptionPlan.findMany({ where: { active: true, audience: "DOCTOR" }, orderBy: { sortOrder: "asc" } });
 }
 
 /** The doctor's subscription with its plan, or null. */
@@ -99,7 +100,7 @@ export async function prepareSubscriptionPurchase(userId: string, planCode: stri
   const doctor = await db.doctorProfile.findFirst({ where: { userId } });
   if (!doctor) throw badRequest("Only doctors can subscribe to a plan");
 
-  const plan = await db.subscriptionPlan.findFirst({ where: { code: planCode, active: true } });
+  const plan = await db.subscriptionPlan.findFirst({ where: { code: planCode, active: true, audience: "DOCTOR" } });
   if (!plan) throw notFound("Plan not found");
 
   // Seeded plan prices are placeholder defaults. Purchases stay disabled until an admin has
@@ -178,6 +179,8 @@ export async function prepareSubscriptionPurchase(userId: string, planCode: stri
  * payment apply exactly once no matter how often it replays.
  */
 export async function activateSubscriptionForPayment(paymentId: string, db: Db = prisma): Promise<void> {
+  // A charge for a facility plan is applied by the facility flow; anything else is a doctor plan.
+  if (await activateFacilitySubscriptionForPayment(paymentId, db as PrismaClient)) return;
   const payment = await db.payment.findUnique({
     where: { id: paymentId },
     select: { status: true, payerId: true, events: { where: { type: "CREATED" }, take: 1, orderBy: { createdAt: "asc" } } },
@@ -188,7 +191,7 @@ export async function activateSubscriptionForPayment(paymentId: string, db: Db =
   if (!doctor) return;
 
   const planCode = (payment.events[0]?.details as { planCode?: string } | undefined)?.planCode;
-  const plan = planCode ? await db.subscriptionPlan.findFirst({ where: { code: planCode } }) : null;
+  const plan = planCode ? await db.subscriptionPlan.findFirst({ where: { code: planCode, audience: "DOCTOR" } }) : null;
   if (!plan) return;
 
   let activated: { subscriptionId: string; type: "STARTED" | "RENEWED" | "PLAN_CHANGED" } | null = null;

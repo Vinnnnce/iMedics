@@ -8,6 +8,6 @@ export function isPublicPageHref(href: string | { pathname?: string | null; prot
   if (href.startsWith("#") || /^(?:https?:|mailto:|tel:|\/\/)/i.test(href)) return true;
   try {
     const path = new URL(href, "https://imedics.invalid").pathname;
-    return path === "/" || /^\/(?:auth\/(?:login|signup)|sign-in|sign-up|legal|emergency|hospitals|laboratories|diagnostic-centres|news|podcasts)(?:\/|$)/.test(path);
+    return path === "/" || /^\/(?:auth\/(?:login|signup)|sign-in|sign-up|legal|about|pricing|contact|help|emergency|hospitals|laboratories|diagnostic-centres|news|podcasts)(?:\/|$)/.test(path);
   } catch { return false; }
 }

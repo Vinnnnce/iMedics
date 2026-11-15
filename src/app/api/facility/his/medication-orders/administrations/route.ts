@@ -14,9 +14,19 @@ export const GET = withAuth(null, async (req, { user }) => {
     where: { facilityId: access.facility.id, patientId },
     orderBy: { administeredAt: "desc" },
     take: 200,
-    include: {
-      order: { select: { id: true, medicationName: true, strength: true, dose: true, route: true, frequency: true, status: true } },
-    },
   });
-  return NextResponse.json({ administrations });
+  const orderIds = [...new Set(administrations.map((administration) => administration.orderId).filter(Boolean))];
+  const orders = orderIds.length
+    ? await prisma.medicationOrder.findMany({
+        where: { id: { in: orderIds }, facilityId: access.facility.id },
+        select: { id: true, medicationName: true, strength: true, dose: true, route: true, frequency: true, status: true },
+      })
+    : [];
+  const ordersById = new Map(orders.map((order) => [order.id, order]));
+  return NextResponse.json({
+    administrations: administrations.map((administration) => ({
+      ...administration,
+      order: ordersById.get(administration.orderId) ?? null,
+    })),
+  });
 });

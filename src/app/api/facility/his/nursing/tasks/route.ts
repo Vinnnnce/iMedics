@@ -33,9 +33,18 @@ export const GET = withAuth(null, async (req, { user }) => {
     },
     orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }],
     take: 200,
-    include: { patient: { select: { id: true, firstName: true, lastName: true, caseNumber: true } } },
   });
-  return NextResponse.json({ tasks });
+  const patientIds = [...new Set(tasks.map((task) => task.patientId))];
+  const patients = patientIds.length
+    ? await prisma.patient.findMany({
+        where: { id: { in: patientIds } },
+        select: { id: true, firstName: true, lastName: true, caseNumber: true },
+      })
+    : [];
+  const patientsById = new Map(patients.map((patient) => [patient.id, patient]));
+  return NextResponse.json({
+    tasks: tasks.map((task) => ({ ...task, patient: patientsById.get(task.patientId) ?? null })),
+  });
 });
 
 // POST /api/facility/his/nursing/tasks — create a care task (starts as DUE).

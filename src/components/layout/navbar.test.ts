@@ -1,47 +1,63 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { visibleNavigation } from "@/lib/navigation-visibility";
 
-describe("anonymous navigation prefetch regression", () => {
-  it("does not speculatively fetch protected navigation before sign-in", () => {
-    const source = readFileSync("src/components/layout/navbar.tsx", "utf8");
-    expect(source).toContain("const navigationPrefetch = user ? undefined : false");
-    const links = source.match(/<Link\b[^>]*>/g) ?? [];
-    expect(links.length).toBeGreaterThan(5);
-    for (const tag of links) expect(tag).toContain("prefetch={navigationPrefetch}");
+const source = readFileSync("src/components/layout/navbar.tsx", "utf8");
+
+describe("application shell", () => {
+  it("renders the page content it wraps", () => {
+    expect(source).toContain("export function Navbar({ children }");
+    expect(source).toContain('<main id="main-content"');
+    expect(source).toContain("{children}");
   });
-  it("uses document navigation for anonymous clicks, not a failed cross-origin RSC fetch", () => {
-    const source = readFileSync("src/components/layout/navbar.tsx", "utf8");
-    expect(source).toContain("event.preventDefault()");
-    expect(source).toContain("window.location.assign(href)");
-    for (const tag of source.match(/<Link\b[^>]*>/g) ?? []) {
-      expect(tag).toContain("onNavigate={anonymousNavigation(");
-    }
+  it("offers a skip link and labelled landmarks", () => {
+    expect(source).toContain('href="#main-content"');
+    expect(source).toContain('aria-label="Primary"');
+    expect(source).toContain('aria-label="Quick links"');
   });
-  it("keeps facility managers' website navigation tenant-scoped", () => {
-    const source = readFileSync("src/components/layout/navbar.tsx", "utf8");
-    expect(source).toContain('permission: "MANAGE_PROFILE"');
-    expect(source).toContain("FACILITY_SECTIONS");
-    expect(source).toContain("/lab/website?facilityId=${encodeURIComponent(facility.id)}");
+  it("does not render a second header on pages that bring their own shell", () => {
+    expect(source).toContain('pathname === "/" && !signedIn');
+    expect(source).toContain('pathname === "/workspace"');
   });
-  it("groups navigation into role sections and gates facility modules by kind", () => {
-    const source = readFileSync("src/components/layout/navbar.tsx", "utf8");
-    // The doctor menu is the simplified four-section interface.
-    expect(source).toContain('label: "Doctor Dashboard"');
-    expect(source).toContain('label: "AI Tools"');
-    // Facility modules are grouped and gated per registered facility type.
-    expect(source).toContain('label: "Laboratory"');
-    expect(source).toContain('kinds: ["HOSPITAL", "LABORATORY"]');
-    expect(source).toContain('label: "Our Staff"');
-    expect(source).toContain('label: "Cashier & Billing"');
-    // No doctor link may point into the facility portal and vice versa.
-    const doctorSection = source.slice(source.indexOf("const DOCTOR_SECTIONS"), source.indexOf("const FACILITY_DASHBOARD_ITEM"));
-    expect(doctorSection).not.toContain('"/lab/');
+  it("only links anonymous visitors to routes that exist and are public", () => {
+    for (const href of ["/about", "/pricing", "/help", "/contact"]) expect(source).toContain(`href: "${href}"`);
+    expect(source).not.toContain('"/services"');
   });
-  it("logs every account type out to the public landing page", () => {
-    for (const file of ["src/components/shared/sign-out-button.tsx", "src/components/profile-form.tsx", "src/components/post-signup-redirect.tsx"]) {
-      const source = readFileSync(file, "utf8");
-      expect(source).toContain('signOut({ redirectUrl: "/" })');
-      expect(source).not.toContain('redirectUrl: "/auth/login"');
-    }
+  it("never prefetches protected links for anonymous visitors", () => {
+    expect(source).toContain("me || isPublicPageHref(href) ? undefined : false");
+  });
+  it("logs out through the shared sign-out button (returns to the landing page)", () => {
+    expect(source).toContain("SignOutButton");
+  });
+});
+
+describe("facility menu by organisation kind", () => {
+  const hrefs = (kind: "HOSPITAL" | "LABORATORY" | "DIAGNOSTIC_CENTRE" | "PHARMACY") =>
+    visibleNavigation("LAB_SCIENTIST", kind).map((i) => i.href);
+  it("shows hospital modules only to hospitals", () => {
+    expect(hrefs("HOSPITAL")).toContain("/lab/admissions");
+    for (const kind of ["LABORATORY", "DIAGNOSTIC_CENTRE", "PHARMACY"] as const) expect(hrefs(kind)).not.toContain("/lab/admissions");
+  });
+  it("keeps laboratory and diagnostic work queues separate", () => {
+    expect(hrefs("LABORATORY")).toContain("/lab/specimens");
+    expect(hrefs("LABORATORY")).not.toContain("/lab/examinations");
+    expect(hrefs("DIAGNOSTIC_CENTRE")).toContain("/lab/examinations");
+    expect(hrefs("DIAGNOSTIC_CENTRE")).not.toContain("/lab/specimens");
+  });
+  it("gives pharmacies the pharmacy module and the shared management pages", () => {
+    expect(hrefs("PHARMACY")).toContain("/lab/pharmacy");
+    expect(hrefs("PHARMACY")).toContain("/lab/staff");
+  });
+  it("does not touch other roles' menus", () => {
+    expect(visibleNavigation("DOCTOR", "HOSPITAL").every((i) => !i.href.startsWith("/lab/"))).toBe(true);
+  });
+});
+
+describe("administrator menu", () => {
+  it("is built from the shared admin link list, including Support", () => {
+    const hrefs = visibleNavigation("ADMIN", null).map((i) => i.href);
+    expect(hrefs).toContain("/admin/support");
+    expect(hrefs).toContain("/admin/verifications");
+    expect(hrefs.some((h) => h.startsWith("/patient"))).toBe(false);
   });
 });

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { monitoredCron } from "@/lib/monitoring";
 import { timingSafeEqual } from "node:crypto";
 import { runMedicationReminderSweep } from "@/lib/medication-reminders";
 
@@ -16,8 +17,10 @@ function authorized(req: NextRequest): boolean {
  * events, sends due medication reminders and marks long-past doses as missed.
  * Idempotent: duplicate runs never double-send or double-create.
  */
-export async function GET(req: NextRequest) {
+async function run(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const result = await runMedicationReminderSweep();
   return NextResponse.json(result);
 }
+
+export const GET = monitoredCron("medication-reminders", run);

@@ -6,6 +6,8 @@ import { badRequest, forbidden, toErrorResponse } from "./errors";
 import { assertSameOriginWrite } from "./request-security";
 import { isAccountReady } from "./roles";
 import { enforceRequestPolicy } from "./platform/access";
+import { enforceRateLimit, type RateLimitPolicy } from "./rate-limit";
+import { runWithRlsContext } from "./rls-context";
 
 export type RouteParams<P> = { params: Promise<P> };
 
@@ -19,7 +21,7 @@ export function apiHandler<P = Record<string, never>>(
       response.headers.set("Cache-Control", "private, no-store");
       return response;
     } catch (error) {
-      const response = toErrorResponse(error);
+      const response = toErrorResponse(error, new URL(req.url).pathname);
       response.headers.set("Cache-Control", "private, no-store");
       return response;
     }
@@ -33,7 +35,7 @@ export function apiHandler<P = Record<string, never>>(
 export function withAuth<P = Record<string, never>>(
   roles: readonly Role[] | null,
   handler: (req: NextRequest, ctx: RouteParams<P> & { user: User }) => Promise<Response>,
-  options: { allowOnboarding?: boolean } = {},
+  options: { allowOnboarding?: boolean; rateLimit?: RateLimitPolicy } = {},
 ) {
   return apiHandler<P>(async (req, ctx) => {
     assertSameOriginWrite(req);
@@ -42,7 +44,8 @@ export function withAuth<P = Record<string, never>>(
       throw forbidden("Complete registration and verification before continuing");
     }
     await enforceRequestPolicy(user, req);
-    const response = await handler(req, { ...ctx, user });
+    if (options.rateLimit) await enforceRateLimit(options.rateLimit, user.id);
+    const response = await runWithRlsContext(() => handler(req, { ...ctx, user }));
     response.headers.set("Cache-Control", "private, no-store");
     return response;
   });

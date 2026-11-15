@@ -45,6 +45,10 @@ export type NotificationEvent =
   | { kind: "SUBSCRIPTION_EXPIRED"; subscriptionId: string }
   | { kind: "SUBSCRIPTION_CANCELLED"; subscriptionId: string }
   | { kind: "PLAN_CHANGED"; subscriptionId: string }
+  | { kind: "FACILITY_TRIAL_ENDING"; facilityId: string; daysLeft: number }
+  | { kind: "FACILITY_TRIAL_ENDED"; facilityId: string }
+  | { kind: "FACILITY_RENEWAL_DUE"; facilityId: string }
+  | { kind: "FACILITY_SUBSCRIPTION_ACTIVATED"; facilityId: string }
   | { kind: "RECONCILIATION_ALERT"; runId: string; discrepancies: number }
   | { kind: "REFUND_STUCK"; paymentId: string }
   | { kind: "VERIFICATION_SUBMITTED"; applicantId: string; resubmitted: boolean }
@@ -145,6 +149,14 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
     case "SUBSCRIPTION_CANCELLED":
     case "PLAN_CHANGED":
       return { type: "SYSTEM", title: event.kind.replaceAll("_", " ").toLowerCase(), body: "There is an update to your subscription. Sign in to review it.", href: "/doctor/subscription", data: { subscriptionId: event.subscriptionId } };
+    case "FACILITY_TRIAL_ENDING":
+      return { type: "SYSTEM", title: event.daysLeft === 1 ? "Your free trial ends tomorrow" : `Your free trial ends in ${event.daysLeft} days or fewer`, body: "Choose a plan to keep creating new records. Your existing records stay available to view and export.", href: "/lab/subscription", data: { facilityId: event.facilityId } };
+    case "FACILITY_TRIAL_ENDED":
+      return { type: "SYSTEM", title: "Your facility plan has ended", body: "Choose a plan to keep creating new records. Your existing records stay available to view and export.", href: "/lab/subscription", data: { facilityId: event.facilityId } };
+    case "FACILITY_RENEWAL_DUE":
+      return { type: "SYSTEM", title: "Your facility plan renews soon", body: "Renew your plan to avoid an interruption. Sign in to review it.", href: "/lab/subscription", data: { facilityId: event.facilityId } };
+    case "FACILITY_SUBSCRIPTION_ACTIVATED":
+      return { type: "SYSTEM", title: "Your facility plan is active", body: "Thank you. Your plan is now active.", href: "/lab/subscription", data: { facilityId: event.facilityId } };
     case "RECONCILIATION_ALERT":
       return { type: "SYSTEM", title: "Payment reconciliation needs review", body: "An administrator should review the latest payment reconciliation.", href: "/admin/reconciliation", data: { runId: event.runId, discrepancies: String(event.discrepancies) } };
     case "REFUND_STUCK":

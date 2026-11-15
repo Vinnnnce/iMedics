@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Calendar, FileText, FlaskConical, Stethoscope } from "lucide-react";
+import { Building2, Calendar, FileText, FlaskConical, Stethoscope } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NotificationsCard } from "@/components/shared/notifications-card";
@@ -70,9 +70,19 @@ export default async function PatientDashboardPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Hello, {user.name.split(" ")[0]}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Your health at a glance</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Hello, {user.name.split(" ")[0]}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Your health at a glance</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/doctors" className="inline-flex h-10 items-center gap-2 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:opacity-90">
+            <Stethoscope className="h-4 w-4" aria-hidden="true" /> Book an appointment
+          </Link>
+          <Link href="/facilities" className="inline-flex h-10 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium hover:bg-muted">
+            <Building2 className="h-4 w-4" aria-hidden="true" /> Find a facility
+          </Link>
+        </div>
       </div>
 
       <NotificationsCard items={notifications.map((n) => ({ ...n, createdAt: n.createdAt.toISOString() }))} />

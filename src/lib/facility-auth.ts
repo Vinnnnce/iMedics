@@ -6,6 +6,8 @@ import { permissionsForRole, FACILITY_PERMISSIONS, type FacilityPermission } fro
 import { assertClinicalPrivilege, filterClinicalPrivileges, REGULATED_PERMISSIONS } from "./organization/privileges";
 import { assertRequestPatientScope } from "./organization/patient-scope";
 import { assertPlatformPolicy, enforceRequestPolicy } from "./platform/access";
+import { setFacilityContext } from "./rls-context";
+import { assertFacilityMayWrite } from "./facility-subscriptions";
 
 /**
  * Role defaults plus the facility's per-staff permission overrides
@@ -120,6 +122,13 @@ export async function requireFacilityAccess(
     const featureModule = moduleForPath(new URL(req.url).pathname);
     if (featureModule) await assertPlatformPolicy(user, "FEATURE", featureModule, req.method === "GET" ? "VIEW" : "EDIT", facility.id);
   }
+
+  // From here on this request may only touch this facility's rows (when row-level security is on).
+  setFacilityContext(facility.id);
+
+  // After a trial or plan has ended the facility keeps read and export access, and safety-critical
+  // work, but cannot create new records until it has a plan (see facility-subscriptions.ts).
+  if (req) await assertFacilityMayWrite(facility.id, req.method, new URL(req.url).pathname);
 
   return {
     user,

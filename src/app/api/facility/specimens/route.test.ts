@@ -10,6 +10,8 @@ vi.mock("@/lib/platform/access", () => ({ enforceRequestPolicy: vi.fn(), assertP
  * isolation even when IDs are guessed (spec sections 7 and 11, scenarios 5-7).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+// The subscription write guard is covered by facility-subscriptions.int.test.ts; these tests stub the database.
+vi.mock("@/lib/facility-subscriptions", async (original) => ({ ...(await original<typeof import("@/lib/facility-subscriptions")>()), assertFacilityMayWrite: async () => undefined }));
 
 vi.mock("@/lib/auth", () => ({ requireRole: vi.fn(), requireUser: vi.fn(), getCurrentUser: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({

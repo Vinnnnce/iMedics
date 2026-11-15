@@ -30,9 +30,6 @@ export const POST = withAuth(null, async (req, { user }) => {
 
   const order = await prisma.medicationOrder.findFirst({
     where: { id: body.medicationOrderId, facilityId: access.facility.id },
-    include: {
-      patient: { select: { id: true, caseNumber: true } },
-    },
   });
   if (!order) throw notFound("Medication order not found");
 

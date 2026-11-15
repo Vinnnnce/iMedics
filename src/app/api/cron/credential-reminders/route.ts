@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { monitoredCron } from "@/lib/monitoring";
 import { prisma } from "@/lib/prisma";
 import { badRequest, forbidden } from "@/lib/errors";
 import { queueNotification } from "@/lib/notifications/service";
@@ -84,7 +85,9 @@ export async function POST(req: Request): Promise<Response> {
 }
 
 // GET returns the required configuration without running anything.
-export async function GET(): Promise<Response> {
+async function run(): Promise<Response> {
   if (!process.env.CRON_SECRET) throw badRequest("Credential reminders are not configured");
   return NextResponse.json({ ok: true, schedule: "daily" });
 }
+
+export const GET = monitoredCron("credential-reminders", run);

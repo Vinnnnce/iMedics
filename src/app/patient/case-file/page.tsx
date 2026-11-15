@@ -1,5 +1,8 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { CaseFileExplorer, type CaseFileEntry } from "@/components/case-file/case-file-explorer";
 import { PatientAssistant } from "@/components/patient/patient-assistant";
 import { prisma } from "@/lib/prisma";
@@ -9,6 +12,7 @@ import { classifyCaseFileDocument } from "@/lib/case-file/folders";
 import { ageFromDob, formatDate } from "@/lib/format";
 import { calculateBMI } from "@/lib/bmi";
 import { notFound } from "next/navigation";
+import { PATIENT_HEALTH_LINKS } from "@/lib/navigation";
 
 // Pull display text out of the loosely-structured JSON lists on a medical history.
 function labels(value: unknown, keys: string[]): string[] {
@@ -168,15 +172,26 @@ export default async function PatientCaseFilePage() {
       date: r.createdAt.toISOString(),
     })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 md:px-0">
       <div>
         <h1 className="text-2xl font-bold">
           {patient.firstName} {patient.lastName}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">Your case file</p>
+        <p className="mt-1 text-sm text-muted-foreground">Your health record and released documents</p>
       </div>
+
+      <nav aria-label="More health information" className="space-y-3">
+        <h2 className="text-sm font-semibold">Explore your health</h2>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {PATIENT_HEALTH_LINKS.map(({ href, label, icon: Icon }) => (
+            <Link key={href} href={href} className={cn(buttonVariants({ variant: "outline" }), "h-11 w-full justify-start")}>
+              <Icon className="h-4 w-4" aria-hidden="true" />
+              {label}
+            </Link>
+          ))}
+        </div>
+      </nav>
 
       <Card className="beeline-card">
         <CardHeader>

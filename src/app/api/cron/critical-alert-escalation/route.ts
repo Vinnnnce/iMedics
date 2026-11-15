@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { monitoredCron } from "@/lib/monitoring";
 import { timingSafeEqual } from "node:crypto";
 import { escalateCriticalResultAlerts } from "@/lib/modules/critical-alert-escalation";
 
@@ -16,8 +17,10 @@ function authorized(req: NextRequest): boolean {
 // responsible recipients, widening the audience at each escalation level.
 // Overlapping runs are safe: alerts advance via conditional updates and an
 // acknowledgement or resolution always wins the race.
-export async function GET(req: NextRequest) {
+async function run(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const summary = await escalateCriticalResultAlerts();
   return NextResponse.json(summary);
 }
+
+export const GET = monitoredCron("critical-alert-escalation", run);

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { RATE_LIMITS } from "@/lib/rate-limit";
 import { withAuth, parseBody, parseId } from "@/lib/api";
 import { findConversation, assertCanSend, CHAT_IMAGE_MIME_TYPES, CHAT_IMAGE_MAX_BYTES } from "@/lib/chat";
 import { presignUpload, UPLOAD_URL_TTL_SECONDS } from "@/lib/storage";
@@ -26,4 +27,4 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
   const uploadUrl = await presignUpload(key, mimeType, sizeBytes);
 
   return NextResponse.json({ key, uploadUrl, expiresInSeconds: UPLOAD_URL_TTL_SECONDS });
-});
+}, { rateLimit: RATE_LIMITS.upload });

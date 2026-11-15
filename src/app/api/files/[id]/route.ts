@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { RATE_LIMITS } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { withAuth, parseId } from "@/lib/api";
 import { findAccessiblePatient } from "@/lib/access";
@@ -37,4 +38,4 @@ export const GET = withAuth<{ id: string }>(["DOCTOR", "PATIENT", "LAB_SCIENTIST
   });
 
   return NextResponse.json({ url, fileName: file.fileName, expiresInSeconds: DOWNLOAD_URL_TTL_SECONDS });
-});
+}, { rateLimit: RATE_LIMITS.download });

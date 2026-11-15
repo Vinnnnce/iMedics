@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { RATE_LIMITS } from "@/lib/rate-limit";
 import { withAuth, parseBody } from "@/lib/api";
 import { getVerifiedDoctorProfile } from "@/lib/access";
 import { newObjectKey, uploadRequestSchema } from "@/lib/uploads";
@@ -19,4 +20,4 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
     headers: { "Content-Type": mimeType },
     expiresInSeconds: UPLOAD_URL_TTL_SECONDS,
   });
-});
+}, { rateLimit: RATE_LIMITS.upload });

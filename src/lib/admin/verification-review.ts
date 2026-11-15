@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { ensureTrialForUser } from "@/lib/facility-subscriptions";
 import { prisma } from "../prisma";
 import { badRequest, conflict, notFound } from "../errors";
 import { DOCUMENT_KINDS, REQUIRED_KINDS, kindLabel, type ApplicantType } from "../verification";
@@ -245,6 +246,8 @@ export async function decideVerification(admin: { id: string; role: "ADMIN" }, u
     if (changed.count === 0) throw conflict("This application was already decided by someone else");
 
     if (approved) await tx.user.update({ where: { id: userId }, data: { role, status: "ACTIVE", statusReason: null, statusChangedAt: new Date() } });
+    // A newly verified facility starts its free trial now.
+    if (approved && type !== "DOCTOR") await ensureTrialForUser(userId, tx);
 
     await tx.verificationReview.create({
       data: {

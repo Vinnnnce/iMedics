@@ -56,10 +56,15 @@ export const GET = withAuth(null, async (req, { user }) => {
     },
     orderBy: { createdAt: "desc" },
     take: 200,
-    include: {
-      patient: { select: { id: true, firstName: true, lastName: true, caseNumber: true, dateOfBirth: true } },
-    },
   });
+  const patientIdsForSummary = [...new Set(orders.map((order) => order.patientId))];
+  const patients = patientIdsForSummary.length
+    ? await prisma.patient.findMany({
+        where: { id: { in: patientIdsForSummary } },
+        select: { id: true, firstName: true, lastName: true, caseNumber: true, dateOfBirth: true },
+      })
+    : [];
+  const patientsById = new Map(patients.map((patient) => [patient.id, patient]));
   // Recorded allergies live on the medical history; surface them for the
   // reviewer's visibility without any automatic interaction checking.
   const patientIds = [...new Set(orders.map((o) => o.patientId))];
@@ -68,7 +73,11 @@ export const GET = withAuth(null, async (req, { user }) => {
     : [];
   const allergiesByPatient = new Map(histories.map((h) => [h.patientId, h.allergies]));
   return NextResponse.json({
-    orders: orders.map((o) => ({ ...o, allergies: allergiesByPatient.get(o.patientId) ?? [] })),
+    orders: orders.map((o) => ({
+      ...o,
+      patient: patientsById.get(o.patientId) ?? null,
+      allergies: allergiesByPatient.get(o.patientId) ?? [],
+    })),
   });
 });
 

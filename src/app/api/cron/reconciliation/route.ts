@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { monitoredCron } from "@/lib/monitoring";
 import { timingSafeEqual } from "node:crypto";
 import { runDailyReconciliation } from "@/lib/reconciliation";
 import { retryFailedSubaccounts } from "@/lib/subaccounts";
@@ -15,7 +16,7 @@ function authorized(req: NextRequest): boolean {
 // GET /api/cron/reconciliation — run once a day by a scheduler (Vercel Cron sends CRON_SECRET as a
 // bearer token). Compares yesterday's payment records with the gateway's report, persists every
 // difference, alerts the admins, and retries subaccount provisioning that failed earlier.
-export async function GET(req: NextRequest) {
+async function run(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const yesterday = new Date(Date.now() - 86_400_000);
   const result = await runDailyReconciliation(yesterday);
@@ -33,3 +34,5 @@ export async function GET(req: NextRequest) {
   });
   return NextResponse.json({ ...result, refundsRecovered: refunds, lateCancellationRefunds: lateRefunds, subaccountsRetried: subaccounts });
 }
+
+export const GET = monitoredCron("reconciliation", run);

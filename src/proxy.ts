@@ -9,6 +9,15 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/legal/(.*)",
+  // Marketing and support pages must be readable before sign-in.
+  "/about(.*)",
+  "/pricing(.*)",
+  "/contact(.*)",
+  "/help(.*)",
+  // Public contact form (rate limited and validated inside the route).
+  "/api/support/contact",
+  // Uptime probe: returns no patient data.
+  "/api/health",
   // The emergency/CPR learning centre must be reachable without an account:
   // a bystander in an emergency has no time to sign in.
   "/emergency(.*)",
