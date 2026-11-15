@@ -1040,10 +1040,6 @@ export function ImedicsHomepage({
         <div className="border-t border-border px-4 py-5 text-center text-xs text-muted-foreground lg:px-8">
           © 2026 Medic1905. All rights reserved.
         </div>
-
-        <div className="px-4 pb-5 text-center text-[11px] leading-relaxed text-muted-foreground/70 lg:px-8">
-          {IMEDICS_IMAGE_CREDITS.join(" · ")}
-        </div>
       </footer>
     </div>
   );
