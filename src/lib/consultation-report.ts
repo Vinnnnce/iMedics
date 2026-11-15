@@ -3,6 +3,7 @@ import fontkit from "@pdf-lib/fontkit";
 import type { ConsultationWithRelations } from "@/lib/consultation";
 import { PAGE_SIZES, Writer, loadPdfFonts } from "@/lib/his/pdf";
 import { resolveDoctorLetterhead } from "@/lib/letterheads";
+import { loadSignatureImageBytes } from "@/lib/letterhead-signature";
 
 /** The clinical content of a report as it stood at one revision. */
 export interface ConsultationSnapshot {
@@ -170,6 +171,25 @@ export async function renderConsultationPdf(c: ConsultationWithRelations): Promi
     "This report was written by the doctor named above. It is a clinical record and is not a substitute for an in-person medical assessment where one is needed.",
     { size: 8, color: GREY },
   );
+
+  // Signature area: the doctor's uploaded handwritten signature image (from
+  // their letterhead) is printed above the signature line on finalized reports.
+  w.gap(10);
+  w.ensure(90);
+  const regId = letterhead?.signatureBlocks.find((b) => b.registrationId)?.registrationId;
+  const baseY = w.y;
+  if (finalized && letterhead?.signatureUrl) {
+    const bytes = await loadSignatureImageBytes(letterhead.signatureUrl);
+    if (bytes) {
+      const embedded = bytes[0] === 0x89 ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
+      const scale = Math.min(150 / embedded.width, 52 / embedded.height, 1);
+      w.page.drawImage(embedded, { x: w.margin, y: baseY - 6 - embedded.height * scale, width: embedded.width * scale, height: embedded.height * scale });
+    }
+  }
+  w.page.drawLine({ start: { x: w.margin, y: baseY - 62 }, end: { x: w.margin + 200, y: baseY - 62 }, thickness: 0.6, color: rgb(0.4, 0.4, 0.4) });
+  w.page.drawText("Signature", { x: w.margin, y: baseY - 74, size: 8, font, color: rgb(0.3, 0.3, 0.3) });
+  w.page.drawText(`${c.doctor.user.name}${regId ? ` · Reg. ${regId}` : ""}`, { x: w.margin, y: baseY - 84, size: 8, font, color: rgb(0.3, 0.3, 0.3) });
+  w.y = baseY - 92;
 
   const pages = w.pages;
   pages.forEach((page, i) => {

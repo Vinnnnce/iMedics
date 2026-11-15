@@ -83,6 +83,8 @@ export const templateDefinitionSchema = z
       .object({
         pageSize: z.enum(["A4", "LETTER", "A5"]).default("A4"),
         footerNote: z.string().max(300).optional(),
+        /** Saved letterhead this template's documents print on; null = the facility's automatic letterhead resolution. */
+        letterheadId: z.string().uuid().nullish(),
       })
       .default({ pageSize: "A4" }),
     /** Shown to editors and authors, e.g. "Specialty template — clinical review required". */

@@ -5,6 +5,8 @@ import { withAuth, parseBody, parseId } from "@/lib/api";
 import { notFound } from "@/lib/errors";
 import { getVerifiedDoctorProfile } from "@/lib/access";
 import { writeAudit } from "@/lib/audit";
+import { deleteObject } from "@/lib/storage";
+import { isSignatureKey, verifySignatureUpload } from "@/lib/letterhead-signature";
 
 const signatureBlockSchema = z.object({
   name: z.string().trim().max(120).nullish(),
@@ -25,6 +27,8 @@ const bodySchema = z.object({
   brandColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   footerText: z.string().trim().max(300).nullish(),
   logoUrl: z.string().url().max(500).refine((u) => u.startsWith("https://"), "Logo must be an https URL").nullish(),
+  /** Private storage key returned by the signature-image upload endpoint; null removes the image. */
+  signatureUrl: z.string().trim().max(500).refine((k) => k === "" || isSignatureKey(k), "Invalid signature image reference").nullish(),
   showQr: z.boolean().optional(),
   signatureBlocks: z.array(signatureBlockSchema).max(4).optional(),
 });
@@ -47,8 +51,10 @@ export const GET = withAuth<{ id: string }>(["DOCTOR"], async (req, { user, para
 export const PATCH = withAuth<{ id: string }>(["DOCTOR"], async (req, { user, params }) => {
   const doctor = await getVerifiedDoctorProfile(user);
   const id = parseId((await params).id);
-  await loadOwnLetterhead(doctor.userId, id);
+  const current = await loadOwnLetterhead(doctor.userId, id);
   const body = await parseBody(req, bodySchema);
+  // The referenced image must already exist in storage and be a real PNG/JPEG.
+  if (body.signatureUrl) await verifySignatureUpload(body.signatureUrl);
   const letterhead = await prisma.$transaction(async (tx) => {
     if (body.isDefault) {
       await tx.letterheadProfile.updateMany({
@@ -56,8 +62,13 @@ export const PATCH = withAuth<{ id: string }>(["DOCTOR"], async (req, { user, pa
         data: { isDefault: false },
       });
     }
-    return tx.letterheadProfile.update({ where: { id }, data: body });
+    return tx.letterheadProfile.update({ where: { id }, data: { ...body, signatureUrl: body.signatureUrl === undefined ? undefined : body.signatureUrl || null } });
   });
+  // Best effort: clean up a replaced signature image so private storage holds
+  // no orphaned copies. A failure here never blocks the update.
+  if (body.signatureUrl !== undefined && current.signatureUrl && current.signatureUrl !== body.signatureUrl) {
+    try { await deleteObject(current.signatureUrl); } catch { /* already gone */ }
+  }
   await writeAudit({ userId: user.id, actorRole: user.role, action: "DOCTOR_LETTERHEAD_UPDATED", resourceType: "LetterheadProfile", resourceId: letterhead.id, req });
   return NextResponse.json({ letterhead });
 });

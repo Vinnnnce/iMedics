@@ -83,3 +83,27 @@ sections or to reorder, drag section cards to reorder, and expand any field to e
 its properties (help text, unit, min/max, max length, default, translations). Locked
 (legally required) fields cannot be removed, retyped or made optional; the arrow
 buttons remain for keyboard editing.
+
+## Signature images (doctor letterheads)
+
+Doctors can upload a handwritten signature image (PNG or JPEG, max 2 MB) to a personal
+letterhead from the doctor portal designer. The image is stored in private object
+storage — the browser uploads through a short-lived presigned URL
+(`POST /api/doctors/me/letterheads/signature-image`), and the server verifies the
+stored bytes really are a PNG/JPEG before the letterhead accepts the reference
+(`signatureUrl` on `POST/PATCH /api/doctors/me/letterheads/[id]`). Only the owning
+doctor can read it back (`GET /api/doctors/me/letterheads/[id]/signature-image`);
+replaced images are deleted from storage. On finalized consultation reports and
+document PDFs the image is printed above a signature line with the doctor's name
+and registration number. If the image cannot be read, the plain signature line
+still renders — a document never fails to print because of it.
+
+## Templates pinned to a letterhead
+
+A clinical document template can pin one of the facility's saved letterheads
+(`output.letterheadId` in the template definition, selected in the template
+editor's output settings). Documents created from that template print on the pinned
+letterhead instead of the automatic department/default resolution. The pin is
+validated on every save against the facility's own letterheads — a foreign
+facility's branding can never be pinned — and an unavailable pin falls back to the
+automatic resolution so documents always render.

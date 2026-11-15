@@ -102,7 +102,10 @@ export class Writer {
   }
 }
 
-export async function renderDocumentsPdf(views: DocumentView[], options: { manifestTitle?: string } = {}): Promise<Uint8Array> {
+export async function renderDocumentsPdf(
+  views: DocumentView[],
+  options: { manifestTitle?: string; signatureImages?: Record<string, Uint8Array> } = {},
+): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.registerFontkit(fontkit);
   const f = await loadPdfFonts();
@@ -204,6 +207,21 @@ export async function renderDocumentsPdf(views: DocumentView[], options: { manif
       { size: 8, color: [0.3, 0.3, 0.3] },
     );
     if (v.definition.output.footerNote) w.text(v.definition.output.footerNote, { size: 8, color: [0.3, 0.3, 0.3] });
+    // The letterhead owner's uploaded handwritten signature image, printed
+    // above the signature line on finalized documents.
+    const signatureKey = v.facility.signatureImageKey;
+    const signatureBytes = signatureKey ? options.signatureImages?.[signatureKey] : undefined;
+    if (signatureBytes) {
+      w.gap(10);
+      w.ensure(90);
+      const embedded = signatureBytes[0] === 0x89 ? await pdf.embedPng(signatureBytes) : await pdf.embedJpg(signatureBytes);
+      const scale = Math.min(150 / embedded.width, 52 / embedded.height, 1);
+      const sigBaseY = w.y;
+      w.page.drawImage(embedded, { x: w.margin, y: sigBaseY - 6 - embedded.height * scale, width: embedded.width * scale, height: embedded.height * scale });
+      w.page.drawLine({ start: { x: w.margin, y: sigBaseY - 62 }, end: { x: w.margin + 200, y: sigBaseY - 62 }, thickness: 0.6, color: rgb(0.4, 0.4, 0.4) });
+      w.page.drawText("Signature", { x: w.margin, y: sigBaseY - 74, size: 8, font, color: rgb(0.3, 0.3, 0.3) });
+      w.y = sigBaseY - 80;
+    }
     // Letterhead signature blocks: pre-printed signature lines for the roles
     // named on the facility's approved letterhead.
     if (v.facility.signatureBlocks?.length) {

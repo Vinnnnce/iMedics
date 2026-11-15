@@ -1,9 +1,12 @@
 import type { LetterheadProfile } from "@prisma/client";
 import { prisma } from "./prisma";
+import { isSignatureKey } from "./letterhead-signature";
 
 /** A validated hex colour for letterhead rendering. */
 export const DEFAULT_BRAND_COLOR = "#0F766E";
 const HEX = /^#[0-9a-fA-F]{6}$/;
+/** A stored key that may safely be surfaced on a letterhead view. */
+const isSignatureKeySafe = (key: string | null | undefined): key is string => Boolean(key && isSignatureKey(key));
 
 export interface LetterheadSignatureBlock {
   name: string;
@@ -26,6 +29,8 @@ export interface LetterheadView {
   brandColor: string;
   footerText: string | null;
   logoUrl: string | null;
+  /** Private storage key of the owner's handwritten signature image, if any. */
+  signatureUrl: string | null;
   showQr: boolean;
   signatureBlocks: LetterheadSignatureBlock[];
 }
@@ -68,6 +73,7 @@ export function letterheadView(profile: LetterheadProfile): LetterheadView {
     brandColor: brandColorOf(profile.brandColor),
     footerText: profile.footerText,
     logoUrl: profile.logoUrl,
+    signatureUrl: isSignatureKeySafe(profile.signatureUrl) ? profile.signatureUrl : null,
     showQr: profile.showQr,
     signatureBlocks: signatureBlocksOf(profile.signatureBlocks),
   };
@@ -116,6 +122,7 @@ export interface LetterheadInput {
   brandColor?: string;
   footerText?: string | null;
   logoUrl?: string | null;
+  signatureUrl?: string | null;
   showQr?: boolean;
   watermark?: string | null;
   signatureBlocks?: unknown;
@@ -127,6 +134,9 @@ export function validateLetterheadInput(body: LetterheadInput): { ok: true; valu
   const displayName = body.displayName?.trim();
   if (!displayName || displayName.length > 200) return { ok: false, error: "An organisation display name of up to 200 characters is required" };
   if (body.brandColor && !HEX.test(body.brandColor)) return { ok: false, error: "Brand colour must be a 6-digit hex value like #0F766E" };
+  if (body.signatureUrl !== undefined && body.signatureUrl !== null && !isSignatureKey(body.signatureUrl)) {
+    return { ok: false, error: "Signature image reference is not valid" };
+  }
   if (body.headerLines && (body.headerLines.length > 6 || body.headerLines.some((l) => typeof l !== "string" || l.length > 200))) {
     return { ok: false, error: "Header lines must be at most 6 lines of 200 characters" };
   }
@@ -146,6 +156,7 @@ export function validateLetterheadInput(body: LetterheadInput): { ok: true; valu
       ...(body.headerLines && { headerLines: body.headerLines.slice(0, 6).map((l) => l.slice(0, 200)) }),
       ...(body.brandColor && { brandColor: body.brandColor }),
       ...(body.signatureBlocks !== undefined && { signatureBlocks: signatureBlocksOf(body.signatureBlocks) }),
+      ...(body.signatureUrl !== undefined && { signatureUrl: body.signatureUrl }),
     },
   };
 }

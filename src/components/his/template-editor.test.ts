@@ -29,6 +29,10 @@ const definition = parseDefinition({
 const setup = (def: TemplateDefinition = definition) => render(createElement(TemplateEditor, {
   templateId: "t1", name: "Test template", status: "DRAFT", version: 1, definition: def,
   editable: true, canApprove: false, canManage: true, history: [],
+  letterheads: [
+    { id: "11111111-1111-4111-8111-111111111111", name: "Main hospital", department: null },
+    { id: "22222222-2222-4222-8222-222222222222", name: "Radiology", department: "Radiology" },
+  ],
 }));
 const save = async () => {
   await act(async () => { fireEvent.click(screen.getByTestId("button-save-template")); });
@@ -86,8 +90,19 @@ describe("drag-and-drop template builder", () => {
     render(createElement(TemplateEditor, {
       templateId: "t1", name: "Test template", status: "PUBLISHED", version: 1, definition,
       editable: false, canApprove: false, canManage: true, history: [],
+      letterheads: [{ id: "11111111-1111-4111-8111-111111111111", name: "Main hospital", department: null }],
     }));
     expect(screen.queryByTestId("field-palette")).toBeNull();
     expect(screen.queryByTestId("button-save-template")).toBeNull();
   });
+
+  it("pins a saved letterhead on the template output settings", async () => {
+    setup();
+    const select = screen.getByLabelText("Letterhead for documents from this template");
+    expect(select).toBeTruthy();
+    await act(async () => { fireEvent.change(select, { target: { value: "22222222-2222-4222-8222-222222222222" } }); });
+    const saved = await save();
+    expect(saved?.definition.output.letterheadId).toBe("22222222-2222-4222-8222-222222222222");
+  });
+
 });

@@ -4,6 +4,7 @@ import { notFound } from "@/lib/errors";
 import { documentEvent } from "@/lib/his/audit";
 import { buildDocumentView, documentInclude } from "@/lib/his/documents";
 import { renderDocumentsPdf } from "@/lib/his/pdf";
+import { loadSignatureImageBytes } from "@/lib/letterhead-signature";
 import { visibleToPatient } from "@/lib/his/workflow";
 
 export const runtime = "nodejs";
@@ -15,7 +16,10 @@ export const GET = withAuth<{ id: string }>(["PATIENT"], async (req, { user, par
   const doc = patient ? await prisma.clinicalDocument.findFirst({ where: { id, patientId: patient.id }, include: documentInclude }) : null;
   if (!doc || !visibleToPatient(doc)) throw notFound("Document not found");
   const view = await buildDocumentView(doc);
-  const bytes = await renderDocumentsPdf([view]);
+  const signatureImages: Record<string, Uint8Array> = {};
+  const loaded = await loadSignatureImageBytes(view.facility.signatureImageKey);
+  if (loaded && view.facility.signatureImageKey) signatureImages[view.facility.signatureImageKey] = loaded;
+  const bytes = await renderDocumentsPdf([view], { signatureImages });
   await prisma.$transaction((tx) => documentEvent(tx, doc.id, "PATIENT_DOWNLOADED", user.id));
   return new Response(Buffer.from(bytes), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${doc.documentNumber}.pdf"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
 });

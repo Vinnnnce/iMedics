@@ -13,6 +13,7 @@ const view = (overrides: Partial<LetterheadView> = {}): LetterheadView => ({
   brandColor: "#1D4ED8",
   footerText: "Confidential — synthetic preview",
   logoUrl: null,
+  signatureUrl: null,
   showQr: true,
   signatureBlocks: [
     { name: "Dr. Ada Example", title: "Consultant Radiologist", registrationId: "MDCN-1", side: "left" },

@@ -1,4 +1,5 @@
 import type { LetterheadView } from "@/lib/letterheads";
+import { loadSignatureImageBytes } from "@/lib/letterhead-signature";
 import { renderDocumentsPdf } from "./pdf";
 import type { DocumentView } from "./documents";
 import { parseDefinition } from "./template-schema";
@@ -44,6 +45,7 @@ export async function renderLetterheadPreviewPdf(letterhead: LetterheadView): Pr
       website: letterhead.website,
       showQr: letterhead.showQr,
       signatureBlocks: letterhead.signatureBlocks,
+      signatureImageKey: letterhead.signatureUrl,
     },
     patient: { id: "preview", name: "Sample Patient", caseNumber: "PREVIEW-000", dateOfBirth: "1990-01-01", gender: "OTHER" },
     encounterNumber: null,
@@ -61,5 +63,10 @@ export async function renderLetterheadPreviewPdf(letterhead: LetterheadView): Pr
     missingSignatureLabels: [],
     events: [],
   };
-  return renderDocumentsPdf([view]);
+  // The uploaded handwritten signature image (if any) is printed above the
+  // signature line so owners can proof it together with the rest.
+  const signatureImages: Record<string, Uint8Array> = {};
+  const bytes = await loadSignatureImageBytes(letterhead.signatureUrl);
+  if (bytes) signatureImages[letterhead.signatureUrl as string] = bytes;
+  return renderDocumentsPdf([view], { signatureImages });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { api, inputClass } from "./use-api";
@@ -27,6 +27,8 @@ export interface LetterheadValues {
   brandColor: string;
   footerText: string;
   logoUrl: string;
+  /** Doctor mode: private storage key of the uploaded signature image. */
+  signatureUrl: string;
   showQr: boolean;
   signatureBlocks: LetterheadBlockInput[];
 }
@@ -48,12 +50,14 @@ export interface LetterheadRow {
   logoUrl: string | null;
   showQr: boolean;
   signatureBlocks: unknown;
+  /** Private storage key of the owner's uploaded signature image. */
+  signatureUrl: string | null;
 }
 
 const EMPTY: LetterheadValues = {
   name: "", department: "", isDefault: false, displayName: "", headerLines: "", addressLine: "", contactPhone: "",
   contactEmail: "", website: "", registrationInfo: "", brandColor: "#0F766E", footerText: "", logoUrl: "",
-  showQr: true, signatureBlocks: [],
+  showQr: true, signatureUrl: "", signatureBlocks: [],
 };
 
 function toValues(l: LetterheadRow): LetterheadValues {
@@ -62,7 +66,7 @@ function toValues(l: LetterheadRow): LetterheadValues {
     id: l.id, name: l.name, department: l.department ?? "", isDefault: l.isDefault, displayName: l.displayName,
     headerLines: l.headerLines.join("\n"), addressLine: l.addressLine ?? "", contactPhone: l.contactPhone ?? "",
     contactEmail: l.contactEmail ?? "", website: l.website ?? "", registrationInfo: l.registrationInfo ?? "",
-    brandColor: l.brandColor, footerText: l.footerText ?? "", logoUrl: l.logoUrl ?? "", showQr: l.showQr,
+    brandColor: l.brandColor, footerText: l.footerText ?? "", logoUrl: l.logoUrl ?? "", showQr: l.showQr, signatureUrl: l.signatureUrl ?? "",
     signatureBlocks: blocks.slice(0, 4).map((b) => ({
       name: typeof b.name === "string" ? b.name : "",
       title: typeof b.title === "string" ? b.title : "",
@@ -95,12 +99,41 @@ export function LetterheadManager({ base, facilityMode, letterheads }: { base: s
   const [v, setV] = useState<LetterheadValues | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [signatureBusy, setSignatureBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  // Doctor mode: upload a handwritten signature image (PNG/JPEG, max 2 MB) to
+  // private storage and attach the returned key to the letterhead on save.
+  const uploadSignature = async (file: File) => {
+    if (facilityMode || !v) return;
+    if (file.size > 2 * 1024 * 1024) { setMsg({ ok: false, text: "Signature image must be at most 2 MB." }); return; }
+    setSignatureBusy(true); setMsg(null);
+    try {
+      const presigned = await api(`${base}/signature-image`, {
+        method: "POST",
+        body: { mimeType: file.type === "image/jpeg" ? "image/jpeg" : "image/png", sizeBytes: file.size },
+      }) as { key: string; uploadUrl: string; headers: Record<string, string> };
+      const put = await fetch(presigned.uploadUrl, { method: "PUT", headers: presigned.headers, body: file });
+      if (!put.ok) throw new Error("The signature image could not be uploaded");
+      setV({ ...v, signatureUrl: presigned.key });
+      setMsg({ ok: true, text: "Signature image uploaded — save to attach it to the letterhead." });
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof Error && err.message ? err.message : "The signature image could not be uploaded" });
+    } finally {
+      setSignatureBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
 
   const save = async () => {
     if (!v) return;
     setBusy(true); setMsg(null);
     try {
-      const body = { ...payload(v), ...(facilityMode ? { department: v.department || null } : {}), ...(v.isDefault ? { isDefault: true } : {}) };
+      const body = {
+        ...payload(v),
+        ...(facilityMode ? { department: v.department || null } : { signatureUrl: v.signatureUrl || null }),
+        ...(v.isDefault ? { isDefault: true } : {}),
+      };
       await api(v.id ? `${base}/${v.id}` : base, { method: v.id ? "PATCH" : "POST", body });
       setMsg({ ok: true, text: v.id ? "Letterhead updated." : "Letterhead created." });
       setV(null); router.refresh();
@@ -198,6 +231,32 @@ export function LetterheadManager({ base, facilityMode, letterheads }: { base: s
             </label>
             <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={v.showQr} onChange={(e) => setV({ ...v, showQr: e.target.checked })} /> Print verification QR code on finalized documents</label>
             <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={v.isDefault} onChange={(e) => setV({ ...v, isDefault: e.target.checked })} /> Use as default letterhead</label>
+            {!facilityMode && (
+              <div className="space-y-1 sm:col-span-2">
+                <span className="text-xs">Handwritten signature image (PNG or JPEG, max 2 MB)</span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <input
+                    ref={fileRef}
+                    data-testid="input-signature-image"
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    className="text-xs"
+                    onChange={(e) => { const file = e.target.files?.[0]; if (file) void uploadSignature(file); }}
+                  />
+                  {signatureBusy && <span className="text-xs text-muted-foreground">Uploading…</span>}
+                  {v.signatureUrl && v.id && (
+                    // eslint-disable-next-line @next/next/no-img-element -- private authenticated stream, not an asset
+                    <img src={`${base}/${v.id}/signature-image`} alt="Current signature image" className="h-12 border bg-white p-1" data-testid="img-signature-preview" />
+                  )}
+                  {v.signatureUrl && (
+                    <Button type="button" variant="outline" size="sm" onClick={() => setV({ ...v, signatureUrl: "" })}>Remove signature image</Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  The image is stored privately and printed above the signature line on finalized consultation reports.
+                </p>
+              </div>
+            )}
           </fieldset>
 
           <fieldset className="space-y-2">

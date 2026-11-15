@@ -2536,6 +2536,8 @@ model LetterheadProfile {
   brandColor       String           @default("#0F766E") @map("brand_color") @db.VarChar(7)
   footerText       String?          @map("footer_text") @db.VarChar(300)
   logoUrl          String?          @map("logo_url") @db.VarChar(500)
+  /// Private object-storage key of the owner's handwritten signature image (PNG/JPEG).
+  signatureUrl     String?          @map("signature_url") @db.VarChar(500)
   /// Print a QR verification code (document number + content hash) on PDFs.
   showQr           Boolean          @default(true) @map("show_qr")
   watermark        String?          @db.VarChar(60)

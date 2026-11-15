@@ -13,6 +13,11 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
   const template = await prisma.clinicalDocumentTemplate.findFirst({ where: { id, facilityId: facility.id }, include: { versions: { orderBy: { version: "desc" } } } });
   if (!template) notFound();
   const latest = template.versions[0];
+  const letterheads = await prisma.letterheadProfile.findMany({
+    where: { facilityId: facility.id, active: true },
+    select: { id: true, name: true, department: true },
+    orderBy: { name: "asc" },
+  });
   return (
     <div className="mx-auto max-w-5xl space-y-4 px-4 md:px-0">
       <nav aria-label="Breadcrumb" className="text-xs text-muted-foreground"><Link href="/lab/clinical-documents" className="hover:underline">Medical documents</Link> / Templates / {template.name}</nav>
@@ -30,6 +35,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
         canApprove={can("APPROVE_DOCUMENTS")}
         canManage={can("MANAGE_DOCUMENT_TEMPLATES")}
         history={template.versions.map((v) => ({ version: v.version, status: v.status, changeNote: v.changeNote, publishedAt: v.publishedAt?.toISOString() ?? null }))}
+        letterheads={letterheads.map((l) => ({ id: l.id, name: l.name, department: l.department }))}
       />
     </div>
   );

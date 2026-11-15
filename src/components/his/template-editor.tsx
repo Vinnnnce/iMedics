@@ -18,6 +18,8 @@ interface Props {
   canApprove: boolean;
   canManage: boolean;
   history: { version: number; status: string; changeNote: string | null; publishedAt: string | null }[];
+  /** Saved letterheads this template's documents can be pinned to. */
+  letterheads: { id: string; name: string; department: string | null }[];
 }
 
 const move = <T,>(arr: T[], i: number, d: number) => { const a = [...arr]; const j = i + d; if (j < 0 || j >= a.length) return a; [a[i], a[j]] = [a[j], a[i]]; return a; };
@@ -262,6 +264,19 @@ export function TemplateEditor(props: Props) {
             <label className="flex items-center gap-2"><input type="checkbox" checked={def.workflow.independentReview} onChange={(e) => setDef({ ...def, workflow: { ...def.workflow, independentReview: e.target.checked } })} /> Reviewer must differ from author</label>
             <label className="flex items-center gap-2">Sensitivity<select className="rounded border px-1" value={def.sensitivity} onChange={(e) => setDef({ ...def, sensitivity: e.target.value as TemplateDefinition["sensitivity"] })}><option>STANDARD</option><option>RESTRICTED</option><option>SPECIALLY_PROTECTED</option></select></label>
             <label className="flex items-center gap-2">Page<select className="rounded border px-1" value={def.output.pageSize} onChange={(e) => setDef({ ...def, output: { ...def.output, pageSize: e.target.value as "A4" } })}><option>A4</option><option>LETTER</option><option>A5</option></select></label>
+            <label className="flex items-center gap-2" data-testid="label-letterhead-select">Letterhead
+              <select
+                className="rounded border px-1"
+                value={def.output.letterheadId ?? ""}
+                aria-label="Letterhead for documents from this template"
+                onChange={(e) => setDef({ ...def, output: { ...def.output, letterheadId: e.target.value || null } })}
+              >
+                <option value="">Automatic (department / facility default)</option>
+                {props.letterheads.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name}{l.department ? ` — ${l.department}` : ""}</option>
+                ))}
+              </select>
+            </label>
           </div>
 
           {!ro && (

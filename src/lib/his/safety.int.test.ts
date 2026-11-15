@@ -35,6 +35,7 @@ import { GET as previewLetterhead } from "@/app/api/facility/his/letterheads/[id
 import { GET as listDoctorLetterheads, POST as createDoctorLetterhead } from "@/app/api/doctors/me/letterheads/route";
 import { PATCH as patchDoctorLetterhead } from "@/app/api/doctors/me/letterheads/[id]/route";
 import { resolveDoctorLetterhead, resolveFacilityLetterhead } from "@/lib/letterheads";
+import { buildDocumentView, documentInclude } from "@/lib/his/documents";
 import { documentEvent } from "./audit";
 
 const url = process.env.HIS_TEST_DATABASE_URL;
@@ -289,6 +290,52 @@ describe.skipIf(!url)("HIS real-database safety and workflows", () => {
     // The finalized document is issued under the facility letterhead, which
     // enables the QR — so the rendered PDF carries an embedded QR image.
     expect((bytes.toString("latin1").match(/\/Subtype\s*\/Image/g) ?? []).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("prints documents on the letterhead pinned to their template", async () => {
+    // A template can pin one of the facility's saved letterheads; documents
+    // from that template print on it regardless of department resolution.
+    await as("owner");
+    const create = await createTemplate(request("/api/facility/his/templates", "POST", {
+      mode: "custom", name: `Pinned letterhead ${runId}`, groupCode: "B",
+      definition: { ...def, output: { pageSize: "A4", letterheadId: radiologyLetterheadId } },
+    }), { params: Promise.resolve({}) });
+    expect(create.status).toBe(201);
+    const pinnedTemplateId = (await create.json()).template.id;
+    expect((await templateAction(request("/actions", "POST", { action: "submit" }), ctx(pinnedTemplateId))).status).toBe(200);
+    await as("reviewer");
+    expect((await templateAction(request("/actions", "POST", { action: "approve" }), ctx(pinnedTemplateId))).status).toBe(200);
+    await as("owner");
+    expect((await templateAction(request("/actions", "POST", { action: "publish" }), ctx(pinnedTemplateId))).status).toBe(200);
+    await as("author");
+    const doc = await createDocument(request("/api/facility/his/documents", "POST", {
+      templateId: pinnedTemplateId, patientId: fac().patientId, encounterId: fac().encounterIds[0],
+    }), { params: Promise.resolve({}) });
+    expect(doc.status).toBe(201);
+    const pinnedDocId = (await doc.json()).document.id;
+    await saveDocument(request("/document", "PUT", { content: { note: "SYNTHETIC ACCEPTANCE ONLY. Not a clinical record." } }), ctx(pinnedDocId));
+
+    const row = await prisma.clinicalDocument.findFirstOrThrow({ where: { id: pinnedDocId }, include: documentInclude });
+    const view = await buildDocumentView(row);
+    expect(view.facility.name).toBe("Radiology Institute");
+    expect(view.facility.signatureBlocks).toEqual([]);
+    // Unpinning falls back to the facility's automatic resolution.
+    const unpinned = await buildDocumentView({ ...row, templateVersion: { ...row.templateVersion, definition: { ...(row.templateVersion.definition as Record<string, unknown>), output: { pageSize: "A4", letterheadId: null } } } });
+    expect(unpinned.facility.name).toBe("Synthetic General Hospital");
+  });
+
+  it("refuses to pin a letterhead the facility does not own", async () => {
+    await as("owner");
+    const foreign = await createTemplate(request("/api/facility/his/templates", "POST", {
+      mode: "custom", name: `Foreign pin ${runId}`, groupCode: "B",
+      definition: { ...def, output: { pageSize: "A4", letterheadId: "33333333-3333-4333-8333-333333333333" } },
+    }), { params: Promise.resolve({}) });
+    expect(foreign.status).toBe(400);
+    expect(((await foreign.json()) as { error: string }).error).toContain("not available to this facility");
+    const other = await createTemplate(request("/api/facility/his/templates", "POST", {
+      mode: "custom", name: `Other hospital pin ${runId}`, groupCode: "B", definition: { ...def, output: { pageSize: "A4", letterheadId: radiologyLetterheadId } },
+    }, "b"), { params: Promise.resolve({}) });
+    expect(other.status).toBe(400);
   });
 
   it("keeps doctor letterheads personal: only the owner can list, edit or resolve them", async () => {

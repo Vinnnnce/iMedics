@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody } from "@/lib/api";
 import { getVerifiedDoctorProfile } from "@/lib/access";
 import { writeAudit } from "@/lib/audit";
+import { isSignatureKey, verifySignatureUpload } from "@/lib/letterhead-signature";
 
 const signatureBlockSchema = z.object({
   name: z.string().trim().max(120).nullish(),
@@ -25,6 +26,8 @@ const bodySchema = z.object({
   brandColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Brand color must be a #RRGGBB hex value").default("#0F766E"),
   footerText: z.string().trim().max(300).nullish(),
   logoUrl: z.string().url().max(500).refine((u) => u.startsWith("https://"), "Logo must be an https URL").nullish(),
+  /** Private storage key returned by the signature-image upload endpoint. */
+  signatureUrl: z.string().trim().max(500).refine((k) => k === "" || isSignatureKey(k), "Invalid signature image reference").nullish(),
   showQr: z.boolean().optional(),
   signatureBlocks: z.array(signatureBlockSchema).max(4).default([]),
 });
@@ -45,9 +48,11 @@ export const GET = withAuth(["DOCTOR"], async (_req, { user }) => {
 export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
   const doctor = await getVerifiedDoctorProfile(user);
   const body = await parseBody(req, bodySchema);
+  // The referenced image must already exist in storage and be a real PNG/JPEG.
+  if (body.signatureUrl) await verifySignatureUpload(body.signatureUrl);
   const letterhead = await prisma.$transaction(async (tx) => {
     const existing = await tx.letterheadProfile.findFirst({ where: { userId: doctor.userId }, select: { id: true } });
-    const data = { ...body, isDefault: body.isDefault ?? !existing, createdById: user.id };
+    const data = { ...body, signatureUrl: body.signatureUrl || null, isDefault: body.isDefault ?? !existing, createdById: user.id };
     if (data.isDefault) {
       await tx.letterheadProfile.updateMany({ where: { userId: doctor.userId, isDefault: true }, data: { isDefault: false } });
     }
