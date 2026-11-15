@@ -5110,3 +5110,20 @@ model DocumentShare {
   expiresAt DateTime?
   revokedAt DateTime?
 }
+
+
+model FacilityStaff {
+  accessLevel     String
+  departmentIds   String[]
+  accessStartsAt  DateTime?
+  accessExpiresAt DateTime?
+}
+
+model BreakGlassAccess {
+  closedAt     DateTime?
+  closedReason String?
+}
+
+model AuditLog {
+  userId String?
+}
