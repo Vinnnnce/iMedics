@@ -65,3 +65,21 @@ the page footer, signature blocks after the signature section, and — when enab
 the document is finalized — a QR code encoding
 `Medic1905 verify | document <number> | SHA-256 <hash>` so any recipient can check a
 printed copy against the finalized content hash.
+
+## Preview PDF
+
+`GET /api/facility/his/letterheads/[id]/preview` and
+`GET /api/doctors/me/letterheads/[id]/preview` render a one-page sample document
+under the letterhead (department-scoped letterheads such as Radiology preview with
+their own department) so branding can be proofed before approval. The designer's
+"Preview PDF" button opens it; the sample is clearly labelled and carries no patient
+data. Tenant- and owner-scoped like the other letterhead routes.
+
+## Forms builder
+
+Template editing (`/lab/clinical-documents/templates/[id]`) uses a drag-and-drop
+builder: drag field types from the palette into any section, drag fields between
+sections or to reorder, drag section cards to reorder, and expand any field to edit
+its properties (help text, unit, min/max, max length, default, translations). Locked
+(legally required) fields cannot be removed, retyped or made optional; the arrow
+buttons remain for keyboard editing.

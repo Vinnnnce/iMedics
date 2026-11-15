@@ -156,6 +156,13 @@ export function LetterheadManager({ base, facilityMode, letterheads }: { base: s
             <div className="mt-2 flex flex-wrap gap-2">
               <Button variant="outline" size="sm" data-testid={`button-edit-${l.name}`} disabled={busy} onClick={() => { setV(toValues(l)); setMsg(null); }}>Edit</Button>
               {!l.isDefault && <Button variant="outline" size="sm" disabled={busy} onClick={() => makeDefault(l.id)}>Make default</Button>}
+              <a
+                data-testid={`link-preview-${l.name}`}
+                className="inline-flex h-8 items-center rounded-md border px-3 text-sm font-medium hover:bg-accent"
+                href={`${base}/${l.id}/preview`}
+                target="_blank"
+                rel="noreferrer"
+              >Preview PDF</a>
               <Button variant="outline" size="sm" data-testid={`button-delete-${l.name}`} disabled={busy} onClick={() => remove(l.id)}>Delete</Button>
             </div>
           </li>

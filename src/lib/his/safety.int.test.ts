@@ -31,6 +31,7 @@ import { GET as encounters } from "@/app/api/facility/his/encounters/route";
 import { POST as acknowledge } from "@/app/api/facility/critical-alerts/[id]/route";
 import { POST as createLetterhead, GET as listLetterheads } from "@/app/api/facility/his/letterheads/route";
 import { GET as getLetterhead, PATCH as patchLetterhead, DELETE as deleteLetterhead } from "@/app/api/facility/his/letterheads/[id]/route";
+import { GET as previewLetterhead } from "@/app/api/facility/his/letterheads/[id]/preview/route";
 import { GET as listDoctorLetterheads, POST as createDoctorLetterhead } from "@/app/api/doctors/me/letterheads/route";
 import { PATCH as patchDoctorLetterhead } from "@/app/api/doctors/me/letterheads/[id]/route";
 import { resolveDoctorLetterhead, resolveFacilityLetterhead } from "@/lib/letterheads";
@@ -47,7 +48,7 @@ describe.skipIf(!url)("HIS real-database safety and workflows", () => {
   const def = { sections: [{ id: "assessment", title: "Synthetic acceptance only", fields: [{ id: "note", label: "Synthetic note", type: "textarea", required: true, locked: true }] }],
     signatures: [{ role: "AUTHOR", label: "Synthetic authenticated author", required: true, locked: true }],
     workflow: { requiresReview: true, independentReview: true } };
-  let templateId = "", docId = "";
+  let templateId = "", docId = "", radiologyLetterheadId = "";
   const fac = (hospital: "a" | "b" = "a") => manifest.facilities.find((f) => f.hospital === hospital)!;
   const as = async (role: string, hospital: "a" | "b" = "a") => {
     const fixture = manifest.users.find((u) => u.role === role && u.hospital === hospital)!;
@@ -243,6 +244,7 @@ describe.skipIf(!url)("HIS real-database safety and workflows", () => {
     // A department-specific letterhead for Radiology.
     const dept = await createLetterhead(request("/api/facility/his/letterheads", "POST", { ...body, name: `Radiology letterhead ${runId}`, department: "Radiology", displayName: "Radiology Institute" }), { params: Promise.resolve({}) });
     expect(dept.status).toBe(201);
+    radiologyLetterheadId = (await dept.json()).letterhead.id;
 
     // Resolution: department match first, facility default otherwise.
     expect((await resolveFacilityLetterhead(fac().id, "radiology"))?.displayName).toBe("Radiology Institute");
@@ -259,6 +261,22 @@ describe.skipIf(!url)("HIS real-database safety and workflows", () => {
     expect((await getLetterhead(request("/letterheads", "GET", undefined, "b"), ctx(letterhead.id))).status).toBe(404);
     expect((await patchLetterhead(request("/letterheads", "PATCH", { footerText: "steal" }, "b"), ctx(letterhead.id))).status).toBe(404);
     expect((await deleteLetterhead(request("/letterheads", "DELETE", undefined, "b"), ctx(letterhead.id))).status).toBe(404);
+    await as("owner");
+  });
+
+  it("previews a department letterhead (Radiology) as a sample PDF, tenant-scoped", async () => {
+    await as("owner");
+    const response = await previewLetterhead(request("/preview", "GET"), ctx(radiologyLetterheadId));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("application/pdf");
+    expect(response.headers.get("Cache-Control")).toContain("no-store");
+    const bytes = Buffer.from(await response.arrayBuffer());
+    expect(bytes.subarray(0, 5).toString()).toBe("%PDF-");
+    // The Radiology letterhead enables the QR, so the preview embeds an image.
+    expect((bytes.toString("latin1").match(/\/Subtype\s*\/Image/g) ?? []).length).toBeGreaterThanOrEqual(1);
+    // The other hospital cannot preview this letterhead.
+    await as("owner", "b");
+    expect((await previewLetterhead(request("/preview", "GET", undefined, "b"), ctx(radiologyLetterheadId))).status).toBe(404);
     await as("owner");
   });
 

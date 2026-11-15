@@ -14,6 +14,8 @@ export interface LetterheadSignatureBlock {
 }
 
 export interface LetterheadView {
+  /** Department this letterhead is scoped to (facility letterheads only). */
+  department?: string | null;
   displayName: string;
   headerLines: string[];
   addressLine: string | null;
@@ -55,6 +57,7 @@ export function signatureBlocksOf(value: unknown): LetterheadSignatureBlock[] {
 
 export function letterheadView(profile: LetterheadProfile): LetterheadView {
   return {
+    department: profile.department ?? null,
     displayName: profile.displayName,
     headerLines: profile.headerLines.slice(0, 6),
     addressLine: profile.addressLine,
