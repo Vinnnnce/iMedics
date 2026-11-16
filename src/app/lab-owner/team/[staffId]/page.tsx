@@ -10,35 +10,36 @@ import { formatClinicDateTime } from "@/lib/format";
 import { notFound } from "next/navigation";
 
 interface Props {
-  params: { staffId: string };
+  params: Promise<{ staffId: string }>;
 }
 
 export default async function TeamMemberProfilePage({ params }: Props) {
-  const user = await requirePageRole("LABORATORY");
+  const { staffId } = await params;
+  const user = await requirePageRole("LAB_SCIENTIST");
   const lab = await getLaboratoryProfile(user.id);
   if (!lab) return null;
 
-  const staff = await prisma.laboratoryStaff.findUnique({
-    where: { id: params.staffId, laboratoryId: lab.id },
+  const staff = await prisma.facilityStaff.findFirst({
+    where: { id: staffId, facilityId: lab.id },
     select: {
       id: true,
       fullName: true,
       email: true,
       phoneNumber: true,
-      role: true,
+      facilityRole: true,
       status: true,
-      specialization: true,
+      specialty: true,
       createdAt: true,
       lastLoginAt: true,
       credentials: {
         select: {
           id: true,
           type: true,
-          licenseNumber: true,
-          issuedDate: true,
+          number: true,
+          issueDate: true,
           expiryDate: true,
           verificationStatus: true,
-          documentUrl: true,
+          documentKey: true,
         },
         orderBy: { createdAt: "desc" },
       },
@@ -77,13 +78,14 @@ export default async function TeamMemberProfilePage({ params }: Props) {
     }
   };
 
-  const isCredentialExpiring = (expiryDate: Date) => {
+  const isCredentialExpiring = (expiryDate: Date | null) => {
+    if (!expiryDate) return false;
     const daysUntilExpiry = Math.floor((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     return daysUntilExpiry <= 90 && daysUntilExpiry > 0;
   };
 
-  const isCredentialExpired = (expiryDate: Date) => {
-    return expiryDate < new Date();
+  const isCredentialExpired = (expiryDate: Date | null) => {
+    return expiryDate !== null && expiryDate < new Date();
   };
 
   return (
@@ -97,7 +99,7 @@ export default async function TeamMemberProfilePage({ params }: Props) {
         </Link>
         <div className="flex-1">
           <h1 className="text-3xl font-bold">{staff.fullName}</h1>
-          <p className="text-muted-foreground mt-1">{staff.role}</p>
+          <p className="text-muted-foreground mt-1">{staff.facilityRole}</p>
         </div>
         <div className="flex gap-2">
           <Link href={`/lab-owner/team/${staff.id}/permissions`}>
@@ -118,10 +120,10 @@ export default async function TeamMemberProfilePage({ params }: Props) {
         <Badge className={getStatusColor(staff.status)}>
           {staff.status}
         </Badge>
-        {staff.specialization && (
+        {staff.specialty && (
           <Badge variant="outline">
             <Briefcase className="h-3 w-3 mr-1" />
-            {staff.specialization}
+            {staff.specialty}
           </Badge>
         )}
       </div>
@@ -202,8 +204,8 @@ export default async function TeamMemberProfilePage({ params }: Props) {
                     <div className="flex items-start justify-between mb-2">
                       <div>
                         <p className="font-semibold">{cred.type}</p>
-                        {cred.licenseNumber && (
-                          <p className="text-sm text-muted-foreground"># {cred.licenseNumber}</p>
+                        {cred.number && (
+                          <p className="text-sm text-muted-foreground"># {cred.number}</p>
                         )}
                       </div>
                       <Badge className={getCredentialStatus(cred.verificationStatus)}>
@@ -214,20 +216,20 @@ export default async function TeamMemberProfilePage({ params }: Props) {
                     <div className="grid grid-cols-2 gap-2 text-sm mt-3">
                       <div>
                         <p className="text-muted-foreground">Issued</p>
-                        <p className="font-medium">{formatClinicDateTime(cred.issuedDate)}</p>
+                        <p className="font-medium">{cred.issueDate ? formatClinicDateTime(cred.issueDate) : "—"}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Expires</p>
                         <p className={`font-medium ${isExpired ? "text-red-600" : isExpiring ? "text-yellow-600" : ""}`}>
-                          {formatClinicDateTime(cred.expiryDate)}
+                          {cred.expiryDate ? formatClinicDateTime(cred.expiryDate) : "—"}
                           {isExpired && " (EXPIRED)"}
                           {isExpiring && " (EXPIRING SOON)"}
                         </p>
                       </div>
                     </div>
 
-                    {cred.documentUrl && (
-                      <a href={cred.documentUrl} target="_blank" rel="noopener noreferrer">
+                    {cred.documentKey && (
+                      <a href={cred.documentKey} target="_blank" rel="noopener noreferrer">
                         <Button variant="link" size="sm" className="mt-3">
                           View Document
                         </Button>

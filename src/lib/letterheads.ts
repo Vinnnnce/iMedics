@@ -195,6 +195,7 @@ export function letterheadView(
 }
 
 interface LetterheadProfileQuery {
+  active?: boolean;
   facilityId?: string;
   userId?: string;
   department?: string | null;

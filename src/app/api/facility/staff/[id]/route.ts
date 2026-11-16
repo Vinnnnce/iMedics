@@ -28,7 +28,7 @@ const patchSchema = z.object({
 const select = {
   id: true, email: true, fullName: true, facilityRole: true, status: true,
   departmentId: true, branchId: true, publicProfileVisible: true, profileConsent: true,
-  bookingEligible: true, acceptedAt: true, lastLoginAt: true,
+  bookingEligible: true, acceptedAt: true, lastLoginAt: true, inviteExpiresAt: true,
 } as const;
 
 // PATCH /api/facility/staff/[id] — change a staff member's role, status, directory
@@ -83,7 +83,7 @@ export const PATCH = withAuth<{ id: string }>(null, async (req, { user, params }
     await controlAudit(tx, user.id, access.facility.id, "FACILITY_STAFF_UPDATED", id, { changes: Object.keys(data) });
     return row;
   });
-  if (rawToken) await sendStaffInvitationEmail({ to: staff.email, facilityName: access.facility.laboratoryName ?? "your facility", inviterName: user.name, redeemUrl: `${appUrl()}/invite/staff/${rawToken}` });
+  if (rawToken) await sendStaffInvitationEmail({ to: staff.email, facilityName: access.facility.laboratoryName ?? "your facility", facilityId: access.facility.id, staffId: id, inviterName: user.name, redeemUrl: `${appUrl()}/invite/staff/${rawToken}`, expiresAt: staff.inviteExpiresAt ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) });
 
   await writeAudit({
     userId: user.id, actorRole: user.role, action: "FACILITY_STAFF_UPDATED",

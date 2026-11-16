@@ -5,6 +5,7 @@ import { badRequest, forbidden, notFound } from "./errors";
 import { permissionsForRole, FACILITY_PERMISSIONS, type FacilityPermission } from "./facility-staff";
 import { assertClinicalPrivilege, filterClinicalPrivileges, REGULATED_PERMISSIONS } from "./organization/privileges";
 import { assertRequestPatientScope } from "./organization/patient-scope";
+import type { StaffAccessLevel } from "./staff-access";
 import { assertPlatformPolicy, enforceRequestPolicy } from "./platform/access";
 import { setFacilityContext } from "./rls-context";
 import { assertFacilityMayWrite } from "./facility-subscriptions";
@@ -116,7 +117,7 @@ export async function requireFacilityAccess(
   }
   if (permission) await assertClinicalPrivilege(membership.id, permission);
   if (req) {
-    await assertRequestPatientScope({ staffId: membership.id, facilityId: facility.id, accessLevel: membership.accessLevel ?? "STANDARD", departmentIds: membership.departmentIds ?? [] }, req);
+    await assertRequestPatientScope({ staffId: membership.id, facilityId: facility.id, accessLevel: (membership.accessLevel ?? "STANDARD") as StaffAccessLevel, departmentIds: membership.departmentIds ?? [] }, req);
     await enforceRequestPolicy(user, req, facility.id);
     const { moduleForPath } = await import("./platform/policy");
     const featureModule = moduleForPath(new URL(req.url).pathname);

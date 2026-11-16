@@ -48,7 +48,7 @@ export default async function StaffManagementPage() {
     }),
     prisma.controlAuditEvent.findMany({
       where: { facilityId: facility.id },
-      select: { id: true, action: true, actorId: true, occurredAt: true, details: true },
+      select: { sequence: true, action: true, actorId: true, occurredAt: true, details: true },
       orderBy: { occurredAt: "desc" },
       take: 10,
     }),
@@ -288,7 +288,7 @@ export default async function StaffManagementPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {activityLog.map((log) => (
-              <div key={log.id} className="flex justify-between text-sm p-2 border-b last:border-0">
+              <div key={String(log.sequence)} className="flex justify-between text-sm p-2 border-b last:border-0">
                 <span className="font-medium">{log.action}</span>
                 <span className="text-muted-foreground">{formatClinicDateTime(log.occurredAt)}</span>
               </div>

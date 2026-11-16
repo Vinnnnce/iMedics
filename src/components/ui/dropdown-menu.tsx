@@ -15,8 +15,10 @@ function DropdownMenuPortal({ ...props }: MenuPrimitive.Portal.Props) {
 }
 
 function DropdownMenuTrigger({ asChild, ...props }: MenuPrimitive.Trigger.Props & { asChild?: boolean }) {
-  const Component = asChild ? Slot : MenuPrimitive.Trigger
-  return <Component data-slot="dropdown-menu-trigger" {...props} />
+  if (asChild) {
+    return <Slot data-slot="dropdown-menu-trigger" {...(props as React.HTMLAttributes<HTMLElement>)} />
+  }
+  return <MenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props} />
 }
 
 function DropdownMenuContent({
@@ -78,13 +80,17 @@ function DropdownMenuItem({
   className,
   inset,
   variant = "default",
+  asChild = false,
   ...props
 }: MenuPrimitive.Item.Props & {
   inset?: boolean
   variant?: "default" | "destructive"
+  asChild?: boolean
 }) {
+  const Component = asChild ? Slot : MenuPrimitive.Item
+
   return (
-    <MenuPrimitive.Item
+    <Component
       data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}

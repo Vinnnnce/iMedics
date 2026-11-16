@@ -16,6 +16,6 @@ const bodySchema = z.object({
 export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
   await getVerifiedDoctorProfile(user);
   const body = await parseBody(req, bodySchema);
-  const presigned = await presignSignatureUpload(body.mimeType, body.sizeBytes);
+  const presigned = await presignSignatureUpload(user.id, body.mimeType, body.sizeBytes);
   return NextResponse.json(presigned, { status: 200 });
 });

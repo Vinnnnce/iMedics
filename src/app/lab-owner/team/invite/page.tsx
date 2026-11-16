@@ -12,7 +12,7 @@ import { requirePageRole } from "@/lib/guards";
 import { getLaboratoryProfile } from "@/lib/laboratory-auth";
 
 export default async function AddTeamMemberPage() {
-  const user = await requirePageRole("LABORATORY");
+  const user = await requirePageRole("LAB_SCIENTIST");
   const lab = await getLaboratoryProfile(user.id);
   if (!lab) return null;
 

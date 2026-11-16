@@ -10,29 +10,29 @@ import { getLaboratoryProfile } from "@/lib/laboratory-auth";
 import { formatClinicDateTime } from "@/lib/format";
 
 export default async function IndependentLabStaffPage() {
-  const user = await requirePageRole("LABORATORY");
+  const user = await requirePageRole("LAB_SCIENTIST");
   const lab = await getLaboratoryProfile(user.id);
   if (!lab) return null;
 
   // Fetch comprehensive staff data for independent lab
   const [allStaff, credentialAlerts, activityLog] = await Promise.all([
-    prisma.laboratoryStaff.findMany({
-      where: { laboratoryId: lab.id },
+    prisma.facilityStaff.findMany({
+      where: { facilityId: lab.id },
       select: {
         id: true,
         fullName: true,
         email: true,
-        role: true,
+        facilityRole: true,
         status: true,
-        specialization: true,
+        specialty: true,
         lastLoginAt: true,
         createdAt: true,
         credentials: { select: { id: true, type: true, expiryDate: true, verificationStatus: true } },
       },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.laboratoryCredential.findMany({
-      where: { staff: { laboratoryId: lab.id }, expiryDate: { lte: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) } },
+    prisma.staffCredential.findMany({
+      where: { staff: { facilityId: lab.id }, expiryDate: { lte: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) } },
       select: {
         id: true,
         staff: { select: { id: true, fullName: true } },
@@ -41,8 +41,8 @@ export default async function IndependentLabStaffPage() {
       },
     }),
     prisma.controlAuditEvent.findMany({
-      where: { laboratoryId: lab.id },
-      select: { id: true, action: true, actorId: true, occurredAt: true },
+      where: { facilityId: lab.id },
+      select: { sequence: true, action: true, actorId: true, occurredAt: true },
       orderBy: { occurredAt: "desc" },
       take: 10,
     }),
@@ -58,7 +58,7 @@ export default async function IndependentLabStaffPage() {
 
   const staffByRole = allStaff.reduce(
     (acc, staff) => {
-      acc[staff.role] = (acc[staff.role] || 0) + 1;
+      acc[staff.facilityRole] = (acc[staff.facilityRole] || 0) + 1;
       return acc;
     },
     {} as Record<string, number>
@@ -214,8 +214,8 @@ export default async function IndependentLabStaffPage() {
                       </div>
                       <div className="flex gap-4 text-sm text-muted-foreground mt-1">
                         <span>{staff.email}</span>
-                        <span>{staff.role}</span>
-                        {staff.specialization && <span>{staff.specialization}</span>}
+                        <span>{staff.facilityRole}</span>
+                        {staff.specialty && <span>{staff.specialty}</span>}
                       </div>
                       {staff.lastLoginAt && (
                         <p className="text-xs text-muted-foreground mt-1">
@@ -254,7 +254,7 @@ export default async function IndependentLabStaffPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {activityLog.map((log) => (
-              <div key={log.id} className="flex justify-between text-sm p-2 border-b last:border-0">
+              <div key={String(log.sequence)} className="flex justify-between text-sm p-2 border-b last:border-0">
                 <span className="font-medium">{log.action}</span>
                 <span className="text-muted-foreground">{formatClinicDateTime(log.occurredAt)}</span>
               </div>

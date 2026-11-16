@@ -9,7 +9,7 @@ import { getLaboratoryProfile } from "@/lib/laboratory-auth";
 import { notFound } from "next/navigation";
 
 interface Props {
-  params: { staffId: string };
+  params: Promise<{ staffId: string }>;
 }
 
 const PERMISSION_GROUPS = {
@@ -76,23 +76,27 @@ const PERMISSION_GROUPS = {
 };
 
 export default async function TeamMemberPermissionsPage({ params }: Props) {
-  const user = await requirePageRole("LABORATORY");
+  const { staffId } = await params;
+  const user = await requirePageRole("LAB_SCIENTIST");
   const lab = await getLaboratoryProfile(user.id);
   if (!lab) return null;
 
-  const staff = await prisma.laboratoryStaff.findUnique({
-    where: { id: params.staffId, laboratoryId: lab.id },
+  const staff = await prisma.facilityStaff.findFirst({
+    where: { id: staffId, facilityId: lab.id },
     select: {
       id: true,
       fullName: true,
       email: true,
-      role: true,
-      permissions: true,
-      customPermissions: true,
+      facilityRole: true,
+      permissionOverrides: true,
     },
   });
 
   if (!staff) return notFound();
+
+  const customPermissions = Array.isArray(staff.permissionOverrides)
+    ? (staff.permissionOverrides as unknown[]).filter((v): v is string => typeof v === "string")
+    : [];
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto p-6">
@@ -105,7 +109,7 @@ export default async function TeamMemberPermissionsPage({ params }: Props) {
         </Link>
         <div className="flex-1">
           <h1 className="text-3xl font-bold">Manage Permissions</h1>
-          <p className="text-muted-foreground mt-1">{staff.fullName} ({staff.role})</p>
+          <p className="text-muted-foreground mt-1">{staff.fullName} ({staff.facilityRole})</p>
         </div>
       </div>
 
@@ -145,7 +149,7 @@ export default async function TeamMemberPermissionsPage({ params }: Props) {
                   <label key={perm.id} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer">
                     <Checkbox
                       className="mt-1"
-                      defaultChecked={staff.customPermissions?.includes(perm.id)}
+                      defaultChecked={customPermissions.includes(perm.id)}
                       name={perm.id}
                     />
                     <div className="flex-1 min-w-0">

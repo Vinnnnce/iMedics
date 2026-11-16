@@ -6,7 +6,7 @@ import { getLaboratoryProfile } from "@/lib/laboratory-auth";
 // Generate staff compliance report
 export async function GET(req: Request) {
   try {
-    const user = await requirePageRole("LABORATORY");
+    const user = await requirePageRole("LAB_SCIENTIST");
     const lab = await getLaboratoryProfile(user.id);
     if (!lab) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
@@ -29,14 +29,14 @@ export async function GET(req: Request) {
   }
 }
 
-async function generateComplianceReport(laboratoryId: string) {
-  const staff = await prisma.laboratoryStaff.findMany({
-    where: { laboratoryId },
+async function generateComplianceReport(facilityId: string) {
+  const staff = await prisma.facilityStaff.findMany({
+    where: { facilityId },
     select: {
       id: true,
       fullName: true,
       email: true,
-      role: true,
+      facilityRole: true,
       status: true,
       credentials: {
         select: {
@@ -54,25 +54,26 @@ async function generateComplianceReport(laboratoryId: string) {
 
   const report = {
     generatedAt: new Date().toISOString(),
-    laboratorId: laboratoryId,
+    facilityId,
     summary: {
       totalStaff: staff.length,
-      activeStaff: staff.filter(s => s.status === "ACTIVE").length,
-      suspendedStaff: staff.filter(s => s.status === "SUSPENDED").length,
+      activeStaff: staff.filter((s) => s.status === "ACTIVE").length,
+      suspendedStaff: staff.filter((s) => s.status === "SUSPENDED").length,
       credentialsExpired: 0,
       credentialsExpiringIn30Days: 0,
       credentialsExpiringIn90Days: 0,
     },
-    details: staff.map(s => {
-      const expiredCreds = s.credentials.filter(c => c.expiryDate < now);
-      const expiring30 = s.credentials.filter(c => c.expiryDate >= now && c.expiryDate <= in30Days);
-      const expiring90 = s.credentials.filter(c => c.expiryDate > in30Days && c.expiryDate <= in90Days);
-      const verified = s.credentials.filter(c => c.verificationStatus === "VERIFIED").length;
+    details: staff.map((s) => {
+      const live = s.credentials.filter((c) => c.expiryDate);
+      const expiredCreds = live.filter((c) => c.expiryDate! < now);
+      const expiring30 = live.filter((c) => c.expiryDate! >= now && c.expiryDate! <= in30Days);
+      const expiring90 = live.filter((c) => c.expiryDate! > in30Days && c.expiryDate! <= in90Days);
+      const verified = s.credentials.filter((c) => c.verificationStatus === "VERIFIED").length;
 
       return {
         name: s.fullName,
         email: s.email,
-        role: s.role,
+        role: s.facilityRole,
         status: s.status,
         totalCredentials: s.credentials.length,
         verifiedCredentials: verified,
@@ -92,11 +93,11 @@ async function generateComplianceReport(laboratoryId: string) {
   return NextResponse.json(report);
 }
 
-async function generateActivityReport(laboratoryId: string) {
+async function generateActivityReport(facilityId: string) {
   const activities = await prisma.controlAuditEvent.findMany({
-    where: { laboratoryId },
+    where: { facilityId },
     select: {
-      id: true,
+      sequence: true,
       action: true,
       actorId: true,
       occurredAt: true,
@@ -117,7 +118,7 @@ async function generateActivityReport(laboratoryId: string) {
 
   const report = {
     generatedAt: new Date().toISOString(),
-    laboratoryId,
+    facilityId,
     totalEvents: activities.length,
     eventsByType: Object.entries(groupedByAction).map(([action, events]) => ({
       action,
@@ -130,13 +131,13 @@ async function generateActivityReport(laboratoryId: string) {
   return NextResponse.json(report);
 }
 
-async function generateCredentialsReport(laboratoryId: string) {
-  const credentials = await prisma.laboratoryCredential.findMany({
-    where: { staff: { laboratoryId } },
+async function generateCredentialsReport(facilityId: string) {
+  const credentials = await prisma.staffCredential.findMany({
+    where: { staff: { facilityId } },
     select: {
       id: true,
       type: true,
-      licenseNumber: true,
+      number: true,
       expiryDate: true,
       verificationStatus: true,
       verifiedAt: true,
@@ -146,46 +147,47 @@ async function generateCredentialsReport(laboratoryId: string) {
   });
 
   const now = new Date();
-  const expired = credentials.filter(c => c.expiryDate < now);
-  const expiringIn30 = credentials.filter(c => c.expiryDate >= now && c.expiryDate <= new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000));
-  const expiringIn90 = credentials.filter(c => c.expiryDate > new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) && c.expiryDate <= new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000));
+  const live = credentials.filter((c) => c.expiryDate);
+  const expired = live.filter((c) => c.expiryDate! < now);
+  const expiringIn30 = live.filter((c) => c.expiryDate! >= now && c.expiryDate! <= new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000));
+  const expiringIn90 = live.filter((c) => c.expiryDate! > new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) && c.expiryDate! <= new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000));
 
   const report = {
     generatedAt: new Date().toISOString(),
-    laboratoryId,
+    facilityId,
     summary: {
       totalCredentials: credentials.length,
-      verifiedCredentials: credentials.filter(c => c.verificationStatus === "VERIFIED").length,
-      pendingCredentials: credentials.filter(c => c.verificationStatus === "PENDING").length,
-      rejectedCredentials: credentials.filter(c => c.verificationStatus === "REJECTED").length,
+      verifiedCredentials: credentials.filter((c) => c.verificationStatus === "VERIFIED").length,
+      pendingCredentials: credentials.filter((c) => c.verificationStatus === "PENDING_VERIFICATION" || c.verificationStatus === "UNVERIFIED").length,
+      rejectedCredentials: credentials.filter((c) => c.verificationStatus === "REJECTED").length,
       expiredCredentials: expired.length,
       expiringIn30Days: expiringIn30.length,
       expiringIn90Days: expiringIn90.length,
     },
     credentials: {
-      expired: expired.map(c => ({
+      expired: expired.map((c) => ({
         staffName: c.staff.fullName,
         staffEmail: c.staff.email,
         type: c.type,
-        licenseNumber: c.licenseNumber,
+        licenseNumber: c.number,
         expiryDate: c.expiryDate,
-        daysExpired: Math.floor((now.getTime() - c.expiryDate.getTime()) / (1000 * 60 * 60 * 24)),
+        daysExpired: Math.floor((now.getTime() - c.expiryDate!.getTime()) / (1000 * 60 * 60 * 24)),
       })),
-      expiringIn30: expiringIn30.map(c => ({
+      expiringIn30: expiringIn30.map((c) => ({
         staffName: c.staff.fullName,
         staffEmail: c.staff.email,
         type: c.type,
-        licenseNumber: c.licenseNumber,
+        licenseNumber: c.number,
         expiryDate: c.expiryDate,
-        daysRemaining: Math.floor((c.expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+        daysRemaining: Math.floor((c.expiryDate!.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
       })),
-      expiringIn90: expiringIn90.map(c => ({
+      expiringIn90: expiringIn90.map((c) => ({
         staffName: c.staff.fullName,
         staffEmail: c.staff.email,
         type: c.type,
-        licenseNumber: c.licenseNumber,
+        licenseNumber: c.number,
         expiryDate: c.expiryDate,
-        daysRemaining: Math.floor((c.expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+        daysRemaining: Math.floor((c.expiryDate!.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
       })),
     },
   };
@@ -193,11 +195,11 @@ async function generateCredentialsReport(laboratoryId: string) {
   return NextResponse.json(report);
 }
 
-async function exportActivityCSV(laboratoryId: string) {
+async function exportActivityCSV(facilityId: string) {
   const activities = await prisma.controlAuditEvent.findMany({
-    where: { laboratoryId },
+    where: { facilityId },
     select: {
-      id: true,
+      sequence: true,
       action: true,
       actorId: true,
       occurredAt: true,
@@ -209,17 +211,17 @@ async function exportActivityCSV(laboratoryId: string) {
 
   // Convert to CSV format
   const headers = ["Date", "Time", "Action", "Actor ID", "Details"];
-  const rows = activities.map(a => [
+  const rows = activities.map((a) => [
     a.occurredAt.toLocaleDateString(),
     a.occurredAt.toLocaleTimeString(),
     a.action,
     a.actorId,
-    JSON.stringify(a.details || {}),
+    JSON.stringify(a.details ?? {}),
   ]);
 
   const csv = [
     headers.join(","),
-    ...rows.map(row => row.map(cell => `"${cell}"`).join(",")),
+    ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
   ].join("\n");
 
   return new NextResponse(csv, {

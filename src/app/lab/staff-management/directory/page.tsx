@@ -34,7 +34,7 @@ export default async function StaffDirectoryPage() {
     totalStaff: allStaff.length,
     active: allStaff.filter((s) => s.status === "ACTIVE").length,
     pendingCredentials: allStaff.filter((s) =>
-      s.credentials.some((c) => c.verificationStatus === "PENDING")
+      s.credentials.some((c) => c.verificationStatus === "PENDING_VERIFICATION")
     ).length,
   };
 

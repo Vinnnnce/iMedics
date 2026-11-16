@@ -62,7 +62,7 @@ const extensionOf = (key: string): string | null => {
 };
 
 /** A key is a valid signature reference only inside the signature prefix. */
-export function isSignatureKey(key: string | null | undefined): boolean {
+export function isSignatureKey(key: string | null | undefined): key is string {
   if (!key) return false;
 
   return (
@@ -127,10 +127,9 @@ export async function presignSignatureUpload(
         ? "png"
         : "jpg";
 
-  const key = newObjectKey(
+  const key = `${newObjectKey(
     `${SIGNATURE_KEY_PREFIX}${ownerId}`.replace(/\/+$/, ""),
-    extension,
-  );
+  )}.${extension}`;
 
   const uploadUrl = await presignUpload(key, mimeType, sizeBytes);
 
@@ -182,8 +181,7 @@ export async function verifySignatureUpload(
     throw badRequest("Signature image must have a .png, .jpg, or .jpeg extension");
   }
 
-  const inspection = await inspectObject(key);
-  const { sizeBytes, head, checksumSha256, width, height } = inspection;
+  const { sizeBytes, head } = await inspectObject(key);
 
   if (sizeBytes < MIN_SIGNATURE_BYTES || sizeBytes > MAX_SIGNATURE_BYTES) {
     await deleteObject(key);
@@ -203,9 +201,9 @@ export async function verifySignatureUpload(
     key,
     sizeBytes,
     mimeType: detectedType,
-    checksumSha256: checksumSha256 ?? null,
-    width: width ?? null,
-    height: height ?? null,
+    checksumSha256: null,
+    width: null,
+    height: null,
   };
 }
 

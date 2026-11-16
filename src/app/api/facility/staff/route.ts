@@ -69,8 +69,11 @@ export const POST = withAuth(null, async (req, { user }) => {
   try { await sendStaffInvitationEmail({
     to: input.email,
     facilityName: access.facility.laboratoryName ?? "your facility",
+    facilityId: access.facility.id,
+    staffId: invitation.staffId,
     redeemUrl: invitation.redeemUrl,
     inviterName: user.name,
+    expiresAt: invitation.expiresAt,
   }); delivered = true; } catch { /* Membership remains pending and can be resent; no false success. */ }
 
   await writeAudit({

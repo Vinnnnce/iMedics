@@ -29,7 +29,10 @@ export type StaffAccessLevel =
   | "LIMITED"
   | "STANDARD"
   | "EXTENDED"
-  | "FULL";
+  | "FULL"
+  | "CUSTOM"
+  | "READ_ONLY"
+  | "DEPARTMENT";
 
 export interface StaffMembershipInfo {
   staffId: string;
@@ -52,7 +55,7 @@ export interface PatientAccessDecision {
 const isStaffAccessLevel = (
   value: string,
 ): value is StaffAccessLevel =>
-  ["NONE", "LIMITED", "STANDARD", "EXTENDED", "FULL"].includes(value);
+  ["NONE", "LIMITED", "STANDARD", "EXTENDED", "FULL", "CUSTOM", "READ_ONLY", "DEPARTMENT"].includes(value);
 
 const isActiveMembership = (
   membership: {

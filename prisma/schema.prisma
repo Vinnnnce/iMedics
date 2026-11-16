@@ -1527,6 +1527,8 @@ model FacilityStaff {
   customCategory       String?              @map("custom_category") @db.VarChar(120)
   /// Extra department ids for EXTENDED access (facility's own departments only).
   departmentIds        String[]             @default([]) @map("department_ids")
+  /// Contact phone number shown to the facility owner in staff management.
+  phoneNumber          String?              @map("phone_number") @db.VarChar(40)
   /// Per-staff permission overrides applied to the role defaults:
   /// { "add": ["ENTER_RESULTS"], "remove": ["RELEASE_RESULTS"] } (CUSTOM access level).
   permissionOverrides  Json                 @default("{}") @map("permission_overrides")
@@ -2016,6 +2018,7 @@ model DocumentShare {
   role             String          @db.VarChar(20)
   grantedById      String          @map("granted_by_id") @db.Uuid
   grantedAt        DateTime        @default(now()) @map("granted_at")
+  expiresAt        DateTime?       @map("expires_at")
   revokedAt        DateTime?
   document         PatientDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
   sharedWithUser   User            @relation("DocumentShareRecipient", fields: [sharedWithUserId], references: [id])
@@ -2540,7 +2543,16 @@ model LetterheadProfile {
   signatureUrl     String?          @map("signature_url") @db.VarChar(500)
   /// Print a QR verification code (document number + content hash) on PDFs.
   showQr           Boolean          @default(true) @map("show_qr")
+  /// Optional external URL the printed QR code points to (verification portal).
+  qrUrl            String?          @map("qr_url") @db.VarChar(2048)
   watermark        String?          @db.VarChar(60)
+  /// Watermark opacity 0-1 and rotation in degrees for the printed PDF.
+  watermarkOpacity Float?           @map("watermark_opacity")
+  watermarkRotation Float?          @map("watermark_rotation")
+  /// BCP-47 locale used for date/number formatting on this letterhead.
+  locale           String?          @map("locale") @db.VarChar(10)
+  /// Date format string (e.g. "d MMM yyyy") for printed documents.
+  dateFormat       String?          @map("date_format") @db.VarChar(40)
   /// Static authorised signature blocks: [{ name, title, registrationId, side }].
   signatureBlocks  Json             @default("[]") @map("signature_blocks")
   active           Boolean          @default(true)
@@ -2626,6 +2638,8 @@ model ClinicalDocument {
   department          String?                         @db.VarChar(120)
   status              ClinicalDocumentStatus          @default(DRAFT)
   sensitivity         DocumentSensitivity             @default(STANDARD)
+  /// Soft-delete timestamp; null means the document is live.
+  deletedAt           DateTime?                      @map("deleted_at")
   /// Field values keyed by field id.
   content             Json                            @default("{}")
   /// SHA-256 of the canonical content, set on finalization; signatures bind to it.
@@ -3144,6 +3158,7 @@ model DocumentFacilityShare {
   facilityId  String          @map("facility_id") @db.Uuid
   grantedById String          @map("granted_by_id") @db.Uuid
   grantedAt   DateTime        @default(now()) @map("granted_at")
+  expiresAt   DateTime?       @map("expires_at")
   revokedAt   DateTime?       @map("revoked_at")
   document    PatientDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
   facility    LabStaffProfile @relation("FacilityDocumentShares", fields: [facilityId], references: [id], onDelete: Cascade)
@@ -5084,46 +5099,4 @@ enum FacilitySubscriptionStatus {
   ACTIVE
   EXPIRED
   CANCELLED
-}
-
-
-model LetterheadProfile {
-  // existing fields...
-
-  qrUrl              String?
-  watermark          String?
-  watermarkOpacity   Float?
-  watermarkRotation  Float?
-  locale             String?
-  dateFormat         String?
-}
-
-
-model DocumentFacilityShare {
-  // existing fields...
-  expiresAt DateTime?
-  revokedAt DateTime?
-}
-
-model DocumentShare {
-  // existing fields...
-  expiresAt DateTime?
-  revokedAt DateTime?
-}
-
-
-model FacilityStaff {
-  accessLevel     String
-  departmentIds   String[]
-  accessStartsAt  DateTime?
-  accessExpiresAt DateTime?
-}
-
-model BreakGlassAccess {
-  closedAt     DateTime?
-  closedReason String?
-}
-
-model AuditLog {
-  userId String?
 }

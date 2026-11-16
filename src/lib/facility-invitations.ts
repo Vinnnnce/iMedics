@@ -1,5 +1,6 @@
 import type {
   EmploymentType,
+  FacilityStaff,
   FacilityStaffRole,
   Prisma,
   User,
@@ -488,7 +489,7 @@ export async function redeemStaffInvitation(
   user: User,
   token: string,
   reject = false,
-): Promise<User> {
+): Promise<FacilityStaff> {
   const identity = await currentUser();
 
   const verifiedEmail = identity?.emailAddresses.find(

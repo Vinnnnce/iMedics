@@ -170,12 +170,12 @@ export async function facilitiesWithDocumentAccess(
     if (!isActiveMembership(membership, now)) continue;
 
     const permissions = effectivePermissions({
-      role: membership.facilityRole,
+      facilityRole: membership.facilityRole,
       accessLevel: membership.accessLevel,
       permissionOverrides: membership.permissionOverrides,
     });
 
-    if (permissions.has("VIEW_PATIENT_DOCUMENTS")) {
+    if (permissions.includes("VIEW_PATIENT_DOCUMENTS")) {
       facilityIds.add(membership.facilityId);
     }
   }
@@ -383,6 +383,6 @@ export async function auditDocumentAccess(
     action,
     resourceType: "PatientDocument",
     resourceId: documentId,
-    details: structuredClone(details ?? {}),
+    details: JSON.parse(JSON.stringify(details ?? {})),
   });
 }

@@ -10,7 +10,7 @@ import { resolveFacilityForPortalUser } from "@/lib/facility-auth";
 import { notFound } from "next/navigation";
 
 interface Props {
-  params: { staffId: string };
+  params: Promise<{ staffId: string }>;
 }
 
 const PERMISSION_GROUPS = {
@@ -83,17 +83,21 @@ export default async function StaffPermissionsPage({ params }: Props) {
   const facility = await resolveFacilityForPortalUser(user);
   if (!facility) return null;
 
-  const staff = await prisma.facilityStaff.findUnique({
-    where: { id: params.staffId, facilityId: facility.id },
+  const { staffId } = await params;
+  const staff = await prisma.facilityStaff.findFirst({
+    where: { id: staffId, facilityId: facility.id },
     select: {
       id: true,
       fullName: true,
       email: true,
       facilityRole: true,
-      permissions: true,
-      customPermissions: true,
+      permissionOverrides: true,
     },
   });
+
+  const customPermissions = Array.isArray(staff?.permissionOverrides)
+    ? (staff.permissionOverrides as unknown[]).filter((v): v is string => typeof v === "string")
+    : [];
 
   if (!staff) return notFound();
 
@@ -148,7 +152,7 @@ export default async function StaffPermissionsPage({ params }: Props) {
                   <label key={perm.id} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer">
                     <Checkbox
                       className="mt-1"
-                      defaultChecked={staff.customPermissions?.includes(perm.id)}
+                      defaultChecked={customPermissions.includes(perm.id)}
                       name={perm.id}
                     />
                     <div className="flex-1 min-w-0">

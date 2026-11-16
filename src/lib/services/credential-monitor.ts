@@ -2,7 +2,7 @@
 // Path: src/lib/services/credential-monitor.ts
 
 import { prisma } from "@/lib/prisma";
-import { sendEmail } from "@/lib/notifications/email-templates";
+import { sendEmail } from "@/lib/notifications/email";
 
 export async function checkCredentialExpiry() {
   const now = new Date();
@@ -17,7 +17,7 @@ export async function checkCredentialExpiry() {
   for (const threshold of expiryThresholds) {
     const targetDate = new Date(now.getTime() + threshold.days * 24 * 60 * 60 * 1000);
 
-    const expiringCredentials = await prisma.laboratoryCredential.findMany({
+    const expiringCredentials = await prisma.staffCredential.findMany({
       where: {
         expiryDate: {
           gte: new Date(now.getTime() + (threshold.days - 1) * 24 * 60 * 60 * 1000),
@@ -34,6 +34,8 @@ export async function checkCredentialExpiry() {
     });
 
     for (const credential of expiringCredentials) {
+      if (!credential.expiryDate) continue;
+
       const daysRemaining = Math.floor(
         (credential.expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
       );
@@ -41,13 +43,9 @@ export async function checkCredentialExpiry() {
       // Send alert email
       await sendEmail({
         to: credential.staff.email,
-        template: threshold.template,
-        data: {
-          name: credential.staff.fullName,
-          credentialType: credential.type,
-          expiryDate: credential.expiryDate.toLocaleDateString(),
-          daysRemaining: daysRemaining.toString(),
-        },
+        subject: `Your ${credential.type} credential expires in ${daysRemaining} days`,
+        text: `Hello ${credential.staff.fullName},\n\nYour ${credential.type} credential expires on ${credential.expiryDate.toLocaleDateString()} (${daysRemaining} days remaining).\n\nPlease renew your credentials to maintain access.`,
+        html: `<p>Hello ${credential.staff.fullName},</p><p>Your ${credential.type} credential expires on ${credential.expiryDate.toLocaleDateString()} (${daysRemaining} days remaining).</p><p>Please renew your credentials to maintain access.</p>`,
       });
 
       // Log the alert
@@ -62,7 +60,7 @@ export async function checkExpiredCredentials() {
   const now = new Date();
 
   // Find all expired credentials
-  const expiredCredentials = await prisma.laboratoryCredential.findMany({
+  const expiredCredentials = await prisma.staffCredential.findMany({
     where: {
       expiryDate: { lt: now },
       verificationStatus: "VERIFIED",
@@ -77,7 +75,7 @@ export async function checkExpiredCredentials() {
     const staff = credential.staff;
 
     // Check if staff has any valid credentials
-    const validCredentials = await prisma.laboratoryCredential.findMany({
+    const validCredentials = await prisma.staffCredential.findMany({
       where: {
         staffId: staff.id,
         expiryDate: { gte: now },
@@ -87,7 +85,7 @@ export async function checkExpiredCredentials() {
 
     // If no valid credentials, suspend the staff
     if (validCredentials.length === 0) {
-      await prisma.laboratoryStaff.update({
+      await prisma.facilityStaff.update({
         where: { id: staff.id },
         data: { status: "SUSPENDED" },
       });
@@ -95,13 +93,9 @@ export async function checkExpiredCredentials() {
       // Send suspension email
       await sendEmail({
         to: staff.email,
-        template: "staff-status-change",
-        data: {
-          name: staff.fullName,
-          status: "SUSPENDED",
-          message: `Your account has been suspended due to expired credentials. Please renew your credentials to restore access.`,
-          showDetails: "true",
-        },
+        subject: "Your laboratory access has been suspended",
+        text: `Hello ${staff.fullName},\n\nYour account has been suspended due to expired credentials. Please renew your credentials to restore access.`,
+        html: `<p>Hello ${staff.fullName},</p><p>Your account has been suspended due to expired credentials. Please renew your credentials to restore access.</p>`,
       });
 
       console.log(
