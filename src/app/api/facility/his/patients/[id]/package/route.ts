@@ -6,6 +6,7 @@ import { assertPatientLinked, requireHisAccess } from "@/lib/his/access";
 import { auditHis } from "@/lib/his/audit";
 import { buildDocumentView, documentInclude } from "@/lib/his/documents";
 import { renderDocumentsPdf } from "@/lib/his/pdf";
+import { loadSignatureImageBytes } from "@/lib/letterhead-signature";
 import { assertDocumentReadable } from "@/lib/his/visibility";
 
 export const runtime = "nodejs";
@@ -32,7 +33,12 @@ export const POST = withAuth<{ id: string }>(null, async (req, { user, params })
   if (docs.length !== body.documentIds.length) throw badRequest("Only finalized documents of this patient can be exported");
   for (const doc of docs) assertDocumentReadable(doc, user.id, access.permissions.includes("REVIEW_DOCUMENTS"));
   const views = await Promise.all(docs.map(buildDocumentView));
-  const bytes = await renderDocumentsPdf(views, { manifestTitle: `Medical records package · authorization ${body.authorizationReference}` });
+  const signatureImages: Record<string, Uint8Array> = {};
+  for (const key of new Set(views.map((v) => v.facility.signatureImageKey).filter(Boolean) as string[])) {
+    const loaded = await loadSignatureImageBytes(key);
+    if (loaded) signatureImages[key] = loaded;
+  }
+  const bytes = await renderDocumentsPdf(views, { manifestTitle: `Medical records package · authorization ${body.authorizationReference}`, signatureImages });
   await prisma.clinicalDocumentEvent.createMany({ data: docs.map((d) => ({ documentId: d.id, action: "EXPORTED", actorId: user.id, note: body.authorizationReference })) });
   await auditHis(access, "HIS_RECORDS_PACKAGE_EXPORTED", "Patient", patientId, req, { patientId, details: { count: docs.length, authorization: body.authorizationReference } });
   return new Response(Buffer.from(bytes), {

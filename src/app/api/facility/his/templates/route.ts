@@ -21,6 +21,13 @@ const createSchema = z.union([
   }),
 ]);
 
+/** A template may pin the facility letterhead its documents print on. */
+async function assertLetterheadAvailable(facilityId: string, letterheadId: string | null | undefined) {
+  if (!letterheadId) return;
+  const letterhead = await prisma.letterheadProfile.findFirst({ where: { id: letterheadId, facilityId, active: true }, select: { id: true } });
+  if (!letterhead) throw badRequest("That letterhead is not available to this facility");
+}
+
 const suffix = () => randomBytes(3).toString("hex");
 const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
 
@@ -68,6 +75,7 @@ export const POST = withAuth(null, async (req, { user }) => {
 
   if (!groupAllowedForKind(input.groupCode, access.kind)) throw forbidden("This document group is not available to your organization type");
   let definition = parseDefinition(input.definition);
+  await assertLetterheadAvailable(facilityId, definition.output.letterheadId);
   const source = input.sourceCode ? catalogueEntry(input.sourceCode)?.definition ?? null : null;
   if (source) {
     definition = carryLocks(source, definition);

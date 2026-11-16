@@ -17,6 +17,13 @@ const saveSchema = z.object({
   definition: z.unknown(),
 });
 
+/** A template may pin the facility letterhead its documents print on. */
+async function assertLetterheadAvailable(facilityId: string, letterheadId: string | null | undefined) {
+  if (!letterheadId) return;
+  const letterhead = await prisma.letterheadProfile.findFirst({ where: { id: letterheadId, facilityId, active: true }, select: { id: true } });
+  if (!letterhead) throw badRequest("That letterhead is not available to this facility");
+}
+
 async function loadTemplate(facilityId: string, id: string) {
   const template = await prisma.clinicalDocumentTemplate.findFirst({
     where: { id, facilityId },
@@ -47,6 +54,7 @@ export const PUT = withAuth<{ id: string }>(null, async (req, { user, params }) 
   const source = template.sourceCode ? catalogueEntry(template.sourceCode)?.definition ?? null : null;
   const previous = parseDefinition(draft.definition);
   const definition = carryLocks(previous, carryLocks(source, parseDefinition(body.definition)));
+  await assertLetterheadAvailable(access.facility.id, definition.output.letterheadId);
   for (const baseline of [source, previous]) {
     if (!baseline) continue;
     const problems = lockedViolations(baseline, definition);

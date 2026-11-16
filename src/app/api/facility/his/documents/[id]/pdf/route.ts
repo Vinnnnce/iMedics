@@ -5,6 +5,7 @@ import { requireHisAccess } from "@/lib/his/access";
 import { documentEvent } from "@/lib/his/audit";
 import { buildDocumentView, loadFacilityDocument } from "@/lib/his/documents";
 import { renderDocumentsPdf } from "@/lib/his/pdf";
+import { loadSignatureImageBytes } from "@/lib/letterhead-signature";
 
 export const runtime = "nodejs";
 
@@ -15,7 +16,11 @@ export const GET = withAuth<{ id: string }>(null, async (req, { user, params }) 
   if (doc.sensitivity === "SPECIALLY_PROTECTED" && doc.authorId !== user.id && !access.permissions.includes("REVIEW_DOCUMENTS")) {
     throw forbidden("This record is specially protected");
   }
-  const bytes = await renderDocumentsPdf([await buildDocumentView(doc)]);
+  const view = await buildDocumentView(doc);
+  const signatureImages: Record<string, Uint8Array> = {};
+  const loaded = await loadSignatureImageBytes(view.facility.signatureImageKey);
+  if (loaded && view.facility.signatureImageKey) signatureImages[view.facility.signatureImageKey] = loaded;
+  const bytes = await renderDocumentsPdf([view], { signatureImages });
   await prisma.$transaction((tx) => documentEvent(tx, doc.id, "PDF_DOWNLOADED", user.id));
   return new Response(Buffer.from(bytes), {
     headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${doc.documentNumber}.pdf"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" },

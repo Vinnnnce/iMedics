@@ -33,6 +33,7 @@ const FACILITY_ITEM_KINDS: Record<string, readonly FacilityKind[]> = {
   "/lab/pharmacy": [H, P],
   "/lab/lab-equipment": [L],
   "/lab/registration": [H, L, D],
+  "/lab/letterheads": [H, L, D],
 };
 
 function pathOf(href: string): string {

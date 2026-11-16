@@ -59,7 +59,7 @@ const STATUSES = ["ACTIVE", "SUSPENDED", "ON_LEAVE", "TERMINATED"];
 const select = "h-9 w-full rounded-lg border border-input bg-background px-2 text-sm";
 
 /** Per-staff access control: level, custom category, patient grants, break-glass audit. */
-function StaffAccessControl({ staffId, accessLevel, customCategory, canManageStaff, apiBase }: {
+export function StaffAccessControl({ staffId, accessLevel, customCategory, canManageStaff, apiBase }: {
   staffId: string;
   accessLevel: string;
   customCategory: string | null;
@@ -79,7 +79,7 @@ function StaffAccessControl({ staffId, accessLevel, customCategory, canManageSta
       const data = await apiBase.get(`/facility/staff/${staffId}/access`) as { staff?: { patientAccessGrants?: typeof grants } };
       setGrants(data.staff?.patientAccessGrants ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
+      setError(err instanceof Error && err.message ? err.message : "Could not load the assigned patients");
     }
   };
 
@@ -89,7 +89,7 @@ function StaffAccessControl({ staffId, accessLevel, customCategory, canManageSta
       await apiBase.patch(`/facility/staff/${staffId}/access`, { accessLevel: level });
       apiBase.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
+      setError(err instanceof Error && err.message ? err.message : "Could not update the access level");
     }
   };
 
@@ -99,7 +99,7 @@ function StaffAccessControl({ staffId, accessLevel, customCategory, canManageSta
       await apiBase.patch(`/facility/staff/${staffId}/access`, { customCategory: category || null });
       apiBase.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
+      setError(err instanceof Error && err.message ? err.message : "Could not update the staff category");
     }
   };
 
@@ -108,7 +108,7 @@ function StaffAccessControl({ staffId, accessLevel, customCategory, canManageSta
     setError(""); setMessage("");
     try {
       if (justification.trim().length < 15) throw new Error("Enter an access-change justification of at least 15 characters.");
-      const lookup = await apiBase.get(`/facility/patients?n=${encodeURIComponent(caseNumber.trim().toUpperCase())}`) as { patient?: { id: string; firstName: string; lastName: string } };
+      const lookup = await apiBase.get(`/facility/patients?caseNumber=${encodeURIComponent(caseNumber.trim().toUpperCase())}`) as { patient?: { id: string; firstName: string; lastName: string } };
       if (!lookup.patient) throw new Error("No patient matches that case number");
       await apiBase.post(`/facility/staff/${staffId}/access`, { action: "GRANT", patientId: lookup.patient.id, scope, justification: justification.trim() });
       setMessage(`Access granted to ${lookup.patient.firstName} ${lookup.patient.lastName}.`);
@@ -116,7 +116,7 @@ function StaffAccessControl({ staffId, accessLevel, customCategory, canManageSta
       setJustification("");
       await loadGrants();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
+      setError(err instanceof Error && err.message ? err.message : "Could not complete the request");
     }
   };
 
@@ -129,7 +129,7 @@ function StaffAccessControl({ staffId, accessLevel, customCategory, canManageSta
       setJustification("");
       await loadGrants();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
+      setError(err instanceof Error && err.message ? err.message : "Could not complete the request");
     }
   };
 
@@ -270,7 +270,7 @@ export function StaffManager({ staff, departments, branches, canManageStaff }: {
       setForm({ email: "", fullName: "", facilityRole: "LAB_SCIENTIST", departmentId: "", branchId: "" });
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send the invitation");
+      setError(err instanceof Error && err.message ? err.message : "Could not send the invitation");
     } finally {
       setBusy(false);
     }
@@ -282,7 +282,7 @@ export function StaffManager({ staff, departments, branches, canManageStaff }: {
       await apiClient.patch(`/facility/staff/${id}`, body);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Update failed");
+      setError(err instanceof Error && err.message ? err.message : "Could not update the staff member");
     } finally {
       setBusy(false);
     }

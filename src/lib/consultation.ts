@@ -4,7 +4,7 @@ export const consultationInclude = {
   patient: {
     select: { id: true, firstName: true, lastName: true, caseNumber: true, dateOfBirth: true, gender: true },
   },
-  doctor: { select: { id: true, user: { select: { name: true } } } },
+  doctor: { select: { id: true, userId: true, user: { select: { name: true } } } },
   prescriptions: { include: { items: true } },
   icd: { select: { code: true, description: true } },
 } satisfies Prisma.ConsultationInclude;

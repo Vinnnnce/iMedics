@@ -1,6 +1,9 @@
 /**
  * Admin control of facility plans and trials, through the real route handlers and database.
- * Skipped unless HIS_TEST_DATABASE_URL points at a migrated, disposable, empty database.
+ * Skipped unless PLANS_ADMIN_TEST_DATABASE_URL points at a migrated, disposable, empty
+ * database. This suite asserts global billing state (for example that no confirmed facility
+ * plan exists at the start), so it must not share a database with the facility-subscriptions
+ * suite, which creates confirmed plans.
  */
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -14,7 +17,7 @@ vi.mock("@clerk/nextjs/server", () => ({
 }));
 vi.mock("next/server", async (original) => ({ ...(await original<typeof import("next/server")>()), after: (fn: () => unknown) => { void Promise.resolve().then(fn); } }));
 
-const url = process.env.HIS_TEST_DATABASE_URL;
+const url = process.env.PLANS_ADMIN_TEST_DATABASE_URL;
 if (url) process.env.DATABASE_URL = url;
 const DAY = 86_400_000;
 

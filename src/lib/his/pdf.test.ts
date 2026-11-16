@@ -4,6 +4,9 @@ import { renderDocumentsPdf } from "./pdf";
 import type { DocumentView } from "./documents";
 import { parseDefinition } from "./template-schema";
 
+/** pdf-lib exposes no embedded-image list; an embedded QR shows up as an /Image XObject in the raw bytes. */
+const imageObjectCount = (bytes: Uint8Array) => (Buffer.from(bytes).toString("latin1").match(/\/Subtype\s*\/Image/g) ?? []).length;
+
 const view = (status: DocumentView["status"], signed: boolean): DocumentView => ({
   id: "d1", documentNumber: "DOC-2026-000001", title: "Résumé de sortie — Выписка", groupCode: "O", groupTitle: "Discharge", status, statusLabel: status,
   watermark: status === "FINAL" ? null : "DRAFT — NOT A VALID CLINICAL RECORD", sensitivity: "STANDARD", revision: 1, templateName: "Final discharge summary", templateVersion: 1,
@@ -33,5 +36,31 @@ describe("PDF rendering", () => {
   it("renders unsigned drafts without failing", async () => {
     const bytes = await renderDocumentsPdf([view("DRAFT", false)]);
     expect(bytes.length).toBeGreaterThan(1000);
+  });
+  it("renders letterhead branding, registration info, signature blocks and the verification QR", async () => {
+    const branded = { ...view("FINAL", true) };
+    branded.facility = {
+      ...branded.facility,
+      brandColor: "#1D4ED8",
+      registrationInfo: "Registered hospital QA-000",
+      website: "https://example.org",
+      showQr: true,
+      signatureBlocks: [
+        { name: "Dr. Ada Ọbáfẹ́mi", title: "Consultant", registrationId: "MDCN-1", side: "left" },
+        { name: "Dr. Ben Test", title: "Head of Medicine", registrationId: "MDCN-2", side: "right" },
+      ],
+    };
+    const bytes = await renderDocumentsPdf([branded]);
+    const pdf = await PDFDocument.load(bytes);
+    expect(pdf.getPageCount()).toBeGreaterThan(0);
+    // The QR PNG adds an embedded image object to the document.
+    expect(imageObjectCount(bytes)).toBeGreaterThanOrEqual(1);
+    // The same document without a letterhead still renders, but has no QR.
+    expect(imageObjectCount(await renderDocumentsPdf([view("FINAL", true)]))).toBe(0);
+  });
+  it("suppresses the QR code when the letterhead disables it", async () => {
+    const noQr = { ...view("FINAL", true) };
+    noQr.facility = { ...noQr.facility, showQr: false };
+    expect(imageObjectCount(await renderDocumentsPdf([noQr]))).toBe(0);
   });
 });

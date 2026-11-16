@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { PDFDocument, rgb, degrees, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, rgb, degrees, type PDFFont, type PDFPage, type PDFImage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
+import QRCode from "qrcode";
 import type { DocumentView } from "./documents";
 import { displayValue } from "./documents";
 
@@ -101,7 +102,10 @@ export class Writer {
   }
 }
 
-export async function renderDocumentsPdf(views: DocumentView[], options: { manifestTitle?: string } = {}): Promise<Uint8Array> {
+export async function renderDocumentsPdf(
+  views: DocumentView[],
+  options: { manifestTitle?: string; signatureImages?: Record<string, Uint8Array> } = {},
+): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.registerFontkit(fontkit);
   const f = await loadPdfFonts();
@@ -124,15 +128,40 @@ export async function renderDocumentsPdf(views: DocumentView[], options: { manif
     w.pages.forEach((p) => allPages.push({ page: p, label: "Index" }));
   }
 
+  const brand = (hex?: string): [number, number, number] => {
+    const m = /^#?([0-9A-Fa-f]{6})$/.exec(hex ?? "");
+    if (!m) return [0.1, 0.1, 0.1];
+    const n = parseInt(m[1], 16);
+    return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  };
   for (const v of views) {
     const size = PAGE_SIZES[v.facility.pageSize] ?? PAGE_SIZES.A4;
+    const brandColor = brand(v.facility.brandColor);
+    // Verification QR encodes the document number and finalized content hash;
+    // only rendered when a letterhead explicitly enables it and the doc is finalized.
+    let qrImage: PDFImage | null = null;
+    if (v.facility.showQr === true && v.contentHash) {
+      const png = await QRCode.toBuffer(`Medic1905 verify | document ${v.documentNumber} | SHA-256 ${v.contentHash}`, { margin: 1, width: 220 });
+      qrImage = await pdf.embedPng(png);
+    }
+    let firstPage = true;
     const header = (w: Writer) => {
-      w.text(v.facility.name, { size: 13, bold: true });
+      w.text(v.facility.name, { size: 13, bold: true, color: brandColor });
       for (const line of v.facility.letterhead) w.text(line, { size: 8, color: [0.35, 0.35, 0.35] });
+      if (v.facility.registrationInfo) w.text(v.facility.registrationInfo, { size: 7, color: [0.45, 0.45, 0.45] });
+      if (v.facility.website) w.text(v.facility.website, { size: 7, color: [0.45, 0.45, 0.45] });
       if (v.facility.address) w.text(v.facility.address, { size: 8, color: [0.35, 0.35, 0.35] });
       if (v.facility.contact) w.text(v.facility.contact, { size: 8, color: [0.35, 0.35, 0.35] });
       w.text(`Patient: ${v.patient.name} · ${v.patient.caseNumber} · DOB ${v.patient.dateOfBirth} · ${v.patient.gender.toLowerCase()}${v.encounterNumber ? ` · Encounter ${v.encounterNumber}` : ""}`, { size: 8 });
       w.rule();
+      if (firstPage && qrImage) {
+        // Draw the verification QR top-right, below the header rule.
+        const side = 56;
+        w.page.drawImage(qrImage, { x: size[0] - w.margin - side, y: w.y - side, width: side, height: side });
+        w.page.drawText("Scan to verify", { x: size[0] - w.margin - side, y: w.y - side - 8, size: 6, font, color: rgb(0.4, 0.4, 0.4) });
+        w.y -= side + 12;
+      }
+      firstPage = false;
     };
     const w = new Writer(pdf, size, font, bold, header);
     w.newPage();
@@ -178,6 +207,49 @@ export async function renderDocumentsPdf(views: DocumentView[], options: { manif
       { size: 8, color: [0.3, 0.3, 0.3] },
     );
     if (v.definition.output.footerNote) w.text(v.definition.output.footerNote, { size: 8, color: [0.3, 0.3, 0.3] });
+    // The letterhead owner's uploaded handwritten signature image, printed
+    // above the signature line on finalized documents.
+    const signatureKey = v.facility.signatureImageKey;
+    const signatureBytes = signatureKey ? options.signatureImages?.[signatureKey] : undefined;
+    if (signatureBytes) {
+      w.gap(10);
+      w.ensure(90);
+      const embedded = signatureBytes[0] === 0x89 ? await pdf.embedPng(signatureBytes) : await pdf.embedJpg(signatureBytes);
+      const scale = Math.min(150 / embedded.width, 52 / embedded.height, 1);
+      const sigBaseY = w.y;
+      w.page.drawImage(embedded, { x: w.margin, y: sigBaseY - 6 - embedded.height * scale, width: embedded.width * scale, height: embedded.height * scale });
+      w.page.drawLine({ start: { x: w.margin, y: sigBaseY - 62 }, end: { x: w.margin + 200, y: sigBaseY - 62 }, thickness: 0.6, color: rgb(0.4, 0.4, 0.4) });
+      w.page.drawText("Signature", { x: w.margin, y: sigBaseY - 74, size: 8, font, color: rgb(0.3, 0.3, 0.3) });
+      w.y = sigBaseY - 80;
+    }
+    // Letterhead signature blocks: pre-printed signature lines for the roles
+    // named on the facility's approved letterhead.
+    if (v.facility.signatureBlocks?.length) {
+      w.gap(10);
+      w.ensure(70);
+      const colW = w.width / 2;
+      const baseY = w.y;
+      let maxDrop = 0;
+      v.facility.signatureBlocks.forEach((block, i) => {
+        const right = block.side === "right" || i % 2 === 1;
+        const x = w.margin + (right ? colW : 0);
+        let y = baseY;
+        const line = (text: string, size: number, useBold = false) => {
+          for (const l of w.wrap(text, size, useBold ? bold : font, colW - 12)) {
+            w.page.drawText(l, { x: x + 6, y: y - size, size, font: useBold ? bold : font, color: rgb(0.15, 0.15, 0.15) });
+            y -= size + 3;
+          }
+        };
+        y -= 26; // signature line space
+        w.page.drawLine({ start: { x: x + 6, y }, end: { x: x + colW - 12, y }, thickness: 0.6, color: rgb(0.4, 0.4, 0.4) });
+        y -= 12;
+        line(block.name, 9, true);
+        if (block.title) line(block.title, 8);
+        if (block.registrationId) line(`Reg. ${block.registrationId}`, 8);
+        maxDrop = Math.max(maxDrop, baseY - y);
+      });
+      w.y = baseY - maxDrop;
+    }
 
     for (const p of w.pages) {
       allPages.push({ page: p, label: v.documentNumber });
