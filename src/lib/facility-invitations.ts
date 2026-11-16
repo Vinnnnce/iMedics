@@ -5,7 +5,7 @@ import type {
   Prisma,
   User,
 } from "@prisma/client";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "./prisma";
 import { conflict, forbidden, notFound } from "./errors";

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, Plus, Users, AlertCircle, Activity, Shield, Clock, CheckCircle2, Trash2, Download } from "lucide-react";
+import { Search, Plus, AlertCircle, Activity, Shield, Clock, CheckCircle2, Trash2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,8 @@ export default async function IndependentLabStaffPage() {
   if (!lab) return null;
 
   // Fetch comprehensive staff data for independent lab
+  // eslint-disable-next-line react-hooks/purity
+  const credentialExpiryThreshold = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
   const [allStaff, credentialAlerts, activityLog] = await Promise.all([
     prisma.facilityStaff.findMany({
       where: { facilityId: lab.id },
@@ -32,7 +34,7 @@ export default async function IndependentLabStaffPage() {
       orderBy: { createdAt: "desc" },
     }),
     prisma.staffCredential.findMany({
-      where: { staff: { facilityId: lab.id }, expiryDate: { lte: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) } },
+      where: { staff: { facilityId: lab.id }, expiryDate: { lte: credentialExpiryThreshold } },
       select: {
         id: true,
         staff: { select: { id: true, fullName: true } },

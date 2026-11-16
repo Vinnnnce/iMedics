@@ -2,7 +2,6 @@
 
 import { Bell, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -32,7 +31,6 @@ export function DoctorHeader({
   unreadNotifications = 0,
   licenseExpiryWarning = false,
 }: DoctorHeaderProps) {
-  const pathname = usePathname();
   const firstName = doctorName.split(" ")[0];
 
   return (

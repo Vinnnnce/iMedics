@@ -309,10 +309,6 @@ export interface PermissionDecision {
     | "DEPARTMENT_REQUIRED";
 }
 
-const permissionSet = (
-  permissions: readonly FacilityPermission[] | null | undefined,
-): Set<FacilityPermission> => new Set(permissions ?? []);
-
 /** Resolve inherited role permissions, then apply explicit overrides. */
 export function effectivePermissions(
   context: FacilityRoleContext,

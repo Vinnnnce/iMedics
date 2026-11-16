@@ -47,6 +47,9 @@ export default async function TeamMemberCredentialsPage({ params }: Props) {
 
   if (!staff) return notFound();
 
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
+
   const getCredentialStatus = (status: string, expiryDate: Date | null) => {
     if (!expiryDate) {
       return { color: "bg-gray-100 text-gray-800", icon: "?", label: "NO EXPIRY" };
@@ -54,7 +57,7 @@ export default async function TeamMemberCredentialsPage({ params }: Props) {
     if (expiryDate < new Date()) {
       return { color: "bg-red-100 text-red-800", icon: "❌", label: "EXPIRED" };
     }
-    const daysUntilExpiry = Math.floor((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    const daysUntilExpiry = Math.floor((expiryDate.getTime() - now) / (1000 * 60 * 60 * 24));
     if (daysUntilExpiry <= 30) {
       return { color: "bg-red-100 text-red-800", icon: "⚠️", label: "EXPIRING SOON" };
     }
@@ -131,7 +134,7 @@ export default async function TeamMemberCredentialsPage({ params }: Props) {
         <div className="space-y-3">
           {staff.credentials.map((credential) => {
             const statusInfo = getCredentialStatus(credential.verificationStatus, credential.expiryDate);
-            const daysUntilExpiry = Math.floor(((credential.expiryDate?.getTime() ?? 0) - Date.now()) / (1000 * 60 * 60 * 24));
+            const daysUntilExpiry = Math.floor(((credential.expiryDate?.getTime() ?? 0) - now) / (1000 * 60 * 60 * 24));
 
             return (
               <Card key={credential.id} className="beeline-card">
@@ -236,7 +239,7 @@ export default async function TeamMemberCredentialsPage({ params }: Props) {
 
       {/* Expiry Reminders */}
       {staff.credentials.some((c) => {
-        const daysUntilExpiry = Math.floor(((c.expiryDate?.getTime() ?? 0) - Date.now()) / (1000 * 60 * 60 * 24));
+        const daysUntilExpiry = Math.floor(((c.expiryDate?.getTime() ?? 0) - now) / (1000 * 60 * 60 * 24));
         return daysUntilExpiry > 0 && daysUntilExpiry <= 90;
       }) && (
         <Card className="beeline-card bg-orange-50 border-orange-200">
@@ -247,11 +250,11 @@ export default async function TeamMemberCredentialsPage({ params }: Props) {
             <div className="space-y-2">
               {staff.credentials
                 .filter((c) => {
-                  const daysUntilExpiry = Math.floor(((c.expiryDate?.getTime() ?? 0) - Date.now()) / (1000 * 60 * 60 * 24));
+                  const daysUntilExpiry = Math.floor(((c.expiryDate?.getTime() ?? 0) - now) / (1000 * 60 * 60 * 24));
                   return daysUntilExpiry > 0 && daysUntilExpiry <= 90;
                 })
                 .map((credential) => {
-                  const daysUntilExpiry = Math.floor(((credential.expiryDate?.getTime() ?? 0) - Date.now()) / (1000 * 60 * 60 * 24));
+                  const daysUntilExpiry = Math.floor(((credential.expiryDate?.getTime() ?? 0) - now) / (1000 * 60 * 60 * 24));
                   return (
                     <div key={credential.id} className="text-sm">
                       <p className="text-orange-900">

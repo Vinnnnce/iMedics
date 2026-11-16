@@ -80,6 +80,7 @@ export default async function TeamMemberProfilePage({ params }: Props) {
 
   const isCredentialExpiring = (expiryDate: Date | null) => {
     if (!expiryDate) return false;
+    // eslint-disable-next-line react-hooks/purity
     const daysUntilExpiry = Math.floor((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     return daysUntilExpiry <= 90 && daysUntilExpiry > 0;
   };

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Plus, Trash2, CheckCircle2, AlertCircle, Clock, Upload } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, AlertCircle, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +45,9 @@ export default async function StaffCredentialsPage({ params }: Props) {
 
   if (!staff) return notFound();
 
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
+
   const getCredentialStatus = (status: string, expiryDate: Date | null) => {
     if (!expiryDate) {
       return { color: "bg-gray-100 text-gray-800", icon: "?", label: "NO EXPIRY" };
@@ -52,7 +55,7 @@ export default async function StaffCredentialsPage({ params }: Props) {
     if (expiryDate < new Date()) {
       return { color: "bg-red-100 text-red-800", icon: "❌", label: "EXPIRED" };
     }
-    const daysUntilExpiry = Math.floor((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    const daysUntilExpiry = Math.floor((expiryDate.getTime() - now) / (1000 * 60 * 60 * 24));
     if (daysUntilExpiry <= 30) {
       return { color: "bg-red-100 text-red-800", icon: "⚠️", label: "EXPIRING SOON" };
     }
@@ -128,7 +131,7 @@ export default async function StaffCredentialsPage({ params }: Props) {
         <div className="space-y-3">
           {staff.credentials.map((credential) => {
             const statusInfo = getCredentialStatus(credential.verificationStatus, credential.expiryDate);
-            const daysUntilExpiry = Math.floor(((credential.expiryDate?.getTime() ?? 0) - Date.now()) / (1000 * 60 * 60 * 24));
+            const daysUntilExpiry = Math.floor(((credential.expiryDate?.getTime() ?? 0) - now) / (1000 * 60 * 60 * 24));
 
             return (
               <Card key={credential.id} className="beeline-card">
@@ -233,6 +236,7 @@ export default async function StaffCredentialsPage({ params }: Props) {
 
       {/* Expiry Reminders */}
       {staff.credentials.some((c) => {
+        // eslint-disable-next-line react-hooks/purity
         const daysUntilExpiry = Math.floor(((c.expiryDate?.getTime() ?? 0) - Date.now()) / (1000 * 60 * 60 * 24));
         return daysUntilExpiry > 0 && daysUntilExpiry <= 90;
       }) && (
@@ -244,10 +248,12 @@ export default async function StaffCredentialsPage({ params }: Props) {
             <div className="space-y-2">
               {staff.credentials
                 .filter((c) => {
+                  // eslint-disable-next-line react-hooks/purity
                   const daysUntilExpiry = Math.floor(((c.expiryDate?.getTime() ?? 0) - Date.now()) / (1000 * 60 * 60 * 24));
                   return daysUntilExpiry > 0 && daysUntilExpiry <= 90;
                 })
                 .map((credential) => {
+                  // eslint-disable-next-line react-hooks/purity
                   const daysUntilExpiry = Math.floor(((credential.expiryDate?.getTime() ?? 0) - Date.now()) / (1000 * 60 * 60 * 24));
                   return (
                     <div key={credential.id} className="text-sm">

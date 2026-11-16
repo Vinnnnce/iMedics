@@ -237,8 +237,8 @@ export default async function AddStaffPage() {
               <p className="font-semibold text-blue-900">What happens next:</p>
               <ul className="space-y-1 text-blue-800">
                 <li>✓ Invitation email will be sent to the staff member</li>
-                <li>✓ They'll create their account and set a password</li>
-                <li>✓ You'll review their credentials before full access is granted</li>
+                <li>✓ They&apos;ll create their account and set a password</li>
+                <li>✓ You&apos;ll review their credentials before full access is granted</li>
                 <li>✓ An audit log will record this action</li>
               </ul>
             </div>

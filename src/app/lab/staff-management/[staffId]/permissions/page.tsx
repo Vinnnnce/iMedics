@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowLeft, Save, RotateCcw, Shield, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { prisma } from "@/lib/prisma";
 import { requireFacilityPortalPage } from "@/lib/guards";

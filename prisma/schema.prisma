@@ -126,7 +126,6 @@ model User {
   country                                                     String?
   adminMembershipsCreated                                     AdminMembership[]             @relation("AdminMembershipCreator")
   adminMemberships                                            AdminMembership[]             @relation("AdminMembershipUser")
-  letterheads                                                LetterheadProfile[]           @relation("LetterheadOwner")
   adminPermissionOverridesGiven                               AdminPermissionOverride[]     @relation("AdminOverrideCreator")
   adminPermissionOverrides                                    AdminPermissionOverride[]     @relation("AdminOverrideUser")
   adminRoleAssignmentsGiven                                   AdminRoleAssignment[]         @relation("AdminRoleAssignmentCreator")
@@ -161,6 +160,7 @@ model User {
   labResultsVerified                                          LabResult[]                   @relation("LabResultVerifiedBy")
   labStaffProfile                                             LabStaffProfile?              @relation("LabStaffProfileUser")
   labStaffVerified                                            LabStaffProfile[]             @relation("LabStaffVerifiedBy")
+  letterheads                                                 LetterheadProfile[]           @relation("LetterheadOwner")
   noteTemplates                                               NoteTemplate[]
   notificationPrefs                                           NotificationPreference[]
   notifications                                               Notification[]
@@ -415,13 +415,13 @@ model LabStaffProfile {
   labReagents             LabReagent[]               @relation("LabReagentFacility")
   user                    User                       @relation("LabStaffProfileUser", fields: [userId], references: [id], onDelete: Cascade)
   verifiedBy              User?                      @relation("LabStaffVerifiedBy", fields: [verifiedById], references: [id])
+  letterheads             LetterheadProfile[]        @relation("LetterheadFacility")
   medicalMedia            MedicalMedia[]             @relation("MedicalMediaFacility")
   organization_positions  OrganizationPosition[]
   issuedDocuments         PatientDocument[]          @relation("IssuingFacility")
   payerCoverages          PayerCoverage[]            @relation("PayerCoverageFacility")
   pharmacyPurchaseOrders  PharmacyPurchaseOrder[]    @relation("PharmacyPurchaseOrderFacility")
   stockBatches            PharmacyStockBatch[]       @relation("PharmacyStockBatchFacility")
-  letterheads            LetterheadProfile[]        @relation("LetterheadFacility")
   pharmacySuppliers       PharmacySupplier[]         @relation("PharmacySupplierFacility")
   subaccount              ProviderSubaccount?
   registrationDrafts      RegistrationDraft[]        @relation("RegistrationDraftFacility")
@@ -1527,8 +1527,6 @@ model FacilityStaff {
   customCategory       String?              @map("custom_category") @db.VarChar(120)
   /// Extra department ids for EXTENDED access (facility's own departments only).
   departmentIds        String[]             @default([]) @map("department_ids")
-  /// Contact phone number shown to the facility owner in staff management.
-  phoneNumber          String?              @map("phone_number") @db.VarChar(40)
   /// Per-staff permission overrides applied to the role defaults:
   /// { "add": ["ENTER_RESULTS"], "remove": ["RELEASE_RESULTS"] } (CUSTOM access level).
   permissionOverrides  Json                 @default("{}") @map("permission_overrides")
@@ -1536,6 +1534,8 @@ model FacilityStaff {
   accessExpiresAt      DateTime?            @map("access_expires_at")
   invitationState      String               @default("PENDING_ACCEPTANCE") @map("invitation_state")
   reportsToId          String?              @map("reports_to_id") @db.Uuid
+  /// Contact phone number shown to the facility owner in staff management.
+  phoneNumber          String?              @map("phone_number") @db.VarChar(40)
   breakGlassAccesses   BreakGlassAccess[]
   clinicalPrivileges   ClinicalPrivilege[]
   assignedBookings     FacilityBooking[]    @relation("BookingAssignedStaff")
@@ -2018,8 +2018,8 @@ model DocumentShare {
   role             String          @db.VarChar(20)
   grantedById      String          @map("granted_by_id") @db.Uuid
   grantedAt        DateTime        @default(now()) @map("granted_at")
-  expiresAt        DateTime?       @map("expires_at")
   revokedAt        DateTime?
+  expiresAt        DateTime?       @map("expires_at")
   document         PatientDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
   sharedWithUser   User            @relation("DocumentShareRecipient", fields: [sharedWithUserId], references: [id])
 
@@ -2518,50 +2518,49 @@ model HospitalSettingsRevision {
 /// issuing organisation shown on a document always comes from the letterhead
 /// actually used, so a facility's registration cannot be misrepresented.
 model LetterheadProfile {
-  id               String           @id @default(uuid()) @db.Uuid
+  id                String           @id @default(uuid()) @db.Uuid
   /// Owning facility; null for personal doctor letterheads.
-  facilityId       String?          @map("facility_id") @db.Uuid
+  facilityId        String?          @map("facility_id") @db.Uuid
   /// Owning doctor; null for facility letterheads.
-  userId           String?          @map("user_id") @db.Uuid
-  name             String           @db.VarChar(120)
+  userId            String?          @map("user_id") @db.Uuid
+  name              String           @db.VarChar(120)
   /// Department this letterhead applies to (e.g. "Radiology"); null = general.
-  department       String?          @db.VarChar(120)
-  isDefault        Boolean          @default(false) @map("is_default")
-  displayName      String           @map("display_name") @db.VarChar(200)
-  headerLines      String[]         @default([]) @map("header_lines")
-  addressLine      String?          @map("address_line") @db.VarChar(300)
-  contactPhone     String?          @map("contact_phone") @db.VarChar(40)
-  contactEmail     String?          @map("contact_email") @db.VarChar(120)
-  website          String?          @db.VarChar(160)
+  department        String?          @db.VarChar(120)
+  isDefault         Boolean          @default(false) @map("is_default")
+  displayName       String           @map("display_name") @db.VarChar(200)
+  headerLines       String[]         @default([]) @map("header_lines")
+  addressLine       String?          @map("address_line") @db.VarChar(300)
+  contactPhone      String?          @map("contact_phone") @db.VarChar(40)
+  contactEmail      String?          @map("contact_email") @db.VarChar(120)
+  website           String?          @db.VarChar(160)
   /// Registration / accreditation line (licence, NHIA/HMO or similar).
-  registrationInfo String?          @map("registration_info") @db.VarChar(300)
+  registrationInfo  String?          @map("registration_info") @db.VarChar(300)
   /// Hex colour for the organisation name and rules, e.g. #0F766E.
-  brandColor       String           @default("#0F766E") @map("brand_color") @db.VarChar(7)
-  footerText       String?          @map("footer_text") @db.VarChar(300)
-  logoUrl          String?          @map("logo_url") @db.VarChar(500)
-  /// Private object-storage key of the owner's handwritten signature image (PNG/JPEG).
-  signatureUrl     String?          @map("signature_url") @db.VarChar(500)
+  brandColor        String           @default("#0F766E") @map("brand_color") @db.VarChar(7)
+  footerText        String?          @map("footer_text") @db.VarChar(300)
+  logoUrl           String?          @map("logo_url") @db.VarChar(500)
   /// Print a QR verification code (document number + content hash) on PDFs.
-  showQr           Boolean          @default(true) @map("show_qr")
-  /// Optional external URL the printed QR code points to (verification portal).
-  qrUrl            String?          @map("qr_url") @db.VarChar(2048)
-  watermark        String?          @db.VarChar(60)
-  /// Watermark opacity 0-1 and rotation in degrees for the printed PDF.
-  watermarkOpacity Float?           @map("watermark_opacity")
-  watermarkRotation Float?          @map("watermark_rotation")
-  /// BCP-47 locale used for date/number formatting on this letterhead.
-  locale           String?          @map("locale") @db.VarChar(10)
-  /// Date format string (e.g. "d MMM yyyy") for printed documents.
-  dateFormat       String?          @map("date_format") @db.VarChar(40)
+  showQr            Boolean          @default(true) @map("show_qr")
+  watermark         String?          @db.VarChar(60)
   /// Static authorised signature blocks: [{ name, title, registrationId, side }].
-  signatureBlocks  Json             @default("[]") @map("signature_blocks")
-  active           Boolean          @default(true)
-  createdById      String           @map("created_by_id") @db.Uuid
-  createdAt        DateTime         @default(now()) @map("created_at")
-  updatedAt        DateTime         @updatedAt @map("updated_at")
-
-  facility         LabStaffProfile? @relation("LetterheadFacility", fields: [facilityId], references: [id], onDelete: Cascade)
-  user             User?            @relation("LetterheadOwner", fields: [userId], references: [id], onDelete: Cascade)
+  signatureBlocks   Json             @default("[]") @map("signature_blocks")
+  active            Boolean          @default(true)
+  createdById       String           @map("created_by_id") @db.Uuid
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+  /// Private object-storage key of the owner's handwritten signature image (PNG/JPEG).
+  signatureUrl      String?          @map("signature_url") @db.VarChar(500)
+  /// Optional external URL the printed QR code points to (verification portal).
+  qrUrl             String?          @map("qr_url") @db.VarChar(2048)
+  /// Watermark opacity 0-1 and rotation in degrees for the printed PDF.
+  watermarkOpacity  Float?           @map("watermark_opacity")
+  watermarkRotation Float?           @map("watermark_rotation")
+  /// BCP-47 locale used for date/number formatting on this letterhead.
+  locale            String?          @map("locale") @db.VarChar(10)
+  /// Date format string (e.g. "d MMM yyyy") for printed documents.
+  dateFormat        String?          @map("date_format") @db.VarChar(40)
+  facility          LabStaffProfile? @relation("LetterheadFacility", fields: [facilityId], references: [id], onDelete: Cascade)
+  user              User?            @relation("LetterheadOwner", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([facilityId, name])
   @@unique([userId, name])
@@ -2638,8 +2637,6 @@ model ClinicalDocument {
   department          String?                         @db.VarChar(120)
   status              ClinicalDocumentStatus          @default(DRAFT)
   sensitivity         DocumentSensitivity             @default(STANDARD)
-  /// Soft-delete timestamp; null means the document is live.
-  deletedAt           DateTime?                      @map("deleted_at")
   /// Field values keyed by field id.
   content             Json                            @default("{}")
   /// SHA-256 of the canonical content, set on finalization; signatures bind to it.
@@ -2657,6 +2654,8 @@ model ClinicalDocument {
   voidReason          String?                         @map("void_reason")
   createdAt           DateTime                        @default(now()) @map("created_at")
   updatedAt           DateTime                        @updatedAt @map("updated_at")
+  /// Soft-delete timestamp; null means the document is live.
+  deletedAt           DateTime?                       @map("deleted_at")
   events              ClinicalDocumentEvent[]
   admission           Admission?                      @relation("ClinicalDocumentAdmission", fields: [admissionId], references: [id])
   author              User                            @relation("ClinicalDocumentAuthor", fields: [authorId], references: [id])
@@ -3158,8 +3157,8 @@ model DocumentFacilityShare {
   facilityId  String          @map("facility_id") @db.Uuid
   grantedById String          @map("granted_by_id") @db.Uuid
   grantedAt   DateTime        @default(now()) @map("granted_at")
-  expiresAt   DateTime?       @map("expires_at")
   revokedAt   DateTime?       @map("revoked_at")
+  expiresAt   DateTime?       @map("expires_at")
   document    PatientDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
   facility    LabStaffProfile @relation("FacilityDocumentShares", fields: [facilityId], references: [id], onDelete: Cascade)
 

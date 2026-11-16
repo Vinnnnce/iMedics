@@ -14,7 +14,7 @@ import { HomeSingleAdBanner } from "@/components/home/home-single-ad-banner";
 import {
   IMEDICS_AUDIENCES, IMEDICS_BENEFITS, IMEDICS_CONTACT, IMEDICS_FAQS,
   IMEDICS_FEATURED_PANEL, IMEDICS_FOOTER_LINKS, IMEDICS_HOW_IT_WORKS_STEPS,
-  IMEDICS_IMAGE_CREDITS, IMEDICS_NAV_LINKS, IMEDICS_SERVICE_CARDS,
+  IMEDICS_NAV_LINKS, IMEDICS_SERVICE_CARDS,
   type ImedicsServiceCard, type ImedicsHomeSlide,
 } from "@/lib/home/imedics-home-content";
 

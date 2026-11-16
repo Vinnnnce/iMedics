@@ -1,8 +1,7 @@
 import Link from "next/link";
 import {
-  AlertCircle, BedDouble, Bell, Building2, Activity, Users, Stethoscope, HeartPulse,
-  Wallet, Calendar, ClipboardList, FlaskConical, Upload, FileText, BarChart3,
-  Settings, Award, TrendingUp, Clock, CheckCircle2,
+  AlertCircle, BedDouble, Bell, Activity, Users,
+  Wallet, ClipboardList, Settings, Award, TrendingUp, CheckCircle2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

@@ -165,8 +165,6 @@ export async function patientLinkedToFacility(
 ): Promise<boolean> {
   if (!facilityId || !patientId) return false;
 
-  const now = new Date();
-
   const [
     encounter,
     admission,

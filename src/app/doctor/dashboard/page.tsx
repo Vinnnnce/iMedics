@@ -135,6 +135,10 @@ export default async function DoctorDashboardPage() {
     subscriptionActive: workspace.subscription.toLowerCase().includes("active"),
   });
 
+  // eslint-disable-next-line react-hooks/purity
+  const licenseExpiringThreshold = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+  const isLicenseExpiringSOon = doctorData.licenseExpiry && new Date(doctorData.licenseExpiry) < licenseExpiringThreshold;
+
   const stats = [
     { label: "Booking requests", value: pendingBookings, icon: Calendar, href: "/doctor/booking-requests" },
     { label: "Active patients", value: activePatients, icon: Users, href: "/doctor/patients" },
@@ -207,7 +211,7 @@ export default async function DoctorDashboardPage() {
                 <Award className="h-3 w-3 mr-1" /> License Verified
               </Badge>
             )}
-            {doctorData.licenseExpiry && new Date(doctorData.licenseExpiry) < new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) && (
+            {isLicenseExpiringSOon && (
               <Badge variant="destructive" className="rounded-lg">
                 <AlertCircle className="h-3 w-3 mr-1" /> License expiring soon
               </Badge>
@@ -345,7 +349,7 @@ export default async function DoctorDashboardPage() {
       {/* Today's appointments */}
       <Card className="beeline-card">
         <CardHeader>
-          <CardTitle className="text-lg">Today's appointments</CardTitle>
+          <CardTitle className="text-lg">Today&apos;s appointments</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {todaysAppointments.length === 0 && <p className="text-sm text-muted-foreground">No appointments scheduled for today.</p>}

@@ -15,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiClient } from "@/lib/api-client";
 import { FacilityWebsiteRenderer } from "@/components/public/facility-website-renderer";
 import {
-  WEBSITE_BLOCK_TYPES, WEBSITE_ADDONS, ADDON_FOR_BLOCK,
+  WEBSITE_BLOCK_TYPES, ADDON_FOR_BLOCK,
   newWebsiteBlock, moveBlock, type WebsiteBlock, type WebsiteBlockType, type WebsiteLayout,
 } from "@/lib/website/blocks";
 

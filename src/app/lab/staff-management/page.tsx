@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, Plus, Users, AlertCircle, Activity, Shield, Clock, CheckCircle2, Trash2, Download } from "lucide-react";
+import { Search, Plus, AlertCircle, Activity, Shield, Clock, CheckCircle2, Trash2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { prisma } from "@/lib/prisma";
 import { requireFacilityPortalPage } from "@/lib/guards";
 import { resolveFacilityForPortalUser } from "@/lib/facility-auth";
-import { formatDate, formatClinicDateTime } from "@/lib/format";
+import { formatClinicDateTime } from "@/lib/format";
 
 export default async function StaffManagementPage() {
   const user = await requireFacilityPortalPage();
@@ -15,6 +15,8 @@ export default async function StaffManagementPage() {
   if (!facility) return null;
 
   // Fetch comprehensive staff data
+  // eslint-disable-next-line react-hooks/purity
+  const credentialExpiryThreshold = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
   const [allStaff, departments, credentialAlerts, activityLog] = await Promise.all([
     prisma.facilityStaff.findMany({
       where: { facilityId: facility.id },
@@ -38,7 +40,7 @@ export default async function StaffManagementPage() {
       orderBy: { name: "asc" },
     }),
     prisma.staffCredential.findMany({
-      where: { staff: { facilityId: facility.id }, expiryDate: { lte: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) } },
+      where: { staff: { facilityId: facility.id }, expiryDate: { lte: credentialExpiryThreshold } },
       select: {
         id: true,
         staff: { select: { id: true, fullName: true } },

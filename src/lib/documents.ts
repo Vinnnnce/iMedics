@@ -8,7 +8,7 @@ import {
   assertStaffCanReachPatient,
 } from "@/lib/staff-access";
 import { writeAudit } from "@/lib/audit";
-import { forbidden, notFound } from "@/lib/errors";
+import { notFound } from "@/lib/errors";
 import type { AccessibleDocument } from "@/lib/documents/shared";
 
 /**
@@ -40,9 +40,6 @@ const MAX_MEMBERSHIPS = 50;
 
 /** Must be an ApiError so it is not reported as an unexpected 500. */
 const notFoundDocument = () => notFound("Document not found");
-
-const forbiddenDocument = () =>
-  forbidden("You do not have access to this document");
 
 export type DocumentAccessReason =
   | "PATIENT_OWNER"

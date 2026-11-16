@@ -22,14 +22,6 @@ const text = (value: unknown, maxLength: number): string | null => {
   return trimmed ? trimmed.slice(0, maxLength) : null;
 };
 
-const optionalText = (
-  value: unknown,
-  maxLength: number,
-): string | null | undefined => {
-  if (value === undefined) return undefined;
-  return text(value, maxLength);
-};
-
 export type LetterheadSide = "left" | "right";
 
 export interface LetterheadSignatureBlock {

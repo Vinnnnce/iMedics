@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/prisma";
 import { requirePageRole } from "@/lib/guards";
 import { formatClinicDateTime, formatDate } from "@/lib/format";
-import { formatMoney } from "@/lib/money";
 
 export default async function PatientDashboard() {
   const user = await requirePageRole("PATIENT");
@@ -110,7 +109,7 @@ export default async function PatientDashboard() {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Welcome back, {patient.firstName}!</h1>
-        <p className="text-muted-foreground mt-1">Here's your health overview</p>
+        <p className="text-muted-foreground mt-1">Here&apos;s your health overview</p>
       </div>
 
       {/* Health Summary Cards */}

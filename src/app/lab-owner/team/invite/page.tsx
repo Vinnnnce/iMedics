@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { prisma } from "@/lib/prisma";
 import { requirePageRole } from "@/lib/guards";
 import { getLaboratoryProfile } from "@/lib/laboratory-auth";
 
@@ -202,8 +201,8 @@ export default async function AddTeamMemberPage() {
               <p className="font-semibold text-blue-900">What happens next:</p>
               <ul className="space-y-1 text-blue-800">
                 <li>✓ Invitation email will be sent to the team member</li>
-                <li>✓ They'll create their account and set a password</li>
-                <li>✓ You'll review their credentials before full access is granted</li>
+                <li>✓ They&apos;ll create their account and set a password</li>
+                <li>✓ You&apos;ll review their credentials before full access is granted</li>
                 <li>✓ An audit log will record this action</li>
               </ul>
             </div>
