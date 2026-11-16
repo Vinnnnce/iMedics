@@ -189,8 +189,8 @@ export function Navbar({ children }: { children?: ReactNode }) {
         )}
       </header>
 
-      <div className={me && sidebarRole && items.length > 0 ? "mx-auto flex w-full max-w-7xl flex-1 gap-6 px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-6" : "flex-1 px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-6"}>
-        {me && sidebarRole && items.length > 0 && (
+      <div className={me && sidebarRole && items.length > 0 && !pathname.startsWith("/doctor/") ? "mx-auto flex w-full max-w-7xl flex-1 gap-6 px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-6" : "flex-1 px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-6"}>
+        {me && sidebarRole && items.length > 0 && !pathname.startsWith("/doctor/") && (
           <aside className="hidden w-60 shrink-0 lg:block">
             <nav aria-label={`${ROLE_POLICY[me.role].label} navigation`} className="sticky top-20 flex max-h-[calc(100dvh-6rem)] flex-col gap-0.5 overflow-y-auto pr-1">
               {items.map((item) => {

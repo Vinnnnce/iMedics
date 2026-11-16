@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import "./experience.css";
@@ -51,7 +52,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           class attribute on <html> before React hydrates. */}
       <html lang="en" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
         <body className="min-h-full flex flex-col bg-background text-foreground">
-          <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+          <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: themeInitScript }} />
           <ThemeProvider>
             <MeProvider initialMe={me}>
               <Navbar><PolicyConsentNotice />{restricted ? <section role="alert" className="mx-auto max-w-2xl rounded-xl border bg-card p-6"><h1 className="text-xl font-semibold">Feature access restricted</h1><p className="mt-3 text-sm text-muted-foreground">This module is unavailable under the current platform policy, role or subscription. Your existing records have not been deleted. Contact your facility administrator for an access review.</p></section> : children}</Navbar>

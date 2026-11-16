@@ -20,12 +20,26 @@ import { loadWorkspace } from "@/lib/workspace/data";
 import { listUnreadNotifications } from "@/lib/data/notifications";
 import { ProfileCompletenessCard } from "@/components/shared/profile-completeness-card";
 import { doctorCompleteness } from "@/lib/profile-completeness";
-import { DoctorHeader } from "@/components/doctor/doctor-header";
 
 export default async function DoctorDashboardPage() {
   const user = await requirePageRole("DOCTOR");
   const doctor = await getDoctorProfile(user.id);
   if (!doctor) notFound();
+
+  // Extract clean serializable data to avoid Prisma method serialization issues
+  const doctorData = {
+    specialty: doctor.specialty,
+    ratingAvg: doctor.ratingAvg,
+    ratingCount: doctor.ratingCount,
+    verificationStatus: doctor.verificationStatus,
+    licenseVerification: doctor.licenseVerification,
+    licenseExpiry: doctor.licenseExpiry?.toISOString() || null,
+    biography: doctor.biography,
+    education: doctor.education,
+    languages: doctor.languages,
+    location: doctor.location,
+    consultationFee: doctor.consultationFee,
+  };
 
   const today = clinicToday();
   const dayStart = clinicInstant(today, 0);
@@ -104,12 +118,12 @@ export default async function DoctorDashboardPage() {
 
   const completeness = doctorCompleteness({
     avatarUrl: user.avatarUrl,
-    specialty: doctor.specialty,
-    biography: doctor.biography,
-    education: doctor.education,
-    languages: doctor.languages,
-    location: doctor.location,
-    consultationFee: doctor.consultationFee,
+    specialty: doctorData.specialty,
+    biography: doctorData.biography,
+    education: doctorData.education,
+    languages: doctorData.languages,
+    location: doctorData.location,
+    consultationFee: doctorData.consultationFee,
     scheduleCount,
     portfolioCount,
   });
@@ -175,37 +189,25 @@ export default async function DoctorDashboardPage() {
   ];
 
   return (
-    <>
-      <DoctorHeader
-        doctorName={user.name}
-        specialty={doctor.specialty}
-        rating={doctor.ratingAvg}
-        ratingCount={doctor.ratingCount}
-        verificationStatus={doctor.verificationStatus}
-        unreadNotifications={0}
-        licenseExpiryWarning={
-          doctor.licenseExpiry ? new Date(doctor.licenseExpiry) < new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) : false
-        }
-      />
-      <div className="space-y-6 max-w-6xl mx-auto p-6">
+    <div className="space-y-6 max-w-6xl mx-auto p-6">
         {/* Header with Practice Info */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">{doctor.specialty ? `${doctor.specialty} Specialist` : "Doctor"}</h1>
-            <p className="text-muted-foreground mt-1">Welcome back, {user.name.split(" ")[0]}!</p>
+            <h1 className="text-3xl font-bold">{doctorData.specialty ? `${doctorData.specialty} Specialist` : "Doctor"}</h1>
+            <p className="text-muted-foreground mt-1">Welcome to your dashboard</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {doctor.verificationStatus === "VERIFIED" && (
+            {doctorData.verificationStatus === "VERIFIED" && (
               <Badge className="bg-green-100 text-green-800 rounded-lg">
                 <BadgeCheck className="h-3 w-3 mr-1" /> Verified
               </Badge>
             )}
-            {doctor.licenseVerification === "VERIFIED" && (
+            {doctorData.licenseVerification === "VERIFIED" && (
               <Badge className="bg-blue-100 text-blue-800 rounded-lg">
                 <Award className="h-3 w-3 mr-1" /> License Verified
               </Badge>
             )}
-            {doctor.licenseExpiry && new Date(doctor.licenseExpiry) < new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) && (
+            {doctorData.licenseExpiry && new Date(doctorData.licenseExpiry) < new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) && (
               <Badge variant="destructive" className="rounded-lg">
                 <AlertCircle className="h-3 w-3 mr-1" /> License expiring soon
               </Badge>
@@ -227,10 +229,10 @@ export default async function DoctorDashboardPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">Patient Rating</p>
                   <p className="text-2xl font-bold flex items-center gap-1">
-                    {doctor.ratingAvg.toFixed(1)}
+                    {doctorData.ratingAvg.toFixed(1)}
                     <Star className="h-5 w-5 text-yellow-500" />
                   </p>
-                  <p className="text-xs text-muted-foreground">{doctor.ratingCount} reviews</p>
+                  <p className="text-xs text-muted-foreground">{doctorData.ratingCount} reviews</p>
                 </div>
               </div>
             </CardContent>
@@ -478,7 +480,6 @@ export default async function DoctorDashboardPage() {
           ))}
         </div>
       </div>
-      </div>
-    </>
+    </div>
   );
 }

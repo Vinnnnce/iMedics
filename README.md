@@ -1,138 +1,174 @@
-# Medic1905
+# Medic1905 — Telemedicine Platform
 
-Telemedicine and medical-records web app for patients, doctors, healthcare facilities and pharmacy staff.
+A modern telemedicine and medical records platform built with Next.js, featuring a Beeline-inspired design system with neon accents and rounded cards.
 
-**Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · shadcn/ui · Prisma 7 · Neon Postgres · Clerk · S3-compatible storage (Cloudflare R2 / AWS S3) · Kimi K3 (doctor-side AI assistance) · Vitest · Vercel.
+## Tech Stack
 
-> Scope: web only. A mobile app is planned for a later release.
+- **Frontend**: Next.js 16 (App Router) + Tailwind CSS v4 + shadcn/ui components
+- **Database**: Neon (PostgreSQL) with Prisma ORM
+- **AI**: Kimi K3 for medical history analysis and diagnostics assistance
+- **Hosting**: Vercel
 
-## Roles
+## Design System — Beeline-Inspired
 
-| Role | Can do |
-|---|---|
-| `PATIENT` | Own record, results, prescriptions and notes shared with them; book appointments; chat with their doctors; rate doctors. No AI features. |
-| `DOCTOR` | Manage the patients in their care; consultations; lab requests; clinical notes; review AI summaries; publish availability. |
-| `LAB_SCIENTIST` | Work the lab-order queue; enter results and attach files; identify patients by case number. |
-| `ADMIN` | Verify professionals, moderate accounts, publish notices and ads. No access to patient records. |
+Beeline-inspired design language from the RuStore Beeline app:
+- Primary: Neon Yellow (#FFD400)
+- Secondary: Teal (#22D3EE)
+- Background: Dark Navy (#0A0F1C)
+- Rounded cards (20-28px radius)
+- Soft shadows and neon glow effects
+- Mobile-first layout with bottom navigation
 
-Everyone registers as a patient. Doctors and lab staff stay `PENDING` until an admin verifies them and grants the role.
+### Responsive Breakpoints
+- **Mobile**: Single-column layout, stacked neon cards, bottom navigation
+- **Tablet**: Two-column layout, collapsible sidebar
+- **Desktop**: Multi-column dashboard, persistent sidebar, wide cards
 
-## First-time setup
+## Role-Based Access Control (RBAC)
 
-Requires **Node 22.12 or newer**.
+### Patient (No AI Features)
+- View own analysis results (lab values, imaging reports)
+- View own diagnostic results (doctor-written only)
+- Book appointments with doctors
+- Consult with doctors (video or chat)
+- View own case file and case history
+- View own prescriptions
+- Book follow-up consultations
+- Rate, comment, and like doctors
+- **Cannot**: See other patients, see lab staff, use AI features
+
+### Doctor (With AI Features)
+- View booking requests and assigned patients only
+- Write structured consultations
+- Chat with patients
+- Request lab analysis and diagnostics
+- Publish consultation schedule
+- AI-assisted consultation drafting, risk factor highlighting, follow-up question suggestions
+- Add/admit and discharge patients
+- Verification badge (medical crest symbol)
+- **Cannot**: See other doctors' patients or private data
+
+### Laboratory Staff
+- View all registered users (doctors + patients)
+- View all lab test requests
+- Update and upload patient results (PDF, images, numeric values)
+- Upload: X-ray, CT scan, ultrasound, blood analysis, stool analysis, swab tests
+- **Cannot**: Modify doctor consultation notes or access non-lab patient history
+
+## Data Models
+
+### Core Tables
+| Table | Description |
+|------|-------------|
+| `users` | Authentication, roles (PATIENT, DOCTOR, LAB_STAFF, ADMIN) |
+| `doctors` | Doctor profiles with specialty, schedule, verification |
+| `patients` | Patient records with case numbers, BMI, emergency contacts |
+| `patient_appointments` | Appointment booking with video/chat support |
+| `patient_history` | Timeline of visits, tests, prescriptions |
+| `prescriptions` | Medication prescriptions with dose, frequency |
+| `consultations` | Structured consultation notes with AI-assisted fields |
+| `chat_messages` | Doctor-patient messaging |
+| `case_files` | Case file management with linked records |
+| `audit_logs` | Compliance audit trail |
+
+### Lab Tables
+| Table | Description |
+|------|-------------|
+| `lab_tests` | Lab test catalog (blood, urine, stool, swab, imaging) |
+| `lab_orders` | Lab test order management |
+| `lab_results` | Lab results with AI interpretation |
+| `lab_result_values` | Individual test values with reference ranges |
+| `lab_result_files` | Uploaded result files (PDF, images) |
+
+### Diagnostics Tables
+| Table | Description |
+|------|-------------|
+| `diagnostics_cases` | Diagnostic case management |
+| `clinical_notes` | Clinical notes (progress, assessment, plan) |
+| `imaging_results` | Imaging results (X-ray, CT, MRI, ultrasound) |
+| `medical_history_forms` | Structured medical history with AI analysis |
+
+## Modules
+
+### Patient Module (No AI)
+- Patient Dashboard (neon tiles)
+- Analysis Results page
+- Diagnostics page
+- Case File page
+- Case History Timeline
+- Prescriptions page
+- Doctor Directory
+- Doctor Rating/Comment modal
+- Appointment Booking form
+- Follow-up Booking modal
+- Consultation Chat/Video screen
+
+### Doctor Module (With AI)
+- Doctor Dashboard (neon tiles)
+- Booking Requests list
+- Patient List (assigned only)
+- Consultation Editor (with AI-assisted drafting)
+- Chat Interface
+- Lab Request form
+- Diagnostics Request form
+- Schedule Management calendar
+- Admit/Discharge workflow
+- Verification Badge display
+
+### Lab Module
+- Lab Dashboard
+- User Directory (doctors/patients)
+- Lab Orders list
+- Lab Result Entry form
+- Lab Result Upload page
+
+## AI Pipeline (Kimi K3) — Doctor Only
+
+The AI pipeline provides:
+1. AI-assisted consultation drafting
+2. AI-assisted risk factor highlighting
+3. AI-assisted follow-up question suggestions
+4. Lab result analysis with dual views (doctor + patient)
+5. Medical history analysis
+
+### Safety Constraints
+- No diagnosis
+- No prescriptions
+- No emergency instructions
+- All outputs clearly labeled as assistive only
+- AI never writes to the medical record — all outputs require doctor approval
+
+## Getting Started
 
 ```bash
-# 1. Install (also regenerates package-lock.json and the Prisma client)
+# Install dependencies
 npm install
 
-# 2. Configure
-cp .env.example .env        # fill in Clerk, Neon, S3/R2, Kimi and ADMIN_EMAILS
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your Neon DATABASE_URL and KIMI_API_KEY
 
-# 3. Create the database schema (applies every migration in prisma/migrations)
-npm run db:deploy            # or `npx prisma migrate reset` to wipe and rebuild a test database
+# Generate Prisma client
+npx prisma generate
 
-# 4. Seed reference data: lab-test catalogue and the ICD-10 code list (idempotent)
-npm run db:seed
+# Push schema to database
+npx prisma db push
 
-# 4b. Seed the medication reference list for structured prescriptions (idempotent)
-npm run db:seed:medications
-
-# 5. Verify
-npm run typecheck && npm run lint && npm test && npm run build
-
-# 6. Run
+# Run development server
 npm run dev
 ```
 
-Sign up with an email listed in `ADMIN_EMAILS` (and verify it in Clerk) to become the first admin.
+## Database Schema
 
-### Services you need
+The canonical Prisma schema is in `prisma/schema.prisma`. The web app is configured to point at this schema explicitly to avoid duplicate schema drift between the root app and the `web/` app.
 
-- **Clerk**: authentication. Create an application and copy the keys.
-- **Neon**: Postgres. `DATABASE_URL` is the pooled string, `DIRECT_URL` the direct one (used for migrations).
-- **S3-compatible bucket** (private): lab files and verification documents. Add a lifecycle rule that deletes objects under `lab-results/` and `verification/` that are never confirmed (abandoned uploads).
-- **Kimi API key**: optional. Without it, lab flagging still works; only the AI summary is skipped.
+If you run Prisma commands from the repo root, use the root schema. If you run from `web/`, use the explicit `--schema ../prisma/schema.prisma` flag.
 
-### Deploying to Vercel
+### Neon Project
+- Project: Medic1905 (nameless-cloud-06240692)
+- Region: AWS ap-southeast-1
+- PostgreSQL 18
 
-Set every variable from `.env.example`, and run `npm run db:deploy` against production before the first deploy and after each schema change.
+## License
 
-Also add a scheduled job that calls `GET /api/cron/appointment-reminders` every 15 minutes with `Authorization: Bearer $CRON_SECRET` (Vercel Cron does this when `CRON_SECRET` is set; note Vercel's free plan limits cron frequency). It sends appointment reminders, releases slots held by unpaid bookings and retries refunds the gateway has not accepted. Two more scheduled jobs use the same pattern: `GET /api/cron/medication-reminders` (materialises dose events, sends due medication nudges, marks long-past doses missed — every 10–15 minutes) and `GET /api/cron/inactivity-checks` (raises patient-welfare alerts after 48 hours of inactivity, then escalates — every 15–30 minutes). A fourth job, `GET /api/cron/critical-alert-escalation` (every 5–15 minutes), escalates critical result alerts that have not been acknowledged within the 30-minute response window: it re-notifies the requesting facility (level 1), the performing facility (level 2) and platform administrators (level 3, at 1x/2x/4x the window), persisting every notification atomically with the escalation; overlapping or delayed runs are safe. In the Paystack dashboard, set the webhook URL to `<your-domain>/api/payments/webhook/paystack`.
-
-## Clinical coding, pricing, payments and notifications
-
-- **ICD-10 diagnoses.** Doctors search by code or name (`I10`, `hypertension`) and pick several; one is primary. Codes come from the imported release recorded in `code_system_releases` (default: WHO ICD-10, 2019). Diagnoses store a snapshot of the code and wording, so updating the list never rewrites past records. See [docs/ICD10.md](docs/ICD10.md).
-- **Fees.** Doctors set a standard and a reduced follow-up fee at `/doctor/fees`; laboratories, diagnostic centres and hospitals publish priced services at `/lab/services`. Patients see the price before booking, and the server recomputes it when booking.
-- **Payments.** Paystack (cards, bank transfer, USSD, mobile money) behind a provider interface. Bookings hold their slot for 30 minutes while unpaid; doctors and facilities see a booking only once it is paid. Receipts live at `/payments`. See [docs/PAYMENTS_AND_NOTIFICATIONS.md](docs/PAYMENTS_AND_NOTIFICATIONS.md).
-- **Notifications.** In-app (bell + pop-ups), email (Resend) and web push, with per-category preferences on the profile page. Messages never contain health details; they link back into the signed-in app.
-
-- **Admin console.** `/admin`: overview, a verification workspace showing everything an applicant submitted (details, documents, duplicate and plausibility checks, checklist, approve or reject with reasons), user directory and account controls, payments with refunds, audit log, and notices/ads. See [docs/ADMIN.md](docs/ADMIN.md).
-- **Super Admin Control Centre.** `/super-admin`: the platform-wide command centre — 26 sections in five control layers (governance, team & workforce, healthcare network, clinical & content, security & operations) with role- and attribute-based permissions enforced server-side, dual approval for privileged changes, hash-chained audit records, and clinical-record access kept as a separate, justified and audited boundary. See [docs/SUPER_ADMIN.md](docs/SUPER_ADMIN.md).
-
-## Platform features
-
-Mini-websites for facilities, structured prescriptions with clinical-safety checks, patient document storage, medication reminders, inactivity-based welfare monitoring, a public emergency/CPR learning centre and the collapsible desktop sidebar are documented in [docs/PLATFORM_FEATURES.md](docs/PLATFORM_FEATURES.md), including the medication-reference policy (RxNav/RxNorm, free, no API key) and the limits of inactivity monitoring.
-
-## Hospital, laboratory, diagnostic-centre & pharmacy modules
-
-Three integrated modules with a server-enforced organization access matrix
-(plus a standalone **pharmacy** account type — see below):
-hospital admissions with progress notes, transfers and discharge epicrises;
-laboratory specimen management (accessioning, rejection with documented
-reasons, recollection) and an extended order workflow; diagnostic examination
-reports with verification, signing and traceable amendments; critical-result
-alerts with acknowledgement; and customizable medical-document templates. See
-[docs/MODULES.md](docs/MODULES.md).
-
-## Pharmacy module
-
-A **pharmacy** is a sixth account type (`PHARMACY` on `User.accountType` /
-`FacilityKind`), registered through the same wizard as the other facility
-types and verified by an admin before it goes live. Pharmacies get the
-medication workflow only (`KIND_MODULES.PHARMACY = ["PHARMACY"]`): review,
-dispense and track medication orders; manage the formulary and the
-pharmacy-configured interaction rules (advisory alerts only — the system
-never automates dispensing decisions). Portal page: `/lab/pharmacy`. A
-public directory lives at `/pharmacies`. Hospitals keep the same in-hospital
-pharmacy module; standalone pharmacies get the same tools scoped to their own
-facility.
-
-## Hospital Information System (HIS)
-
-Multi-hospital clinical documentation and operations under `/lab/his`: per-hospital settings (versioned), a system catalogue of document templates for groups A–P that hospitals adopt and customize (draft → review → approved → published → retired), clinical documents with author/review/signature/finalize/amend workflow and audit trail, print view and server-side Unicode PDF, patient portfolio and records-package export, diagnostic media uploads (format registry, checksums, duplicate detection), encounters with care priority/workflow dashboards, payer classification, and aggregated analytics. Patients see released documents at `/patient/documents`. See [docs/HIS.md](docs/HIS.md).
-
-## Scripts
-
-`dev` · `build` · `start` · `lint` · `typecheck` · `test` · `test:watch` · `db:migrate` · `db:deploy` · `db:seed` · `db:seed:medications` · `db:studio` · `icd10:import`
-
-## How access control works
-
-- **Roles live in our database**, never in client-writable Clerk metadata (`lib/auth.ts`).
-- **Every API route** is wrapped in `withAuth(roles, handler)` (`lib/api.ts`); the middleware also blocks unauthenticated API calls. Server layouts guard each portal (`lib/guards.ts`).
-- **One clinical access policy** (`lib/access.ts`): doctors reach only patients they are assigned to (assignment is created when they accept a booking or add the patient); patients reach only their own record; out-of-scope records return 404.
-- **Audit log**: reads and writes of patient data are recorded (`lib/audit.ts`).
-- **Files** are private; access is by short-lived signed URLs after a permission check, and uploads are verified by content, not just declared type.
-
-## AI safety
-
-AI output is assistive only: no diagnosis, no prescriptions, no emergency instructions. Pipeline (`lib/ai/`): rate limit → deterministic rule engine (always runs) → input check → model → schema validation → safety filter → stored as `PENDING_REVIEW`. **Nothing is shown to a patient until a doctor approves it** (`POST /api/ai-analyses/[id]/review`). Only age, sex and lab values are sent to the model.
-
-## Project layout
-
-```
-prisma/schema.prisma   Single source of truth for the database
-prisma/seed.ts         Reference data (lab-test catalogue)
-src/app/               Pages and app/api route handlers
-src/components/        UI (shadcn/ui), shared and per-role client components
-src/lib/               auth, access policy, API helpers, AI pipeline, storage, data queries
-docs/                  Specification, screen flows, data-handling notes
-```
-
-## Known gaps
-
-- **Video consultations** are not implemented (chat and in-person only). The schema reserves `VIDEO`.
-- **Notification preferences** and email/SMS delivery are not implemented; notifications are in-app only.
-- **Inpatient bed/ward management** is out of scope; "care roster" means which doctors look after which patients.
-- The `/patients/*` doctor pages and `/ai-assistant` are client-rendered (older code) and could be converted to server components.
-- No Content-Security-Policy header yet (it needs tuning for Clerk).
-- Data-retention periods are not defined; see `docs/DATA_HANDLING.md`.
+MIT

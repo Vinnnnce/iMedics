@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 
 interface DoctorHeaderProps {
   doctorName: string;
-  specialty?: string;
+  specialty?: string | null;
   rating: number;
   ratingCount: number;
   verificationStatus: string;

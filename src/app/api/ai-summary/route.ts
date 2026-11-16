@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateMedicalSummary, type MedicalHistoryInput } from "@/lib/ai-pipeline";
+import { withAuth } from "@/lib/api";
 
-export async function POST(request: NextRequest) {
+async function handler(request: NextRequest) {
   try {
     const body: MedicalHistoryInput = await request.json();
     const apiKey = process.env.KIMI_API_KEY;
@@ -26,6 +27,8 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAuth(null, handler);
 
 function generateMockClinicianSummary(data: MedicalHistoryInput): string {
   const chronicConditions = [

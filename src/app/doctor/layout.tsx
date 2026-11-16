@@ -23,12 +23,14 @@ export default async function DoctorLayout({ children }: { children: React.React
 
   return (
     <div className="flex h-screen flex-col md:flex-row">
-      {/* Desktop Sidebar */}
-      <DoctorSidebar />
+      {/* Desktop Sidebar - hidden on mobile */}
+      <div className="hidden md:block">
+        <DoctorSidebar />
+      </div>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile Tab Navigation */}
+        {/* Mobile Tab Navigation - hidden on desktop */}
         <DoctorTabNavigation />
 
         {/* Content Area */}
