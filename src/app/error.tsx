@@ -29,6 +29,17 @@ export default function Error({
         <p className="mt-1 text-sm text-muted-foreground">
           An unexpected error occurred. Try reloading the page.
         </p>
+        {process.env.NODE_ENV === "development" && (
+          <div className="mt-4 text-left p-4 bg-muted rounded text-xs font-mono max-w-2xl">
+            <p className="font-bold mb-2">Error Details (Development Only):</p>
+            <p className="text-red-600 break-all">{error.message}</p>
+            {error.stack && (
+              <pre className="mt-2 text-xs whitespace-pre-wrap overflow-auto max-h-40">
+                {error.stack}
+              </pre>
+            )}
+          </div>
+        )}
       </div>
       <div className="flex gap-3">
         <Button onClick={reset} variant="default">
