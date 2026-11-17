@@ -51,7 +51,7 @@ describe("facility role permissions", () => {
   it("generates unique, URL-safe invite tokens", () => {
     const a = generateInviteToken();
     const b = generateInviteToken();
-    expect(a).toMatch(/^[0-9a-f]{48}$/);
+    expect(a).toMatch(/^[0-9a-f]{64}$/);
     expect(b).not.toBe(a);
   });
 });

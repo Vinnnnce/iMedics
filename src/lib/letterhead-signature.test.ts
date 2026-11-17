@@ -18,7 +18,7 @@ import { inspectObject, deleteObject, getObjectStream } from "./storage";
 
 const pngHead = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 const jpegHead = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
-const pngBytes = new Uint8Array([...pngHead, ...Array.from({ length: 40 }, (_, i) => i)]);
+const pngBytes = new Uint8Array([...pngHead, ...Array.from({ length: 150 }, (_, i) => i % 256)]);
 
 beforeEach(() => {
   vi.clearAllMocks();
