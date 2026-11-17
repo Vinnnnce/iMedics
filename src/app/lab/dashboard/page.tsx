@@ -14,6 +14,8 @@ import { resolveFacilityForPortalUser } from "@/lib/facility-auth";
 import { ProfileCompletenessCard } from "@/components/shared/profile-completeness-card";
 import { facilityCompleteness } from "@/lib/profile-completeness";
 import { FacilityHeader } from "@/components/facility/facility-header";
+import { SuggestionsCard } from "@/components/shared/suggestions-card";
+import { facilitySuggestions } from "@/lib/suggestions";
 
 /** Credentials expiring within 90 days (or already expired) for the facility. */
 async function credentialAlertCount(facilityId: string): Promise<number> {
@@ -138,6 +140,13 @@ export default async function FacilityDashboardPage() {
     isPublished: profile.isPublished,
   });
 
+  const suggestionItems = facilitySuggestions({
+    accountType: kind,
+    referralInbox,
+    credentialAlerts,
+    activeServices,
+  });
+
   // Critical alerts
   const criticalItems = [];
   if (credentialAlerts > 0) criticalItems.push({ type: "credential", count: credentialAlerts, label: "Staff credentials expiring" });
@@ -183,6 +192,9 @@ export default async function FacilityDashboardPage() {
         </div>
 
         <ProfileCompletenessCard completeness={completeness} title="Complete your public profile" />
+
+        {/* Account-specific suggestions */}
+        <SuggestionsCard items={suggestionItems} />
 
         {/* Critical Alerts */}
         {criticalItems.length > 0 && (

@@ -39,7 +39,7 @@ describe("dashboard form submit controls", () => {
  *  into the sidebar or non-dashboard areas. */
 describe("dashboard account-specific suggestions", () => {
   const DASHBOARDS = [
-    { name: "patient", file: "src/app/dashboard/page.tsx", builder: "patientSuggestions" },
+    { name: "patient", file: "src/app/patient/dashboard/page.tsx", builder: "patientSuggestions" },
     { name: "doctor", file: "src/app/doctor/dashboard/page.tsx", builder: "doctorSuggestions" },
     { name: "facility", file: "src/app/lab/dashboard/page.tsx", builder: "facilitySuggestions" },
   ] as const;

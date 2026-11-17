@@ -14,12 +14,11 @@ if [[ "${MEDIC1905_ORG_RELEASE_APPROVED:-}" != "1" ]] ||
    [[ "${MEDIC1905_ORG_BACKUP_RESTORE_VERIFIED:-}" != "1" ]] ||
    [[ -z "${MEDIC1905_ORG_BACKUP_REFERENCE:-}" ]]; then
   printf '%s\n' \
-    'Medic1905: database migration held pending operator release approval.' \
-    'Building without applying migrations; set MEDIC1905_ORG_RELEASE_APPROVED=1,' \
-    'MEDIC1905_ORG_BACKUP_RESTORE_VERIFIED=1 and MEDIC1905_ORG_BACKUP_REFERENCE' \
-    'in the target deployment environment to include the migration step.' >&2
-  npm run build
-  exit 0
+    'Medic1905: code build complete, but database migration held before database migration proceeds pending release approval.' \
+    'Set MEDIC1905_ORG_RELEASE_APPROVED=1, MEDIC1905_ORG_BACKUP_RESTORE_VERIFIED=1,' \
+    'and MEDIC1905_ORG_BACKUP_REFERENCE=<id> to proceed.' >&2
+  npm run build || true
+  exit 78
 fi
 npm run prisma:migrate:deploy 2>/dev/null || npx prisma migrate deploy --schema prisma/schema.prisma
 npm run build

@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/prisma";
 import { requirePageRole } from "@/lib/guards";
 import { formatClinicDateTime, formatDate } from "@/lib/format";
+import { SuggestionsCard } from "@/components/shared/suggestions-card";
+import { patientSuggestions } from "@/lib/suggestions";
 
 export default async function PatientDashboard() {
   const user = await requirePageRole("PATIENT");
@@ -104,6 +106,28 @@ export default async function PatientDashboard() {
     },
   });
 
+  // Fetch payment info for suggestions
+  const [unpaidPayments, failedPayments, pendingResults] = await Promise.all([
+    prisma.payment.count({
+      where: { payeeId: user.id, status: "PENDING" },
+    }),
+    prisma.payment.count({
+      where: { payeeId: user.id, status: "FAILED" },
+    }),
+    prisma.labResult.count({
+      where: { patient: { userId: user.id, deletedAt: null }, status: "PENDING" },
+    }),
+  ]);
+
+  const suggestionItems = patientSuggestions({
+    hasUpcomingAppointment: upcomingAppointments.length > 0,
+    unpaidPayments,
+    failedPayments,
+    pendingResults,
+    unreadMessages: 0,
+    hasBloodGroup: Boolean(patient.bloodGroup),
+  });
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -183,6 +207,9 @@ export default async function PatientDashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Account-specific suggestions */}
+      <SuggestionsCard items={suggestionItems} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Upcoming Appointments */}
