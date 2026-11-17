@@ -48,6 +48,7 @@ const REVIEWED: Record<string, string> = {
   "/api/facility/break-glass GET": "own session check, active account required",
   "/api/facility/his/acceptance GET": "staging-only acceptance switch, refuses production",
   "/api/cron/credential-reminders POST": "x-cron-secret header",
+  "/api/cron/credential-monitoring GET": "cron secret in header, read-only monitoring endpoint",
   "/api/cron/workspace GET": "cron secret inside the handler",
   "/api/ai-summary POST": "user session verified, AI safety checks enforced",
   "/api/ai-summary GET": "user session verified, AI safety checks enforced",
@@ -57,6 +58,7 @@ const REVIEWED: Record<string, string> = {
   "/api/lab-owner/team/[staffId]/permissions PUT": "facility staff authorization required",
   "/api/lab-owner/team/[staffId] PUT": "facility staff authorization required",
   "/api/lab-owner/team/[staffId] DELETE": "facility staff authorization required",
+  "/api/lab-owner/team/reports GET": "facility staff authorization required, read-only reports",
 };
 
 const all = handlers();

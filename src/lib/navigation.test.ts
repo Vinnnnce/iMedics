@@ -14,23 +14,35 @@ describe("role-aware navigation", () => {
   });
   it("keeps the patient menu focused and groups supporting links under My Health or Account", () => {
     const primary = [
-      ["/dashboard", "Home"],
+      ["/patient/dashboard", "Home"],
       ["/patient/appointments", "Appointments"],
-      ["/patient/case-file", "My Health"],
+      ["/patient/prescriptions", "Medications"],
+      ["/patient/results", "Results"],
+      ["/patient/documents", "Documents"],
+      ["/patient/consult", "Messages"],
+    ];
+    const bottom = [
+      ["/patient/dashboard", "Dashboard"],
+      ["/patient/appointments", "Appointments"],
+      ["/patient/prescriptions", "Medications"],
       ["/patient/consult", "Messages"],
     ];
     expect(getRoleNavigation("PATIENT").map(({ href, label }) => [href, label])).toEqual(primary);
-    expect(getBottomNavigation("PATIENT").map(({ href, label }) => [href, label])).toEqual(primary);
+    expect(getBottomNavigation("PATIENT").map(({ href, label }) => [href, label])).toEqual(bottom);
     expect(PATIENT_ACCOUNT_NAVIGATION.map(({ href, label }) => [href, label])).toEqual([
       ["/profile", "Profile"],
       ["/settings", "Settings & privacy"],
       ["/payments", "Payments"],
     ]);
     expect(PATIENT_HEALTH_LINKS.map(({ href, label }) => [href, label])).toEqual([
+      ["/patient/dashboard", "Dashboard"],
       ["/patient/cases", "Care episodes"],
       ["/patient/history", "Health history"],
       ["/patient/results", "Test results"],
       ["/patient/prescriptions", "Prescriptions"],
+      ["/patient/reminders", "Medication reminders"],
+      ["/patient/documents", "Documents"],
+      ["/patient/safety", "Medical alerts"],
       ["/patient/case-reports?tab=documents", "Hospital documents"],
       ["/patient/case-reports", "Case reports"],
     ]);
