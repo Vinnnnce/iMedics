@@ -427,7 +427,7 @@ export default async function FacilityDashboardPage() {
         <div>
           <h2 className="text-lg font-semibold mb-3">Quick Access</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Link href="/lab/staff">
+            <Link href="/lab/staff-management">
               <Button variant="outline" className="w-full justify-start">
                 <Users className="h-4 w-4 mr-2" />
                 Staff

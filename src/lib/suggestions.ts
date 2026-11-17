@@ -196,7 +196,7 @@ export function facilitySuggestions(state: FacilitySuggestionState): Suggestion[
       items.push({
         title: "Invite and manage staff",
         description: "Assign roles so the right people can see and manage patient data.",
-        href: "/lab/staff",
+        href: "/lab/staff-management",
         cta: "Manage staff",
       });
       break;

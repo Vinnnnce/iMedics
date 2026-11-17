@@ -95,7 +95,7 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     { href: "/lab/users", label: "Patient Lookup", icon: Users },
     { href: "/lab/document-templates", label: "Document Templates", icon: FileText },
     { href: "/lab/letterheads", label: "Letterheads", icon: FileText },
-    { href: "/lab/staff", label: "Staff", icon: Users },
+    { href: "/lab/staff-management", label: "Staff", icon: Users },
     { href: "/lab/organization", label: "Organization", icon: UserCog },
     { href: "/lab/website", label: "Public Website", icon: Globe },
     { href: "/lab/subscription", label: "Subscription", icon: Wallet },

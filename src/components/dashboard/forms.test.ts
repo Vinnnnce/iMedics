@@ -66,7 +66,7 @@ describe("dashboard account-specific suggestions", () => {
     const base = { referralInbox: 0, credentialAlerts: 0, activeServices: 5 };
     const hrefs = (accountType: "HOSPITAL" | "LABORATORY" | "DIAGNOSTIC_CENTRE") =>
       facilitySuggestions({ ...base, accountType }).map(s => s.href);
-    expect(hrefs("HOSPITAL")).toContain("/lab/staff");
+    expect(hrefs("HOSPITAL")).toContain("/lab/staff-management");
     expect(hrefs("LABORATORY")).toContain("/lab/orders");
     expect(hrefs("DIAGNOSTIC_CENTRE")).toContain("/lab/bookings");
     expect(hrefs("HOSPITAL")).not.toContain("/lab/bookings");

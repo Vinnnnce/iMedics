@@ -136,7 +136,7 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
     case "FACILITY_RESULT_RELEASED":
       return { type: "LAB_RESULT", title: "Facility result released", body: "A result is available in your account.", href: "/patient/results", data: { bookingId: event.bookingId } };
     case "FACILITY_STAFF_JOINED":
-      return { type: "SYSTEM", title: "Facility team updated", body: "A new staff member joined your facility.", href: "/lab/staff", data: { facilityId: event.facilityId } };
+      return { type: "SYSTEM", title: "Facility team updated", body: "A new staff member joined your facility.", href: "/lab/staff-management", data: { facilityId: event.facilityId } };
     case "FACILITY_REFERRAL_RECEIVED":
       return { type: "APPOINTMENT", title: "New facility referral", body: "A referral is waiting for review.", href: "/lab/referrals", data: { referralId: event.referralId } };
     case "CREDENTIAL_EXPIRING":

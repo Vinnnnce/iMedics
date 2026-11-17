@@ -46,7 +46,7 @@ describe("facility menu by organisation kind", () => {
   });
   it("gives pharmacies the pharmacy module and the shared management pages", () => {
     expect(hrefs("PHARMACY")).toContain("/lab/pharmacy");
-    expect(hrefs("PHARMACY")).toContain("/lab/staff");
+    expect(hrefs("PHARMACY")).toContain("/lab/staff-management");
   });
   it("does not touch other roles' menus", () => {
     expect(visibleNavigation("DOCTOR", "HOSPITAL").every((i) => !i.href.startsWith("/lab/"))).toBe(true);

@@ -60,7 +60,7 @@ const PATHS: [string, typeof MODULES[number]][] = [
   ["/facility/bookings", "APPOINTMENTS"], ["/facility-bookings", "APPOINTMENTS"], ["/appointments", "APPOINTMENTS"],
   ["/consultations", "CONSULTATIONS"], ["/ai", "AI"], ["/payments", "BILLING"],
   ["/notifications", "NOTIFICATIONS"], ["/facility/his/analytics", "ANALYTICS"],
-  ["/lab/organization", "DEPARTMENTS"], ["/lab/staff", "STAFF"], ["/lab/clinical-documents/templates", "DOCUMENT_TEMPLATES"],
+  ["/lab/organization", "DEPARTMENTS"], ["/lab/staff-management", "STAFF"], ["/lab/clinical-documents/templates", "DOCUMENT_TEMPLATES"],
   ["/lab/document-templates", "DOCUMENT_TEMPLATES"], ["/lab/clinical-documents", "CLINICAL_DOCUMENTS"],
   ["/lab/documents", "CLINICAL_DOCUMENTS"], ["/lab/nursing", "NURSING"], ["/lab/pharmacy", "PHARMACY"],
   ["/lab/admissions", "ADMISSIONS"], ["/lab/wards", "ADMISSIONS"], ["/lab/emergency", "EMERGENCY"],

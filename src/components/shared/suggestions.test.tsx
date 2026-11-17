@@ -105,10 +105,10 @@ describe("facility suggestions", () => {
     const hospital = facilitySuggestions({ ...empty, accountType: "HOSPITAL" });
     const laboratory = facilitySuggestions({ ...empty, accountType: "LABORATORY" });
     const diagnostic = facilitySuggestions({ ...empty, accountType: "DIAGNOSTIC_CENTRE" });
-    expect(hospital.some((s) => s.href === "/lab/staff")).toBe(true);
+    expect(hospital.some((s) => s.href === "/lab/staff-management")).toBe(true);
     expect(laboratory.some((s) => s.href === "/lab/orders")).toBe(true);
     expect(diagnostic.some((s) => s.href === "/lab/bookings")).toBe(true);
-    expect(diagnostic.some((s) => s.href === "/lab/staff")).toBe(false);
+    expect(diagnostic.some((s) => s.href === "/lab/staff-management")).toBe(false);
   });
 
   it("suggests resolving credential alerts", () => {

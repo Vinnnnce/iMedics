@@ -82,7 +82,7 @@ export function FacilityHeader({
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/lab/staff" className="flex items-center gap-2 cursor-pointer">
+                <Link href="/lab/staff-management" className="flex items-center gap-2 cursor-pointer">
                   <span>Staff Management</span>
                 </Link>
               </DropdownMenuItem>

@@ -8,7 +8,7 @@ describe("tour steps use existing accessible navigation", () => {
   });
   it("explains doctor prescriptions and authorised facility administration", () => {
     expect(buildTourSteps([{ href: "/doctor/prescriptions", label: "Prescriptions" }])[0].description).toContain("professional authorisation");
-    expect(buildTourSteps([{ href: "/lab/staff", label: "Staff" }])[0].description).toContain("permissions");
+    expect(buildTourSteps([{ href: "/lab/staff-management", label: "Staff" }])[0].description).toContain("permissions");
     expect(buildTourSteps([{ href: "/lab/hospital-settings", label: "Departments" }])[0].description).toContain("departments");
   });
   it("has a public introduction and registration conclusion without private AI access", () => {

@@ -12,7 +12,7 @@ const descriptions: Record<string, string> = {
   "/doctor/patients": "Find your assigned patients and open their authorised case files.",
   "/doctor/lab-requests": "Create and follow laboratory requests for your patients.",
   "/doctor/ai-tools": "Use clinical assistance as a draft aid only. Verify every output before clinical use.",
-  "/lab/staff": "Invite staff and assign the minimum necessary permissions. Revoke access when a staff member leaves.",
+  "/lab/staff-management": "Invite staff and assign the minimum necessary permissions. Revoke access when a staff member leaves.",
   "/lab/hospital-settings": "Configure departments and facility workflows. These settings require facility administration permission.",
   "/lab/orders": "Manage authorised laboratory orders, specimen progress and verified results.",
   "/lab/examinations": "Manage diagnostic examinations and verified reports.",

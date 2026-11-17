@@ -317,7 +317,7 @@ export function SettingsClient({ initial }: { initial: SettingsInitial }) {
                     <div className="grid gap-2 sm:grid-cols-2">
                       {[
                         { href: "/lab/website", label: "Facility profile & website" },
-                        { href: "/lab/staff", label: "Staff & roles" },
+                        { href: "/lab/staff-management", label: "Staff & roles" },
                         { href: "/lab/credentials", label: "Staff credentials" },
                         { href: "/lab/services", label: "Services & prices" },
                       ].map((link) => (
