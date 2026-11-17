@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
 import { requireFacilityPortalPage } from "@/lib/guards";
-import type { FacilityStaffStatus } from "@prisma/client";
+import type { FacilityStaffStatus, AccountType } from "@prisma/client";
 import { clinicInstant, clinicToday } from "@/lib/clinic-time";
 import { resolveFacilityForPortalUser } from "@/lib/facility-auth";
 import { ProfileCompletenessCard } from "@/components/shared/profile-completeness-card";
@@ -141,7 +141,7 @@ export default async function FacilityDashboardPage() {
   });
 
   const suggestionItems = facilitySuggestions({
-    accountType: kind as any,
+    accountType: kind as AccountType | null | undefined,
     referralInbox,
     credentialAlerts,
     activeServices,
