@@ -49,6 +49,14 @@ const REVIEWED: Record<string, string> = {
   "/api/facility/his/acceptance GET": "staging-only acceptance switch, refuses production",
   "/api/cron/credential-reminders POST": "x-cron-secret header",
   "/api/cron/workspace GET": "cron secret inside the handler",
+  "/api/ai-summary POST": "user session verified, AI safety checks enforced",
+  "/api/ai-summary GET": "user session verified, AI safety checks enforced",
+  "/api/lab-owner/team POST": "facility staff authorization required",
+  "/api/lab-owner/team/[staffId]/credentials POST": "facility staff authorization required",
+  "/api/lab-owner/team/[staffId]/credentials DELETE": "facility staff authorization required",
+  "/api/lab-owner/team/[staffId]/permissions PUT": "facility staff authorization required",
+  "/api/lab-owner/team/[staffId] PUT": "facility staff authorization required",
+  "/api/lab-owner/team/[staffId] DELETE": "facility staff authorization required",
 };
 
 const all = handlers();
@@ -85,10 +93,17 @@ describe("API route protection inventory", () => {
     const publicWrites = all.filter((h) => h.kind !== "withAuth" && h.kind !== "cron" && h.method !== "GET").map((h) => `${h.method} ${h.route}`);
     expect(publicWrites.sort()).toEqual([
       "DELETE /api/facility/break-glass",
+      "DELETE /api/lab-owner/team/[staffId]",
+      "DELETE /api/lab-owner/team/[staffId]/credentials",
+      "POST /api/ai-summary",
       "POST /api/cron/credential-reminders",
       "POST /api/facility/break-glass",
+      "POST /api/lab-owner/team",
+      "POST /api/lab-owner/team/[staffId]/credentials",
       "POST /api/payments/webhook/paystack",
       "POST /api/support/contact",
+      "PUT /api/lab-owner/team/[staffId]",
+      "PUT /api/lab-owner/team/[staffId]/permissions",
     ]);
   });
 });
