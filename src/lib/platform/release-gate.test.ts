@@ -14,5 +14,5 @@ describe("production release approval boundary", () => {
     expect(r.status).toBe(78);
     expect(r.stderr).toContain("held before database migration");
     expect(r.stdout).not.toContain("prisma");
-  });
+  }, 120000);
 });

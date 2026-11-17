@@ -6,7 +6,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => {
-  const fns = ["findFirst", "findMany", "create", "update"] as const;
+  const fns = ["findFirst", "findMany", "create", "update", "updateMany"] as const;
   const make = () => Object.fromEntries(fns.map((f) => [f, vi.fn()]));
   return {
     prisma: {
@@ -60,6 +60,8 @@ describe("getStaffMembership", () => {
       id: "staff-1",
       accessLevel: "EXTENDED",
       departmentIds: ["dept-1"],
+      accessStartsAt: null,
+      accessExpiresAt: null,
     } as never);
     const info = await getStaffMembership(USER, "facility-1");
     expect(info).toEqual({ staffId: "staff-1", facilityId: "facility-1", accessLevel: "EXTENDED", departmentIds: ["dept-1"] });
@@ -74,13 +76,13 @@ describe("getStaffMembership", () => {
 describe("assertStaffCanReachPatient", () => {
   it("allows LIMITED staff only with an explicit patient grant", async () => {
     vi.mocked(prisma.staffPatientAccess.findFirst).mockResolvedValue({ id: "grant-1" } as never);
-    await expect(assertStaffCanReachPatient(membership({ accessLevel: "LIMITED" }), "patient-1")).resolves.toBeUndefined();
+    await expect(assertStaffCanReachPatient(membership({ accessLevel: "LIMITED" }), "patient-1")).resolves.toMatchObject({ allowed: true, reason: "PATIENT_GRANT" });
   });
 
   it("allows LIMITED staff with an active break-glass grant", async () => {
     vi.mocked(prisma.staffPatientAccess.findFirst).mockResolvedValue(null as never);
     vi.mocked(prisma.breakGlassAccess.findFirst).mockResolvedValue({ id: "bg-1" } as never);
-    await expect(assertStaffCanReachPatient(membership({ accessLevel: "LIMITED" }), "patient-1")).resolves.toBeUndefined();
+    await expect(assertStaffCanReachPatient(membership({ accessLevel: "LIMITED" }), "patient-1")).resolves.toMatchObject({ allowed: true, reason: "BREAK_GLASS" });
   });
 
   it("blocks LIMITED staff without any grant, even for facility patients", async () => {
@@ -98,7 +100,7 @@ describe("assertStaffCanReachPatient", () => {
     for (const model of ["admission", "facilityBooking", "labOrder", "payerCoverage", "clinicalDocument", "patientAssignment"] as const) {
       vi.mocked(prisma[model].findFirst).mockResolvedValue(null as never);
     }
-    await expect(assertStaffCanReachPatient(membership(), "patient-1")).resolves.toBeUndefined();
+    await expect(assertStaffCanReachPatient(membership(), "patient-1")).resolves.toMatchObject({ allowed: true, reason: "FACILITY_CARE_RELATIONSHIP" });
   });
 
   it("blocks STANDARD staff for patients with no care relationship at the facility", async () => {
@@ -113,12 +115,12 @@ describe("assertStaffCanReachPatient", () => {
   it("allows EXTENDED staff via an active admission in their department set", async () => {
     vi.mocked(prisma.staffPatientAccess.findFirst).mockResolvedValue(null as never);
     vi.mocked(prisma.breakGlassAccess.findFirst).mockResolvedValue(null as never);
-    vi.mocked(prisma.facilityDepartment.findFirst).mockResolvedValue({ id: "dept-1" } as never);
+    vi.mocked(prisma.facilityDepartment.findMany).mockResolvedValue([{ id: "dept-1" }] as never);
     vi.mocked(prisma.ward.findMany).mockResolvedValue([{ id: "ward-1" }] as never);
     vi.mocked(prisma.admission.findFirst).mockResolvedValue({ id: "adm-1" } as never);
     await expect(
       assertStaffCanReachPatient(membership({ accessLevel: "EXTENDED", departmentIds: ["dept-1"] }), "patient-1"),
-    ).resolves.toBeUndefined();
+    ).resolves.toMatchObject({ allowed: true, reason: "DEPARTMENT_ASSIGNMENT" });
   });
 
   it("ignores departments for EXTENDED staff with no departments assigned", async () => {
@@ -213,11 +215,11 @@ describe("createBreakGlassAccess", () => {
 describe("closeBreakGlassAccess", () => {
   it("closes the grant and audits the closure", async () => {
     vi.mocked(prisma.breakGlassAccess.findFirst).mockResolvedValue({ id: "bg-1" } as never);
-    vi.mocked(prisma.breakGlassAccess.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.breakGlassAccess.updateMany).mockResolvedValue({ count: 1 } as never);
     vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
     await closeBreakGlassAccess(membership(), "bg-1", "care handed over");
-    expect(prisma.breakGlassAccess.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "bg-1" }, data: expect.objectContaining({ closedAt: expect.any(Date) }) }),
+    expect(prisma.breakGlassAccess.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "bg-1", facilityId: "facility-1", staffId: "staff-1", closedAt: null }, data: expect.objectContaining({ closedAt: expect.any(Date) }) }),
     );
     expect(prisma.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ action: "BREAK_GLASS_ACCESS_CLOSED" }) }),
@@ -225,7 +227,7 @@ describe("closeBreakGlassAccess", () => {
   });
 
   it("rejects grants from another facility", async () => {
-    vi.mocked(prisma.breakGlassAccess.findFirst).mockResolvedValue(null as never);
+    vi.mocked(prisma.breakGlassAccess.updateMany).mockResolvedValue({ count: 0 } as never);
     await expect(closeBreakGlassAccess(membership(), "bg-1", "reason")).rejects.toMatchObject({ status: 404 });
   });
 });

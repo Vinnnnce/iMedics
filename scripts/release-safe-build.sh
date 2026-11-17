@@ -17,7 +17,6 @@ if [[ "${MEDIC1905_ORG_RELEASE_APPROVED:-}" != "1" ]] ||
     'Medic1905: code build complete, but database migration held before database migration proceeds pending release approval.' \
     'Set MEDIC1905_ORG_RELEASE_APPROVED=1, MEDIC1905_ORG_BACKUP_RESTORE_VERIFIED=1,' \
     'and MEDIC1905_ORG_BACKUP_REFERENCE=<id> to proceed.' >&2
-  npm run build || true
   exit 78
 fi
 npm run prisma:migrate:deploy 2>/dev/null || npx prisma migrate deploy --schema prisma/schema.prisma

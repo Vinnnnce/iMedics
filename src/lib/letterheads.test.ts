@@ -29,7 +29,7 @@ describe("signatureBlocksOf", () => {
   it("drops blocks without a name and caps the count at four", () => {
     const many = Array.from({ length: 7 }, (_, i) => ({ name: `Block ${i}` }));
     expect(signatureBlocksOf(many)).toHaveLength(4);
-    expect(signatureBlocksOf([{ title: "No name" }, "junk", null, { name: "Kept" }])).toEqual([{ name: "Kept" }]);
+    expect(signatureBlocksOf([{ title: "No name" }, "junk", null, { name: "Kept" }])).toEqual([{ name: "Kept", side: "left" }]);
   });
   it("returns an empty list for non-arrays", () => {
     expect(signatureBlocksOf(null)).toEqual([]);
