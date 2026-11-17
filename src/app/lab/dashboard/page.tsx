@@ -141,7 +141,7 @@ export default async function FacilityDashboardPage() {
   });
 
   const suggestionItems = facilitySuggestions({
-    accountType: kind,
+    accountType: kind as any,
     referralInbox,
     credentialAlerts,
     activeServices,
