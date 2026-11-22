@@ -65,6 +65,12 @@ export type NotificationEvent =
   | { kind: "CRITICAL_ALERT_ACKNOWLEDGED"; alertId: string }
   | { kind: "CRITICAL_ALERT_ESCALATED"; alertId: string; level: number }
   | { kind: "INVESTIGATION_UPDATED"; orderId: string }
+  | { kind: "INVESTIGATION_ORDER_RECEIVED"; orderId: string }
+  | { kind: "INVESTIGATION_STATUS_CHANGED"; orderId: string }
+  | { kind: "INVESTIGATION_REPORT_RELEASED"; orderId: string }
+  | { kind: "INVESTIGATION_CRITICAL"; alertId: string; orderId: string }
+  | { kind: "INVESTIGATION_CRITICAL_ESCALATED"; alertId: string; orderId: string; level: number }
+  | { kind: "INVESTIGATION_OVERDUE"; orderId: string }
   | { kind: "DIAGNOSTIC_REPORT_READY"; bookingId: string }
   | { kind: "CLINICAL_DOCUMENT_ACTION_NEEDED"; documentId: string; step: "REVIEW" | "SIGNATURE" }
   | { kind: "CLINICAL_DOCUMENT_RELEASED"; documentId: string };
@@ -333,6 +339,55 @@ export function renderNotification(event: NotificationEvent, role: Role): Render
         body: `A critical result has not been acknowledged within the response window and has been escalated (level ${event.level}). Sign in to review and acknowledge it.`,
         href: role === "DOCTOR" ? "/doctor/lab-requests" : "/lab/critical-alerts",
         data: { alertId: event.alertId, level: String(event.level) },
+      };
+    case "INVESTIGATION_ORDER_RECEIVED":
+      return {
+        type: "INVESTIGATION_UPDATE",
+        title: "New investigation request",
+        body: "A new investigation request is waiting in your worklist. Sign in to review it.",
+        href: "/lab/results-reports",
+        data: { orderId: event.orderId },
+      };
+    case "INVESTIGATION_STATUS_CHANGED":
+      return {
+        type: "INVESTIGATION_UPDATE",
+        title: "Investigation status update",
+        body: "The status of an investigation you ordered has changed. Sign in to view the details.",
+        href: role === "DOCTOR" ? `/doctor/lab-requests/orders/${event.orderId}` : "/lab/results-reports",
+        data: { orderId: event.orderId },
+      };
+    case "INVESTIGATION_REPORT_RELEASED":
+      return {
+        type: "LAB_RESULT",
+        title: "A report is available",
+        body: "A verified investigation report has been released. Sign in to view it.",
+        href: role === "DOCTOR" ? `/doctor/lab-requests/orders/${event.orderId}` : role === "PATIENT" ? "/patient/results" : "/lab/results-reports",
+        data: { orderId: event.orderId },
+      };
+    case "INVESTIGATION_CRITICAL":
+      return {
+        type: "CRITICAL_RESULT",
+        title: "Critical result requires acknowledgement",
+        // No clinical detail in the notification itself — open the app to view it.
+        body: "A critical investigation result is awaiting your acknowledgement. Sign in to review and acknowledge it.",
+        href: role === "DOCTOR" ? `/doctor/lab-requests/orders/${event.orderId}` : "/lab/results-reports/critical",
+        data: { alertId: event.alertId, orderId: event.orderId },
+      };
+    case "INVESTIGATION_CRITICAL_ESCALATED":
+      return {
+        type: "CRITICAL_RESULT",
+        title: "Critical result escalated",
+        body: `A critical investigation result has not been acknowledged within the response window and was escalated (level ${event.level}). Sign in to review it.`,
+        href: role === "DOCTOR" ? `/doctor/lab-requests/orders/${event.orderId}` : "/lab/results-reports/critical",
+        data: { alertId: event.alertId, orderId: event.orderId, level: String(event.level) },
+      };
+    case "INVESTIGATION_OVERDUE":
+      return {
+        type: "INVESTIGATION_UPDATE",
+        title: "Investigation overdue",
+        body: "An investigation has passed its target turnaround time. Sign in to review the worklist.",
+        href: "/lab/results-reports",
+        data: { orderId: event.orderId },
       };
     case "INVESTIGATION_UPDATED":
       return {

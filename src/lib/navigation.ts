@@ -78,6 +78,7 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     { href: "/lab/orders", label: "Lab Orders", icon: ClipboardList },
     { href: "/lab/specimens", label: "Specimens", icon: FlaskConical },
     { href: "/lab/examinations", label: "Examinations", icon: FileText },
+    { href: "/lab/results-reports", label: "Results & Reports", icon: ClipboardList },
     { href: "/lab/investigations", label: "Investigations", icon: Stethoscope },
     { href: "/lab/critical-alerts", label: "Critical Alerts", icon: Bell },
     { href: "/lab/bookings", label: "Appointments", icon: Calendar },

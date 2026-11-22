@@ -152,6 +152,8 @@ model User {
   documentSharesReceived                                      DocumentShare[]               @relation("DocumentShareRecipient")
   facilityDocTemplates                                        FacilityDocumentTemplate[]    @relation("FacilityDocumentTemplateAuthor")
   facilityStaffMembers                                        FacilityStaff[]               @relation("FacilityStaffUser")
+  investigation_order_sets                                    investigation_order_sets[]
+  investigation_orders                                        investigation_orders[]
   equipmentMaintenance                                        LabEquipmentMaintenanceLog[]  @relation("MaintenancePerformedBy")
   labOrdersOrdered                                            LabOrder[]                    @relation("LabOrderOrderedBy")
   qcRunsPerformed                                             LabQualityControlRun[]        @relation("QcPerformedBy")
@@ -337,97 +339,101 @@ model DoctorProfile {
 }
 
 model LabStaffProfile {
-  id                      String                     @id @default(uuid()) @db.Uuid
-  userId                  String                     @unique @map("user_id") @db.Uuid
-  laboratoryName          String?                    @map("laboratory_name")
-  position                String?
-  licenseIdNumber         String?                    @map("license_id_number")
-  cacRegistrationNumber   String?                    @map("cac_registration_number")
-  facilityLicenseNumber   String?                    @map("facility_license_number")
-  departments             String[]
-  verificationStatus      VerificationStatus         @default(PENDING) @map("verification_status")
-  verifiedAt              DateTime?                  @map("verified_at")
-  verifiedById            String?                    @map("verified_by_id") @db.Uuid
-  createdAt               DateTime                   @default(now()) @map("created_at")
-  updatedAt               DateTime                   @updatedAt @map("updated_at")
-  about                   String?
-  addressLine             String?                    @map("address_line")
-  city                    String?
-  operatingHours          String?                    @map("operating_hours")
-  state                   String?
-  bedCount                Int?                       @map("bed_count")
-  commissionBps           Int?                       @map("commission_bps")
-  email                   String?                    @db.VarChar(120)
-  emergencyContact        String?                    @map("emergency_contact") @db.VarChar(200)
-  establishedYear         Int?                       @map("established_year")
-  galleryImageKeys        String[]                   @default([]) @map("gallery_image_keys")
-  imagingRoomCount        Int?                       @map("imaging_room_count")
-  isPublished             Boolean                    @default(false) @map("is_published")
-  laboratoryCount         Int?                       @map("laboratory_count")
-  languagesSpoken         String[]                   @default([]) @map("languages_spoken")
-  logoUrl                 String?                    @map("logo_url") @db.VarChar(500)
-  mission                 String?                    @db.VarChar(500)
-  ownershipType           OwnershipType?
-  paymentMethods          String[]                   @default([]) @map("payment_methods")
-  phone                   String?                    @db.VarChar(40)
-  settlementAccountNumber String?                    @map("settlement_account_number") @db.VarChar(40)
-  settlementBank          String?                    @map("settlement_bank") @db.VarChar(100)
-  slug                    String?                    @unique @db.VarChar(80)
-  subaccountCode          String?                    @map("subaccount_code") @db.VarChar(60)
-  tagline                 String?                    @db.VarChar(200)
-  theatreCount            Int?                       @map("theatre_count")
-  vision                  String?                    @db.VarChar(500)
-  ratingAvg               Float                      @default(0) @map("rating_avg")
-  ratingCount             Int                        @default(0) @map("rating_count")
+  id                        String                      @id @default(uuid()) @db.Uuid
+  userId                    String                      @unique @map("user_id") @db.Uuid
+  laboratoryName            String?                     @map("laboratory_name")
+  position                  String?
+  licenseIdNumber           String?                     @map("license_id_number")
+  cacRegistrationNumber     String?                     @map("cac_registration_number")
+  facilityLicenseNumber     String?                     @map("facility_license_number")
+  departments               String[]
+  verificationStatus        VerificationStatus          @default(PENDING) @map("verification_status")
+  verifiedAt                DateTime?                   @map("verified_at")
+  verifiedById              String?                     @map("verified_by_id") @db.Uuid
+  createdAt                 DateTime                    @default(now()) @map("created_at")
+  updatedAt                 DateTime                    @updatedAt @map("updated_at")
+  about                     String?
+  addressLine               String?                     @map("address_line")
+  city                      String?
+  operatingHours            String?                     @map("operating_hours")
+  state                     String?
+  bedCount                  Int?                        @map("bed_count")
+  commissionBps             Int?                        @map("commission_bps")
+  email                     String?                     @db.VarChar(120)
+  emergencyContact          String?                     @map("emergency_contact") @db.VarChar(200)
+  establishedYear           Int?                        @map("established_year")
+  galleryImageKeys          String[]                    @default([]) @map("gallery_image_keys")
+  imagingRoomCount          Int?                        @map("imaging_room_count")
+  isPublished               Boolean                     @default(false) @map("is_published")
+  laboratoryCount           Int?                        @map("laboratory_count")
+  languagesSpoken           String[]                    @default([]) @map("languages_spoken")
+  logoUrl                   String?                     @map("logo_url") @db.VarChar(500)
+  mission                   String?                     @db.VarChar(500)
+  ownershipType             OwnershipType?
+  paymentMethods            String[]                    @default([]) @map("payment_methods")
+  phone                     String?                     @db.VarChar(40)
+  settlementAccountNumber   String?                     @map("settlement_account_number") @db.VarChar(40)
+  settlementBank            String?                     @map("settlement_bank") @db.VarChar(100)
+  slug                      String?                     @unique @db.VarChar(80)
+  subaccountCode            String?                     @map("subaccount_code") @db.VarChar(60)
+  tagline                   String?                     @db.VarChar(200)
+  theatreCount              Int?                        @map("theatre_count")
+  vision                    String?                     @db.VarChar(500)
+  ratingAvg                 Float                       @default(0) @map("rating_avg")
+  ratingCount               Int                         @default(0) @map("rating_count")
   /// Organization type of this facility, denormalized from the owner's account type at creation.
-  kind                    FacilityKind?
-  country                 String?
-  admissions              Admission[]
-  transferredAdmissions   Admission[]                @relation("AdmissionTransferredToFacility")
-  aiUsageLogs             AiUsageLog[]               @relation("AiUsageLogFacility")
-  beds                    Bed[]                      @relation("BedFacility")
-  clinicalTemplates       ClinicalDocumentTemplate[] @relation("ClinicalTemplateFacility")
-  clinicalDocuments       ClinicalDocument[]         @relation("ClinicalDocumentFacility")
-  commissionRules         CommissionRule[]
-  control_audit_events    ControlAuditEvent[]
-  controlledEvents        ControlledSubstanceEvent[] @relation("ControlledEventFacility")
-  criticalAlertsOrdered   CriticalResultAlert[]      @relation("CriticalAlertOrderingFacility")
-  diagnosticReportsIssued DiagnosticReport[]
-  diagnosticReportsSentTo DiagnosticReport[]         @relation("DiagnosticReportSentToFacility")
-  documentShares          DocumentFacilityShare[]    @relation("FacilityDocumentShares")
-  encounters              Encounter[]                @relation("EncounterFacility")
-  accreditations          FacilityAccreditation[]
-  referredBookings        FacilityBooking[]          @relation("BookingRequestingFacility")
-  branches                FacilityBranch[]
-  facilityDepartments     FacilityDepartment[]
-  documentTemplates       FacilityDocumentTemplate[]
-  referrals               FacilityReferral[]
-  reviews                 FacilityReview[]
-  services                FacilityService[]
-  staffMembers            FacilityStaff[]
-  subscription            FacilitySubscription?
-  website                 FacilityWebsite?
-  hospitalSettings        HospitalSettings?          @relation("HospitalSettingsFacility")
-  labEquipment            LabEquipment[]             @relation("LabEquipmentFacility")
-  performingLabOrders     LabOrder[]                 @relation("LabOrderPerformingFacility")
-  requestingLabOrders     LabOrder[]                 @relation("LabOrderRequestingFacility")
-  qcRuns                  LabQualityControlRun[]     @relation("LabQcRunFacility")
-  labReagents             LabReagent[]               @relation("LabReagentFacility")
-  user                    User                       @relation("LabStaffProfileUser", fields: [userId], references: [id], onDelete: Cascade)
-  verifiedBy              User?                      @relation("LabStaffVerifiedBy", fields: [verifiedById], references: [id])
-  letterheads             LetterheadProfile[]        @relation("LetterheadFacility")
-  medicalMedia            MedicalMedia[]             @relation("MedicalMediaFacility")
-  organization_positions  OrganizationPosition[]
-  issuedDocuments         PatientDocument[]          @relation("IssuingFacility")
-  payerCoverages          PayerCoverage[]            @relation("PayerCoverageFacility")
-  pharmacyPurchaseOrders  PharmacyPurchaseOrder[]    @relation("PharmacyPurchaseOrderFacility")
-  stockBatches            PharmacyStockBatch[]       @relation("PharmacyStockBatchFacility")
-  pharmacySuppliers       PharmacySupplier[]         @relation("PharmacySupplierFacility")
-  subaccount              ProviderSubaccount?
-  registrationDrafts      RegistrationDraft[]        @relation("RegistrationDraftFacility")
-  specimens               Specimen[]
-  staff_appointments      StaffAppointment[]
-  wards                   Ward[]                     @relation("WardFacility")
+  kind                      FacilityKind?
+  country                   String?
+  admissions                Admission[]
+  transferredAdmissions     Admission[]                 @relation("AdmissionTransferredToFacility")
+  aiUsageLogs               AiUsageLog[]                @relation("AiUsageLogFacility")
+  beds                      Bed[]                       @relation("BedFacility")
+  clinicalTemplates         ClinicalDocumentTemplate[]  @relation("ClinicalTemplateFacility")
+  clinicalDocuments         ClinicalDocument[]          @relation("ClinicalDocumentFacility")
+  commissionRules           CommissionRule[]
+  control_audit_events      ControlAuditEvent[]
+  controlledEvents          ControlledSubstanceEvent[]  @relation("ControlledEventFacility")
+  criticalAlertsOrdered     CriticalResultAlert[]       @relation("CriticalAlertOrderingFacility")
+  diagnosticReportsIssued   DiagnosticReport[]
+  diagnosticReportsSentTo   DiagnosticReport[]          @relation("DiagnosticReportSentToFacility")
+  documentShares            DocumentFacilityShare[]     @relation("FacilityDocumentShares")
+  encounters                Encounter[]                 @relation("EncounterFacility")
+  accreditations            FacilityAccreditation[]
+  referredBookings          FacilityBooking[]           @relation("BookingRequestingFacility")
+  branches                  FacilityBranch[]
+  facilityDepartments       FacilityDepartment[]
+  documentTemplates         FacilityDocumentTemplate[]
+  facility_investigations   facility_investigations[]
+  referrals                 FacilityReferral[]
+  reviews                   FacilityReview[]
+  services                  FacilityService[]
+  staffMembers              FacilityStaff[]
+  subscription              FacilitySubscription?
+  website                   FacilityWebsite?
+  hospitalSettings          HospitalSettings?           @relation("HospitalSettingsFacility")
+  investigation_order_items investigation_order_items[]
+  investigation_orders      investigation_orders[]
+  investigation_specimens   investigation_specimens[]
+  labEquipment              LabEquipment[]              @relation("LabEquipmentFacility")
+  performingLabOrders       LabOrder[]                  @relation("LabOrderPerformingFacility")
+  requestingLabOrders       LabOrder[]                  @relation("LabOrderRequestingFacility")
+  qcRuns                    LabQualityControlRun[]      @relation("LabQcRunFacility")
+  labReagents               LabReagent[]                @relation("LabReagentFacility")
+  user                      User                        @relation("LabStaffProfileUser", fields: [userId], references: [id], onDelete: Cascade)
+  verifiedBy                User?                       @relation("LabStaffVerifiedBy", fields: [verifiedById], references: [id])
+  letterheads               LetterheadProfile[]         @relation("LetterheadFacility")
+  medicalMedia              MedicalMedia[]              @relation("MedicalMediaFacility")
+  organization_positions    OrganizationPosition[]
+  issuedDocuments           PatientDocument[]           @relation("IssuingFacility")
+  payerCoverages            PayerCoverage[]             @relation("PayerCoverageFacility")
+  pharmacyPurchaseOrders    PharmacyPurchaseOrder[]     @relation("PharmacyPurchaseOrderFacility")
+  stockBatches              PharmacyStockBatch[]        @relation("PharmacyStockBatchFacility")
+  pharmacySuppliers         PharmacySupplier[]          @relation("PharmacySupplierFacility")
+  subaccount                ProviderSubaccount?
+  registrationDrafts        RegistrationDraft[]         @relation("RegistrationDraftFacility")
+  specimens                 Specimen[]
+  staff_appointments        StaffAppointment[]
+  wards                     Ward[]                      @relation("WardFacility")
 
   @@index([verificationStatus])
   @@index([isPublished, verificationStatus, kind, ratingAvg(sort: Desc)], map: "lab_staff_profiles_top_rated_idx")
@@ -553,6 +559,7 @@ model Patient {
   facilityReferrals      FacilityReferral[]         @relation("ReferralPatient")
   facilityReviews        FacilityReview[]
   inactivityRule         InactivityRule?
+  investigation_orders   investigation_orders[]
   labOrders              LabOrder[]
   labResults             LabResult[]
   medicalHistories       MedicalHistory[]
@@ -4258,6 +4265,390 @@ model FacilitySubscriptionEvent {
   @@map("facility_subscription_events")
 }
 
+model facility_investigations {
+  id                            String                        @id @db.Uuid
+  facility_id                   String                        @db.Uuid
+  catalogue_item_id             String                        @db.Uuid
+  is_active                     Boolean                       @default(true)
+  department_key                String?
+  price_minor                   Int?
+  turnaround_minutes            Int?
+  preparation                   String?
+  specimen_requirements         String?
+  report_template               String?
+  responsible_staff_id          String?                       @db.Uuid
+  local_code                    String?
+  local_aliases                 String[]                      @default([])
+  created_at                    DateTime                      @default(now())
+  updated_at                    DateTime
+  investigation_catalogue_items investigation_catalogue_items @relation(fields: [catalogue_item_id], references: [id], onDelete: Cascade)
+  lab_staff_profiles            LabStaffProfile               @relation(fields: [facility_id], references: [id], onDelete: Cascade)
+
+  @@unique([facility_id, catalogue_item_id])
+  @@index([catalogue_item_id, is_active])
+}
+
+model investigation_alert_events {
+  id                            String                        @id @db.Uuid
+  alert_id                      String                        @db.Uuid
+  kind                          String
+  actor_user_id                 String?                       @db.Uuid
+  recipient_user_id             String?                       @db.Uuid
+  note                          String?
+  created_at                    DateTime                      @default(now())
+  investigation_critical_alerts investigation_critical_alerts @relation(fields: [alert_id], references: [id], onDelete: Cascade)
+
+  @@index([alert_id, created_at])
+}
+
+model investigation_analytes {
+  id                            String                        @id @db.Uuid
+  catalogue_item_id             String                        @db.Uuid
+  facility_id                   String?                       @db.Uuid
+  code                          String
+  name                          String
+  loinc_code                    String?
+  ucum_unit                     String?
+  valueType                     String                        @default("NUMERIC")
+  ref_low                       Float?
+  ref_high                      Float?
+  critical_low                  Float?
+  critical_high                 Float?
+  sort_order                    Int                           @default(0)
+  investigation_catalogue_items investigation_catalogue_items @relation(fields: [catalogue_item_id], references: [id], onDelete: Cascade)
+
+  @@index([catalogue_item_id])
+}
+
+model investigation_catalogue_items {
+  id                        String                       @id @db.Uuid
+  domain                    InvestigationDomain
+  category_id               String                       @db.Uuid
+  subcategory               String?
+  code                      String                       @unique
+  name                      String
+  common_name               String?
+  abbreviation              String?
+  synonyms                  String[]                     @default([])
+  loinc_code                String?
+  snomed_code               String?
+  dicom_modality            String?
+  standard_codes_verified   Boolean                      @default(false)
+  clinical_discipline       String?
+  specimen_type             String?
+  modality                  String?
+  body_site                 String?
+  report_format             InvestigationReportFormat    @default(GENERIC)
+  preparation               String?
+  turnaround_minutes        Int?
+  indication_guidance       String?
+  is_panel                  Boolean                      @default(false)
+  panel_member_codes        String[]                     @default([])
+  facility_types            String[]                     @default([])
+  is_active                 Boolean                      @default(true)
+  source                    InvestigationCatalogueSource @default(SYSTEM)
+  created_by_facility_id    String?                      @db.Uuid
+  search_text               String                       @default("")
+  created_at                DateTime                     @default(now())
+  updated_at                DateTime
+  facility_investigations   facility_investigations[]
+  investigation_analytes    investigation_analytes[]
+  investigation_categories  investigation_categories     @relation(fields: [category_id], references: [id])
+  investigation_order_items investigation_order_items[]
+
+  @@index([created_by_facility_id])
+  @@index([domain, category_id, is_active])
+}
+
+model investigation_categories {
+  id                            String                          @id @db.Uuid
+  domain                        InvestigationDomain
+  key                           String
+  name                          String
+  description                   String?
+  icon                          String?
+  sort_order                    Int                             @default(0)
+  is_active                     Boolean                         @default(true)
+  investigation_catalogue_items investigation_catalogue_items[]
+
+  @@unique([domain, key])
+}
+
+model investigation_counters {
+  key   String @id
+  value Int    @default(0)
+}
+
+model investigation_critical_alerts {
+  id                         String                       @id @db.Uuid
+  result_id                  String                       @unique @db.Uuid
+  item_id                    String                       @db.Uuid
+  patient_id                 String                       @db.Uuid
+  notified_user_id           String                       @db.Uuid
+  facility_id                String?                      @db.Uuid
+  status                     CriticalAlertStatus          @default(SENT)
+  summary                    String?
+  escalation_level           Int                          @default(0)
+  last_escalated_at          DateTime?
+  acknowledged_by_id         String?                      @db.Uuid
+  acknowledged_at            DateTime?
+  acknowledgement_note       String?
+  created_at                 DateTime                     @default(now())
+  investigation_alert_events investigation_alert_events[]
+  investigation_results      investigation_results        @relation(fields: [result_id], references: [id])
+
+  @@index([notified_user_id, status])
+  @@index([status, created_at])
+}
+
+model investigation_interpretations {
+  id                    String                @id @db.Uuid
+  result_id             String                @db.Uuid
+  doctor_user_id        String                @db.Uuid
+  note                  String
+  follow_up_title       String?
+  follow_up_due_at      DateTime?
+  follow_up_done_at     DateTime?
+  created_at            DateTime              @default(now())
+  investigation_results investigation_results @relation(fields: [result_id], references: [id], onDelete: Cascade)
+
+  @@index([doctor_user_id, follow_up_done_at], map: "inv_interp_doctor_followup_idx")
+  @@index([result_id])
+}
+
+model investigation_media {
+  id                        String                    @id @db.Uuid
+  item_id                   String                    @db.Uuid
+  result_id                 String?                   @db.Uuid
+  storage_key               String                    @unique
+  file_name                 String
+  mime_type                 String
+  size_bytes                Int
+  description               String?
+  dicom_modality            String?
+  study_instance_uid        String?
+  series_instance_uid       String?
+  uploaded_by_id            String                    @db.Uuid
+  created_at                DateTime                  @default(now())
+  investigation_order_items investigation_order_items @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  investigation_results     investigation_results?    @relation(fields: [result_id], references: [id])
+
+  @@index([item_id])
+}
+
+model investigation_observations {
+  id                    String                @id @db.Uuid
+  result_id             String                @db.Uuid
+  analyte_code          String?
+  name                  String
+  loinc_code            String?
+  value_numeric         Float?
+  value_text            String?
+  unit                  String?
+  ref_low               Float?
+  ref_high              Float?
+  ref_text              String?
+  flag                  ResultFlag?
+  is_critical           Boolean               @default(false)
+  sort_order            Int                   @default(0)
+  investigation_results investigation_results @relation(fields: [result_id], references: [id], onDelete: Cascade)
+
+  @@index([analyte_code])
+  @@index([result_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model investigation_order_items {
+  id                            String                         @id @db.Uuid
+  order_id                      String                         @db.Uuid
+  domain                        InvestigationDomain
+  catalogue_item_id             String?                        @db.Uuid
+  category_id                   String?                        @db.Uuid
+  department_key                String
+  name_snapshot                 String
+  code_snapshot                 String?
+  loinc_snapshot                String?
+  snomed_snapshot               String?
+  dicom_snapshot                String?
+  report_format                 InvestigationReportFormat      @default(GENERIC)
+  is_custom                     Boolean                        @default(false)
+  custom_details                Json?
+  specimen_type                 String?
+  body_site                     String?
+  instructions                  String?
+  priority                      InvestigationPriority          @default(ROUTINE)
+  preferred_facility_id         String?                        @db.Uuid
+  performing_facility_id        String?                        @db.Uuid
+  status                        InvestigationItemStatus        @default(NEW_REQUEST)
+  status_changed_at             DateTime                       @default(now())
+  due_at                        DateTime?
+  scheduled_at                  DateTime?
+  scheduling_notes              String?
+  duplicate_override_reason     String?
+  cancel_reason                 String?
+  assigned_to_id                String?                        @db.Uuid
+  created_at                    DateTime                       @default(now())
+  updated_at                    DateTime
+  investigation_media           investigation_media[]
+  investigation_catalogue_items investigation_catalogue_items? @relation(fields: [catalogue_item_id], references: [id])
+  investigation_orders          investigation_orders           @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  lab_staff_profiles            LabStaffProfile?               @relation(fields: [performing_facility_id], references: [id])
+  investigation_referrals       investigation_referrals[]
+  investigation_results         investigation_results?
+  investigation_specimens       investigation_specimens[]
+  investigation_status_history  investigation_status_history[]
+
+  @@index([performing_facility_id, domain, department_key, status], map: "inv_items_worklist_idx")
+  @@index([catalogue_item_id])
+  @@index([order_id])
+  @@index([status, due_at])
+}
+
+model investigation_order_sets {
+  id                 String              @id @db.Uuid
+  owner_user_id      String              @db.Uuid
+  name               String
+  description        String?
+  domain             InvestigationDomain
+  catalogue_item_ids String[]            @default([]) @db.Uuid
+  is_shared          Boolean             @default(false)
+  created_at         DateTime            @default(now())
+  updated_at         DateTime
+  users              User                @relation(fields: [owner_user_id], references: [id], onDelete: Cascade)
+
+  @@index([owner_user_id, domain])
+}
+
+model investigation_orders {
+  id                        String                      @id @db.Uuid
+  order_number              String                      @unique
+  domain                    InvestigationDomain
+  patient_id                String                      @db.Uuid
+  case_id                   String?                     @db.Uuid
+  encounter_id              String?                     @db.Uuid
+  requested_by_id           String                      @db.Uuid
+  requesting_facility_id    String?                     @db.Uuid
+  referring_department      String?
+  status                    InvestigationOrderStatus    @default(DRAFT)
+  priority                  InvestigationPriority       @default(ROUTINE)
+  clinical_indication       String?
+  diagnosis                 String?
+  clinical_notes            String?
+  clinical_snapshot         Json?
+  authorised_at             DateTime?
+  authorisation_statement   String?
+  submitted_at              DateTime?
+  cancelled_at              DateTime?
+  created_at                DateTime                    @default(now())
+  updated_at                DateTime
+  investigation_order_items investigation_order_items[]
+  patients                  Patient                     @relation(fields: [patient_id], references: [id])
+  users                     User                        @relation(fields: [requested_by_id], references: [id])
+  lab_staff_profiles        LabStaffProfile?            @relation(fields: [requesting_facility_id], references: [id])
+
+  @@index([patient_id, created_at(sort: Desc)])
+  @@index([requested_by_id, status, created_at(sort: Desc)])
+  @@index([requesting_facility_id])
+}
+
+model investigation_referrals {
+  id                        String                      @id @db.Uuid
+  item_id                   String                      @db.Uuid
+  from_facility_id          String?                     @db.Uuid
+  to_facility_id            String                      @db.Uuid
+  reason                    String?
+  status                    InvestigationReferralStatus @default(REQUESTED)
+  requested_by_id           String                      @db.Uuid
+  responded_by_id           String?                     @db.Uuid
+  responded_at              DateTime?
+  created_at                DateTime                    @default(now())
+  updated_at                DateTime
+  investigation_order_items investigation_order_items   @relation(fields: [item_id], references: [id], onDelete: Cascade)
+
+  @@index([item_id])
+  @@index([to_facility_id, status])
+}
+
+model investigation_results {
+  id                            String                          @id @db.Uuid
+  item_id                       String                          @unique(map: "investigation_results_one_current_idx", where: raw("is_current")) @db.Uuid
+  version                       Int                             @default(1)
+  is_current                    Boolean                         @default(true)
+  status                        InvestigationResultStatus       @default(DRAFT)
+  clinical_indication           String?
+  technique                     String?
+  findings                      String?
+  impression                    String?
+  conclusion                    String?
+  recommendations               String?
+  report_data                   Json?
+  reporter_name                 String?
+  reporter_credentials          String?
+  entered_by_id                 String?                         @db.Uuid
+  entered_at                    DateTime?
+  verified_by_id                String?                         @db.Uuid
+  verified_at                   DateTime?
+  signed_by_id                  String?                         @db.Uuid
+  signed_at                     DateTime?
+  signature_statement           String?
+  released_by_id                String?                         @db.Uuid
+  released_at                   DateTime?
+  patient_visible               Boolean                         @default(true)
+  amendment_reason              String?
+  created_at                    DateTime                        @default(now())
+  updated_at                    DateTime
+  investigation_critical_alerts investigation_critical_alerts?
+  investigation_interpretations investigation_interpretations[]
+  investigation_media           investigation_media[]
+  investigation_observations    investigation_observations[]
+  investigation_order_items     investigation_order_items       @relation(fields: [item_id], references: [id], onDelete: Cascade)
+
+  @@unique([item_id, version])
+  @@index([status, released_at])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model investigation_specimens {
+  id                            String                    @id @db.Uuid
+  item_id                       String                    @db.Uuid
+  facility_id                   String                    @db.Uuid
+  accession_number              String
+  barcode                       String
+  specimen_type                 String?
+  status                        SpecimenStatus            @default(PENDING_COLLECTION)
+  collected_at                  DateTime?
+  collected_by_id               String?                   @db.Uuid
+  received_at                   DateTime?
+  received_by_id                String?                   @db.Uuid
+  rejection_reason              String?
+  parent_specimen_id            String?                   @db.Uuid
+  notes                         String?
+  created_at                    DateTime                  @default(now())
+  updated_at                    DateTime
+  lab_staff_profiles            LabStaffProfile           @relation(fields: [facility_id], references: [id], onDelete: Cascade)
+  investigation_order_items     investigation_order_items @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  investigation_specimens       investigation_specimens?  @relation("investigation_specimensToinvestigation_specimens", fields: [parent_specimen_id], references: [id])
+  other_investigation_specimens investigation_specimens[] @relation("investigation_specimensToinvestigation_specimens")
+
+  @@unique([facility_id, accession_number])
+  @@unique([facility_id, barcode])
+  @@index([item_id])
+}
+
+model investigation_status_history {
+  id                        String                    @id @db.Uuid
+  item_id                   String                    @db.Uuid
+  from_status               InvestigationItemStatus?
+  to_status                 InvestigationItemStatus
+  actor_user_id             String?                   @db.Uuid
+  actor_label               String?
+  note                      String?
+  created_at                DateTime                  @default(now())
+  investigation_order_items investigation_order_items @relation(fields: [item_id], references: [id], onDelete: Cascade)
+
+  @@index([item_id, created_at])
+}
+
 enum FacilityKind {
   LABORATORY
   DIAGNOSTIC_CENTRE
@@ -5098,4 +5489,90 @@ enum FacilitySubscriptionStatus {
   ACTIVE
   EXPIRED
   CANCELLED
+}
+
+enum InvestigationCatalogueSource {
+  SYSTEM
+  FACILITY
+}
+
+enum InvestigationDomain {
+  LABORATORY
+  DIAGNOSTIC
+}
+
+enum InvestigationItemStatus {
+  NEW_REQUEST
+  AWAITING_SAMPLE
+  SAMPLE_COLLECTED
+  SAMPLE_RECEIVED
+  SAMPLE_REJECTED
+  ASSIGNED_TO_SECTION
+  PROCESSING
+  ANALYSIS_COMPLETED
+  RESULT_ENTERED
+  AWAITING_APPOINTMENT
+  APPOINTMENT_SCHEDULED
+  PATIENT_PREPARATION
+  CHECKED_IN
+  EXAM_IN_PROGRESS
+  EXAM_COMPLETED
+  MEDIA_UPLOADED
+  AWAITING_INTERPRETATION
+  PRELIMINARY_REPORT
+  AWAITING_VERIFICATION
+  VERIFIED
+  SIGNED
+  RELEASED
+  DELIVERED
+  CANCELLED
+  REFERRAL_PENDING
+}
+
+enum InvestigationOrderStatus {
+  DRAFT
+  SUBMITTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum InvestigationPriority {
+  ROUTINE
+  URGENT
+  EMERGENCY
+}
+
+enum InvestigationReferralStatus {
+  REQUESTED
+  ACCEPTED
+  DECLINED
+  SCHEDULED
+  COMPLETED
+  REPORT_RETURNED
+}
+
+enum InvestigationReportFormat {
+  LAB_PANEL
+  NARRATIVE
+  ULTRASOUND
+  MRI
+  CT
+  XRAY
+  MAMMOGRAPHY
+  ECHOCARDIOGRAPHY
+  ECG
+  EEG
+  ENDOSCOPY
+  GENERIC
+}
+
+enum InvestigationResultStatus {
+  DRAFT
+  PRELIMINARY
+  AWAITING_VERIFICATION
+  VERIFIED
+  SIGNED
+  RELEASED
+  SUPERSEDED
 }

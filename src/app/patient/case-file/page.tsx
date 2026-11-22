@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { InvestigationReportFolders } from "@/components/investigations/report-folders";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
@@ -240,6 +241,7 @@ export default async function PatientCaseFilePage() {
       <CaseFileExplorer entries={entries} viewLabel="Released documents approved for you" />
 
       <PatientAssistant />
+      <InvestigationReportFolders patientId={patient.id} viewer="PATIENT" />
     </div>
   );
 }

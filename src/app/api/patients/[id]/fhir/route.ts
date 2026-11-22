@@ -3,6 +3,7 @@ import { withAuth, parseId } from "@/lib/api";
 import { findAccessiblePatient } from "@/lib/access";
 import { writeAudit } from "@/lib/audit";
 import { patientCaseFileFhirBundle } from "@/lib/fhir/patient-bundle";
+import { releasedInvestigationFhirResources } from "@/lib/investigations/records";
 
 type Params = { id: string };
 
@@ -39,6 +40,11 @@ export const GET = withAuth<Params>(["DOCTOR", "PATIENT"], async (req, { user, p
     consultations,
     admissions,
   });
+
+  // Released laboratory and diagnostic investigations (ServiceRequest, Specimen, Observation, DiagnosticReport, ImagingStudy, Provenance).
+  for (const resource of await releasedInvestigationFhirResources(id, user.role === "PATIENT" ? "PATIENT" : "DOCTOR")) {
+    bundle.entry.push({ fullUrl: `urn:uuid:${String(resource.id)}`, resource });
+  }
 
   await writeAudit({
     userId: user.id,

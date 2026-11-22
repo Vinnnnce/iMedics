@@ -1,3 +1,4 @@
+import { InvestigationReportFolders } from "@/components/investigations/report-folders";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileDownloadButton } from "@/components/shared/file-download";
@@ -12,6 +13,7 @@ const asStrings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x 
 export default async function PatientResultsPage() {
   const user = await requirePageRole("PATIENT");
 
+  const patientRow = await prisma.patient.findFirst({ where: { userId: user.id, deletedAt: null }, select: { id: true } });
   const results = await prisma.labResult.findMany({
     where: { patient: { userId: user.id, deletedAt: null }, status: { not: "REJECTED" } },
     orderBy: { testDate: "desc" },
@@ -96,6 +98,8 @@ export default async function PatientResultsPage() {
           </Card>
         );
       })}
+
+      {patientRow && <InvestigationReportFolders patientId={patientRow.id} viewer="PATIENT" />}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { InvestigationReportFolders } from "@/components/investigations/report-folders";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft, FolderOpen, Stethoscope, FlaskConical, FileText, BedDouble,
@@ -500,6 +501,8 @@ export default async function PatientCaseFilePage({ params }: { params: Promise<
           </CardContent>
         </Card>
       </div>
+
+      <InvestigationReportFolders patientId={patient.id} viewer="DOCTOR" />
     </div>
   );
 }

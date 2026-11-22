@@ -18,6 +18,12 @@ const events: NotificationEvent[] = [
   { kind: "FACILITY_BOOKING_REQUESTED", bookingId: id },
   { kind: "FACILITY_BOOKING_UPDATED", bookingId: id },
   { kind: "RESULTS_AVAILABLE", analysisId: id },
+  { kind: "INVESTIGATION_ORDER_RECEIVED", orderId: id },
+  { kind: "INVESTIGATION_STATUS_CHANGED", orderId: id },
+  { kind: "INVESTIGATION_REPORT_RELEASED", orderId: id },
+  { kind: "INVESTIGATION_CRITICAL", alertId: id, orderId: id },
+  { kind: "INVESTIGATION_CRITICAL_ESCALATED", alertId: id, orderId: id, level: 1 },
+  { kind: "INVESTIGATION_OVERDUE", orderId: id },
 ];
 const roles = ["PATIENT", "DOCTOR", "LAB_SCIENTIST", "ADMIN"] as const;
 
