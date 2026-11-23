@@ -12,7 +12,7 @@ export default async function ResultsReportsPage() {
   const user = await requireFacilityPortalPage();
   await ensureCatalogueSeeded();
   const [categories, analytics, perms] = await Promise.all([
-    prisma.investigation_categories.findMany({ where: { isActive: true }, orderBy: [{ domain: "asc" }, { sortOrder: "asc" }], select: { domain: true, key: true, name: true } }),
+    prisma.investigation_categories.findMany({ where: { is_active: true }, orderBy: [{ domain: "asc" }, { sort_order: "asc" }], select: { domain: true, key: true, name: true } }),
     facilityAnalytics(facilityId),
     resolveFacilityPermissions(user, facilityId),
   ]);

@@ -8,6 +8,7 @@ import {
   auditInvestigation, computeDueAt, facilitiesOffering, facilityRecipients, findDuplicates, nextOrderNumber,
   notifySafely, recordStatus, refreshOrderStatus,
 } from "./service";
+import { newRow, touch } from "./db";
 
 const uuid = z.string().uuid();
 
@@ -57,7 +58,7 @@ async function clinicalSnapshot(patientId: string): Promise<Prisma.InputJsonValu
 
 async function resolveItems(domain: InvestigationDomain, items: OrderInput["items"]) {
   const ids = items.map((i) => i.catalogueItemId).filter((x): x is string => !!x);
-  const catalogue = await prisma.investigation_catalogue_items.findMany({ where: { id: { in: ids }, isActive: true, domain }, include: { category: { select: { id: true, key: true } } } });
+  const catalogue = await prisma.investigation_catalogue_items.findMany({ where: { id: { in: ids }, is_active: true, domain }, include: { investigation_categories: { select: { id: true, key: true } } } });
   const byId = new Map(catalogue.map((c) => [c.id, c]));
   for (const id of ids) if (!byId.has(id)) throw badRequest("One or more selected investigations are no longer available");
   const otherCats = await prisma.investigation_categories.findMany({ where: { domain, key: { startsWith: "other-" } }, select: { id: true, key: true, name: true } });
@@ -71,19 +72,21 @@ function itemRows(domain: InvestigationDomain, orderPriority: OrderInput["priori
       const wanted = i.custom.requestedDepartment?.toLowerCase();
       const cat = (wanted && ctx.allCats.find((c) => c.name.toLowerCase() === wanted || c.key === wanted)) || ctx.otherCat;
       return {
-        domain, catalogueItemId: null, categoryId: cat?.id ?? null, departmentKey: cat?.key ?? (domain === "LABORATORY" ? "other-laboratory" : "other-diagnostics"),
-        nameSnapshot: i.custom.name, isCustom: true, customDetails: i.custom as Prisma.InputJsonValue,
-        specimenType: i.custom.specimenType ?? i.specimenType ?? null, bodySite: i.custom.bodySite ?? i.bodySite ?? null,
+        ...newRow(),
+        domain, catalogue_item_id: null, category_id: cat?.id ?? null, department_key: cat?.key ?? (domain === "LABORATORY" ? "other-laboratory" : "other-diagnostics"),
+        name_snapshot: i.custom.name, is_custom: true, custom_details: i.custom as Prisma.InputJsonValue,
+        specimen_type: i.custom.specimenType ?? i.specimenType ?? null, body_site: i.custom.bodySite ?? i.bodySite ?? null,
         instructions: i.instructions ?? i.custom.requirements ?? null, priority: i.priority ?? orderPriority,
-        preferredFacilityId: i.preferredFacilityId ?? null, reportFormat: "GENERIC" as const, duplicateOverrideReason: null,
+        preferred_facility_id: i.preferredFacilityId ?? null, report_format: "GENERIC" as const, duplicate_override_reason: null,
       };
     }
     const c = ctx.byId.get(i.catalogueItemId as string)!;
     return {
-      domain, catalogueItemId: c.id, categoryId: c.categoryId, departmentKey: c.category.key, nameSnapshot: c.name, codeSnapshot: c.code,
-      loincSnapshot: c.loincCode, snomedSnapshot: c.snomedCode, dicomSnapshot: c.dicomModality, reportFormat: c.reportFormat, isCustom: false,
-      specimenType: i.specimenType ?? c.specimenType, bodySite: i.bodySite ?? c.bodySite, instructions: i.instructions ?? null,
-      priority: i.priority ?? orderPriority, preferredFacilityId: i.preferredFacilityId ?? null, duplicateOverrideReason: i.duplicateOverrideReason ?? null,
+      ...newRow(),
+      domain, catalogue_item_id: c.id, category_id: c.category_id, department_key: c.investigation_categories.key, name_snapshot: c.name, code_snapshot: c.code,
+      loinc_snapshot: c.loinc_code, snomed_snapshot: c.snomed_code, dicom_snapshot: c.dicom_modality, report_format: c.report_format, is_custom: false,
+      specimen_type: i.specimenType ?? c.specimen_type, body_site: i.bodySite ?? c.body_site, instructions: i.instructions ?? null,
+      priority: i.priority ?? orderPriority, preferred_facility_id: i.preferredFacilityId ?? null, duplicate_override_reason: i.duplicateOverrideReason ?? null,
     };
   });
 }
@@ -97,20 +100,20 @@ export async function saveDraft(user: User, input: OrderInput, orderId?: string)
 
   return prisma.$transaction(async (tx) => {
     const data = {
-      domain: input.domain, patientId: input.patientId, caseId: input.caseId ?? null, encounterId: input.encounterId ?? null,
-      requestingFacilityId: input.requestingFacilityId ?? null, referringDepartment: input.referringDepartment ?? null, priority: input.priority,
-      clinicalIndication: input.clinicalIndication ?? null, diagnosis: input.diagnosis ?? null, clinicalNotes: input.clinicalNotes ?? null, clinicalSnapshot: snapshot,
+      domain: input.domain, patient_id: input.patientId, case_id: input.caseId ?? null, encounter_id: input.encounterId ?? null,
+      requesting_facility_id: input.requestingFacilityId ?? null, referring_department: input.referringDepartment ?? null, priority: input.priority,
+      clinical_indication: input.clinicalIndication ?? null, diagnosis: input.diagnosis ?? null, clinical_notes: input.clinicalNotes ?? null, clinical_snapshot: snapshot,
     };
     if (orderId) {
-      const existing = await tx.investigation_orders.findFirst({ where: { id: orderId, requestedById: user.id } });
+      const existing = await tx.investigation_orders.findFirst({ where: { id: orderId, requested_by_id: user.id } });
       if (!existing) throw notFound("Order not found");
       if (existing.status !== "DRAFT") throw conflict("Only draft orders can be edited");
-      await tx.investigation_order_items.deleteMany({ where: { orderId } });
-      await tx.investigation_orders.update({ where: { id: orderId }, data: { ...data, items: { create: rows } } });
+      await tx.investigation_order_items.deleteMany({ where: { order_id: orderId } });
+      await tx.investigation_orders.update({ where: { id: orderId }, data: { ...data, ...touch(), investigation_order_items: { create: rows } } });
       return orderId;
     }
     const created = await tx.investigation_orders.create({
-      data: { ...data, orderNumber: await nextOrderNumber(tx), requestedById: user.id, status: "DRAFT", items: { create: rows } },
+      data: { ...data, ...newRow(), order_number: await nextOrderNumber(tx), requested_by_id: user.id, status: "DRAFT", investigation_order_items: { create: rows } },
       select: { id: true },
     });
     return created.id;
@@ -123,54 +126,55 @@ export async function saveDraft(user: User, input: OrderInput, orderId?: string)
  * performing facility and department, and notify the facilities.
  */
 export async function submitOrder(user: User, orderId: string, options: { authorise: boolean; req?: Request }) {
-  const order = await prisma.investigation_orders.findFirst({ where: { id: orderId, requestedById: user.id }, include: { items: true } });
+  const order = await prisma.investigation_orders.findFirst({ where: { id: orderId, requested_by_id: user.id }, include: { investigation_order_items: true } });
   if (!order) throw notFound("Order not found");
   if (order.status !== "DRAFT") throw conflict("This order has already been submitted");
-  await findAccessiblePatient(user, order.patientId, { write: true });
+  const items = order.investigation_order_items;
+  await findAccessiblePatient(user, order.patient_id, { write: true });
   if (!options.authorise) throw badRequest("Electronic authorisation by the requesting doctor is required to submit");
-  if (!order.clinicalIndication?.trim() && order.items.some((i) => !i.isCustom)) throw badRequest("A clinical indication is required");
+  if (!order.clinical_indication?.trim() && items.some((i) => !i.is_custom)) throw badRequest("A clinical indication is required");
 
-  const catalogueIds = order.items.map((i) => i.catalogueItemId).filter((x): x is string => !!x);
-  const required = await prisma.investigation_catalogue_items.findMany({ where: { id: { in: catalogueIds }, indicationGuidance: { not: null } }, select: { id: true } });
+  const catalogueIds = items.map((i) => i.catalogue_item_id).filter((x): x is string => !!x);
+  const required = await prisma.investigation_catalogue_items.findMany({ where: { id: { in: catalogueIds }, indication_guidance: { not: null } }, select: { id: true } });
   void required;
 
   // Duplicates: warn-and-document, never silently block a clinically justified request.
-  const dupes = await findDuplicates(order.patientId, catalogueIds, order.domain, { excludeOrderId: order.id });
-  const undocumented = dupes.filter((d) => !order.items.find((i) => i.catalogueItemId === d.catalogueItemId)?.duplicateOverrideReason);
+  const dupes = await findDuplicates(order.patient_id, catalogueIds, order.domain, { excludeOrderId: order.id });
+  const undocumented = dupes.filter((d) => !items.find((i) => i.catalogue_item_id === d.catalogueItemId)?.duplicate_override_reason);
   if (undocumented.length) {
     throw conflict(`Possible duplicate request: ${undocumented.map((d) => d.name).join(", ")}. Provide a documented reason to proceed.`);
   }
 
   const offerings = await facilitiesOffering(catalogueIds, order.domain);
-  const catalogue = await prisma.investigation_catalogue_items.findMany({ where: { id: { in: catalogueIds } }, select: { id: true, turnaroundMinutes: true } });
-  const tat = new Map(catalogue.map((c) => [c.id, c.turnaroundMinutes]));
+  const catalogue = await prisma.investigation_catalogue_items.findMany({ where: { id: { in: catalogueIds } }, select: { id: true, turnaround_minutes: true } });
+  const tat = new Map(catalogue.map((c) => [c.id, c.turnaround_minutes]));
 
   const routed: { id: string; facilityId: string | null; departmentKey: string; dueAt: Date | null; status: "NEW_REQUEST" | "REFERRAL_PENDING" }[] = [];
-  for (const item of order.items) {
+  for (const item of items) {
     let facilityId: string | null = null;
-    let departmentKey = item.departmentKey;
+    let departmentKey = item.department_key;
     let facilityTat: number | null = null;
-    if (item.isCustom) {
-      if (item.preferredFacilityId) {
-        const ok = await prisma.labStaffProfile.findFirst({ where: { id: item.preferredFacilityId, verificationStatus: "VERIFIED" }, select: { id: true } });
-        if (!ok) throw badRequest(`The preferred facility for "${item.nameSnapshot}" is not available`);
+    if (item.is_custom) {
+      if (item.preferred_facility_id) {
+        const ok = await prisma.labStaffProfile.findFirst({ where: { id: item.preferred_facility_id, verificationStatus: "VERIFIED" }, select: { id: true } });
+        if (!ok) throw badRequest(`The preferred facility for "${item.name_snapshot}" is not available`);
         facilityId = ok.id;
       }
     } else {
-      const options_ = offerings.get(item.catalogueItemId as string) ?? [];
-      if (item.preferredFacilityId) {
-        const match = options_.find((o) => o.facilityId === item.preferredFacilityId);
-        if (!match) throw badRequest(`The selected facility does not offer "${item.nameSnapshot}"`);
+      const options_ = offerings.get(item.catalogue_item_id as string) ?? [];
+      if (item.preferred_facility_id) {
+        const match = options_.find((o) => o.facilityId === item.preferred_facility_id);
+        if (!match) throw badRequest(`The selected facility does not offer "${item.name_snapshot}"`);
         facilityId = match.facilityId; departmentKey = match.departmentKey ?? departmentKey; facilityTat = match.turnaroundMinutes;
       } else if (options_.length === 1) {
         facilityId = options_[0].facilityId; departmentKey = options_[0].departmentKey ?? departmentKey; facilityTat = options_[0].turnaroundMinutes;
       } else if (options_.length > 1) {
-        throw badRequest(`Select a facility for "${item.nameSnapshot}"`);
+        throw badRequest(`Select a facility for "${item.name_snapshot}"`);
       }
     }
     routed.push({
       id: item.id, facilityId, departmentKey,
-      dueAt: facilityId ? computeDueAt(order.domain, item.priority, facilityTat, item.catalogueItemId ? tat.get(item.catalogueItemId) : null) : null,
+      dueAt: facilityId ? computeDueAt(order.domain, item.priority, facilityTat, item.catalogue_item_id ? tat.get(item.catalogue_item_id) : null) : null,
       status: facilityId ? "NEW_REQUEST" : "REFERRAL_PENDING",
     });
   }
@@ -179,10 +183,10 @@ export async function submitOrder(user: User, orderId: string, options: { author
     const now = new Date();
     await tx.investigation_orders.update({
       where: { id: order.id },
-      data: { status: "SUBMITTED", submittedAt: now, authorisedAt: now, authorisationStatement: ELECTRONIC_AUTHORISATION_STATEMENT },
+      data: { status: "SUBMITTED", submitted_at: now, authorised_at: now, authorisation_statement: ELECTRONIC_AUTHORISATION_STATEMENT, updated_at: now },
     });
     for (const r of routed) {
-      await tx.investigation_order_items.update({ where: { id: r.id }, data: { performingFacilityId: r.facilityId, departmentKey: r.departmentKey, dueAt: r.dueAt, status: r.status, statusChangedAt: now } });
+      await tx.investigation_order_items.update({ where: { id: r.id }, data: { performing_facility_id: r.facilityId, department_key: r.departmentKey, due_at: r.dueAt, status: r.status, status_changed_at: now, updated_at: now } });
       await recordStatus(tx, r.id, null, r.status, { userId: user.id }, r.status === "REFERRAL_PENDING" ? "No participating facility offers this service" : "Order submitted");
     }
     await refreshOrderStatus(tx, order.id);
@@ -192,19 +196,19 @@ export async function submitOrder(user: User, orderId: string, options: { author
   for (const fid of facilityIds) {
     await notifySafely(await facilityRecipients(fid, "PROCESS_ORDERS"), { kind: "INVESTIGATION_ORDER_RECEIVED", orderId: order.id });
   }
-  await auditInvestigation(user, "INVESTIGATION_ORDER_SUBMITTED", order.id, { patientId: order.patientId, details: { items: routed.length, referralPending: routed.filter((r) => r.status === "REFERRAL_PENDING").length }, req: options.req });
-  return { id: order.id, orderNumber: order.orderNumber, routed: routed.length, referralPending: routed.filter((r) => r.status === "REFERRAL_PENDING").length };
+  await auditInvestigation(user, "INVESTIGATION_ORDER_SUBMITTED", order.id, { patientId: order.patient_id, details: { items: routed.length, referralPending: routed.filter((r) => r.status === "REFERRAL_PENDING").length }, req: options.req });
+  return { id: order.id, orderNumber: order.order_number, routed: routed.length, referralPending: routed.filter((r) => r.status === "REFERRAL_PENDING").length };
 }
 
 export async function cancelOrderItem(user: User, itemId: string, reason: string, req?: Request) {
-  const item = await prisma.investigation_order_items.findFirst({ where: { id: itemId, order: { requestedById: user.id } }, include: { order: true } });
+  const item = await prisma.investigation_order_items.findFirst({ where: { id: itemId, investigation_orders: { requested_by_id: user.id } }, include: { investigation_orders: true } });
   if (!item) throw notFound("Investigation not found");
   if (!["NEW_REQUEST", "REFERRAL_PENDING", "AWAITING_SAMPLE", "AWAITING_APPOINTMENT"].includes(item.status)) throw conflict("This investigation is already in progress and cannot be cancelled by the requester");
   await prisma.$transaction(async (tx) => {
-    await tx.investigation_order_items.update({ where: { id: item.id }, data: { status: "CANCELLED", cancelReason: reason, statusChangedAt: new Date() } });
+    await tx.investigation_order_items.update({ where: { id: item.id }, data: { status: "CANCELLED", cancel_reason: reason, status_changed_at: new Date(), ...touch() } });
     await recordStatus(tx, item.id, item.status, "CANCELLED", { userId: user.id }, reason);
-    await refreshOrderStatus(tx, item.orderId);
+    await refreshOrderStatus(tx, item.order_id);
   });
-  if (item.performingFacilityId) await notifySafely(await facilityRecipients(item.performingFacilityId), { kind: "INVESTIGATION_STATUS_CHANGED", orderId: item.orderId });
-  await auditInvestigation(user, "INVESTIGATION_ITEM_CANCELLED", item.id, { patientId: item.order.patientId, details: { reason }, req });
+  if (item.performing_facility_id) await notifySafely(await facilityRecipients(item.performing_facility_id), { kind: "INVESTIGATION_STATUS_CHANGED", orderId: item.order_id });
+  await auditInvestigation(user, "INVESTIGATION_ITEM_CANCELLED", item.id, { patientId: item.investigation_orders.patient_id, details: { reason }, req });
 }

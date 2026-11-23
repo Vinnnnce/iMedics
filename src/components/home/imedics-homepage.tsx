@@ -4,13 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { PublicEntryLink as Link } from "@/components/shared/public-entry-link";
 import {
-  ArrowRight, ArrowUpRight, Building2, Calendar, ChevronDown, FileText, FlaskConical,
-  FolderOpen, HeartPulse, Mail, Menu, MessageCircle, Mic, Moon, Newspaper, Pill,
-  ShieldCheck, Smartphone, Sparkles, Star, Stethoscope, Sun, X, type LucideIcon,
+  ArrowRight, ArrowUpRight, Building2, Calendar, ChevronDown, FlaskConical,
+  HeartPulse, Mail, Menu, Mic, Moon, Newspaper, Pill,
+  ShieldCheck, Smartphone, Sparkles, Star, Sun, X, type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { HomeAdsCarousel } from "@/components/home/home-ads-carousel";
 import { HomeSingleAdBanner } from "@/components/home/home-single-ad-banner";
+import { IMEDICS_ICONS } from "@/components/home/imedics-icons";
 import {
   IMEDICS_AUDIENCES, IMEDICS_BENEFITS, IMEDICS_CONTACT, IMEDICS_FAQS,
   IMEDICS_FEATURED_PANEL, IMEDICS_FOOTER_LINKS, IMEDICS_HOW_IT_WORKS_STEPS,
@@ -27,17 +28,6 @@ export interface ImedicsHomeAd {
 
 const PRIMARY_NAV_LINKS = IMEDICS_NAV_LINKS.filter((link) => !link.compactOnly);
 const MORE_NAV_LINKS = IMEDICS_NAV_LINKS.filter((link) => link.compactOnly);
-
-const SERVICE_ICONS: Record<ImedicsServiceCard["icon"], LucideIcon> = {
-  stethoscope: Stethoscope,
-  "message-circle": MessageCircle,
-  calendar: Calendar,
-  flask: FlaskConical,
-  folder: FolderOpen,
-  "file-text": FileText,
-  "heart-pulse": HeartPulse,
-  sparkles: Sparkles,
-};
 
 export interface TopRatedDoctor {
   id: string;
@@ -194,7 +184,7 @@ function BrandMark({ className }: { className?: string }) {
 }
 
 function ServiceCard({ card }: { card: ImedicsServiceCard }) {
-  const Icon = SERVICE_ICONS[card.icon];
+  const Icon = IMEDICS_ICONS[card.icon];
 
   return (
     <Link

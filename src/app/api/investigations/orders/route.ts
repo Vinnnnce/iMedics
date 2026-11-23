@@ -6,6 +6,7 @@ import { withAuth, parseBody, parseQuery } from "@/lib/api";
 import { getVerifiedDoctorProfile } from "@/lib/access";
 import { orderInput, saveDraft, submitOrder } from "@/lib/investigations/orders";
 import { COMPLETED_STATUSES, PENDING_STATUSES } from "@/lib/investigations/constants";
+import { toDto, toDtos } from "@/lib/investigations/serialize";
 
 const createSchema = orderInput.extend({ submit: z.boolean().default(false), authorise: z.boolean().default(false) });
 
@@ -38,53 +39,63 @@ export const GET = withAuth(["DOCTOR"], async (req, { user }) => {
   const doctor = await getVerifiedDoctorProfile(user);
   const { tab, patientId, q, limit } = parseQuery(req, listSchema);
 
-  const itemWhere: Prisma.InvestigationOrderItemWhereInput = {};
+  const itemWhere: Prisma.investigation_order_itemsWhereInput = {};
   if (tab === "laboratory") itemWhere.domain = "LABORATORY";
   if (tab === "diagnostic") itemWhere.domain = "DIAGNOSTIC";
   if (tab === "pending") itemWhere.status = { in: PENDING_STATUSES };
   if (tab === "in_progress") itemWhere.status = { notIn: [...PENDING_STATUSES, ...COMPLETED_STATUSES, "CANCELLED"] };
   if (tab === "completed" || tab === "released") itemWhere.status = { in: COMPLETED_STATUSES };
-  if (tab === "custom") itemWhere.isCustom = true;
-  if (tab === "critical") itemWhere.results = { some: { alerts: { some: {} } } };
-  if (q) itemWhere.OR = [{ nameSnapshot: { contains: q, mode: "insensitive" } }, { order: { orderNumber: { contains: q, mode: "insensitive" } } }, { order: { patient: { OR: [{ firstName: { contains: q, mode: "insensitive" } }, { lastName: { contains: q, mode: "insensitive" } }, { caseNumber: { contains: q, mode: "insensitive" } }] } } }];
+  if (tab === "custom") itemWhere.is_custom = true;
+  if (tab === "critical") itemWhere.investigation_results = { some: { investigation_critical_alerts: { isNot: null } } };
+  if (q) itemWhere.OR = [{ name_snapshot: { contains: q, mode: "insensitive" } }, { investigation_orders: { order_number: { contains: q, mode: "insensitive" } } }, { investigation_orders: { patients: { OR: [{ firstName: { contains: q, mode: "insensitive" } }, { lastName: { contains: q, mode: "insensitive" } }, { caseNumber: { contains: q, mode: "insensitive" } }] } } }];
 
   // Doctors see their own orders plus orders for patients in their care.
-  const orderWhere: Prisma.InvestigationOrderWhereInput = {
-    OR: [{ requestedById: user.id }, { patient: { assignments: { some: { doctorId: doctor.id } } } }],
+  const orderWhere: Prisma.investigation_ordersWhereInput = {
+    OR: [{ requested_by_id: user.id }, { patients: { assignments: { some: { doctorId: doctor.id } } } }],
     status: tab === "drafts" ? "DRAFT" : { not: "DRAFT" },
-    ...(patientId ? { patientId } : {}),
+    ...(patientId ? { patient_id: patientId } : {}),
   };
 
   if (tab === "drafts") {
     const drafts = await prisma.investigation_orders.findMany({
-      where: { ...orderWhere, requestedById: user.id }, orderBy: { updatedAt: "desc" }, take: limit,
-      select: { id: true, orderNumber: true, domain: true, priority: true, updatedAt: true, patient: { select: { id: true, firstName: true, lastName: true, caseNumber: true } }, items: { select: { nameSnapshot: true } } },
+      where: { ...orderWhere, requested_by_id: user.id }, orderBy: { updated_at: "desc" }, take: limit,
+      select: { id: true, order_number: true, domain: true, priority: true, updated_at: true, patients: { select: { id: true, firstName: true, lastName: true, caseNumber: true } }, investigation_order_items: { select: { name_snapshot: true } } },
     });
-    return NextResponse.json({ drafts });
+    return NextResponse.json({ drafts: toDtos("order", drafts) });
   }
 
   const items = await prisma.investigation_order_items.findMany({
-    where: { ...itemWhere, order: orderWhere },
-    orderBy: { createdAt: "desc" },
+    where: { ...itemWhere, investigation_orders: orderWhere },
+    orderBy: { created_at: "desc" },
     take: limit,
     select: {
-      id: true, orderId: true, domain: true, nameSnapshot: true, isCustom: true, departmentKey: true, status: true, statusChangedAt: true, priority: true, createdAt: true, dueAt: true,
-      performingFacility: { select: { id: true, laboratoryName: true } },
-      order: { select: { id: true, orderNumber: true, patient: { select: { id: true, firstName: true, lastName: true, caseNumber: true } } } },
-      results: { orderBy: { version: "desc" }, take: 3, select: { id: true, version: true, status: true, releasedAt: true, alerts: { select: { id: true, status: true } } } },
+      id: true, order_id: true, domain: true, name_snapshot: true, is_custom: true, department_key: true, status: true, status_changed_at: true, priority: true, created_at: true, due_at: true,
+      lab_staff_profiles: { select: { id: true, laboratoryName: true } },
+      investigation_orders: { select: { id: true, order_number: true, patients: { select: { id: true, firstName: true, lastName: true, caseNumber: true } } } },
     },
   });
 
+  // The three latest report versions per item (the item's own result relation is 1:1, so versions are read directly).
+  const versions = items.length
+    ? await prisma.investigation_results.findMany({
+        where: { item_id: { in: items.map((i) => i.id) } },
+        orderBy: { version: "desc" },
+        select: { id: true, item_id: true, version: true, status: true, released_at: true, investigation_critical_alerts: { select: { id: true, status: true } } },
+      })
+    : [];
+  const versionsByItem = Map.groupBy(versions, (v) => v.item_id);
+
   return NextResponse.json({
-    items: items.map(({ results, performingFacility, ...i }) => {
+    items: items.map(({ lab_staff_profiles, ...i }) => {
+      const results = (versionsByItem.get(i.id) ?? []).slice(0, 3);
       const released = results.find((r) => r.status === "RELEASED");
-      const alert = results.flatMap((r) => r.alerts)[0] ?? null;
+      const alert = results.find((r) => r.investigation_critical_alerts)?.investigation_critical_alerts ?? null;
       return {
-        ...i,
-        facility: performingFacility ? { id: performingFacility.id, name: performingFacility.laboratoryName } : null,
+        ...toDto("item", i),
+        facility: lab_staff_profiles ? { id: lab_staff_profiles.id, name: lab_staff_profiles.laboratoryName } : null,
         resultAvailable: !!released,
         verificationStatus: released ? "RELEASED" : (results[0]?.status ?? null),
-        criticalAlert: alert,
+        criticalAlert: alert ? toDto("alert", alert) : null,
       };
     }),
   });

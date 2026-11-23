@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseId } from "@/lib/api";
 import { requireFacilityAccess } from "@/lib/facility-auth";
 import { notFound } from "@/lib/errors";
-import { catalogueSearchText, auditInvestigation } from "@/lib/investigations/service";
+import { catalogueSearchText, auditInvestigation, offeringColumns } from "@/lib/investigations/service";
+import { touch } from "@/lib/investigations/db";
 
 type Params = { id: string };
 const schema = z.object({
@@ -27,12 +28,28 @@ export const PATCH = withAuth<Params>(null, async (req, { user, params }) => {
   const itemId = parseId((await params).id);
   const access = await requireFacilityAccess(user, "MANAGE_SERVICES", req);
   const { item, ...offering } = await parseBody(req, schema);
-  const row = await prisma.facility_investigations.findUnique({ where: { facility_id_catalogue_item_id: { facility_id: access.facility.id, catalogue_item_id: itemId } }, include: { item: { include: { category: true } } } });
+  const row = await prisma.facility_investigations.findUnique({ where: { facility_id_catalogue_item_id: { facility_id: access.facility.id, catalogue_item_id: itemId } }, include: { investigation_catalogue_items: { include: { investigation_categories: true } } } });
   if (!row) throw notFound("This investigation is not in your catalogue");
-  await prisma.facility_investigations.update({ where: { id: row.id }, data: offering });
-  if (item && row.item.created_by_facility_id === access.facility.id) {
-    const next = { ...row.item, ...item };
-    await prisma.investigation_catalogue_items.update({ where: { id: itemId }, data: { ...item, searchText: catalogueSearchText({ ...next, categoryName: row.item.category.name, synonyms: next.synonyms }) } });
+  await prisma.facility_investigations.update({ where: { id: row.id }, data: { ...offeringColumns(offering), ...touch() } });
+  const entry = row.investigation_catalogue_items;
+  if (item && entry.created_by_facility_id === access.facility.id) {
+    const next = {
+      name: item.name ?? entry.name,
+      commonName: item.commonName === undefined ? entry.common_name : item.commonName,
+      synonyms: item.synonyms ?? entry.synonyms,
+      specimenType: item.specimenType === undefined ? entry.specimen_type : item.specimenType,
+    };
+    await prisma.investigation_catalogue_items.update({
+      where: { id: itemId },
+      data: {
+        name: item.name, common_name: item.commonName, synonyms: item.synonyms, specimen_type: item.specimenType, standard_codes_verified: item.standardCodesVerified,
+        search_text: catalogueSearchText({
+          ...next, code: entry.code, abbreviation: entry.abbreviation, loincCode: entry.loinc_code, snomedCode: entry.snomed_code, subcategory: entry.subcategory,
+          clinicalDiscipline: entry.clinical_discipline, modality: entry.modality, dicomModality: entry.dicom_modality, categoryName: entry.investigation_categories.name,
+        }),
+        ...touch(),
+      },
+    });
   }
   await auditInvestigation(user, "FACILITY_INVESTIGATION_UPDATED", row.id, { facilityId: access.facility.id });
   return NextResponse.json({ success: true });

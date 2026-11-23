@@ -8,6 +8,7 @@ import { writeAudit } from "@/lib/audit";
 import { DEFAULT_TURNAROUND_MINUTES, PRIORITY_TURNAROUND_FACTOR } from "./constants";
 import { allowedTransitions, canTransition } from "./workflow";
 import { buildSearchText } from "./search";
+import { newId, touch } from "./db";
 
 type Tx = Prisma.TransactionClient;
 
@@ -62,37 +63,37 @@ const FACILITY_KINDS: Record<InvestigationDomain, ("LABORATORY" | "DIAGNOSTIC_CE
 export async function facilitiesOffering(itemIds: string[], domain: InvestigationDomain): Promise<Map<string, FacilityOption[]>> {
   const rows = await prisma.facility_investigations.findMany({
     where: {
-      catalogueItemId: { in: itemIds },
-      isActive: true,
-      item: { isActive: true },
-      facility: { verificationStatus: "VERIFIED", kind: { in: FACILITY_KINDS[domain] } },
+      catalogue_item_id: { in: itemIds },
+      is_active: true,
+      investigation_catalogue_items: { is_active: true },
+      lab_staff_profiles: { verificationStatus: "VERIFIED", kind: { in: FACILITY_KINDS[domain] } },
     },
     select: {
-      catalogueItemId: true,
-      facilityId: true,
-      priceMinor: true,
-      turnaroundMinutes: true,
-      departmentKey: true,
+      catalogue_item_id: true,
+      facility_id: true,
+      price_minor: true,
+      turnaround_minutes: true,
+      department_key: true,
       preparation: true,
-      facility: { select: { laboratoryName: true, kind: true, city: true, state: true } },
+      lab_staff_profiles: { select: { laboratoryName: true, kind: true, city: true, state: true } },
     },
-    orderBy: { facility: { ratingAvg: "desc" } },
+    orderBy: { lab_staff_profiles: { ratingAvg: "desc" } },
   });
   const map = new Map<string, FacilityOption[]>();
   for (const r of rows) {
-    const list = map.get(r.catalogueItemId) ?? [];
+    const list = map.get(r.catalogue_item_id) ?? [];
     list.push({
-      facilityId: r.facilityId,
-      name: r.facility.laboratoryName ?? "Facility",
-      kind: r.facility.kind,
-      city: r.facility.city,
-      state: r.facility.state,
-      priceMinor: r.priceMinor,
-      turnaroundMinutes: r.turnaroundMinutes,
-      departmentKey: r.departmentKey,
+      facilityId: r.facility_id,
+      name: r.lab_staff_profiles.laboratoryName ?? "Facility",
+      kind: r.lab_staff_profiles.kind,
+      city: r.lab_staff_profiles.city,
+      state: r.lab_staff_profiles.state,
+      priceMinor: r.price_minor,
+      turnaroundMinutes: r.turnaround_minutes,
+      departmentKey: r.department_key,
       preparation: r.preparation,
     });
-    map.set(r.catalogueItemId, list);
+    map.set(r.catalogue_item_id, list);
   }
   return map;
 }
@@ -129,13 +130,13 @@ export async function recordStatus(
   note?: string | null,
 ) {
   await tx.investigation_status_history.create({
-    data: { itemId, fromStatus: from, toStatus: to, actorUserId: actor?.userId ?? null, actorLabel: actor?.label ?? null, note: note ?? null },
+    data: { id: newId(), item_id: itemId, from_status: from, to_status: to, actor_user_id: actor?.userId ?? null, actor_label: actor?.label ?? null, note: note ?? null },
   });
 }
 
 /** Recompute the order's roll-up status from its items. */
 export async function refreshOrderStatus(tx: Tx, orderId: string) {
-  const items = await tx.investigation_order_items.findMany({ where: { orderId }, select: { status: true } });
+  const items = await tx.investigation_order_items.findMany({ where: { order_id: orderId }, select: { status: true } });
   if (items.length === 0) return;
   const active = items.filter((i) => i.status !== "CANCELLED");
   let status: "SUBMITTED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
@@ -143,7 +144,7 @@ export async function refreshOrderStatus(tx: Tx, orderId: string) {
   else if (active.every((i) => i.status === "RELEASED" || i.status === "DELIVERED")) status = "COMPLETED";
   else if (active.some((i) => !["NEW_REQUEST", "REFERRAL_PENDING", "AWAITING_SAMPLE", "AWAITING_APPOINTMENT"].includes(i.status))) status = "IN_PROGRESS";
   else status = "SUBMITTED";
-  await tx.investigation_orders.update({ where: { id: orderId }, data: { status, ...(status === "CANCELLED" ? { cancelledAt: new Date() } : {}) } });
+  await tx.investigation_orders.update({ where: { id: orderId }, data: { status, ...touch(), ...(status === "CANCELLED" ? { cancelled_at: new Date() } : {}) } });
 }
 
 /**
@@ -152,20 +153,20 @@ export async function refreshOrderStatus(tx: Tx, orderId: string) {
  */
 export async function transitionItem(
   tx: Tx,
-  item: { id: string; orderId: string; domain: InvestigationDomain; status: InvestigationItemStatus },
+  item: { id: string; order_id: string; domain: InvestigationDomain; status: InvestigationItemStatus },
   to: InvestigationItemStatus,
   actor: Actor | null,
-  options: { note?: string | null; data?: Prisma.InvestigationOrderItemUncheckedUpdateInput } = {},
+  options: { note?: string | null; data?: Prisma.investigation_order_itemsUncheckedUpdateInput } = {},
 ) {
   if (!canTransition(item.domain, item.status, to)) {
     throw conflict(`An investigation in "${item.status}" cannot move to "${to}"`);
   }
   const updated = await tx.investigation_order_items.update({
     where: { id: item.id },
-    data: { ...options.data, status: to, statusChangedAt: new Date() },
+    data: { ...options.data, status: to, status_changed_at: new Date(), ...touch() },
   });
   await recordStatus(tx, item.id, item.status, to, actor, options.note);
-  await refreshOrderStatus(tx, item.orderId);
+  await refreshOrderStatus(tx, item.order_id);
   return updated;
 }
 
@@ -218,40 +219,40 @@ export async function findDuplicates(patientId: string, catalogueItemIds: string
   const recent = await prisma.investigation_order_items.findMany({
     where: {
       domain,
-      catalogueItemId: { not: null },
+      catalogue_item_id: { not: null },
       status: { notIn: ["CANCELLED", "SAMPLE_REJECTED"] },
-      createdAt: { gte: since },
-      order: { patientId, status: { not: "DRAFT" }, ...(options.excludeOrderId ? { id: { not: options.excludeOrderId } } : {}) },
+      created_at: { gte: since },
+      investigation_orders: { patient_id: patientId, status: { not: "DRAFT" }, ...(options.excludeOrderId ? { id: { not: options.excludeOrderId } } : {}) },
     },
-    select: { catalogueItemId: true, nameSnapshot: true, status: true, createdAt: true, order: { select: { id: true, orderNumber: true } } },
-    orderBy: { createdAt: "desc" },
+    select: { catalogue_item_id: true, name_snapshot: true, status: true, created_at: true, investigation_orders: { select: { id: true, order_number: true } } },
+    orderBy: { created_at: "desc" },
     take: 200,
   });
   if (recent.length === 0) return [];
 
   const wanted = await prisma.investigation_catalogue_items.findMany({
     where: { id: { in: catalogueItemIds } },
-    select: { id: true, name: true, analytes: { select: { code: true } } },
+    select: { id: true, name: true, investigation_analytes: { select: { code: true } } },
   });
-  const recentIds = [...new Set(recent.map((r) => r.catalogueItemId as string))];
-  const recentItems = await prisma.investigation_catalogue_items.findMany({ where: { id: { in: recentIds } }, select: { id: true, analytes: { select: { code: true } } } });
-  const analytesById = new Map(recentItems.map((r) => [r.id, new Set(r.analytes.map((a) => a.code))]));
+  const recentIds = [...new Set(recent.map((r) => r.catalogue_item_id as string))];
+  const recentItems = await prisma.investigation_catalogue_items.findMany({ where: { id: { in: recentIds } }, select: { id: true, investigation_analytes: { select: { code: true } } } });
+  const analytesById = new Map(recentItems.map((r) => [r.id, new Set(r.investigation_analytes.map((a) => a.code))]));
 
   const hits: DuplicateHit[] = [];
   for (const w of wanted) {
-    const same = recent.find((r) => r.catalogueItemId === w.id);
+    const same = recent.find((r) => r.catalogue_item_id === w.id);
     if (same) {
-      hits.push({ catalogueItemId: w.id, name: w.name, matchedOrderNumber: same.order.orderNumber, matchedOrderId: same.order.id, matchedName: same.nameSnapshot, requestedAt: same.createdAt, status: same.status, reason: "SAME_INVESTIGATION" });
+      hits.push({ catalogueItemId: w.id, name: w.name, matchedOrderNumber: same.investigation_orders.order_number, matchedOrderId: same.investigation_orders.id, matchedName: same.name_snapshot, requestedAt: same.created_at, status: same.status, reason: "SAME_INVESTIGATION" });
       continue;
     }
-    const mine = new Set(w.analytes.map((a) => a.code));
+    const mine = new Set(w.investigation_analytes.map((a) => a.code));
     if (mine.size === 0) continue;
     const covering = recent.find((r) => {
-      const theirs = analytesById.get(r.catalogueItemId as string);
+      const theirs = analytesById.get(r.catalogue_item_id as string);
       return !!theirs && theirs.size > mine.size && [...mine].every((c) => theirs.has(c));
     });
     if (covering) {
-      hits.push({ catalogueItemId: w.id, name: w.name, matchedOrderNumber: covering.order.orderNumber, matchedOrderId: covering.order.id, matchedName: covering.nameSnapshot, requestedAt: covering.createdAt, status: covering.status, reason: "COVERED_BY_PANEL" });
+      hits.push({ catalogueItemId: w.id, name: w.name, matchedOrderNumber: covering.investigation_orders.order_number, matchedOrderId: covering.investigation_orders.id, matchedName: covering.name_snapshot, requestedAt: covering.created_at, status: covering.status, reason: "COVERED_BY_PANEL" });
     }
   }
   return hits;
@@ -263,6 +264,36 @@ export async function findDuplicates(patientId: string, catalogueItemIds: string
 
 export function catalogueSearchText(input: { name: string; commonName?: string | null; abbreviation?: string | null; synonyms?: string[]; code: string; loincCode?: string | null; snomedCode?: string | null; subcategory?: string | null; clinicalDiscipline?: string | null; specimenType?: string | null; modality?: string | null; dicomModality?: string | null; categoryName?: string | null }) {
   return buildSearchText([input.name, input.commonName, input.abbreviation, input.synonyms, input.code, input.loincCode, input.snomedCode, input.subcategory, input.clinicalDiscipline, input.specimenType, input.modality, input.dicomModality, input.categoryName]);
+}
+
+/** A facility's own terms for a catalogue item, as accepted by the facility catalogue endpoints. */
+export interface OfferingInput {
+  isActive?: boolean;
+  priceMinor?: number | null;
+  turnaroundMinutes?: number | null;
+  departmentKey?: string | null;
+  preparation?: string | null;
+  specimenRequirements?: string | null;
+  reportTemplate?: string | null;
+  responsibleStaffId?: string | null;
+  localCode?: string | null;
+  localAliases?: string[];
+}
+
+/** Maps an offering payload to `facility_investigations` columns; `undefined` fields are left untouched by Prisma. */
+export function offeringColumns(o: OfferingInput) {
+  return {
+    is_active: o.isActive,
+    price_minor: o.priceMinor,
+    turnaround_minutes: o.turnaroundMinutes,
+    department_key: o.departmentKey,
+    preparation: o.preparation,
+    specimen_requirements: o.specimenRequirements,
+    report_template: o.reportTemplate,
+    responsible_staff_id: o.responsibleStaffId,
+    local_code: o.localCode,
+    local_aliases: o.localAliases,
+  };
 }
 
 // ---------------------------------------------------------------------------

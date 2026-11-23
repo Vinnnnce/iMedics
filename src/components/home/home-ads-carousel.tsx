@@ -2,20 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { PublicEntryLink as Link } from "@/components/shared/public-entry-link";
-import {
-  Calendar, ChevronLeft, ChevronRight, FlaskConical, FolderOpen, HeartPulse,
-  Pause, Play, Sparkles, Stethoscope, type LucideIcon,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { IMEDICS_HOME_SLIDES, type ImedicsHomeSlide } from "@/lib/home/imedics-home-content";
-
-const SLIDE_ICONS: Record<ImedicsHomeSlide["icon"], LucideIcon> = {
-  stethoscope: Stethoscope,
-  "heart-pulse": HeartPulse,
-  flask: FlaskConical,
-  sparkles: Sparkles,
-  calendar: Calendar,
-  folder: FolderOpen,
-};
+import { IMEDICS_ICONS } from "@/components/home/imedics-icons";
 
 const AUTO_ADVANCE_MS = 6000;
 
@@ -155,7 +144,7 @@ function isExternal(href: string): boolean {
 /** One slide: image or icon, text, and the call-to-action. */
 function Slide({ slide, active }: { slide: ImedicsHomeSlide; active: boolean }) {
   const [imageBroken, setImageBroken] = useState(false);
-  const Icon = SLIDE_ICONS[slide.icon];
+  const Icon = IMEDICS_ICONS[slide.icon];
   const showImage = Boolean(slide.image) && !imageBroken;
   const ctaClass =
     "shrink-0 rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold transition-colors hover:border-foreground/50 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";

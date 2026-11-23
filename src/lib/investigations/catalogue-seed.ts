@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { buildSearchText } from "./search";
+import { newId, newRow, touch } from "./db";
 import { SEED_ANALYTES, SEED_CATEGORIES, SEED_ITEMS, localCode } from "./seed-data";
 
 export interface SeedSummary {
@@ -19,8 +20,8 @@ export async function seedInvestigationCatalogue(): Promise<SeedSummary> {
   for (const [index, c] of SEED_CATEGORIES.entries()) {
     const row = await prisma.investigation_categories.upsert({
       where: { domain_key: { domain: c.domain, key: c.key } },
-      create: { domain: c.domain, key: c.key, name: c.name, description: c.description, icon: c.icon, sortOrder: index },
-      update: { name: c.name, description: c.description, icon: c.icon, sortOrder: index },
+      create: { id: newId(), domain: c.domain, key: c.key, name: c.name, description: c.description, icon: c.icon, sort_order: index },
+      update: { name: c.name, description: c.description, icon: c.icon, sort_order: index },
       select: { id: true },
     });
     categoryIds.set(`${c.domain}:${c.key}`, row.id);
@@ -36,38 +37,40 @@ export async function seedInvestigationCatalogue(): Promise<SeedSummary> {
     const row = await prisma.investigation_catalogue_items.upsert({
       where: { code },
       create: {
+        ...newRow(),
         domain: s.domain,
-        categoryId,
+        category_id: categoryId,
         subcategory: s.subcategory,
         code,
         name: s.name,
         abbreviation: s.abbreviation ?? null,
         synonyms: s.synonyms,
-        dicomModality: s.dicom ?? null,
-        clinicalDiscipline: s.discipline ?? null,
-        specimenType: s.specimen ?? null,
+        dicom_modality: s.dicom ?? null,
+        clinical_discipline: s.discipline ?? null,
+        specimen_type: s.specimen ?? null,
         modality: s.modality ?? null,
-        reportFormat: s.format,
+        report_format: s.format,
         preparation: s.prep ?? null,
-        turnaroundMinutes: s.tatMinutes ?? null,
-        facilityTypes: s.domain === "LABORATORY" ? ["LABORATORY", "HOSPITAL"] : ["DIAGNOSTIC_CENTRE", "HOSPITAL"],
-        searchText,
+        turnaround_minutes: s.tatMinutes ?? null,
+        facility_types: s.domain === "LABORATORY" ? ["LABORATORY", "HOSPITAL"] : ["DIAGNOSTIC_CENTRE", "HOSPITAL"],
+        search_text: searchText,
       },
-      update: { categoryId, subcategory: s.subcategory, searchText },
-      select: { id: true, name: true, _count: { select: { analytes: true } } },
+      update: { category_id: categoryId, subcategory: s.subcategory, search_text: searchText, ...touch() },
+      select: { id: true, name: true, _count: { select: { investigation_analytes: true } } },
     });
     items++;
 
     const defs = SEED_ANALYTES[s.name];
-    if (defs && row._count.analytes === 0) {
-      await prisma.investigation_Analytes.createMany({
+    if (defs && row._count.investigation_analytes === 0) {
+      await prisma.investigation_analytes.createMany({
         data: defs.map((a, i) => ({
-          catalogueItemId: row.id,
+          id: newId(),
+          catalogue_item_id: row.id,
           code: a.code,
           name: a.name,
-          loincCode: a.loinc ?? null,
-          ucumUnit: a.ucum ?? null,
-          sortOrder: i,
+          loinc_code: a.loinc ?? null,
+          ucum_unit: a.ucum ?? null,
+          sort_order: i,
         })),
       });
       analytes += defs.length;

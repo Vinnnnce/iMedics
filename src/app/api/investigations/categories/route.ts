@@ -12,12 +12,12 @@ export const GET = withAuth(["DOCTOR", "LAB_SCIENTIST"], async (req) => {
   const { domain } = parseQuery(req, schema);
   await ensureCatalogueSeeded();
   const categories = await prisma.investigation_categories.findMany({
-    where: { domain, isActive: true },
-    orderBy: { sortOrder: "asc" },
-    select: { id: true, key: true, name: true, description: true, icon: true, _count: { select: { items: { where: { isActive: true } } } } },
+    where: { domain, is_active: true },
+    orderBy: { sort_order: "asc" },
+    select: { id: true, key: true, name: true, description: true, icon: true, _count: { select: { investigation_catalogue_items: { where: { is_active: true } } } } },
   });
   return NextResponse.json({
-    categories: categories.map(({ _count, ...c }) => ({ ...c, itemCount: _count.items })),
+    categories: categories.map(({ _count, ...c }) => ({ ...c, itemCount: _count.investigation_catalogue_items })),
     groups: domain === "DIAGNOSTIC" ? DOCTOR_DIAGNOSTIC_GROUPS : null,
   });
 });

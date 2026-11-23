@@ -15,7 +15,7 @@ export default async function DoctorResultsAndReportsPage() {
   if (!doctor) notFound();
 
   const [openCritical, legacy] = await Promise.all([
-    prisma.investigation_critical_alerts.count({ where: { notifiedUserId: user.id, status: { in: ["SENT", "ESCALATED"] } } }),
+    prisma.investigation_critical_alerts.count({ where: { notified_user_id: user.id, status: { in: ["SENT", "ESCALATED"] } } }),
     // Requests placed before the investigations catalogue existed stay visible (read-only).
     prisma.labOrder.findMany({ where: { orderedById: user.id }, orderBy: { createdAt: "desc" }, take: 10, include: { patient: { select: { firstName: true, lastName: true } }, items: { include: { labTest: { select: { name: true } } } } } }),
   ]);

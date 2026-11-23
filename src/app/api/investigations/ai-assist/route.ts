@@ -7,6 +7,7 @@ import { AI_REQUEST_ACTION, enforceAiRateLimit } from "@/lib/ai/rate-limit";
 import { writeAudit } from "@/lib/audit";
 import { requireDoctorOrderAccess } from "@/lib/investigations/access";
 import { scoreMatch, tokens } from "@/lib/investigations/search";
+import { searchableFromRow } from "@/lib/investigations/serialize";
 import { notFound } from "@/lib/errors";
 
 const schema = z.discriminatedUnion("mode", [
@@ -30,11 +31,11 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
   if (body.mode === "suggest") {
     const ts = tokens(body.description).filter((t) => t.length > 2);
     const candidates = await prisma.investigation_catalogue_items.findMany({
-      where: { domain: body.domain, isActive: true, ...(ts.length ? { OR: ts.map((t) => ({ searchText: { contains: t } })) } : {}) },
-      select: { id: true, name: true, commonName: true, abbreviation: true, synonyms: true, code: true, loincCode: true, snomedCode: true, searchText: true, subcategory: true },
+      where: { domain: body.domain, is_active: true, ...(ts.length ? { OR: ts.map((t) => ({ search_text: { contains: t } })) } : {}) },
+      select: { id: true, name: true, common_name: true, abbreviation: true, synonyms: true, code: true, loinc_code: true, snomed_code: true, search_text: true, subcategory: true },
       take: 300,
     });
-    const ranked = candidates.map((c) => ({ c, s: scoreMatch(c, body.description) || ts.filter((t) => c.searchText.includes(t)).length })).sort((a, b) => b.s - a.s).slice(0, 40).map((x) => x.c);
+    const ranked = candidates.map((c) => ({ c, s: scoreMatch(searchableFromRow(c), body.description) || ts.filter((t) => c.search_text.includes(t)).length })).sort((a, b) => b.s - a.s).slice(0, 40).map((x) => x.c);
     const fallback = ranked.slice(0, 8).map((c) => ({ id: c.id, name: c.name, reason: "Closest catalogue match to your description" }));
     if (ranked.length === 0) return NextResponse.json({ matches: [], source: "search" });
     try {
@@ -52,15 +53,15 @@ export const POST = withAuth(["DOCTOR"], async (req, { user }) => {
     }
   }
 
-  const item = await prisma.investigation_order_items.findUnique({ where: { id: body.itemId }, select: { id: true, orderId: true, nameSnapshot: true } });
+  const item = await prisma.investigation_order_items.findUnique({ where: { id: body.itemId }, select: { id: true, order_id: true, name_snapshot: true } });
   if (!item) throw notFound("Investigation not found");
-  await requireDoctorOrderAccess(user, item.orderId);
-  const result = await prisma.investigation_results.findFirst({ where: { itemId: item.id, status: "RELEASED" }, orderBy: { version: "desc" }, include: { observations: { orderBy: { sortOrder: "asc" } } } });
+  await requireDoctorOrderAccess(user, item.order_id);
+  const result = await prisma.investigation_results.findFirst({ where: { item_id: item.id, status: "RELEASED" }, orderBy: { version: "desc" }, include: { investigation_observations: { orderBy: { sort_order: "asc" } } } });
   if (!result) throw notFound("No released report to summarise");
   try {
     const out = await completeJson({
       system: `${SAFETY} Summarise the released report in 3-5 plain sentences for a clinician. Return {"summary": string}. Do not add diagnoses or treatment advice beyond what the report states.`,
-      user: JSON.stringify({ investigation: item.nameSnapshot, findings: result.findings, impression: result.impression, conclusion: result.conclusion, observations: result.observations.map((o) => ({ name: o.name, value: o.valueNumeric ?? o.valueText, unit: o.unit, flag: o.flag })) }),
+      user: JSON.stringify({ investigation: item.name_snapshot, findings: result.findings, impression: result.impression, conclusion: result.conclusion, observations: result.investigation_observations.map((o) => ({ name: o.name, value: o.value_numeric ?? o.value_text, unit: o.unit, flag: o.flag })) }),
       schema: summaryOut, maxTokens: 500,
     });
     return NextResponse.json({ summary: out.summary, source: "ai", notice: "AI-generated summary. Review the full report before acting on it." });

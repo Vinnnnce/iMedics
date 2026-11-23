@@ -51,51 +51,55 @@ export interface ReleasedReportEntry {
  */
 export async function releasedReportsForPatient(patientId: string, viewer: "DOCTOR" | "PATIENT", take = 200): Promise<ReleasedReportEntry[]> {
   const rows = await prisma.investigation_results.findMany({
-    where: { status: "RELEASED", ...(viewer === "PATIENT" ? { patientVisible: true } : {}), item: { order: { patientId } } },
-    orderBy: { releasedAt: "desc" },
+    where: { status: "RELEASED", ...(viewer === "PATIENT" ? { patient_visible: true } : {}), investigation_order_items: { investigation_orders: { patient_id: patientId } } },
+    orderBy: { released_at: "desc" },
     take,
     select: {
-      version: true, releasedAt: true,
-      observations: { where: { isCritical: true }, select: { id: true }, take: 1 },
-      item: { select: { id: true, domain: true, departmentKey: true, nameSnapshot: true, performingFacility: { select: { laboratoryName: true } }, order: { select: { orderNumber: true } } } },
+      version: true, released_at: true,
+      investigation_observations: { where: { is_critical: true }, select: { id: true }, take: 1 },
+      investigation_order_items: { select: { id: true, domain: true, department_key: true, name_snapshot: true, lab_staff_profiles: { select: { laboratoryName: true } }, investigation_orders: { select: { order_number: true } } } },
     },
   });
-  return rows.map((r) => ({
-    itemId: r.item.id, domain: r.item.domain, folder: folderFor(r.item.domain, r.item.departmentKey), name: r.item.nameSnapshot, facility: r.item.performingFacility?.laboratoryName ?? null,
-    releasedAt: r.releasedAt as Date, version: r.version, orderNumber: r.item.order.orderNumber, hasCritical: r.observations.length > 0,
-  }));
+  return rows.map((r) => {
+    const item = r.investigation_order_items;
+    return {
+      itemId: item.id, domain: item.domain, folder: folderFor(item.domain, item.department_key), name: item.name_snapshot, facility: item.lab_staff_profiles?.laboratoryName ?? null,
+      releasedAt: r.released_at as Date, version: r.version, orderNumber: item.investigation_orders.order_number, hasCritical: r.investigation_observations.length > 0,
+    };
+  });
 }
 
 /** FHIR resources (ServiceRequest, Specimen, Observation, DiagnosticReport, ImagingStudy, ...) for released investigations. */
 export async function releasedInvestigationFhirResources(patientId: string, viewer: "DOCTOR" | "PATIENT"): Promise<Record<string, unknown>[]> {
   const results = await prisma.investigation_results.findMany({
-    where: { status: "RELEASED", ...(viewer === "PATIENT" ? { patientVisible: true } : {}), item: { order: { patientId } } },
-    orderBy: { releasedAt: "desc" },
+    where: { status: "RELEASED", ...(viewer === "PATIENT" ? { patient_visible: true } : {}), investigation_order_items: { investigation_orders: { patient_id: patientId } } },
+    orderBy: { released_at: "desc" },
     take: 100,
     include: {
-      observations: { orderBy: { sortOrder: "asc" } },
-      media: { select: { id: true, studyInstanceUid: true, dicomModality: true, mimeType: true, fileName: true } },
-      item: { include: { order: { select: { id: true, requestedById: true, encounterId: true, authorisedAt: true } }, specimens: true } },
+      investigation_observations: { orderBy: { sort_order: "asc" } },
+      investigation_media: { select: { id: true, study_instance_uid: true, dicom_modality: true, mime_type: true, file_name: true } },
+      investigation_order_items: { include: { investigation_orders: { select: { id: true, requested_by_id: true, encounter_id: true, authorised_at: true } }, investigation_specimens: true } },
     },
   });
   const out: Record<string, unknown>[] = [];
   const seenItems = new Set<string>();
   for (const r of results) {
-    const it = r.item;
+    const it = r.investigation_order_items;
+    const order = it.investigation_orders;
     const base: FhirItem = {
-      id: it.id, orderId: it.orderId, patientId, status: it.status, nameSnapshot: it.nameSnapshot, codeSnapshot: it.codeSnapshot, loincSnapshot: it.loincSnapshot, snomedSnapshot: it.snomedSnapshot,
-      priority: it.priority, createdAt: it.createdAt, performingFacilityId: it.performingFacilityId, domain: it.domain, requesterUserId: it.order.requestedById, encounterId: it.order.encounterId, authorisedAt: it.order.authorisedAt,
+      id: it.id, orderId: it.order_id, patientId, status: it.status, nameSnapshot: it.name_snapshot, codeSnapshot: it.code_snapshot, loincSnapshot: it.loinc_snapshot, snomedSnapshot: it.snomed_snapshot,
+      priority: it.priority, createdAt: it.created_at, performingFacilityId: it.performing_facility_id, domain: it.domain, requesterUserId: order.requested_by_id, encounterId: order.encounter_id, authorisedAt: order.authorised_at,
     };
     if (!seenItems.has(it.id)) {
       seenItems.add(it.id);
       out.push(serviceRequest(base));
-      for (const s of it.specimens) out.push(fhirSpecimen({ id: s.id, patientId, barcode: s.barcode, accessionNumber: s.accessionNumber, specimenType: s.specimenType, status: s.status, collectedAt: s.collectedAt, receivedAt: s.receivedAt, itemId: it.id }));
+      for (const s of it.investigation_specimens) out.push(fhirSpecimen({ id: s.id, patientId, barcode: s.barcode, accessionNumber: s.accession_number, specimenType: s.specimen_type, status: s.status, collectedAt: s.collected_at, receivedAt: s.received_at, itemId: it.id }));
     }
     out.push(...diagnosticReport({
-      result: { id: r.id, itemId: it.id, version: r.version, findings: r.findings, impression: r.impression, conclusion: r.conclusion, releasedAt: r.releasedAt, signedById: r.signedById, reporterName: r.reporterName },
-      item: base, facilityId: it.performingFacilityId,
-      observations: r.observations.map((o) => ({ id: o.id, patientId, resultId: r.id, name: o.name, loincCode: o.loincCode, valueNumeric: o.valueNumeric, valueText: o.valueText, unit: o.unit, refLow: o.refLow, refHigh: o.refHigh, refText: o.refText, flag: o.flag })),
-      media: r.media,
+      result: { id: r.id, itemId: it.id, version: r.version, findings: r.findings, impression: r.impression, conclusion: r.conclusion, releasedAt: r.released_at, signedById: r.signed_by_id, reporterName: r.reporter_name },
+      item: base, facilityId: it.performing_facility_id,
+      observations: r.investigation_observations.map((o) => ({ id: o.id, patientId, resultId: r.id, name: o.name, loincCode: o.loinc_code, valueNumeric: o.value_numeric, valueText: o.value_text, unit: o.unit, refLow: o.ref_low, refHigh: o.ref_high, refText: o.ref_text, flag: o.flag })),
+      media: r.investigation_media.map((m) => ({ id: m.id, studyInstanceUid: m.study_instance_uid, dicomModality: m.dicom_modality, mimeType: m.mime_type, fileName: m.file_name })),
     }));
   }
   return out;

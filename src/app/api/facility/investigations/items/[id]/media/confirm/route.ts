@@ -6,6 +6,8 @@ import { requireFacilityAccess } from "@/lib/facility-auth";
 import { conflict, notFound } from "@/lib/errors";
 import { confirmUploadSchema, finalizeDiagnosticImage, safeFileName } from "@/lib/uploads";
 import { auditInvestigation } from "@/lib/investigations/service";
+import { newId } from "@/lib/investigations/db";
+import { toDto } from "@/lib/investigations/serialize";
 
 type Params = { id: string };
 const schema = confirmUploadSchema.extend({
@@ -23,15 +25,16 @@ export const POST = withAuth<Params>(null, async (req, { user, params }) => {
   const { finalKey, sizeBytes } = await finalizeDiagnosticImage(body.key, id, body.mimeType);
 
   const media = await prisma.$transaction(async (tx) => {
-    const item = await tx.investigation_order_items.findFirst({ where: { id, performingFacilityId: access.facility.id }, select: { id: true, status: true, order: { select: { patientId: true } }, results: { where: { isCurrent: true }, select: { id: true, status: true } } } });
+    const item = await tx.investigation_order_items.findFirst({ where: { id, performing_facility_id: access.facility.id }, select: { id: true, status: true } });
     if (!item) throw notFound("Investigation not found");
     if (["SIGNED", "RELEASED", "DELIVERED", "CANCELLED"].includes(item.status)) throw conflict("Media cannot be added at this stage");
-    const working = item.results.find((r) => !["SIGNED", "RELEASED", "SUPERSEDED"].includes(r.status));
+    const currentResult = await tx.investigation_results.findFirst({ where: { item_id: id, is_current: true }, select: { id: true, status: true } });
+    const working = currentResult && !["SIGNED", "RELEASED", "SUPERSEDED"].includes(currentResult.status) ? currentResult : null;
     return tx.investigation_media.create({
-      data: { itemId: id, resultId: working?.id ?? null, storageKey: finalKey, fileName: safeFileName(body.fileName), mimeType: body.mimeType, sizeBytes, description: body.description ?? null, dicomModality: body.dicomModality ?? null, studyInstanceUid: body.studyInstanceUid ?? null, seriesInstanceUid: body.seriesInstanceUid ?? null, uploadedById: user.id },
-      select: { id: true, fileName: true, mimeType: true, sizeBytes: true, createdAt: true },
+      data: { id: newId(), item_id: id, result_id: working?.id ?? null, storage_key: finalKey, file_name: safeFileName(body.fileName), mime_type: body.mimeType, size_bytes: sizeBytes, description: body.description ?? null, dicom_modality: body.dicomModality ?? null, study_instance_uid: body.studyInstanceUid ?? null, series_instance_uid: body.seriesInstanceUid ?? null, uploaded_by_id: user.id },
+      select: { id: true, file_name: true, mime_type: true, size_bytes: true, created_at: true },
     });
   });
-  await auditInvestigation(user, "INVESTIGATION_MEDIA_UPLOADED", id, { facilityId: access.facility.id, details: { fileName: media.fileName, mimeType: media.mimeType } });
-  return NextResponse.json({ success: true, media }, { status: 201 });
+  await auditInvestigation(user, "INVESTIGATION_MEDIA_UPLOADED", id, { facilityId: access.facility.id, details: { fileName: media.file_name, mimeType: media.mime_type } });
+  return NextResponse.json({ success: true, media: toDto("media", media) }, { status: 201 });
 });

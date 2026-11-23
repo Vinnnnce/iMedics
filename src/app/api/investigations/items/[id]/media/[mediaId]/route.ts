@@ -14,12 +14,12 @@ export const GET = withAuth<Params>(["DOCTOR", "PATIENT"], async (req, { user, p
   const itemId = parseId(p.id);
   const mediaId = parseId(p.mediaId);
   const media = await prisma.investigation_media.findFirst({
-    where: { id: mediaId, itemId, result: { status: "RELEASED", ...(user.role === "PATIENT" ? { patientVisible: true } : {}) } },
-    include: { item: { select: { order: { select: { patientId: true, requestedById: true } } } } },
+    where: { id: mediaId, item_id: itemId, investigation_results: { status: "RELEASED", ...(user.role === "PATIENT" ? { patient_visible: true } : {}) } },
+    include: { investigation_order_items: { select: { investigation_orders: { select: { patient_id: true, requested_by_id: true } } } } },
   });
   if (!media) throw notFound("Media not found");
-  const o = media.item.order;
-  if (!(user.role === "DOCTOR" && o.requestedById === user.id)) await findAccessiblePatient(user, o.patientId).catch(() => { throw notFound("Media not found"); });
-  await auditInvestigation(user, "INVESTIGATION_MEDIA_VIEWED", itemId, { patientId: o.patientId, req });
-  return NextResponse.json({ url: await presignView(media.storageKey, media.fileName), fileName: media.fileName, mimeType: media.mimeType });
+  const o = media.investigation_order_items.investigation_orders;
+  if (!(user.role === "DOCTOR" && o.requested_by_id === user.id)) await findAccessiblePatient(user, o.patient_id).catch(() => { throw notFound("Media not found"); });
+  await auditInvestigation(user, "INVESTIGATION_MEDIA_VIEWED", itemId, { patientId: o.patient_id, req });
+  return NextResponse.json({ url: await presignView(media.storage_key, media.file_name), fileName: media.file_name, mimeType: media.mime_type });
 });

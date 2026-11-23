@@ -4,7 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { withAuth, parseBody, parseQuery } from "@/lib/api";
 import { requireFacilityAccess } from "@/lib/facility-auth";
 import { ensureCatalogueSeeded } from "@/lib/investigations/catalogue-seed";
-import { catalogueSearchText, auditInvestigation } from "@/lib/investigations/service";
+import { catalogueSearchText, auditInvestigation, offeringColumns } from "@/lib/investigations/service";
+import { newRow, touch } from "@/lib/investigations/db";
+import { toDto, toDtos } from "@/lib/investigations/serialize";
 import { badRequest, conflict } from "@/lib/errors";
 import { slug } from "@/lib/investigations/seed-data";
 import { tokens } from "@/lib/investigations/search";
@@ -18,20 +20,23 @@ export const GET = withAuth(null, async (req, { user }) => {
   await ensureCatalogueSeeded();
   const items = await prisma.investigation_catalogue_items.findMany({
     where: {
-      isActive: true, ...(domain ? { domain } : {}),
+      is_active: true, ...(domain ? { domain } : {}),
       OR: [{ source: "SYSTEM" }, { created_by_facility_id: access.facility.id }],
-      ...(q ? { AND: tokens(q).map((t) => ({ searchText: { contains: t } })) } : {}),
-      ...(onlyOffered === "true" ? { facilityOfferings: { some: { facility_id: access.facility.id } } } : {}),
+      ...(q ? { AND: tokens(q).map((t) => ({ search_text: { contains: t } })) } : {}),
+      ...(onlyOffered === "true" ? { facility_investigations: { some: { facility_id: access.facility.id } } } : {}),
     },
     orderBy: [{ domain: "asc" }, { name: "asc" }], take: limit,
     select: {
       id: true, domain: true, code: true, name: true, abbreviation: true, subcategory: true, loinc_code: true, snomed_code: true, standard_codes_verified: true, source: true, specimen_type: true, turnaround_minutes: true, preparation: true,
-      category: { select: { id: true, key: true, name: true } },
-      facilityOfferings: { where: { facility_id: access.facility.id }, select: { id: true, is_active: true, price_minor: true, turnaround_minutes: true, department_key: true, preparation: true, specimen_requirements: true, report_template: true, responsible_staff_id: true, local_code: true, local_aliases: true } },
+      investigation_categories: { select: { id: true, key: true, name: true } },
+      facility_investigations: { where: { facility_id: access.facility.id }, select: { id: true, is_active: true, price_minor: true, turnaround_minutes: true, department_key: true, preparation: true, specimen_requirements: true, report_template: true, responsible_staff_id: true, local_code: true, local_aliases: true } },
     },
   });
   const categories = await prisma.investigation_categories.findMany({ where: { is_active: true }, orderBy: [{ domain: "asc" }, { sort_order: "asc" }], select: { id: true, key: true, name: true, domain: true } });
-  return NextResponse.json({ items: items.map(({ facilityOfferings, ...i }) => ({ ...i, offering: facilityOfferings[0] ?? null })), categories });
+  return NextResponse.json({
+    items: items.map(({ facility_investigations, ...i }) => ({ ...toDto("catalogueItem", i), offering: facility_investigations[0] ? toDto("offering", facility_investigations[0]) : null })),
+    categories: toDtos("category", categories),
+  });
 });
 
 const offeringFields = {
@@ -76,11 +81,12 @@ export const POST = withAuth(null, async (req, { user }) => {
     if (await prisma.investigation_catalogue_items.findUnique({ where: { code } })) throw conflict("Your facility already has an investigation with this name");
     const created = await prisma.investigation_catalogue_items.create({
       data: {
+        ...newRow(),
         domain: newItem.domain, category_id: cat.id, code, name: newItem.name, common_name: newItem.commonName ?? null, abbreviation: newItem.abbreviation ?? null, synonyms: newItem.synonyms,
         specimen_type: newItem.specimenType ?? null, modality: newItem.modality ?? null, body_site: newItem.bodySite ?? null, report_format: newItem.reportFormat, loinc_code: newItem.loincCode ?? null, snomed_code: newItem.snomedCode ?? null,
         dicom_modality: newItem.dicomModality ?? null, standard_codes_verified: newItem.standardCodesVerified && !!(newItem.loincCode || newItem.snomedCode), source: "FACILITY", created_by_facility_id: access.facility.id,
         facility_types: [access.facility.kind ?? "LABORATORY"],
-        searchText: catalogueSearchText({ ...newItem, code, categoryName: cat.name }),
+        search_text: catalogueSearchText({ ...newItem, code, categoryName: cat.name }),
       },
       select: { id: true },
     });
@@ -88,10 +94,10 @@ export const POST = withAuth(null, async (req, { user }) => {
   }
   const row = await prisma.facility_investigations.upsert({
     where: { facility_id_catalogue_item_id: { facility_id: access.facility.id, catalogue_item_id: itemId as string } },
-    create: { facility_id: access.facility.id, catalogue_item_id: itemId as string, ...offering, is_active: offering.is_active ?? true, local_aliases: offering.localAliases ?? [] },
-    update: { ...offering, is_active: offering.is_active ?? true, local_aliases: offering.localAliases ?? [] },
+    create: { ...newRow(), facility_id: access.facility.id, catalogue_item_id: itemId as string, ...offeringColumns(offering), is_active: offering.isActive ?? true, local_aliases: offering.localAliases ?? [] },
+    update: { ...offeringColumns(offering), is_active: offering.isActive ?? true, local_aliases: offering.localAliases ?? [], ...touch() },
     select: { id: true },
   });
-  await auditInvestigation(user, "FACILITY_INVESTIGATION_SAVED", row.id, { facilityId: access.facility.id, details: { catalogue_item_id: itemId, created: !!newItem } });
-  return NextResponse.json({ success: true, id: row.id, catalogue_item_id: itemId }, { status: 201 });
+  await auditInvestigation(user, "FACILITY_INVESTIGATION_SAVED", row.id, { facilityId: access.facility.id, details: { catalogueItemId: itemId, created: !!newItem } });
+  return NextResponse.json({ success: true, id: row.id, catalogueItemId: itemId }, { status: 201 });
 });

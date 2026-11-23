@@ -10,7 +10,7 @@ type Params = { id: string };
 const MAX_MEDIA = 40;
 
 async function ownedItem(id: string, facilityId: string) {
-  const item = await prisma.investigation_order_items.findFirst({ where: { id, performingFacilityId: facilityId, status: { notIn: ["CANCELLED"] } }, select: { id: true, status: true, _count: { select: { media: true } } } });
+  const item = await prisma.investigation_order_items.findFirst({ where: { id, performing_facility_id: facilityId, status: { notIn: ["CANCELLED"] } }, select: { id: true, status: true, _count: { select: { investigation_media: true } } } });
   if (!item) throw notFound("Investigation not found");
   return item;
 }
@@ -22,7 +22,7 @@ export const POST = withAuth<Params>(null, async (req, { user, params }) => {
   const { mimeType, sizeBytes } = await parseBody(req, uploadRequestSchema);
   const item = await ownedItem(id, access.facility.id);
   if (["SIGNED", "RELEASED", "DELIVERED"].includes(item.status)) throw conflict("Media cannot be added after the report is signed; start an amendment");
-  if (item._count.media >= MAX_MEDIA) throw conflict(`This examination already has the maximum of ${MAX_MEDIA} files`);
+  if (item._count.investigation_media >= MAX_MEDIA) throw conflict(`This examination already has the maximum of ${MAX_MEDIA} files`);
   // Same staging prefix as legacy diagnostic images so the verified-upload pipeline is reused unchanged.
   const key = newObjectKey(`diagnostic-images/staging/${id}`);
   return NextResponse.json({ key, uploadUrl: await presignUpload(key, mimeType, sizeBytes), method: "PUT", headers: { "Content-Type": mimeType }, expiresInSeconds: UPLOAD_URL_TTL_SECONDS });
@@ -35,7 +35,7 @@ export const GET = withAuth<Params>(null, async (req, { user, params }) => {
   await ownedItem(id, access.facility.id);
   const mediaId = new URL(req.url).searchParams.get("mediaId");
   if (!mediaId) return NextResponse.json({ error: "mediaId is required" }, { status: 400 });
-  const media = await prisma.investigation_media.findFirst({ where: { id: parseId(mediaId), itemId: id } });
+  const media = await prisma.investigation_media.findFirst({ where: { id: parseId(mediaId), item_id: id } });
   if (!media) throw notFound("Media not found");
-  return NextResponse.json({ url: await presignView(media.storageKey, media.fileName), fileName: media.fileName, mimeType: media.mimeType });
+  return NextResponse.json({ url: await presignView(media.storage_key, media.file_name), fileName: media.file_name, mimeType: media.mime_type });
 });

@@ -40,11 +40,11 @@ export default async function NewInvestigationOrderPage({ searchParams }: Props)
 
   let draft: InitialDraft | undefined;
   if (sp.draft) {
-    const d = await prisma.investigation_orders.findFirst({ where: { id: sp.draft, requestedById: user.id, status: "DRAFT", domain }, include: { items: { orderBy: { createdAt: "asc" } } } });
+    const d = await prisma.investigation_orders.findFirst({ where: { id: sp.draft, requested_by_id: user.id, status: "DRAFT", domain }, include: { investigation_order_items: { orderBy: { created_at: "asc" } } } });
     if (!d) notFound();
     draft = {
-      id: d.id, patientId: d.patientId, priority: d.priority, clinicalIndication: d.clinicalIndication ?? "", diagnosis: d.diagnosis ?? "", clinicalNotes: d.clinicalNotes ?? "", referringDepartment: d.referringDepartment ?? "",
-      items: d.items.map((i) => ({ catalogueItemId: i.catalogueItemId ?? undefined, custom: (i.customDetails as never) ?? undefined, preferredFacilityId: i.preferredFacilityId ?? undefined, instructions: i.instructions ?? undefined, duplicateOverrideReason: i.duplicateOverrideReason ?? undefined })),
+      id: d.id, patientId: d.patient_id, priority: d.priority, clinicalIndication: d.clinical_indication ?? "", diagnosis: d.diagnosis ?? "", clinicalNotes: d.clinical_notes ?? "", referringDepartment: d.referring_department ?? "",
+      items: d.investigation_order_items.map((i) => ({ catalogueItemId: i.catalogue_item_id ?? undefined, custom: (i.custom_details as never) ?? undefined, preferredFacilityId: i.preferred_facility_id ?? undefined, instructions: i.instructions ?? undefined, duplicateOverrideReason: i.duplicate_override_reason ?? undefined })),
     };
   }
 

@@ -12,13 +12,13 @@ export const GET = withAuth(["DOCTOR", "PATIENT"], async (req, { user }) => {
   await findAccessiblePatient(user, q.patientId);
   const rows = await prisma.investigation_observations.findMany({
     where: {
-      valueNumeric: { not: null },
-      ...(q.analyteCode ? { analyteCode: q.analyteCode } : q.name ? { name: { equals: q.name, mode: "insensitive" } } : { id: "00000000-0000-0000-0000-000000000000" }),
-      result: { status: "RELEASED", ...(user.role === "PATIENT" ? { patientVisible: true } : {}), item: { order: { patientId: q.patientId } } },
+      value_numeric: { not: null },
+      ...(q.analyteCode ? { analyte_code: q.analyteCode } : q.name ? { name: { equals: q.name, mode: "insensitive" } } : { id: "00000000-0000-0000-0000-000000000000" }),
+      investigation_results: { status: "RELEASED", ...(user.role === "PATIENT" ? { patient_visible: true } : {}), investigation_order_items: { investigation_orders: { patient_id: q.patientId } } },
     },
-    orderBy: { result: { releasedAt: "asc" } },
+    orderBy: { investigation_results: { released_at: "asc" } },
     take: q.limit,
-    select: { id: true, name: true, valueNumeric: true, unit: true, refLow: true, refHigh: true, flag: true, result: { select: { releasedAt: true, version: true, item: { select: { id: true, nameSnapshot: true } } } } },
+    select: { id: true, name: true, value_numeric: true, unit: true, ref_low: true, ref_high: true, flag: true, investigation_results: { select: { released_at: true, version: true, investigation_order_items: { select: { id: true, name_snapshot: true } } } } },
   });
-  return NextResponse.json({ points: rows.map((r) => ({ id: r.id, name: r.name, value: r.valueNumeric, unit: r.unit, refLow: r.refLow, refHigh: r.refHigh, flag: r.flag, at: r.result.releasedAt, itemId: r.result.item.id, investigation: r.result.item.nameSnapshot })) });
+  return NextResponse.json({ points: rows.map((r) => ({ id: r.id, name: r.name, value: r.value_numeric, unit: r.unit, refLow: r.ref_low, refHigh: r.ref_high, flag: r.flag, at: r.investigation_results.released_at, itemId: r.investigation_results.investigation_order_items.id, investigation: r.investigation_results.investigation_order_items.name_snapshot })) });
 });

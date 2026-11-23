@@ -4266,7 +4266,7 @@ model FacilitySubscriptionEvent {
 }
 
 model facility_investigations {
-  id                            String                        @id @db.Uuid
+  id                            String                        @id @default(uuid()) @db.Uuid
   facility_id                   String                        @db.Uuid
   catalogue_item_id             String                        @db.Uuid
   is_active                     Boolean                       @default(true)
@@ -4280,7 +4280,7 @@ model facility_investigations {
   local_code                    String?
   local_aliases                 String[]                      @default([])
   created_at                    DateTime                      @default(now())
-  updated_at                    DateTime
+  updated_at                    DateTime @updatedAt
   investigation_catalogue_items investigation_catalogue_items @relation(fields: [catalogue_item_id], references: [id], onDelete: Cascade)
   lab_staff_profiles            LabStaffProfile               @relation(fields: [facility_id], references: [id], onDelete: Cascade)
 
@@ -4289,7 +4289,7 @@ model facility_investigations {
 }
 
 model investigation_alert_events {
-  id                            String                        @id @db.Uuid
+  id                            String                        @id @default(uuid()) @db.Uuid
   alert_id                      String                        @db.Uuid
   kind                          String
   actor_user_id                 String?                       @db.Uuid
@@ -4302,7 +4302,7 @@ model investigation_alert_events {
 }
 
 model investigation_analytes {
-  id                            String                        @id @db.Uuid
+  id                            String                        @id @default(uuid()) @db.Uuid
   catalogue_item_id             String                        @db.Uuid
   facility_id                   String?                       @db.Uuid
   code                          String
@@ -4321,7 +4321,7 @@ model investigation_analytes {
 }
 
 model investigation_catalogue_items {
-  id                        String                       @id @db.Uuid
+  id                        String                       @id @default(uuid()) @db.Uuid
   domain                    InvestigationDomain
   category_id               String                       @db.Uuid
   subcategory               String?
@@ -4350,7 +4350,7 @@ model investigation_catalogue_items {
   created_by_facility_id    String?                      @db.Uuid
   search_text               String                       @default("")
   created_at                DateTime                     @default(now())
-  updated_at                DateTime
+  updated_at                DateTime @updatedAt
   facility_investigations   facility_investigations[]
   investigation_analytes    investigation_analytes[]
   investigation_categories  investigation_categories     @relation(fields: [category_id], references: [id])
@@ -4361,7 +4361,7 @@ model investigation_catalogue_items {
 }
 
 model investigation_categories {
-  id                            String                          @id @db.Uuid
+  id                            String                          @id @default(uuid()) @db.Uuid
   domain                        InvestigationDomain
   key                           String
   name                          String
@@ -4380,7 +4380,7 @@ model investigation_counters {
 }
 
 model investigation_critical_alerts {
-  id                         String                       @id @db.Uuid
+  id                         String                       @id @default(uuid()) @db.Uuid
   result_id                  String                       @unique @db.Uuid
   item_id                    String                       @db.Uuid
   patient_id                 String                       @db.Uuid
@@ -4402,7 +4402,7 @@ model investigation_critical_alerts {
 }
 
 model investigation_interpretations {
-  id                    String                @id @db.Uuid
+  id                    String                @id @default(uuid()) @db.Uuid
   result_id             String                @db.Uuid
   doctor_user_id        String                @db.Uuid
   note                  String
@@ -4417,7 +4417,7 @@ model investigation_interpretations {
 }
 
 model investigation_media {
-  id                        String                    @id @db.Uuid
+  id                        String                    @id @default(uuid()) @db.Uuid
   item_id                   String                    @db.Uuid
   result_id                 String?                   @db.Uuid
   storage_key               String                    @unique
@@ -4437,7 +4437,7 @@ model investigation_media {
 }
 
 model investigation_observations {
-  id                    String                @id @db.Uuid
+  id                    String                @id @default(uuid()) @db.Uuid
   result_id             String                @db.Uuid
   analyte_code          String?
   name                  String
@@ -4459,7 +4459,7 @@ model investigation_observations {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model investigation_order_items {
-  id                            String                         @id @db.Uuid
+  id                            String                         @id @default(uuid()) @db.Uuid
   order_id                      String                         @db.Uuid
   domain                        InvestigationDomain
   catalogue_item_id             String?                        @db.Uuid
@@ -4488,13 +4488,13 @@ model investigation_order_items {
   cancel_reason                 String?
   assigned_to_id                String?                        @db.Uuid
   created_at                    DateTime                       @default(now())
-  updated_at                    DateTime
+  updated_at                    DateTime @updatedAt
   investigation_media           investigation_media[]
   investigation_catalogue_items investigation_catalogue_items? @relation(fields: [catalogue_item_id], references: [id])
   investigation_orders          investigation_orders           @relation(fields: [order_id], references: [id], onDelete: Cascade)
   lab_staff_profiles            LabStaffProfile?               @relation(fields: [performing_facility_id], references: [id])
   investigation_referrals       investigation_referrals[]
-  investigation_results         investigation_results?
+  investigation_results         investigation_results[]
   investigation_specimens       investigation_specimens[]
   investigation_status_history  investigation_status_history[]
 
@@ -4505,7 +4505,7 @@ model investigation_order_items {
 }
 
 model investigation_order_sets {
-  id                 String              @id @db.Uuid
+  id                 String              @id @default(uuid()) @db.Uuid
   owner_user_id      String              @db.Uuid
   name               String
   description        String?
@@ -4513,14 +4513,14 @@ model investigation_order_sets {
   catalogue_item_ids String[]            @default([]) @db.Uuid
   is_shared          Boolean             @default(false)
   created_at         DateTime            @default(now())
-  updated_at         DateTime
+  updated_at         DateTime @updatedAt
   users              User                @relation(fields: [owner_user_id], references: [id], onDelete: Cascade)
 
   @@index([owner_user_id, domain])
 }
 
 model investigation_orders {
-  id                        String                      @id @db.Uuid
+  id                        String                      @id @default(uuid()) @db.Uuid
   order_number              String                      @unique
   domain                    InvestigationDomain
   patient_id                String                      @db.Uuid
@@ -4540,7 +4540,7 @@ model investigation_orders {
   submitted_at              DateTime?
   cancelled_at              DateTime?
   created_at                DateTime                    @default(now())
-  updated_at                DateTime
+  updated_at                DateTime @updatedAt
   investigation_order_items investigation_order_items[]
   patients                  Patient                     @relation(fields: [patient_id], references: [id])
   users                     User                        @relation(fields: [requested_by_id], references: [id])
@@ -4552,7 +4552,7 @@ model investigation_orders {
 }
 
 model investigation_referrals {
-  id                        String                      @id @db.Uuid
+  id                        String                      @id @default(uuid()) @db.Uuid
   item_id                   String                      @db.Uuid
   from_facility_id          String?                     @db.Uuid
   to_facility_id            String                      @db.Uuid
@@ -4562,7 +4562,7 @@ model investigation_referrals {
   responded_by_id           String?                     @db.Uuid
   responded_at              DateTime?
   created_at                DateTime                    @default(now())
-  updated_at                DateTime
+  updated_at                DateTime @updatedAt
   investigation_order_items investigation_order_items   @relation(fields: [item_id], references: [id], onDelete: Cascade)
 
   @@index([item_id])
@@ -4570,8 +4570,8 @@ model investigation_referrals {
 }
 
 model investigation_results {
-  id                            String                          @id @db.Uuid
-  item_id                       String                          @unique(map: "investigation_results_one_current_idx", where: raw("is_current")) @db.Uuid
+  id                            String                          @id @default(uuid()) @db.Uuid
+  item_id                       String                          @db.Uuid
   version                       Int                             @default(1)
   is_current                    Boolean                         @default(true)
   status                        InvestigationResultStatus       @default(DRAFT)
@@ -4596,7 +4596,7 @@ model investigation_results {
   patient_visible               Boolean                         @default(true)
   amendment_reason              String?
   created_at                    DateTime                        @default(now())
-  updated_at                    DateTime
+  updated_at                    DateTime @updatedAt
   investigation_critical_alerts investigation_critical_alerts?
   investigation_interpretations investigation_interpretations[]
   investigation_media           investigation_media[]
@@ -4604,12 +4604,13 @@ model investigation_results {
   investigation_order_items     investigation_order_items       @relation(fields: [item_id], references: [id], onDelete: Cascade)
 
   @@unique([item_id, version])
+  @@unique([item_id], map: "investigation_results_one_current_idx", where: raw("is_current"))
   @@index([status, released_at])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model investigation_specimens {
-  id                            String                    @id @db.Uuid
+  id                            String                    @id @default(uuid()) @db.Uuid
   item_id                       String                    @db.Uuid
   facility_id                   String                    @db.Uuid
   accession_number              String
@@ -4624,7 +4625,7 @@ model investigation_specimens {
   parent_specimen_id            String?                   @db.Uuid
   notes                         String?
   created_at                    DateTime                  @default(now())
-  updated_at                    DateTime
+  updated_at                    DateTime @updatedAt
   lab_staff_profiles            LabStaffProfile           @relation(fields: [facility_id], references: [id], onDelete: Cascade)
   investigation_order_items     investigation_order_items @relation(fields: [item_id], references: [id], onDelete: Cascade)
   investigation_specimens       investigation_specimens?  @relation("investigation_specimensToinvestigation_specimens", fields: [parent_specimen_id], references: [id])
@@ -4636,7 +4637,7 @@ model investigation_specimens {
 }
 
 model investigation_status_history {
-  id                        String                    @id @db.Uuid
+  id                        String                    @id @default(uuid()) @db.Uuid
   item_id                   String                    @db.Uuid
   from_status               InvestigationItemStatus?
   to_status                 InvestigationItemStatus

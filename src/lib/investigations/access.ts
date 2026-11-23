@@ -12,9 +12,9 @@ export async function requireDoctorOrderAccess(user: User, orderId: string, opti
   await getVerifiedDoctorProfile(user);
   const order = await prisma.investigation_orders.findUnique({ where: { id: orderId } });
   if (!order) throw notFound("Order not found");
-  if (order.requestedById === user.id) return order;
+  if (order.requested_by_id === user.id) return order;
   try {
-    await findAccessiblePatient(user, order.patientId, { write: options.write });
+    await findAccessiblePatient(user, order.patient_id, { write: options.write });
   } catch {
     throw notFound("Order not found");
   }
@@ -24,8 +24,8 @@ export async function requireDoctorOrderAccess(user: User, orderId: string, opti
 /** Facility staff must act for the facility that performs (or ordered) the item. */
 export async function requirePerformingFacilityItem(itemId: string, facilityId: string) {
   const item = await prisma.investigation_order_items.findFirst({
-    where: { id: itemId, performingFacilityId: facilityId },
-    include: { order: { include: { patient: { select: { id: true, firstName: true, lastName: true, caseNumber: true, gender: true, dateOfBirth: true } } } } },
+    where: { id: itemId, performing_facility_id: facilityId },
+    include: { investigation_orders: { include: { patients: { select: { id: true, firstName: true, lastName: true, caseNumber: true, gender: true, dateOfBirth: true } } } } },
   });
   if (!item) throw notFound("Investigation not found");
   return item;

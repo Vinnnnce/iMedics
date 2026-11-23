@@ -5,6 +5,7 @@ import { withAuth, parseBody, parseId } from "@/lib/api";
 import { requireDoctorOrderAccess } from "@/lib/investigations/access";
 import { notFound } from "@/lib/errors";
 import { auditInvestigation } from "@/lib/investigations/service";
+import { newId } from "@/lib/investigations/db";
 
 type Params = { id: string };
 const schema = z.object({
@@ -18,21 +19,22 @@ const schema = z.object({
 export const POST = withAuth<Params>(["DOCTOR"], async (req, { user, params }) => {
   const itemId = parseId((await params).id);
   const body = await parseBody(req, schema);
-  const item = await prisma.investigation_order_items.findUnique({ where: { id: itemId }, select: { id: true, orderId: true, order: { select: { patientId: true, caseId: true } } } });
+  const item = await prisma.investigation_order_items.findUnique({ where: { id: itemId }, select: { id: true, order_id: true, investigation_orders: { select: { patient_id: true, case_id: true } } } });
   if (!item) throw notFound("Investigation not found");
-  await requireDoctorOrderAccess(user, item.orderId, { write: true });
-  const released = await prisma.investigation_results.findFirst({ where: { itemId, status: "RELEASED" }, orderBy: { version: "desc" }, select: { id: true } });
+  await requireDoctorOrderAccess(user, item.order_id, { write: true });
+  const released = await prisma.investigation_results.findFirst({ where: { item_id: itemId, status: "RELEASED" }, orderBy: { version: "desc" }, select: { id: true } });
   if (!released) throw notFound("No released report to interpret");
 
   const created = await prisma.$transaction(async (tx) => {
-    const row = await tx.investigation_interpretations.create({ data: { resultId: released.id, doctorUserId: user.id, note: body.note, followUpTitle: body.followUpTitle ?? null, followUpDueAt: body.followUpDueAt ?? null } });
-    if (item.order.caseId) {
+    const row = await tx.investigation_interpretations.create({ data: { id: newId(), result_id: released.id, doctor_user_id: user.id, note: body.note, follow_up_title: body.followUpTitle ?? null, follow_up_due_at: body.followUpDueAt ?? null } });
+    const caseId = item.investigation_orders.case_id;
+    if (caseId) {
       // Update the clinical case timeline without changing its status.
-      const c = await tx.careCase.findUnique({ where: { id: item.order.caseId }, select: { status: true } });
-      if (c) await tx.careCaseEvent.create({ data: { caseId: item.order.caseId, status: c.status, note: body.followUpTitle ? `Investigation interpreted; follow-up: ${body.followUpTitle}` : "Investigation interpretation recorded", actorId: user.id } });
+      const c = await tx.careCase.findUnique({ where: { id: caseId }, select: { status: true } });
+      if (c) await tx.careCaseEvent.create({ data: { caseId, status: c.status, note: body.followUpTitle ? `Investigation interpreted; follow-up: ${body.followUpTitle}` : "Investigation interpretation recorded", actorId: user.id } });
     }
     return row;
   });
-  await auditInvestigation(user, "INVESTIGATION_INTERPRETED", itemId, { patientId: item.order.patientId });
+  await auditInvestigation(user, "INVESTIGATION_INTERPRETED", itemId, { patientId: item.investigation_orders.patient_id });
   return NextResponse.json({ success: true, id: created.id }, { status: 201 });
 });
