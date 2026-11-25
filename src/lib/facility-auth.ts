@@ -83,10 +83,15 @@ export async function requireFacilityAccess(
     (req instanceof Request ? req.headers.get("x-facility-id") : null) ??
     undefined;
 
-  const memberships: MembershipRow[] = await prisma.facilityStaff.findMany({
+  const loadMemberships = (): Promise<MembershipRow[]> => prisma.facilityStaff.findMany({
     where: { userId: user.id, status: { in: ["ACTIVE", "ON_LEAVE"] } },
     select: { id: true, facilityRole: true, status: true, userId: true, accessLevel: true, permissionOverrides: true, accessStartsAt: true, accessExpiresAt: true, departmentIds: true, facility: true },
   });
+  let memberships = await loadMemberships();
+  // Facility owners are administrators of their facility even if their membership row was never written.
+  if (memberships.length === 0 || (requested && !memberships.some((m) => m.id === requested || m.facility.id === requested))) {
+    if (await ensureOwnerMembership(user, requested ?? null)) memberships = await loadMemberships();
+  }
 
   if (memberships.length === 0) {
     throw forbidden("You are not an active staff member of any facility");
@@ -138,6 +143,31 @@ export async function requireFacilityAccess(
     facilityRole: membership.facilityRole,
     permissions: await filterClinicalPrivileges(membership.id, effective),
   };
+}
+
+/**
+ * A registered facility account is the administrator of its facility. Accounts created before staff
+ * memberships existed (or whose membership row was never written) own a LabStaffProfile but have no
+ * FacilityStaff row, and every check that reads memberships then answered "not an active staff
+ * member". This creates the missing OWNER membership once. It never touches an existing row, so an
+ * owner whose membership was deliberately suspended or revoked stays blocked.
+ */
+export async function ensureOwnerMembership(user: Pick<User, "id" | "email" | "name">, facilityId?: string | null): Promise<boolean> {
+  const own = await prisma.labStaffProfile.findUnique({ where: { userId: user.id }, select: { id: true, laboratoryName: true } });
+  if (!own || (facilityId && own.id !== facilityId)) return false;
+  const existing = await prisma.facilityStaff.findFirst({ where: { userId: user.id, facilityId: own.id }, select: { id: true } });
+  if (existing) return false;
+  try {
+    await prisma.facilityStaff.create({
+      data: {
+        facilityId: own.id, userId: user.id, email: (user.email ?? "").slice(0, 120), fullName: (user.name || user.email || "Facility owner").slice(0, 120),
+        facilityRole: "OWNER", status: "ACTIVE", accessLevel: "FULL", invitationState: "ACCEPTED", acceptedAt: new Date(),
+      },
+    });
+  } catch {
+    // A concurrent request created it first; the caller re-reads memberships.
+  }
+  return true;
 }
 
 /** Facility ids the user has an active membership for (portal switcher). */

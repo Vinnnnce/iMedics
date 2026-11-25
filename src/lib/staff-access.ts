@@ -82,6 +82,7 @@ export async function getStaffMembership(
 
   const now = new Date();
 
+  await (await import("@/lib/facility-auth")).ensureOwnerMembership(user, facilityId);
   const membership = await prisma.facilityStaff.findFirst({
     where: {
       userId: user.id,
