@@ -54,6 +54,7 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     { href: "/doctor/schedule", label: "Schedule", icon: CalendarClock },
     { href: "/doctor/subscription", label: "Subscription", icon: CreditCard },
     { href: "/doctor/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/doctor/performance", label: "My performance", icon: BarChart3 },
     { href: "/doctor/ai-tools", label: "AI Review", icon: Sparkles },
     { href: "/doctor/services", label: "Services", icon: Briefcase },
     { href: "/doctor/fees", label: "Fees", icon: Tags },

@@ -411,6 +411,10 @@ model LabStaffProfile {
   subscription              FacilitySubscription?
   website                   FacilityWebsite?
   hospitalSettings          HospitalSettings?           @relation("HospitalSettingsFacility")
+  analyticsTargets          AnalyticsPerformanceTarget[] @relation("AnalyticsTargetFacility")
+  analyticsSnapshots        AnalyticsSnapshot[]         @relation("AnalyticsSnapshotFacility")
+  analyticsReportDefs       AnalyticsReportDefinition[] @relation("AnalyticsReportDefFacility")
+  analyticsReports          AnalyticsGeneratedReport[]  @relation("AnalyticsReportFacility")
   investigation_order_items investigation_order_items[]
   investigation_orders      investigation_orders[]
   investigation_specimens   investigation_specimens[]
@@ -2492,6 +2496,10 @@ model HospitalSettings {
   triageCategories            String[]                   @default([]) @map("triage_categories")
   /// Minutes without a workflow update before an encounter is flagged overdue.
   overdueMinutes              Int                        @default(60) @map("overdue_minutes")
+  /// Analytics reporting calendar: first day of the reporting week (0 = Sunday … 6 = Saturday).
+  weekStartsOn                Int                        @default(1) @map("week_starts_on")
+  /// Analytics reporting calendar: month (1–12) in which the financial year starts.
+  financialYearStartMonth     Int                        @default(1) @map("financial_year_start_month")
   /// When true, template approval must be done by someone other than the last editor.
   independentTemplateApproval Boolean                    @default(true) @map("independent_template_approval")
   /// Retention category label applied to documents by default (policy text lives with the hospital).
@@ -5576,4 +5584,96 @@ enum InvestigationResultStatus {
   SIGNED
   RELEASED
   SUPERSEDED
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Healthcare Operations Intelligence (analytics)
+//
+// Statistics are always computed from the operational records (admissions, encounters, specimens,
+// reports, stock batches, …). These tables only hold what cannot be derived: targets a facility
+// sets for itself, short-lived aggregate caches, report definitions and generated report snapshots.
+// Nothing here stores patient identifiers.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A facility- or department-level target for one metric (see src/lib/analytics/registry.ts).
+model AnalyticsPerformanceTarget {
+  id           String          @id @default(uuid()) @db.Uuid
+  facilityId   String          @map("facility_id") @db.Uuid
+  metricKey    String          @map("metric_key") @db.VarChar(80)
+  /// "FACILITY" or the department id; keeps (facility, metric, scope) unique without nullable columns.
+  scopeKey     String          @default("FACILITY") @map("scope_key") @db.VarChar(60)
+  departmentId String?         @map("department_id") @db.Uuid
+  targetValue  Decimal         @map("target_value") @db.Decimal(14, 4)
+  /// AT_LEAST (higher is better) or AT_MOST (lower is better).
+  direction    String          @default("AT_LEAST") @db.VarChar(10)
+  note         String?         @db.VarChar(300)
+  createdById  String          @map("created_by_id") @db.Uuid
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+  facility     LabStaffProfile @relation("AnalyticsTargetFacility", fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@unique([facilityId, metricKey, scopeKey])
+  @@index([facilityId])
+  @@map("analytics_performance_targets")
+}
+
+/// Cached aggregate payload for one dashboard, period and scope. Safe to delete at any time.
+model AnalyticsSnapshot {
+  id         String          @id @default(uuid()) @db.Uuid
+  facilityId String          @map("facility_id") @db.Uuid
+  dashboard  String          @db.VarChar(40)
+  /// Period start/end/timezone/comparison and department scope, normalised into one string.
+  cacheKey   String          @map("cache_key") @db.VarChar(200)
+  payload    Json
+  computedAt DateTime        @default(now()) @map("computed_at")
+  expiresAt  DateTime        @map("expires_at")
+  facility   LabStaffProfile @relation("AnalyticsSnapshotFacility", fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@unique([facilityId, dashboard, cacheKey])
+  @@index([expiresAt])
+  @@map("analytics_snapshots")
+}
+
+/// A saved report template, optionally generated on a schedule.
+model AnalyticsReportDefinition {
+  id          String                     @id @default(uuid()) @db.Uuid
+  facilityId  String                     @map("facility_id") @db.Uuid
+  name        String                     @db.VarChar(120)
+  reportKey   String                     @map("report_key") @db.VarChar(60)
+  params      Json                       @default("{}")
+  /// NONE | WEEKLY | MONTHLY | QUARTERLY | ANNUAL
+  schedule    String                     @default("NONE") @db.VarChar(12)
+  nextRunAt   DateTime?                  @map("next_run_at")
+  active      Boolean                    @default(true)
+  createdById String                     @map("created_by_id") @db.Uuid
+  createdAt   DateTime                   @default(now()) @map("created_at")
+  updatedAt   DateTime                   @updatedAt @map("updated_at")
+  facility    LabStaffProfile            @relation("AnalyticsReportDefFacility", fields: [facilityId], references: [id], onDelete: Cascade)
+  generated   AnalyticsGeneratedReport[]
+
+  @@index([facilityId, active])
+  @@index([nextRunAt])
+  @@map("analytics_report_definitions")
+}
+
+/// An immutable generated report: the period, scope, definitions used and the aggregate tables.
+model AnalyticsGeneratedReport {
+  id            String                     @id @default(uuid()) @db.Uuid
+  facilityId    String                     @map("facility_id") @db.Uuid
+  definitionId  String?                    @map("definition_id") @db.Uuid
+  reportKey     String                     @map("report_key") @db.VarChar(60)
+  title         String                     @db.VarChar(160)
+  periodStart   DateTime                   @map("period_start")
+  periodEnd     DateTime                   @map("period_end")
+  timeZone      String                     @map("time_zone") @db.VarChar(60)
+  rowCount      Int                        @default(0) @map("row_count")
+  payload       Json
+  generatedById String?                    @map("generated_by_id") @db.Uuid
+  trigger       String                     @default("MANUAL") @db.VarChar(12)
+  createdAt     DateTime                   @default(now()) @map("created_at")
+  facility      LabStaffProfile            @relation("AnalyticsReportFacility", fields: [facilityId], references: [id], onDelete: Cascade)
+  definition    AnalyticsReportDefinition? @relation(fields: [definitionId], references: [id], onDelete: SetNull)
+
+  @@index([facilityId, createdAt(sort: Desc)])
+  @@map("analytics_generated_reports")
 }

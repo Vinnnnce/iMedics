@@ -66,7 +66,7 @@ const PATHS: [string, typeof MODULES[number]][] = [
   ["/lab/admissions", "ADMISSIONS"], ["/lab/wards", "ADMISSIONS"], ["/lab/emergency", "EMERGENCY"],
   ["/lab/orders", "LABORATORY"], ["/lab/specimens", "LABORATORY"], ["/lab/investigations", "DIAGNOSTICS"],
   ["/lab/examinations", "DIAGNOSTICS"], ["/lab/media", "DIAGNOSTICS"], ["/lab/bookings", "APPOINTMENTS"],
-  ["/lab/his-analytics", "ANALYTICS"], ["/doctor/consultations", "CONSULTATIONS"], ["/doctor/ai-tools", "AI"],
+  ["/lab/his-analytics", "ANALYTICS"], ["/facility/analytics", "ANALYTICS"], ["/lab/analytics", "ANALYTICS"], ["/doctor/consultations", "CONSULTATIONS"], ["/doctor/ai-tools", "AI"],
   ["/patient/appointments", "APPOINTMENTS"], ["/patient/prescriptions", "PRESCRIPTIONS"],
 ];
 export function moduleForPath(path: string) {
